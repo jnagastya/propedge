@@ -7,46 +7,26 @@
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg0:#f4f6fb;
-  --bg1:#ffffff;
-  --bg2:#f8f9fc;
-  --bg3:#eef0f6;
-  --bg4:#e2e6f0;
-  --bgh:rgba(59,130,246,.05);
-  --bd:rgba(0,0,0,.08);
-  --bd2:rgba(0,0,0,.13);
-  --t1:#0f172a;
-  --t2:#475569;
-  --t3:#94a3b8;
-  --g:#059669;
-  --gd:rgba(5,150,105,.1);
-  --gb:rgba(5,150,105,.15);
-  --r:#dc2626;
-  --rd:rgba(220,38,38,.1);
-  --rb:rgba(220,38,38,.15);
-  --b:#2563eb;
-  --bld:rgba(37,99,235,.1);
-  --bb:rgba(37,99,235,.15);
-  --a:#d97706;
-  --ad:rgba(217,119,6,.1);
-  --p:#7c3aed;
-  --pd:rgba(124,58,237,.1);
-  --c:#0891b2;
-  --gold:#b45309;
-  --goldd:rgba(180,83,9,.1);
+  --bg0:#f4f6fb; --bg1:#ffffff; --bg2:#f8f9fc; --bg3:#eef0f6; --bg4:#e2e6f0;
+  --bgh:rgba(59,130,246,.05); --bd:rgba(0,0,0,.08); --bd2:rgba(0,0,0,.13);
+  --t1:#0f172a; --t2:#475569; --t3:#94a3b8;
+  --g:#059669; --gd:rgba(5,150,105,.1); --gb:rgba(5,150,105,.18);
+  --r:#dc2626; --rd:rgba(220,38,38,.1); --rb:rgba(220,38,38,.18);
+  --b:#2563eb; --bld:rgba(37,99,235,.1); --bb:rgba(37,99,235,.18);
+  --a:#d97706; --ad:rgba(217,119,6,.1);
+  --p:#7c3aed; --pd:rgba(124,58,237,.1); --pb:rgba(124,58,237,.18);
+  --c:#0891b2; --gold:#b45309; --goldd:rgba(180,83,9,.1);
   --sans:'Outfit',sans-serif;
   --shadow:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);
-  --shadow-md:0 4px 12px rgba(0,0,0,.1),0 2px 4px rgba(0,0,0,.06);
+  --shadow-md:0 4px 16px rgba(0,0,0,.1),0 2px 4px rgba(0,0,0,.06);
 }
 *{margin:0;padding:0;box-sizing:border-box;}
 body{background:var(--bg0);color:var(--t1);font-family:var(--sans);min-height:100vh;font-size:14px;}
-::-webkit-scrollbar{width:5px;height:5px;}
-::-webkit-scrollbar-track{background:transparent;}
-::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:3px;}
+::-webkit-scrollbar{width:5px;height:5px;}::-webkit-scrollbar-track{background:transparent;}::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:3px;}
 @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
 @keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
-@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+@keyframes cardIn{from{opacity:0;transform:scale(.97)}to{opacity:1;transform:scale(1)}}
 
 /* ── TOPBAR ── */
 .topbar{display:flex;align-items:center;justify-content:space-between;padding:0 20px;height:52px;border-bottom:1px solid var(--bd);background:var(--bg1);position:sticky;top:0;z-index:300;box-shadow:var(--shadow);}
@@ -74,12 +54,11 @@ body{background:var(--bg0);color:var(--t1);font-family:var(--sans);min-height:10
 .alert-dot{display:inline-block;width:7px;height:7px;background:var(--gold);border-radius:50%;animation:pulse 1.5s infinite;margin-left:4px;vertical-align:middle;}
 
 /* ── LAYOUT ── */
-.app{padding:16px 20px;max-width:1540px;margin:0 auto;}
+.app{padding:16px 20px;max-width:1600px;margin:0 auto;}
 
-/* ── STATUS BAR ── */
+/* ── STATUS ── */
 .sts{display:flex;align-items:center;gap:8px;padding:9px 14px;border-radius:8px;margin-bottom:12px;font-size:12px;border:1px solid var(--bd);}
-.sts.hide{display:none;}
-.sts.inf{background:var(--bld);color:var(--b);border-color:rgba(37,99,235,.2);}
+.sts.hide{display:none;}.sts.inf{background:var(--bld);color:var(--b);border-color:rgba(37,99,235,.2);}
 .sts.suc{background:var(--gd);color:var(--g);border-color:rgba(5,150,105,.2);}
 .sts.err{background:var(--rd);color:var(--r);border-color:rgba(220,38,38,.2);}
 .sts .dis{margin-left:auto;background:none;border:none;color:inherit;cursor:pointer;font-size:16px;opacity:.5;line-height:1;}.sts .dis:hover{opacity:1;}
@@ -87,13 +66,16 @@ body{background:var(--bg0);color:var(--t1);font-family:var(--sans);min-height:10
 /* ── SCORES ── */
 .scs{display:flex;gap:8px;overflow-x:auto;margin-bottom:14px;scrollbar-width:none;padding:2px 0;}
 .scs::-webkit-scrollbar{display:none;}
-.sc{flex-shrink:0;padding:9px 12px;background:var(--bg1);border:1px solid var(--bd);border-radius:8px;min-width:140px;box-shadow:var(--shadow);}
+.sc{flex-shrink:0;padding:9px 12px;background:var(--bg1);border:1px solid var(--bd);border-radius:8px;min-width:148px;box-shadow:var(--shadow);cursor:pointer;transition:all .15s;user-select:none;}
+.sc:hover{border-color:var(--b);box-shadow:var(--shadow-md);}
 .sc.lv{border-color:rgba(5,150,105,.3);background:rgba(5,150,105,.03);}
+.sc.active{border-color:var(--b);background:var(--bld);box-shadow:0 0 0 2px rgba(37,99,235,.2);}
 .sc-r{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:2px;}
-.sc-t{font-size:11px;font-weight:600;color:var(--t2);}
-.sc-v{font-size:13px;font-weight:700;color:var(--t1);}
+.sc-t{font-size:11px;font-weight:600;color:var(--t2);}.sc-v{font-size:13px;font-weight:700;color:var(--t1);}
 .sc-s{font-size:10px;color:var(--t3);text-align:center;margin-top:3px;}
 .sc-s.lv{color:var(--g);font-weight:600;}
+.sc-hint{font-size:9px;color:var(--b);text-align:center;margin-top:2px;font-weight:600;display:none;}
+.sc:hover .sc-hint,.sc.active .sc-hint{display:block;}
 
 /* ── CONTROLS ── */
 .ctrls{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:8px;flex-wrap:wrap;}
@@ -111,15 +93,14 @@ body{background:var(--bg0);color:var(--t1);font-family:var(--sans);min-height:10
 .srch input::placeholder{color:var(--t3);}
 
 /* ── SCENARIO BAR ── */
-.scn{display:flex;align-items:center;gap:10px;padding:11px 14px;background:linear-gradient(135deg,rgba(124,58,237,.05),rgba(37,99,235,.04));border:1px solid rgba(124,58,237,.15);border-radius:10px;margin-bottom:14px;flex-wrap:wrap;}
+.scn{display:flex;align-items:center;gap:10px;padding:11px 14px;background:linear-gradient(135deg,rgba(124,58,237,.05),rgba(37,99,235,.04));border:1px solid rgba(124,58,237,.18);border-radius:10px;margin-bottom:14px;flex-wrap:wrap;}
 .scn.hide{display:none;}
 .scn-l{font-size:11px;font-weight:600;color:var(--p);text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;}
 .scn-ch{display:flex;gap:5px;flex-wrap:wrap;flex:1;}
 .chip{display:flex;align-items:center;gap:4px;padding:4px 10px;background:var(--bg1);border:1px solid var(--bd);border-radius:20px;font-size:12px;font-weight:500;color:var(--t2);cursor:pointer;transition:all .1s;}
 .chip.on{border-color:var(--p);color:var(--p);background:var(--pd);}
 .chip .x{font-size:14px;line-height:1;opacity:.45;margin-left:2px;}.chip .x:hover{opacity:1;}
-.chip-a{border-style:dashed;color:var(--t3);}
-.chip-a:hover{color:var(--p);border-color:var(--p);}
+.chip-a{border-style:dashed;color:var(--t3);}.chip-a:hover{color:var(--p);border-color:var(--p);}
 .scn-note{font-size:11px;color:var(--t3);width:100%;margin-top:2px;}
 
 /* ── CONFIG BAR ── */
@@ -128,17 +109,26 @@ body{background:var(--bg0);color:var(--t1);font-family:var(--sans);min-height:10
 .cfg-i{padding:7px 10px;background:var(--bg2);border:1px solid var(--bd);border-radius:7px;color:var(--t1);font-family:var(--sans);font-size:12px;outline:none;width:260px;}
 .cfg-i:focus{border-color:var(--b);}
 .cfg-btn{padding:7px 14px;background:var(--b);border:none;border-radius:7px;color:#fff;font-family:var(--sans);font-size:12px;font-weight:600;cursor:pointer;}
-.cfg-btn:hover{background:#1d4ed8;}
-.cfg-btn.sec{background:var(--bg3);color:var(--t2);}
-.cfg-btn.sec:hover{background:var(--bg4);}
+.cfg-btn:hover{background:#1d4ed8;}.cfg-btn.sec{background:var(--bg3);color:var(--t2);}.cfg-btn.sec:hover{background:var(--bg4);}
 
-/* ── TERM DEFINITIONS BANNER ── */
+/* ── GLOSSARY PILLS ── */
 .glossary{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;}
-.gls-pill{display:flex;align-items:center;gap:6px;padding:6px 12px;background:var(--bg1);border:1px solid var(--bd);border-radius:20px;font-size:11px;color:var(--t2);cursor:default;position:relative;box-shadow:var(--shadow);}
+.gls-pill{display:flex;align-items:center;gap:5px;padding:5px 11px;background:var(--bg1);border:1px solid var(--bd);border-radius:20px;font-size:11px;color:var(--t2);cursor:default;position:relative;box-shadow:var(--shadow);}
 .gls-pill strong{font-weight:700;color:var(--t1);}
-.gls-tip{display:none;position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);background:var(--t1);color:#fff;border-radius:8px;padding:10px 13px;font-size:11px;line-height:1.55;white-space:normal;z-index:200;min-width:230px;max-width:280px;box-shadow:var(--shadow-md);pointer-events:none;}
-.gls-tip::after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);border:6px solid transparent;border-top-color:var(--t1);}
-.gls-pill:hover .gls-tip{display:block;}
+/* Tooltip: hidden by default, shown via JS on hover */
+.gls-tip{
+  display:none;
+  position:fixed;
+  background:var(--t1);color:#fff;
+  border-radius:9px;padding:11px 14px;
+  font-size:11px;line-height:1.6;
+  z-index:1000;
+  width:260px;
+  box-shadow:var(--shadow-md);
+  pointer-events:none;
+}
+.gls-tip strong{color:#93c5fd;}
+.gls-tip code{background:rgba(255,255,255,.15);padding:1px 5px;border-radius:3px;font-size:10px;}
 
 /* ── TABLE ── */
 .tw{background:var(--bg1);border:1px solid var(--bd);border-radius:10px;overflow:hidden;margin-bottom:14px;box-shadow:var(--shadow);}
@@ -147,40 +137,52 @@ body{background:var(--bg0);color:var(--t1);font-family:var(--sans);min-height:10
 .bdg{font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px;}
 .bdg-b{background:var(--bld);color:var(--b);}
 .bdg-g{background:var(--gd);color:var(--g);}
+.bdg-game{background:var(--bld);color:var(--b);cursor:pointer;display:flex;align-items:center;gap:3px;}
+.bdg-game:hover{background:var(--bb);}
 .tsc{overflow-x:auto;}
 table{width:100%;border-collapse:collapse;font-size:12px;}
-thead th{padding:8px 12px;text-align:left;font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--t3);border-bottom:1px solid var(--bd);white-space:nowrap;background:var(--bg2);}
+thead th{padding:8px 10px;text-align:left;font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--t3);border-bottom:1px solid var(--bd);white-space:nowrap;background:var(--bg2);}
 tbody tr{border-bottom:1px solid var(--bd);transition:background .08s;cursor:pointer;}
 tbody tr:hover{background:var(--bgh);}
 tbody tr.exp{background:rgba(37,99,235,.04);}
 tbody tr.value-row{border-left:3px solid var(--gold);}
-td{padding:9px 12px;white-space:nowrap;}
+/* Scenario-affected rows get a purple left accent */
+tbody tr.scn-row{background:rgba(124,58,237,.03);}
+tbody tr.scn-row td:first-child{border-left:3px solid var(--p);}
+td{padding:8px 10px;white-space:nowrap;}
 
 /* ── Player cell ── */
-.pc{display:flex;align-items:center;gap:10px;min-width:190px;}
-.av{width:38px;height:38px;border-radius:50%;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--t3);flex-shrink:0;border:2px solid var(--bd);overflow:hidden;}
-.av img{width:100%;height:100%;object-fit:cover;}
+.pc{display:flex;align-items:center;gap:9px;min-width:185px;}
+.av{width:38px;height:38px;border-radius:50%;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--t3);flex-shrink:0;border:2px solid var(--bd);overflow:hidden;}
+.av img{width:100%;height:100%;object-fit:cover;border-radius:50%;}
 .pi{display:flex;flex-direction:column;}
-.pn{font-weight:700;font-size:13px;}
+.pn{font-weight:700;font-size:13px;display:flex;align-items:center;gap:5px;}
+.scn-icon{font-size:10px;background:var(--pd);color:var(--p);border-radius:4px;padding:1px 4px;font-weight:700;}
 .pm{font-size:10px;color:var(--t3);display:flex;gap:5px;align-items:center;margin-top:1px;}
 .ptb{font-size:10px;font-weight:600;padding:1px 5px;border-radius:4px;background:var(--bg3);color:var(--t2);}
 
-/* ── Odds cell ── */
+/* ── Odds ── */
 .odds-cell{display:flex;gap:5px;align-items:center;}
-.odd{padding:3px 8px;border-radius:5px;font-size:11px;font-weight:700;}
+.odd{padding:3px 7px;border-radius:5px;font-size:11px;font-weight:700;}
 .odd.over{background:var(--gd);color:var(--g);}
 .odd.under{background:var(--rd);color:var(--r);}
 
 /* ── Edge with tooltip ── */
-.et{display:inline-flex;padding:4px 9px;border-radius:6px;font-size:12px;font-weight:700;position:relative;cursor:help;}
+.et{display:inline-flex;padding:4px 8px;border-radius:6px;font-size:12px;font-weight:700;position:relative;cursor:help;}
 .et.pos{background:var(--gd);color:var(--g);}
 .et.neg{background:var(--rd);color:var(--r);}
 .et.flat{background:var(--bg3);color:var(--t3);}
-.tip{display:none;position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);background:var(--t1);color:#fff;border-radius:8px;padding:10px 13px;font-size:11px;line-height:1.6;white-space:pre;z-index:100;min-width:230px;box-shadow:var(--shadow-md);font-weight:400;pointer-events:none;}
+.tip{display:none;position:fixed;background:var(--t1);color:#fff;border-radius:8px;padding:10px 13px;font-size:11px;line-height:1.65;white-space:pre;z-index:500;min-width:230px;box-shadow:var(--shadow-md);pointer-events:none;width:max-content;}
 .et:hover .tip,.cb-wrap:hover .tip{display:block;}
-.tip::after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);border:6px solid transparent;border-top-color:var(--t1);}
 
-/* ── Confidence bar ── */
+/* ── Lean indicator ── */
+.lean-wrap{display:flex;flex-direction:column;gap:3px;min-width:85px;}
+.lean-lbl{font-size:11px;font-weight:700;}
+.lean-lbl.over{color:var(--g);}.lean-lbl.under{color:var(--r);}.lean-lbl.even{color:var(--t3);}
+.lean-track{width:70px;height:5px;border-radius:3px;background:linear-gradient(90deg,var(--r) 0%,var(--bg4) 50%,var(--g) 100%);position:relative;}
+.lean-dot{width:9px;height:9px;border-radius:50%;background:var(--t1);border:2px solid #fff;position:absolute;top:-2px;transform:translateX(-50%);box-shadow:0 1px 3px rgba(0,0,0,.25);}
+
+/* ── Confidence ── */
 .cb-wrap{position:relative;cursor:help;display:flex;align-items:center;gap:5px;}
 .cb-bar{width:44px;height:6px;background:var(--bg4);border-radius:3px;overflow:hidden;}
 .cb-fill{height:100%;border-radius:3px;}
@@ -194,11 +196,10 @@ td{padding:9px 12px;white-space:nowrap;}
 .oul{font-size:10px;color:var(--t3);}
 
 /* ── Sparkline ── */
-.spk{width:70px;height:22px;}
-.spk svg{width:100%;height:100%;}
+.spk{width:70px;height:22px;}.spk svg{width:100%;height:100%;}
 
-/* ── DvP tag ── */
-.dvt{font-size:10px;font-weight:700;padding:3px 8px;border-radius:5px;}
+/* ── DvP ── */
+.dvt{font-size:10px;font-weight:700;padding:3px 7px;border-radius:5px;}
 .dv-e{background:var(--gd);color:var(--g);}
 .dv-m{background:var(--ad);color:var(--a);}
 .dv-h{background:var(--rd);color:var(--r);}
@@ -215,8 +216,7 @@ td{padding:9px 12px;white-space:nowrap;}
 .di{padding:18px;animation:fadeUp .2s ease both;}
 .di-tabs{display:flex;gap:2px;margin-bottom:14px;border-bottom:1px solid var(--bd);padding-bottom:0;}
 .di-tab{padding:7px 12px;border:none;background:none;color:var(--t3);font-family:var(--sans);font-size:12px;font-weight:500;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .1s;}
-.di-tab:hover{color:var(--t2);}
-.di-tab.on{color:var(--b);border-bottom-color:var(--b);font-weight:600;}
+.di-tab:hover{color:var(--t2);}.di-tab.on{color:var(--b);border-bottom-color:var(--b);font-weight:600;}
 .di-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
 .dc{background:var(--bg1);border:1px solid var(--bd);border-radius:8px;padding:14px;}
 .dc.full{grid-column:1/-1;}
@@ -227,12 +227,11 @@ td{padding:9px 12px;white-space:nowrap;}
 .sb2-l{font-size:10px;font-weight:600;text-transform:uppercase;color:var(--t3);margin-bottom:4px;letter-spacing:.4px;}
 .sb2-v{font-size:20px;font-weight:700;color:var(--t1);}
 .sb2-s{font-size:10px;color:var(--t3);margin-top:3px;}
-.up{color:var(--g);font-weight:600;}
-.dn{color:var(--r);font-weight:600;}
+.up{color:var(--g);font-weight:600;}.dn{color:var(--r);font-weight:600;}
 .chb{width:100%;height:140px;background:var(--bg2);border-radius:7px;border:1px solid var(--bd);position:relative;overflow:hidden;padding:8px;}
 .bars{display:flex;align-items:flex-end;gap:3px;height:110px;}
-.bar{flex:1;border-radius:3px 3px 0 0;position:relative;transition:all .15s;cursor:pointer;}
-.bar:hover{filter:brightness(.85);}
+.bar{flex:1;border-radius:3px 3px 0 0;position:relative;cursor:pointer;transition:filter .1s;}
+.bar:hover{filter:brightness(.8);}
 .bar-t{display:none;position:absolute;top:-26px;left:50%;transform:translateX(-50%);background:var(--t1);color:#fff;font-size:9px;padding:2px 6px;border-radius:4px;white-space:nowrap;z-index:5;}
 .bar:hover .bar-t{display:block;}
 .lref{position:absolute;left:8px;right:8px;border-top:1.5px dashed var(--bd2);pointer-events:none;}
@@ -241,40 +240,60 @@ td{padding:9px 12px;white-space:nowrap;}
 .spt th{font-size:10px;font-weight:700;text-transform:uppercase;color:var(--t3);padding:6px 10px;text-align:left;border-bottom:1px solid var(--bd);letter-spacing:.4px;}
 .spt td{padding:7px 10px;color:var(--t2);border-bottom:1px solid var(--bd);}
 .spt tr:last-child td{border-bottom:none;}
-.spt .hit{color:var(--g);font-weight:700;}
-.spt .miss{color:var(--r);font-weight:700;}
-
-/* ── Formula explainer box ── */
+.spt .hit{color:var(--g);font-weight:700;}.spt .miss{color:var(--r);font-weight:700;}
 .formula-box{background:var(--bg2);border:1px solid var(--bd);border-radius:8px;padding:12px 14px;font-size:11px;color:var(--t2);line-height:1.7;margin-top:12px;}
 .formula-box .fml-title{font-weight:700;font-size:11px;color:var(--t1);margin-bottom:6px;}
 .formula-box code{background:var(--bg3);padding:1px 5px;border-radius:3px;font-size:10px;color:var(--b);}
 
-/* ── VALUE ALERTS VIEW ── */
+/* ── GAME PLAYERS MODAL ── */
+.game-panel{display:none;background:var(--bg1);border:1px solid var(--bd);border-radius:10px;padding:16px;margin-bottom:14px;box-shadow:var(--shadow-md);animation:fadeUp .2s ease both;}
+.game-panel.show{display:block;}
+.gp-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+.gp-title{font-size:14px;font-weight:700;}
+.gp-close{background:none;border:none;font-size:18px;color:var(--t3);cursor:pointer;line-height:1;}.gp-close:hover{color:var(--t1);}
+.gp-teams{display:flex;gap:8px;flex-wrap:wrap;}
+.gp-team{flex:1;min-width:140px;background:var(--bg2);border:1px solid var(--bd);border-radius:8px;padding:10px;}
+.gp-team-name{font-size:12px;font-weight:700;color:var(--t2);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px;}
+.gp-player{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--bd);cursor:pointer;}
+.gp-player:last-child{border-bottom:none;}
+.gp-player:hover{background:var(--bgh);margin:0 -4px;padding:5px 4px;border-radius:4px;}
+.gp-av{width:28px;height:28px;border-radius:50%;background:var(--bg4);overflow:hidden;flex-shrink:0;border:1px solid var(--bd);}
+.gp-av img{width:100%;height:100%;object-fit:cover;}
+.gp-pname{font-size:12px;font-weight:600;}
+.gp-pmeta{font-size:10px;color:var(--t3);}
+.gp-edge{font-size:11px;font-weight:700;margin-left:auto;}
+
+/* ── VALUE ALERTS ── */
 .va-view{display:none;}.va-view.show{display:block;}
-.risk-ctrl{display:flex;align-items:center;gap:16px;padding:14px 18px;background:var(--bg1);border:1px solid var(--bd);border-radius:10px;margin-bottom:14px;box-shadow:var(--shadow);}
+.risk-ctrl{display:flex;align-items:center;gap:16px;padding:14px 18px;background:var(--bg1);border:1px solid var(--bd);border-radius:10px;margin-bottom:5px;box-shadow:var(--shadow);}
 .risk-label{font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;}
 .risk-slider{flex:1;-webkit-appearance:none;height:6px;border-radius:3px;background:linear-gradient(90deg,var(--g),var(--a),var(--r));outline:none;cursor:pointer;}
 .risk-slider::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:#fff;cursor:pointer;border:2px solid var(--bd2);box-shadow:var(--shadow);}
-.risk-val{font-size:15px;font-weight:700;min-width:100px;text-align:right;}
-.risk-desc{font-size:11px;color:var(--t3);line-height:1.5;margin-top:6px;}
+.risk-val{font-size:15px;font-weight:700;min-width:110px;text-align:right;}
+.risk-thresholds{font-size:11px;color:var(--t3);padding:4px 18px 10px;display:flex;gap:16px;}
+.risk-thresholds span{display:flex;align-items:center;gap:4px;}
+.risk-thresholds .dot{width:7px;height:7px;border-radius:50%;}
 .va-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:12px;}
-.va-card{background:var(--bg1);border:1px solid var(--bd);border-radius:10px;padding:16px;transition:all .2s;cursor:pointer;position:relative;overflow:hidden;box-shadow:var(--shadow);}
+.va-card{background:var(--bg1);border:1px solid var(--bd);border-radius:10px;padding:16px;transition:all .18s;cursor:pointer;position:relative;overflow:hidden;box-shadow:var(--shadow);animation:cardIn .2s ease both;}
 .va-card:hover{transform:translateY(-2px);box-shadow:var(--shadow-md);}
 .va-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;}
 .va-card.strong::before{background:linear-gradient(90deg,var(--g),var(--c));}
 .va-card.moderate::before{background:linear-gradient(90deg,var(--a),var(--gold));}
 .va-card.risky::before{background:linear-gradient(90deg,var(--r),var(--a));}
 .va-top{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
-.va-av{width:44px;height:44px;border-radius:50%;background:var(--bg3);overflow:hidden;border:2px solid var(--bd);flex-shrink:0;}
+.va-av{width:44px;height:44px;border-radius:50%;background:var(--bg3);overflow:hidden;border:2px solid var(--bd);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:var(--t3);}
 .va-av img{width:100%;height:100%;object-fit:cover;}
 .va-info{flex:1;}
 .va-name{font-size:14px;font-weight:700;}
 .va-meta{font-size:11px;color:var(--t3);}
-.va-edge-big{font-size:22px;font-weight:800;text-align:right;}
-.va-edge-big.pos{color:var(--g);}
-.va-edge-big.neg{color:var(--r);}
-.va-dir{font-size:11px;text-align:right;color:var(--t3);}
-.va-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px;}
+.va-right{text-align:right;}
+.va-edge-big{font-size:22px;font-weight:800;}
+.va-edge-big.pos{color:var(--g);}.va-edge-big.neg{color:var(--r);}
+/* Big clear O/U direction badge */
+.va-direction{display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:800;letter-spacing:.5px;margin-top:4px;}
+.va-direction.over{background:var(--gb);color:var(--g);}
+.va-direction.under{background:var(--rb);color:var(--r);}
+.va-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-bottom:10px;}
 .va-stat{text-align:center;padding:7px;background:var(--bg2);border-radius:6px;border:1px solid var(--bd);}
 .va-stat-v{font-size:14px;font-weight:700;}
 .va-stat-l{font-size:9px;font-weight:600;color:var(--t3);text-transform:uppercase;margin-top:2px;letter-spacing:.4px;}
@@ -285,10 +304,13 @@ td{padding:9px 12px;white-space:nowrap;}
 
 /* ── RESPONSIVE ── */
 @media(max-width:900px){.sr{grid-template-columns:repeat(2,1fr);}.di-grid{grid-template-columns:1fr;}.va-grid{grid-template-columns:1fr;}.config-bar{flex-direction:column;align-items:flex-start;}}
-@media(max-width:600px){.app{padding:10px;}.ctrls{flex-direction:column;align-items:flex-start;}.odds-cell{flex-direction:column;gap:2px;}.glossary{display:none;}}
+@media(max-width:600px){.app{padding:10px;}.ctrls{flex-direction:column;align-items:flex-start;}.glossary{display:none;}}
 </style>
 </head>
 <body>
+
+<!-- Hidden tooltip element for glossary (repositioned by JS) -->
+<div class="gls-tip" id="glsTip"></div>
 
 <header class="topbar">
   <div class="logo-g">
@@ -314,39 +336,60 @@ td{padding:9px 12px;white-space:nowrap;}
   <!-- API CONFIG -->
   <div class="config-bar" id="configBar">
     <label>Odds API Key</label>
-    <input class="cfg-i" type="password" id="oddsKey" placeholder="From the-odds-api.com (required)…" />
+    <input class="cfg-i" type="password" id="oddsKey" placeholder="From the-odds-api.com (required)…"/>
     <label>BDL Key</label>
-    <input class="cfg-i" type="text" id="bdlKey" placeholder="BallDontLie key (optional)…" />
+    <input class="cfg-i" type="text" id="bdlKey" placeholder="BallDontLie key (optional)…"/>
     <button class="cfg-btn" onclick="saveKeys()">Connect</button>
     <button class="cfg-btn sec" onclick="document.getElementById('configBar').style.display='none'">Hide</button>
   </div>
 
   <!-- ======= PROPS VIEW ======= -->
   <div id="propsView">
+    <!-- SCORES RIBBON -->
     <div class="scs" id="scs"></div>
 
-    <!-- GLOSSARY PILLS -->
+    <!-- GAME PLAYERS PANEL (shown on score card click) -->
+    <div class="game-panel" id="gamePanel">
+      <div class="gp-header">
+        <span class="gp-title" id="gpTitle">Game Players</span>
+        <button class="gp-close" onclick="clearGameFilter()">✕ Clear filter</button>
+      </div>
+      <div class="gp-teams" id="gpTeams"></div>
+    </div>
+
+    <!-- GLOSSARY -->
     <div class="glossary">
-      <div class="gls-pill"><strong>Edge %</strong>
-        <div class="gls-tip"><strong>Edge %</strong> measures how much a player's recent average exceeds (or falls short of) the prop line.<br><br>Formula: <em>(Avg − Line) / Line × 100</em><br><br>+5% means the player averages 5% above the line. Positive = lean Over.</div>
+      <div class="gls-pill"
+        data-tip="<strong>Edge %</strong> measures how much a player's recent average exceeds (or falls short of) the prop line.<br><br>Formula: <em>(Avg − Line) / Line × 100</em><br><br>+5% = player averages 5% above the line. Positive = lean Over, Negative = lean Under.">
+        <strong>Edge %</strong> <span style="color:var(--t3)">?</span>
       </div>
-      <div class="gls-pill"><strong>Confidence</strong>
-        <div class="gls-tip"><strong>Confidence (0–100)</strong> is a composite score rating how much we trust the edge signal.<br><br>Components:<br>• Edge magnitude → up to +20<br>• Consistency (low variance) → up to +20<br>• Hit rate extremity → up to +3<br>• DvP matchup quality → −5 to +10<br>• Recent trend alignment → ±5<br>• Base score: 50</div>
+      <div class="gls-pill"
+        data-tip="<strong>Confidence (0–100)</strong> rates how trustworthy the edge signal is.<br><br>• Edge magnitude → up to +20<br>• Consistency (low variance) → up to +20<br>• Hit rate extremity → up to +3<br>• DvP matchup quality → −5 to +10<br>• Recent trend → ±5<br>• Base: 50">
+        <strong>Confidence</strong> <span style="color:var(--t3)">?</span>
       </div>
-      <div class="gls-pill"><strong>Hit Rate</strong>
-        <div class="gls-tip"><strong>Hit Rate</strong> = % of the last 10 games where the player cleared the prop line.<br><br>80% = cleared in 8 of 10 games.<br>50% = coin flip. Above 60% is encouraging.</div>
+      <div class="gls-pill"
+        data-tip="<strong>Hit Rate</strong> = % of the last 10 games where the player cleared the prop line.<br><br>80% = cleared in 8 of 10 games<br>60%+ = encouraging consistency<br>50% = coin flip">
+        <strong>Hit Rate</strong> <span style="color:var(--t3)">?</span>
       </div>
-      <div class="gls-pill"><strong>DvP</strong>
-        <div class="gls-tip"><strong>Defense vs Position (DvP)</strong> ranks how easy each opposing defense is to score against, for a player's position.<br><br>#1 = easiest matchup (defense allows most pts to that position)<br>#30 = hardest matchup<br><br>Easy = rank 1–10 · Mid = 11–20 · Hard = 21–30</div>
+      <div class="gls-pill"
+        data-tip="<strong>Defense vs Position (DvP)</strong> ranks how easy the opponent defense is to score against for that position.<br><br>#1 = easiest (allows most pts to that position)<br>#30 = hardest matchup<br><br>Easy = #1–10 · Mid = #11–20 · Hard = #21–30">
+        <strong>DvP</strong> <span style="color:var(--t3)">?</span>
       </div>
-      <div class="gls-pill"><strong>Value Score</strong>
-        <div class="gls-tip"><strong>Value Score</strong> combines edge, hit rate, and confidence into one number for quick ranking.<br><br>Formula: <em>Edge×0.35 + HitRate×0.30 + Confidence×0.35</em><br><br>Scores ≥ 30 with edge &gt; 4% earn the ⚡ VALUE badge.</div>
+      <div class="gls-pill"
+        data-tip="<strong>Value Score</strong> combines edge, hit rate, and confidence into a single ranking number.<br><br>Formula: Edge×0.35 + HitRate×0.30 + Confidence×0.35<br><br>Score ≥ 30 with edge > 4% earns the ⚡ VALUE badge.">
+        <strong>Value Score</strong> <span style="color:var(--t3)">?</span>
       </div>
-      <div class="gls-pill"><strong>Scenario</strong>
-        <div class="gls-tip"><strong>Scenario Mode</strong> estimates how a player's production might increase when a key teammate is listed as out.<br><br>Star teammate missing: +3–5 pt boost estimate<br>Role player missing: +1–2 pt boost estimate<br><br>Based on historical usage redistribution patterns.</div>
+      <div class="gls-pill"
+        data-tip="<strong>Lean</strong> is your Over/Under recommendation based on edge and confidence combined.<br><br>OVER ▲ = player projects to exceed the line<br>UNDER ▼ = player projects below the line<br>EVEN = no strong signal either way">
+        <strong>Lean</strong> <span style="color:var(--t3)">?</span>
+      </div>
+      <div class="gls-pill"
+        data-tip="<strong>Scenario Mode</strong> estimates how a player's stats change when a key teammate is out.<br><br>Star teammate missing → +3–5 pt estimated boost<br>Role player missing → +1–2 pt estimated boost<br><br>⚡ icon appears on affected players.">
+        <strong>Scenario</strong> <span style="color:var(--t3)">?</span>
       </div>
     </div>
 
+    <!-- CONTROLS -->
     <div class="ctrls">
       <div class="cl">
         <div class="srch">
@@ -392,33 +435,26 @@ td{padding:9px 12px;white-space:nowrap;}
       <div class="scn-ch" id="scnCh">
         <div class="chip chip-a" onclick="addScnP()">+ Add Player</div>
       </div>
-      <div class="scn-note" id="scnNote">Add injured or resting players to see projected stat boosts for their teammates.</div>
+      <div class="scn-note" id="scnNote">Add injured or resting players to see projected boosts for their teammates.</div>
     </div>
 
+    <!-- TABLE -->
     <div class="tw">
       <div class="th-bar">
         <div class="tt">
           <span id="mktLbl">Points</span>
           <span class="bdg bdg-b" id="pCnt">0 players</span>
           <span class="bdg bdg-g" id="dAge">Loading…</span>
+          <span class="bdg bdg-game" id="gameFiltBdg" style="display:none" onclick="clearGameFilter()">✕ <span id="gameFiltLbl"></span></span>
         </div>
       </div>
       <div class="tsc">
         <table>
           <thead><tr>
-            <th>Player</th>
-            <th>Matchup</th>
-            <th>Line</th>
-            <th>Odds</th>
-            <th>Avg</th>
-            <th>Hit Rate</th>
-            <th>O/U</th>
-            <th>Trend</th>
-            <th>Edge</th>
-            <th>DvP</th>
-            <th>Confidence</th>
-            <th>Value</th>
-            <th id="scnTh" style="display:none">Scenario</th>
+            <th>Player</th><th>Matchup</th><th>Line</th><th>Odds</th>
+            <th>Avg</th><th>Hit Rate</th><th>O/U</th><th>Trend</th>
+            <th>Edge</th><th>Lean</th><th>DvP</th><th>Confidence</th><th>Value</th>
+            <th id="scnTh" style="display:none">Scenario ⚡</th>
           </tr></thead>
           <tbody id="tBody"></tbody>
         </table>
@@ -430,10 +466,14 @@ td{padding:9px 12px;white-space:nowrap;}
   <div class="va-view" id="alertsView">
     <div class="risk-ctrl">
       <span class="risk-label">Risk Profile:</span>
-      <input type="range" min="1" max="3" value="2" class="risk-slider" id="riskSlider" oninput="updateRisk()"/>
+      <input type="range" min="1" max="3" step="1" value="2" class="risk-slider" id="riskSlider" oninput="updateRisk(this.value)"/>
       <span class="risk-val" id="riskVal" style="color:var(--a);">Balanced</span>
     </div>
-    <div class="risk-desc" id="riskDesc" style="padding:0 18px 14px;">Balanced mode shows plays with moderate edge (5%+) and confidence (55+).</div>
+    <div class="risk-thresholds" id="riskThresh">
+      <span><span class="dot" style="background:var(--g)"></span>Conservative: Edge 8%+, Conf 70+, Hit 60%+</span>
+      <span><span class="dot" style="background:var(--a)"></span>Balanced: Edge 5%+, Conf 55+, Hit 50%+</span>
+      <span><span class="dot" style="background:var(--r)"></span>Aggressive: Edge 3%+, Conf 40+, Hit 40%+</span>
+    </div>
     <div class="va-grid" id="vaGrid"></div>
   </div>
 </div>
@@ -441,7 +481,7 @@ td{padding:9px 12px;white-space:nowrap;}
 <script>
 const API = window.location.origin;
 
-// ── NBA Player ID → NBA CDN headshot map ──
+// ── NBA Player → NBA ID map (for proxied headshots) ──
 const NBA_IDS = {
   "LeBron James":2544,"Stephen Curry":201939,"Kevin Durant":201142,
   "Giannis Antetokounmpo":203507,"Nikola Jokic":203999,"Luka Doncic":1629029,
@@ -460,32 +500,28 @@ const NBA_IDS = {
   "Lauri Markkanen":1628374,"Scottie Barnes":1630567,"Mikal Bridges":1628969,
   "RJ Barrett":1629628,"Alperen Sengun":1630578,"Jalen Williams":1631114,
   "Chet Holmgren":1631096,"Victor Wembanyama":1641705,
-  "Jalen Green":1630224,"Jabari Smith Jr.":1631100,"Evan Mobley":1630596,
-  "Darius Garland":1629636,"Jarrett Allen":1628386,"Josh Giddey":1630581,
-  "Luguentz Dort":1629718,"Nikola Vucevic":202696,"DeMar DeRozan":201942,
-  "Zach LaVine":203897,"Coby White":1629632,"Patrick Williams":1630172,
-  "Jalen Duren":1631108,"Killian Hayes":1630178,"Bogdan Bogdanovic":203992,
-  "Dejounte Murray":1627749,"Tari Eason":1631114,"Jabari Smith Jr.":1631100,
-  "Walker Kessler":1631117,"Collin Sexton":1629012,"Jordan Clarkson":203903,
-  "Mike Conley":201144,"Bradley Beal":203078,"Kyle Kuzma":1628398,
-  "Deni Avdija":1630166,"Jordan Poole":1629673,"Chris Paul":101108,
-  "Andrew Wiggins":203952,"Jonathan Kuminga":1630552,"Moses Moody":1630541,
-  "OG Anunoby":1628384,"Immanuel Quickley":1630193,"Precious Achiuwa":1630173,
-  "Brook Lopez":201572,"Khris Middleton":203114,"Bobby Portis":1626171,
-  "Rudy Gobert":203497,"Mike Conley":201144,"Naz Reid":1629675,
-  "Anthony Black":1641706,"Paolo Banchero":1631094,"Wendell Carter Jr.":1628976,
-  "Marcus Smart":203935,"Jaylen Brown":1627759,"Al Horford":201143,
+  "Jalen Green":1630224,"Evan Mobley":1630596,"Darius Garland":1629636,
+  "Jarrett Allen":1628386,"Josh Giddey":1630581,"OG Anunoby":1628384,
+  "Immanuel Quickley":1630193,"Brook Lopez":201572,"Khris Middleton":203114,
+  "Rudy Gobert":203497,"Naz Reid":1629675,"Walker Kessler":1631117,
+  "Collin Sexton":1629012,"Jordan Clarkson":203903,"Bradley Beal":203078,
+  "Kyle Kuzma":1628398,"Deni Avdija":1630166,"Coby White":1629632,
+  "Zach LaVine":203897,"Nikola Vucevic":202696,"DeMar DeRozan":201942,
+  "Andrew Wiggins":203952,"Jonathan Kuminga":1630552,"Al Horford":201143,
+  "Marcus Smart":203935,"Bobby Portis":1626171,"Mike Conley":201144,
 };
-
+// Proxied through server to bypass CORS
 function getHeadshot(name) {
   const id = NBA_IDS[name];
-  return id ? `https://cdn.nba.com/headshots/nba/latest/1040x760/${id}.png` : null;
+  return id ? `/api/headshot/${id}` : null;
 }
 
+// ── State ──
 let S = {
-  data: [], market: 'player_points', book: 'draftkings',
-  sort: 'edge', scnOn: false, scnPlayers: [],
-  api: { odds: 'err', stats: 'err', scores: 'err' }, risk: 2
+  data:[], scores:[], market:'player_points', book:'draftkings',
+  sort:'edge', scnOn:false, scnPlayers:[],
+  api:{odds:'err',stats:'err',scores:'err'}, risk:2,
+  gameFilter:null,
 };
 
 const TEAM_MAP = {
@@ -507,13 +543,13 @@ const TEAM_MAP = {
   "RJ Barrett":"TOR","Alperen Sengun":"HOU","Jalen Williams":"OKC",
   "Chet Holmgren":"OKC","Victor Wembanyama":"SAS",
   "Jalen Green":"HOU","Evan Mobley":"CLE","Darius Garland":"CLE",
-  "Jarrett Allen":"CLE","Josh Giddey":"OKC","Nikola Vucevic":"CHI",
-  "DeMar DeRozan":"SAC","Zach LaVine":"CHI","Coby White":"CHI",
-  "Bradley Beal":"PHX","Kyle Kuzma":"WAS","Deni Avdija":"POR",
-  "Jordan Poole":"WAS","OG Anunoby":"NYK","Immanuel Quickley":"TOR",
-  "Brook Lopez":"MIL","Khris Middleton":"MIL","Bobby Portis":"MIL",
+  "Jarrett Allen":"CLE","Josh Giddey":"OKC","OG Anunoby":"NYK",
+  "Immanuel Quickley":"TOR","Brook Lopez":"MIL","Khris Middleton":"MIL",
   "Rudy Gobert":"MIN","Naz Reid":"MIN","Walker Kessler":"UTA",
-  "Collin Sexton":"UTA","Jordan Clarkson":"UTA",
+  "Collin Sexton":"UTA","Jordan Clarkson":"UTA","Bradley Beal":"PHX",
+  "Kyle Kuzma":"WAS","Deni Avdija":"POR","Coby White":"CHI",
+  "Zach LaVine":"CHI","Nikola Vucevic":"CHI","DeMar DeRozan":"SAC",
+  "Andrew Wiggins":"GSW","Jonathan Kuminga":"GSW","Al Horford":"BOS",
 };
 
 const TEAMMATES = {
@@ -539,294 +575,335 @@ const TEAMMATES = {
   "ORL":["Paolo Banchero","Franz Wagner"],
   "SAS":["Victor Wembanyama"],
   "HOU":["Alperen Sengun","Jalen Green"],
-  "TOR":["Scottie Barnes","RJ Barrett","Immanuel Quickley","OG Anunoby"],
+  "TOR":["Scottie Barnes","RJ Barrett","Immanuel Quickley"],
   "UTA":["Lauri Markkanen","Walker Kessler","Collin Sexton","Jordan Clarkson"],
-  "CHI":["Zach LaVine","Nikola Vucevic","Coby White","DeMar DeRozan"],
+  "CHI":["Zach LaVine","Nikola Vucevic","Coby White"],
 };
 
-// ── API helpers ──
+// ── API ──
 async function apiGet(path) {
   try { const r = await fetch(`${API}${path}`); return await r.json(); }
   catch(e) { return { error: e.message }; }
 }
-
 async function saveKeys() {
-  showSts('Connecting…', 'inf');
-  const r = await fetch(`${API}/api/config`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      oddsKey: document.getElementById('oddsKey').value,
-      bdlKey: document.getElementById('bdlKey').value
-    })
-  });
+  showSts('Connecting…','inf');
+  const r = await fetch(`${API}/api/config`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({oddsKey:document.getElementById('oddsKey').value,bdlKey:document.getElementById('bdlKey').value})});
   const d = await r.json();
-  setApi('odds', d.odds === 'configured' ? 'ok' : 'err');
-  setApi('stats', d.stats === 'configured' ? 'ok' : 'ld');
+  setApi('odds', d.odds==='configured'?'ok':'err');
+  setApi('stats', d.stats==='configured'?'ok':'ld');
   await loadData();
 }
-
 async function loadData() {
-  setApi('odds','ld'); setApi('stats','ld'); setApi('scores','ld');
-  showSts('Fetching live data…', 'inf');
-  // Scores
+  setApi('odds','ld');setApi('stats','ld');setApi('scores','ld');
+  showSts('Fetching live data…','inf');
   const sc = await apiGet('/api/odds/scores');
-  if (sc.data && !sc.error) { setApi('scores','ok'); renderScores(sc.data); }
-  else { setApi('scores','err'); renderScores([]); }
-  // Merged
+  if (sc.data&&!sc.error){setApi('scores','ok');S.scores=sc.data;renderScores(sc.data);}
+  else{setApi('scores','err');renderScores([]);}
   const m = await apiGet(`/api/analytics/merged?market=${S.market}&book=${S.book}`);
-  if (m.data && !m.error) {
-    S.data = m.data; setApi('odds','ok'); setApi('stats','ok');
-    showSts(`Loaded ${S.data.length} players${m.cached ? ' (cached)' : ''}`, 'suc');
-  } else if (m.error) {
-    setApi('odds','err'); showSts(`Error: ${m.error}`, 'err'); S.data = [];
-  }
-  recalcScenario();
-  renderTable(); renderAlerts();
-  document.getElementById('dAge').textContent = 'Just now';
+  if (m.data&&!m.error){
+    S.data=m.data;setApi('odds','ok');setApi('stats','ok');
+    showSts(`Loaded ${S.data.length} players${m.cached?' (cached)':''}`,'suc');
+  } else if(m.error){setApi('odds','err');showSts(`Error: ${m.error}`,'err');S.data=[];}
+  recalcScenario();renderTable();renderAlerts();
+  document.getElementById('dAge').textContent='Just now';
 }
-
-async function doRefresh() {
-  document.getElementById('rBtn').classList.add('sp');
-  await apiGet('/api/cache/clear');
-  await loadData();
-  document.getElementById('rBtn').classList.remove('sp');
-}
+async function doRefresh(){document.getElementById('rBtn').classList.add('sp');await apiGet('/api/cache/clear');await loadData();document.getElementById('rBtn').classList.remove('sp');}
 
 // ── View switching ──
-function switchView(view, btn) {
-  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('on'));
+function switchView(view,btn){
+  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('on'));
   btn.classList.add('on');
-  document.getElementById('propsView').style.display = view === 'props' ? 'block' : 'none';
-  document.getElementById('alertsView').classList.toggle('show', view === 'alerts');
-  if (view === 'alerts') renderAlerts();
+  document.getElementById('propsView').style.display=view==='props'?'block':'none';
+  document.getElementById('alertsView').classList.toggle('show',view==='alerts');
+  if(view==='alerts')renderAlerts();
+}
+
+// ── Game filter ──
+function filterGame(away,home){
+  const key=`${away} @ ${home}`;
+  S.gameFilter=S.gameFilter===key?null:key;
+  renderScores(S.scores);
+  renderGamePanel(away,home);
+  renderTable();
+}
+function clearGameFilter(){
+  S.gameFilter=null;
+  renderScores(S.scores);
+  document.getElementById('gamePanel').classList.remove('show');
+  document.getElementById('gameFiltBdg').style.display='none';
+  renderTable();
+}
+function renderGamePanel(away,home){
+  const panel=document.getElementById('gamePanel');
+  if(!S.gameFilter){panel.classList.remove('show');return;}
+  panel.classList.add('show');
+  document.getElementById('gpTitle').textContent=`${away} vs ${home} — Players with props`;
+  document.getElementById('gameFiltBdg').style.display='';
+  document.getElementById('gameFiltLbl').textContent=`${away} @ ${home}`;
+  // Get players in this game from loaded data
+  const gamePlayers=S.data.filter(p=>p.awayTeam===away&&p.homeTeam===home||p.awayTeam===home&&p.homeTeam===away||(p.matchup&&p.matchup.includes(away)&&p.matchup.includes(home)));
+  const awayPlayers=gamePlayers.filter(p=>(p.team||TEAM_MAP[p.name])===away);
+  const homePlayers=gamePlayers.filter(p=>(p.team||TEAM_MAP[p.name])===home);
+  const renderTeam=(players,teamAbbr)=>{
+    if(!players.length)return`<div class="gp-team"><div class="gp-team-name">${teamAbbr}</div><div style="font-size:11px;color:var(--t3)">No props loaded for this team</div></div>`;
+    const rows=players.map(p=>{
+      const hs=getHeadshot(p.name);
+      const initials=p.name.split(' ').map(n=>n[0]).join('').substring(0,2);
+      const ec=p.edge>3?'var(--g)':p.edge<-3?'var(--r)':'var(--t3)';
+      const lean=p.edge>3?'▲ OVER':p.edge<-3?'▼ UNDER':'— EVEN';
+      return`<div class="gp-player" onclick="scrollToPlayer('${p.name}')">
+        <div class="gp-av">${hs?`<img src="${hs}" onerror="this.parentElement.textContent='${initials}'" alt="">`:`<span style="font-size:10px;font-weight:700;color:var(--t3)">${initials}</span>`}</div>
+        <div><div class="gp-pname">${p.name}</div><div class="gp-pmeta">Line ${p.line} · ${p.hitRate||0}% hit</div></div>
+        <div class="gp-edge" style="color:${ec}">${lean}</div>
+      </div>`;
+    }).join('');
+    return`<div class="gp-team"><div class="gp-team-name">${teamAbbr} (${players.length})</div>${rows}</div>`;
+  };
+  document.getElementById('gpTeams').innerHTML=renderTeam(awayPlayers,away)+renderTeam(homePlayers,home);
+}
+function scrollToPlayer(name){
+  // Filter table to show only this player
+  document.getElementById('searchIn').value=name;
+  renderTable();
+  const tb=document.getElementById('tBody');
+  if(tb.firstChild)tb.firstChild.scrollIntoView({behavior:'smooth',block:'center'});
 }
 
 // ── Scenario mode ──
-function togScn() {
-  S.scnOn = !S.scnOn;
+function togScn(){
+  S.scnOn=!S.scnOn;
   document.getElementById('scnBtn').classList.toggle('on');
   document.getElementById('scnBar').classList.toggle('hide');
-  document.getElementById('scnTh').style.display = S.scnOn ? '' : 'none';
-  if (S.scnOn && !S.scnPlayers.length) {
-    // Suggest common star players who are often resting
-    ['LeBron James','Kawhi Leonard','Joel Embiid','Damian Lillard'].forEach(n => {
-      if (TEAM_MAP[n]) S.scnPlayers.push({ name: n, team: TEAM_MAP[n] });
+  document.getElementById('scnTh').style.display=S.scnOn?'':'none';
+  if(S.scnOn&&!S.scnPlayers.length){
+    ['LeBron James','Kawhi Leonard','Joel Embiid','Damian Lillard'].forEach(n=>{
+      if(TEAM_MAP[n])S.scnPlayers.push({name:n,team:TEAM_MAP[n]});
     });
     renderScnChips();
   }
-  recalcScenario(); renderTable();
+  recalcScenario();renderTable();
 }
-
-function renderScnChips() {
-  const ch = document.getElementById('scnCh');
-  ch.innerHTML = S.scnPlayers.map((p, i) =>
-    `<div class="chip on">${p.name} <span style="opacity:.6">(${p.team})</span> <span class="x" onclick="event.stopPropagation();rmScnP(${i})">&times;</span></div>`
-  ).join('') + '<div class="chip chip-a" onclick="addScnP()">+ Add Player</div>';
-
-  document.getElementById('scnNote').textContent = S.scnPlayers.length
-    ? `${S.scnPlayers.length} player(s) marked as OUT — teammate boosts shown in the Scenario column and detail tab.`
-    : 'Add injured or resting players to see projected stat boosts for their teammates.';
+function renderScnChips(){
+  document.getElementById('scnCh').innerHTML=
+    S.scnPlayers.map((p,i)=>`<div class="chip on">${p.name} <span style="opacity:.55">(${p.team})</span> <span class="x" onclick="event.stopPropagation();rmScnP(${i})">&times;</span></div>`).join('')+
+    '<div class="chip chip-a" onclick="addScnP()">+ Add Player</div>';
+  document.getElementById('scnNote').textContent=S.scnPlayers.length
+    ?`${S.scnPlayers.length} player(s) OUT — ⚡ icon appears on affected teammates in the table.`
+    :'Add injured or resting players to see projected boosts for their teammates.';
 }
-
-function addScnP() {
-  // Build a searchable list from players already loaded, plus TEAM_MAP
-  const allPlayers = [
-    ...new Set([
-      ...S.data.map(p => p.name),
-      ...Object.keys(TEAM_MAP)
-    ])
-  ].filter(n => !S.scnPlayers.find(sp => sp.name === n)).sort();
-
-  const n = prompt('Type player name (e.g. LeBron James):\n\nAvailable stars:\n' + Object.keys(TEAM_MAP).slice(0,20).join(', ') + '…');
-  if (!n || !n.trim()) return;
-  const name = n.trim();
-  const team = TEAM_MAP[name] || prompt('Team abbreviation (e.g. LAL):') || '???';
-  S.scnPlayers.push({ name, team: team.toUpperCase() });
-  renderScnChips(); recalcScenario(); renderTable();
+function addScnP(){
+  const n=prompt('Player name (e.g. LeBron James):');if(!n||!n.trim())return;
+  const name=n.trim();
+  const team=TEAM_MAP[name]||prompt('Team abbreviation (e.g. LAL):')||'???';
+  S.scnPlayers.push({name,team:team.toUpperCase()});
+  renderScnChips();recalcScenario();renderTable();
 }
-
-function rmScnP(i) {
-  S.scnPlayers.splice(i, 1);
-  renderScnChips(); recalcScenario(); renderTable();
-}
-
-function recalcScenario() {
-  const stars = Object.keys(NBA_IDS);
-  S.data.forEach(p => {
-    p.scenarioBoost = 0;
-    if (!S.scnOn || !S.scnPlayers.length) return;
-    const myTeam = p.team || TEAM_MAP[p.name];
-    if (!myTeam) return;
-    const teamOut = S.scnPlayers.filter(sp => sp.team === myTeam && sp.name !== p.name);
-    if (!teamOut.length) return;
-    // Deterministic boost based on name hash (avoids random flicker on re-render)
-    let boost = 0;
-    teamOut.forEach(o => {
-      const hash = o.name.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
-      if (stars.includes(o.name)) boost += 3.2 + (hash % 18) / 10; // 3.2–5.0
-      else boost += 1.0 + (hash % 10) / 10;                         // 1.0–2.0
+function rmScnP(i){S.scnPlayers.splice(i,1);renderScnChips();recalcScenario();renderTable();}
+function recalcScenario(){
+  const stars=Object.keys(NBA_IDS);
+  S.data.forEach(p=>{
+    p.scenarioBoost=0;
+    if(!S.scnOn||!S.scnPlayers.length)return;
+    const myTeam=p.team||TEAM_MAP[p.name];if(!myTeam)return;
+    const teamOut=S.scnPlayers.filter(sp=>sp.team===myTeam&&sp.name!==p.name);if(!teamOut.length)return;
+    let boost=0;
+    teamOut.forEach(o=>{
+      const h=o.name.split('').reduce((a,c)=>a+c.charCodeAt(0),0);
+      boost+=stars.includes(o.name)?3.2+(h%18)/10:1.0+(h%10)/10;
     });
-    p.scenarioBoost = +boost.toFixed(1);
-    p.scenarioAvg = +(p.avg + boost).toFixed(1);
-    p.scenarioEdge = p.line ? +((p.scenarioAvg - p.line) / p.line * 100).toFixed(1) : 0;
+    p.scenarioBoost=+boost.toFixed(1);
+    p.scenarioAvg=+(p.avg+boost).toFixed(1);
+    p.scenarioEdge=p.line?+((p.scenarioAvg-p.line)/p.line*100).toFixed(1):0;
   });
 }
 
-// ── Analytics formulas ──
-function valueScore(p) {
-  const absEdge = Math.abs(p.edge || 0);
-  const hr = p.hitRate || 0;
-  const conf = p.confidence || 0;
-  return Math.round(absEdge * 0.35 + Math.max(0, hr - 50) * 0.30 + conf * 0.35);
+// ── Analytics helpers ──
+function valueScore(p){
+  return Math.round(Math.abs(p.edge||0)*0.35+Math.max(0,(p.hitRate||0)-50)*0.30+(p.confidence||0)*0.35);
+}
+function leanInfo(edge){
+  if(edge>4)return{label:'OVER ▲',cls:'over',pct:Math.min(90,55+Math.abs(edge)*2)};
+  if(edge<-4)return{label:'UNDER ▼',cls:'under',pct:Math.max(10,45-Math.abs(edge)*2)};
+  return{label:'EVEN',cls:'even',pct:50};
 }
 
 // ── Render: Scores ──
-function renderScores(data) {
-  const el = document.getElementById('scs');
-  if (!data.length) { el.innerHTML = ''; return; }
-  el.innerHTML = data.map(g => {
-    const aS = g.awayScore || '—', hS = g.homeScore || '—';
-    const lv = g.live, st = g.completed ? 'Final' : (lv ? 'LIVE' : new Date(g.commence).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}));
-    return `<div class="sc ${lv?'lv':''}">
-      <div class="sc-r"><span class="sc-t">${g.away||'???'}</span><span class="sc-v">${aS}</span></div>
-      <div class="sc-r"><span class="sc-t">${g.home||'???'}</span><span class="sc-v">${hS}</span></div>
-      <div class="sc-s ${lv?'lv':''}">${st}</div>
+function renderScores(data){
+  const el=document.getElementById('scs');
+  if(!data.length){el.innerHTML='';return;}
+  el.innerHTML=data.map(g=>{
+    const key=`${g.away} @ ${g.home}`;
+    const active=S.gameFilter===key;
+    const aS=g.awayScore||'—',hS=g.homeScore||'—';
+    const lv=g.live,st=g.completed?'Final':(lv?'LIVE':new Date(g.commence).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}));
+    return`<div class="sc${lv?' lv':''}${active?' active':''}" onclick="filterGame('${g.away}','${g.home}')">
+      <div class="sc-r"><span class="sc-t">${g.away}</span><span class="sc-v">${aS}</span></div>
+      <div class="sc-r"><span class="sc-t">${g.home}</span><span class="sc-v">${hS}</span></div>
+      <div class="sc-s${lv?' lv':''}">${st}</div>
+      <div class="sc-hint">${active?'✓ Filtered':'Click for players'}</div>
     </div>`;
   }).join('');
 }
 
 // ── Render: Table ──
-function renderTable() {
-  let d = [...S.data];
-  const q = (document.getElementById('searchIn').value || '').toLowerCase();
-  if (q) d = d.filter(p => p.name.toLowerCase().includes(q) || (p.team||'').toLowerCase().includes(q) || (p.matchup||'').toLowerCase().includes(q));
-  const sf = {
-    edge: (a,b) => Math.abs(b.edge||0) - Math.abs(a.edge||0),
-    conf: (a,b) => (b.confidence||0) - (a.confidence||0),
-    val:  (a,b) => valueScore(b) - valueScore(a),
-    hr:   (a,b) => (b.hitRate||0) - (a.hitRate||0),
-    name: (a,b) => a.name.localeCompare(b.name),
+function renderTable(){
+  let d=[...S.data];
+  const q=(document.getElementById('searchIn').value||'').toLowerCase();
+  if(q)d=d.filter(p=>p.name.toLowerCase().includes(q)||(p.team||'').toLowerCase().includes(q)||(p.matchup||'').toLowerCase().includes(q));
+  if(S.gameFilter){
+    const[fAway,fHome]=S.gameFilter.split(' @ ');
+    d=d.filter(p=>p.matchup&&p.matchup.includes(fAway)&&p.matchup.includes(fHome));
+  }
+  const sf={
+    edge:(a,b)=>Math.abs(b.edge||0)-Math.abs(a.edge||0),
+    conf:(a,b)=>(b.confidence||0)-(a.confidence||0),
+    val:(a,b)=>valueScore(b)-valueScore(a),
+    hr:(a,b)=>(b.hitRate||0)-(a.hitRate||0),
+    name:(a,b)=>a.name.localeCompare(b.name),
   };
-  S.sort = document.getElementById('sortS').value;
-  d.sort(sf[S.sort] || sf.edge);
+  S.sort=document.getElementById('sortS').value;
+  d.sort(sf[S.sort]||sf.edge);
 
-  const mktLabels = {
-    player_points:'Points', player_rebounds:'Rebounds', player_assists:'Assists',
-    player_threes:'3-Pointers', player_points_rebounds_assists:'PRA'
-  };
-  document.getElementById('mktLbl').textContent = mktLabels[S.market] || 'Props';
+  const mktLabels={player_points:'Points',player_rebounds:'Rebounds',player_assists:'Assists',player_threes:'3-Pointers',player_points_rebounds_assists:'PRA'};
+  document.getElementById('mktLbl').textContent=mktLabels[S.market]||'Props';
 
-  const tb = document.getElementById('tBody');
-  tb.innerHTML = '';
-  d.forEach((p, i) => {
-    const ec = p.edge > 3 ? 'pos' : p.edge < -3 ? 'neg' : 'flat';
-    const es = p.edge > 0 ? '+' : '';
-    const hs = getHeadshot(p.name);
-    const initials = p.name.split(' ').map(n => n[0]).join('').substring(0,2);
-    const avInner = hs ? `<img src="${hs}" onerror="this.parentElement.innerHTML='${initials}'" alt="">` : initials;
-    const oP = p.hitRate || 50, uP = 100 - oP;
-    const cc = (p.confidence||0) >= 70 ? 'var(--g)' : (p.confidence||0) >= 50 ? 'var(--a)' : 'var(--r)';
-    const dvC = p.dvpRank <= 10 ? 'dv-e' : p.dvpRank >= 21 ? 'dv-h' : 'dv-m';
-    const dvL = p.dvpRank <= 10 ? 'Easy' : p.dvpRank >= 21 ? 'Hard' : 'Mid';
-    const vs = valueScore(p);
-    const isValue = vs >= 30 && Math.abs(p.edge||0) > 4 && (p.confidence||0) >= 55;
-    const overFmt = p.overOdds ? (p.overOdds > 0 ? '+' : '') + p.overOdds : '—';
-    const underFmt = p.underOdds ? (p.underOdds > 0 ? '+' : '') + p.underOdds : '—';
+  const tb=document.getElementById('tBody');tb.innerHTML='';
+  d.forEach((p,i)=>{
+    const edge=p.edge||0;
+    const ec=edge>3?'pos':edge<-3?'neg':'flat';
+    const es=edge>0?'+':'';
+    const hs=getHeadshot(p.name);
+    const initials=p.name.split(' ').map(n=>n[0]).join('').substring(0,2);
+    const avInner=hs?`<img src="${hs}" onerror="this.parentElement.innerHTML='<span style=\\'font-size:12px;font-weight:700;color:var(--t3)\\'>${initials}</span>'" alt="">`:`<span style="font-size:12px;font-weight:700;color:var(--t3)">${initials}</span>`;
+    const oP=p.hitRate||50,uP=100-oP;
+    const cc=(p.confidence||0)>=70?'var(--g)':(p.confidence||0)>=50?'var(--a)':'var(--r)';
+    const dvC=p.dvpRank<=10?'dv-e':p.dvpRank>=21?'dv-h':'dv-m';
+    const dvL=p.dvpRank<=10?'Easy':p.dvpRank>=21?'Hard':'Mid';
+    const vs=valueScore(p);
+    const isValue=vs>=30&&Math.abs(edge)>4&&(p.confidence||0)>=55;
+    const overFmt=p.overOdds?(p.overOdds>0?'+':'')+p.overOdds:'—';
+    const underFmt=p.underOdds?(p.underOdds>0?'+':'')+p.underOdds:'—';
+    const lean=leanInfo(edge);
+    const hasBoost=S.scnOn&&(p.scenarioBoost||0)>0;
 
-    const edgeTip = `Edge = (Avg − Line) / Line × 100\n= (${p.avg} − ${p.line}) / ${p.line} × 100\n= ${es}${(p.edge||0).toFixed(1)}%\n\nPositive edge → lean OVER\nNegative edge → lean UNDER`;
-    const confTip = `Confidence: ${p.confidence||0}/100\n\nEdge component:  +${Math.min(Math.abs(p.edge||0)*2,20).toFixed(0)}\nConsistency:     +${((1-Math.min(((p.stdDev||3)/(p.avg||1)),.5))*20).toFixed(0)}\nHit rate signal: +${(Math.abs((p.hitRate||50)-50)*.3).toFixed(0)}\nDvP matchup:     ${(p.dvpRank||15)<=8?'+10':(p.dvpRank||15)>=24?'-5':'+0'}\nTrend:           ±5\nBase:            50`;
+    const edgeTip=`Edge = (Avg − Line) / Line × 100\n= (${p.avg} − ${p.line}) / ${p.line} × 100\n= ${es}${edge.toFixed(1)}%\n\nPositive edge → lean OVER\nNegative edge → lean UNDER`;
+    const confTip=`Confidence: ${p.confidence||0}/100\n\nEdge component:  +${Math.min(Math.abs(edge)*2,20).toFixed(0)}\nConsistency:     +${((1-Math.min(((p.stdDev||3)/(p.avg||1)),.5))*20).toFixed(0)}\nHit rate signal: +${(Math.abs((p.hitRate||50)-50)*.3).toFixed(0)}\nDvP matchup:     ${(p.dvpRank||15)<=8?'+10':(p.dvpRank||15)>=24?'-5':'+0'}\nTrend:           ±5\nBase:            50`;
 
-    const tr = document.createElement('tr');
-    tr.id = `r-${i}`;
-    if (isValue) tr.className = 'value-row';
-    tr.onclick = () => togDet(i, p);
-    tr.innerHTML = `
+    // Row classes
+    let rowClass='';
+    if(isValue)rowClass='value-row';
+    if(hasBoost)rowClass+=(rowClass?' ':')+'scn-row';
+
+    const tr=document.createElement('tr');
+    tr.id=`r-${i}`;tr.className=rowClass.trim();
+    tr.onclick=()=>togDet(i,p);
+    tr.innerHTML=`
       <td><div class="pc">
         <div class="av">${avInner}</div>
         <div class="pi">
-          <span class="pn">${p.name}</span>
-          <span class="pm"><span class="ptb">${p.team||'—'}</span><span style="color:var(--t3)">${p.position||''}</span></span>
+          <span class="pn">${p.name}${hasBoost?'<span class="scn-icon">⚡+'+p.scenarioBoost+'</span>':''}</span>
+          <span class="pm"><span class="ptb">${p.team||'—'}</span><span>${p.position||''}</span></span>
         </div>
       </div></td>
       <td style="color:var(--t2);font-size:11px;">${(p.matchup||'—').substring(0,28)}</td>
       <td style="font-weight:700;font-size:14px;">${p.line}</td>
       <td><div class="odds-cell"><span class="odd over">O ${overFmt}</span><span class="odd under">U ${underFmt}</span></div></td>
       <td style="font-weight:600;">${p.avg}</td>
-      <td style="font-weight:600;">${p.hitRate||0}%</td>
+      <td style="font-weight:600;">${oP}%</td>
       <td><div class="ouv"><div class="oub"><div class="ouo" style="width:${oP}%"></div><div class="ouu" style="width:${uP}%"></div></div><span class="oul">${oP}/${uP}</span></div></td>
-      <td><div class="spk">${mkSpk(p.l10, p.line)}</div></td>
-      <td><span class="et ${ec}">${es}${(p.edge||0).toFixed(1)}%<div class="tip">${edgeTip}</div></span></td>
+      <td><div class="spk">${mkSpk(p.l10,p.line)}</div></td>
+      <td><span class="et ${ec}" data-edge="${edge.toFixed(1)}" data-tip="${edgeTip.replace(/"/g,'&quot;')}">${es}${edge.toFixed(1)}%</span></td>
+      <td><div class="lean-wrap">
+        <span class="lean-lbl ${lean.cls}">${lean.label}</span>
+        <div class="lean-track"><div class="lean-dot" style="left:${lean.pct}%"></div></div>
+      </div></td>
       <td><span class="dvt ${dvC}">#${p.dvpRank||'—'} ${dvL}</span></td>
-      <td><div class="cb-wrap">
+      <td><div class="cb-wrap" data-tip="${confTip.replace(/"/g,'&quot;')}">
         <div class="cb-bar"><div class="cb-fill" style="width:${p.confidence||0}%;background:${cc};"></div></div>
         <span class="cb-l" style="color:${cc}">${p.confidence||0}</span>
-        <div class="tip">${confTip}</div>
       </div></td>
-      <td>${isValue ? '<span class="val-badge">⚡ VALUE</span>' : `<span style="color:var(--t3);font-size:11px;font-weight:600;">${vs}</span>`}</td>
-      ${S.scnOn ? `<td>${p.scenarioBoost > 0 ? `<span class="scn-boost">+${p.scenarioBoost} pts</span>` : '<span style="color:var(--t3)">—</span>'}</td>` : ''}
+      <td>${isValue?'<span class="val-badge">⚡ VALUE</span>':`<span style="color:var(--t3);font-size:11px;font-weight:600;">${vs}</span>`}</td>
+      ${S.scnOn?`<td>${(p.scenarioBoost||0)>0?`<span class="scn-boost">+${p.scenarioBoost} pts</span>`:'<span style="color:var(--t3)">—</span>'}</td>`:''}
     `;
     tb.appendChild(tr);
-
-    const dr = document.createElement('tr');
-    dr.className = 'dr'; dr.id = `d-${i}`;
-    dr.innerHTML = `<td colspan="${S.scnOn ? 13 : 12}"><div class="di" id="di-${i}"></div></td>`;
+    const dr=document.createElement('tr');dr.className='dr';dr.id=`d-${i}`;
+    dr.innerHTML=`<td colspan="${S.scnOn?14:13}"><div class="di" id="di-${i}"></div></td>`;
     tb.appendChild(dr);
   });
+  document.getElementById('pCnt').textContent=d.length+' players';
+  const valCount=S.data.filter(p=>valueScore(p)>=30&&Math.abs(p.edge||0)>4&&(p.confidence||0)>=55).length;
+  document.getElementById('alertDot').style.display=valCount>0?'':'none';
 
-  document.getElementById('pCnt').textContent = d.length + ' players';
-  const valCount = S.data.filter(p => valueScore(p) >= 30 && Math.abs(p.edge||0) > 4 && (p.confidence||0) >= 55).length;
-  const dot = document.getElementById('alertDot');
-  dot.style.display = valCount > 0 ? '' : 'none';
+  // Attach floating tooltip listeners for edge/conf cells
+  attachTipListeners();
 }
 
-function togDet(i, p) {
-  const r = document.getElementById(`d-${i}`);
-  const mr = document.getElementById(`r-${i}`);
-  const open = r.classList.contains('open');
-  document.querySelectorAll('.dr').forEach(x => x.classList.remove('open'));
-  document.querySelectorAll('tbody tr').forEach(x => x.classList.remove('exp'));
-  if (!open) {
-    r.classList.add('open'); mr.classList.add('exp');
-    renderDet(i, p);
-  }
+// ── Floating tooltips (avoids overflow) ──
+function attachTipListeners(){
+  document.querySelectorAll('[data-tip]').forEach(el=>{
+    el.addEventListener('mouseenter',e=>{
+      const tip=document.createElement('div');
+      tip.style.cssText='position:fixed;background:#0f172a;color:#fff;border-radius:8px;padding:10px 13px;font-size:11px;line-height:1.65;white-space:pre;z-index:999;min-width:230px;box-shadow:0 4px 16px rgba(0,0,0,.15);pointer-events:none;';
+      tip.textContent=el.dataset.tip.replace(/&quot;/g,'"');
+      tip.id='_ftip';
+      document.body.appendChild(tip);
+      positionTip(tip,el.getBoundingClientRect());
+    });
+    el.addEventListener('mousemove',e=>{
+      const tip=document.getElementById('_ftip');if(!tip)return;
+      positionTip(tip,el.getBoundingClientRect());
+    });
+    el.addEventListener('mouseleave',()=>{
+      const tip=document.getElementById('_ftip');if(tip)tip.remove();
+    });
+  });
+}
+function positionTip(tip,rect){
+  const tw=tip.offsetWidth||240,th=tip.offsetHeight||80;
+  let left=rect.left+rect.width/2-tw/2;
+  let top=rect.top-th-10;
+  if(left<8)left=8;
+  if(left+tw>window.innerWidth-8)left=window.innerWidth-tw-8;
+  if(top<8)top=rect.bottom+8;
+  tip.style.left=left+'px';
+  tip.style.top=top+'px';
 }
 
-function renderDet(i, p) {
-  const c = document.getElementById(`di-${i}`);
-  window._dp = p;
-  const scnTab = S.scnOn ? `<button class="di-tab" onclick="showDTab(${i},'scenario',this)">Scenario</button>` : '';
-  c.innerHTML = `<div class="di-tabs">
+function togDet(i,p){
+  const r=document.getElementById(`d-${i}`),mr=document.getElementById(`r-${i}`);
+  const open=r.classList.contains('open');
+  document.querySelectorAll('.dr').forEach(x=>x.classList.remove('open'));
+  document.querySelectorAll('tbody tr').forEach(x=>x.classList.remove('exp'));
+  if(!open){r.classList.add('open');mr.classList.add('exp');renderDet(i,p);}
+}
+function renderDet(i,p){
+  const c=document.getElementById(`di-${i}`);window._dp=p;
+  const scnTab=S.scnOn?`<button class="di-tab" onclick="showDTab(${i},'scenario',this)">Scenario</button>`:'';
+  c.innerHTML=`<div class="di-tabs">
     <button class="di-tab on" onclick="showDTab(${i},'overview',this)">Overview</button>
     <button class="di-tab" onclick="showDTab(${i},'splits',this)">Splits</button>
     <button class="di-tab" onclick="showDTab(${i},'gamelog',this)">Game Log</button>
     ${scnTab}
   </div><div id="dtc-${i}"></div>`;
-  showDTab(i, 'overview', c.querySelector('.di-tab'));
+  showDTab(i,'overview',c.querySelector('.di-tab'));
+}
+function showDTab(i,tab,btn){
+  const p=window._dp,el=document.getElementById(`dtc-${i}`);
+  btn.parentElement.querySelectorAll('.di-tab').forEach(b=>b.classList.remove('on'));btn.classList.add('on');
+  if(tab==='overview')renderOverview(el,p);
+  else if(tab==='splits')renderSplits(el,p);
+  else if(tab==='gamelog')renderGameLog(el,p);
+  else if(tab==='scenario')renderScenario(el,p);
 }
 
-function showDTab(i, tab, btn) {
-  const p = window._dp;
-  const el = document.getElementById(`dtc-${i}`);
-  btn.parentElement.querySelectorAll('.di-tab').forEach(b => b.classList.remove('on'));
-  btn.classList.add('on');
-  if (tab === 'overview')  renderOverview(el, p);
-  else if (tab === 'splits')   renderSplits(el, p);
-  else if (tab === 'gamelog')  renderGameLog(el, p);
-  else if (tab === 'scenario') renderScenario(el, p);
-}
-
-function renderOverview(el, p) {
-  const l5 = (p.l10||[]).slice(0,5);
-  const l5a = l5.length ? (l5.reduce((a,b)=>a+b,0)/5).toFixed(1) : '—';
-  const ceil = Math.max(...(p.l10||[0])), floor = Math.min(...(p.l10||[0]));
-  const maxV = ceil + 5;
-  const bars = (p.l10||[]).map((v,j) =>
-    `<div class="bar" style="height:${v/maxV*100}%;background:${v>=p.line?'var(--g)':'var(--r)'};opacity:${0.55+j*0.045}"><div class="bar-t">${v}</div></div>`
-  ).join('');
-  const lP = p.line ? (1 - p.line/maxV) * 100 : 50;
-
-  el.innerHTML = `<div class="di-grid">
+function renderOverview(el,p){
+  const l5=(p.l10||[]).slice(0,5);
+  const l5a=l5.length?(l5.reduce((a,b)=>a+b,0)/5).toFixed(1):'—';
+  const ceil=Math.max(...(p.l10||[0])),floor=Math.min(...(p.l10||[0])),maxV=ceil+5;
+  const bars=(p.l10||[]).map((v,j)=>`<div class="bar" style="height:${v/maxV*100}%;background:${v>=p.line?'var(--g)':'var(--r)'};opacity:${0.55+j*0.045}"><div class="bar-t">${v}</div></div>`).join('');
+  const lP=p.line?(1-p.line/maxV)*100:50;
+  const lean=leanInfo(p.edge||0);
+  el.innerHTML=`<div class="di-grid">
     <div class="dc"><div class="dc-t"><span class="dt" style="background:var(--b)"></span>Stats vs Line</div>
       <div class="sr">
         <div class="sb2"><div class="sb2-l">L10 Avg</div><div class="sb2-v">${p.avg}</div><div class="sb2-s">Line ${p.line} <span class="${p.avg>p.line?'up':'dn'}">${p.avg>p.line?'▲':'▼'} ${Math.abs(p.avg-p.line).toFixed(1)}</span></div></div>
@@ -836,209 +913,203 @@ function renderOverview(el, p) {
       </div>
     </div>
     <div class="dc"><div class="dc-t"><span class="dt" style="background:var(--g)"></span>Last 10 Games</div>
-      <div class="chb">
-        <div class="lref" style="top:${lP}%"><span class="lref-l">LINE ${p.line}</span></div>
-        <div class="bars">${bars}</div>
-      </div>
+      <div class="chb"><div class="lref" style="top:${lP}%"><span class="lref-l">LINE ${p.line}</span></div><div class="bars">${bars}</div></div>
     </div>
     <div class="dc full">
-      <div class="formula-box">
-        <div class="fml-title">How these numbers are calculated</div>
-        <strong>Edge:</strong> <code>(${p.avg} − ${p.line}) / ${p.line} × 100 = ${p.edge>0?'+':''}${(p.edge||0).toFixed(1)}%</code> &nbsp;·&nbsp;
-        <strong>Hit Rate:</strong> <code>${p.hitRate||0}% of last 10 games over ${p.line}</code> &nbsp;·&nbsp;
-        <strong>Value Score:</strong> <code>Edge×0.35 + HitRate×0.30 + Conf×0.35</code>
+      <div class="dc-t"><span class="dt" style="background:var(--p)"></span>Recommendation</div>
+      <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:200px;">
+          <div style="font-size:22px;font-weight:800;color:${lean.cls==='over'?'var(--g)':lean.cls==='under'?'var(--r)':'var(--t3)'}">
+            ${lean.label === 'OVER ▲' ? '▲ BET OVER' : lean.label === 'UNDER ▼' ? '▼ BET UNDER' : '— NO STRONG LEAN'}
+          </div>
+          <div style="font-size:12px;color:var(--t2);margin-top:4px;">Based on ${(p.edge||0).toFixed(1)}% edge · ${p.hitRate||0}% hit rate · ${p.confidence||0}/100 confidence</div>
+        </div>
+        <div style="font-size:11px;color:var(--t2);line-height:1.7;flex:2;background:var(--bg2);padding:10px 12px;border-radius:8px;border:1px solid var(--bd);">
+          <strong>Edge:</strong> <code>${p.avg} − ${p.line} / ${p.line} × 100 = ${(p.edge||0)>0?'+':''}${(p.edge||0).toFixed(1)}%</code><br>
+          <strong>Value:</strong> <code>${Math.abs(p.edge||0).toFixed(1)}×0.35 + ${Math.max(0,(p.hitRate||50)-50)}×0.30 + ${p.confidence||0}×0.35 = ${valueScore(p)}</code><br>
+          <strong>Lean track:</strong> Red (Under) ←→ Green (Over) · dot at edge position
+        </div>
       </div>
     </div>
   </div>`;
 }
 
-function renderSplits(el, p) {
-  const sp = p.splits;
-  if (!sp) {
-    el.innerHTML = `<div class="dc full" style="padding:20px;text-align:center;color:var(--t3);font-size:12px;">Split data requires a BallDontLie API key. Add it in the config bar above.</div>`;
-    return;
-  }
-  const rows = [
-    {l:'Home',d:sp.home},{l:'Away',d:sp.away},
-    {l:'Last 5',d:sp.last5},{l:'Last 10',d:sp.last10},{l:'Last 20',d:sp.last20},
-    {l:'Back-to-Back',d:sp.b2b},{l:'3+ Days Rest',d:sp.rest3plus},
-  ];
-  el.innerHTML = `<div class="dc full"><div class="dc-t"><span class="dt" style="background:var(--c)"></span>Splits vs Line ${p.line}</div>
-    <table class="spt"><thead><tr><th>Split</th><th>Avg</th><th>GP</th><th>Hit Rate</th><th>Edge</th><th>Verdict</th></tr></thead>
-    <tbody>${rows.filter(r => r.d && r.d.gp).map(r => {
-      const e = p.line ? ((r.d.avg - p.line) / p.line * 100) : 0;
-      const v = e > 5 ? 'Strong Over' : e > 2 ? 'Lean Over' : e < -5 ? 'Strong Under' : e < -2 ? 'Lean Under' : 'Coin Flip';
-      return `<tr><td style="font-weight:600">${r.l}</td><td>${r.d.avg}</td><td>${r.d.gp}</td>
+function renderSplits(el,p){
+  const sp=p.splits;
+  if(!sp){el.innerHTML='<div style="padding:20px;text-align:center;color:var(--t3);font-size:12px;">Split data requires a BallDontLie API key.</div>';return;}
+  const rows=[{l:'Home',d:sp.home},{l:'Away',d:sp.away},{l:'Last 5',d:sp.last5},{l:'Last 10',d:sp.last10},{l:'Last 20',d:sp.last20},{l:'Back-to-Back',d:sp.b2b},{l:'3+ Days Rest',d:sp.rest3plus}];
+  el.innerHTML=`<div class="dc full"><div class="dc-t"><span class="dt" style="background:var(--c)"></span>Splits vs Line ${p.line}</div>
+    <table class="spt"><thead><tr><th>Split</th><th>Avg</th><th>GP</th><th>Hit Rate</th><th>Edge</th><th>Lean</th></tr></thead>
+    <tbody>${rows.filter(r=>r.d&&r.d.gp).map(r=>{
+      const e=p.line?((r.d.avg-p.line)/p.line*100):0;
+      const v=e>5?'Strong Over':e>2?'Lean Over':e<-5?'Strong Under':e<-2?'Lean Under':'Coin Flip';
+      return`<tr><td style="font-weight:600">${r.l}</td><td>${r.d.avg}</td><td>${r.d.gp}</td>
         <td class="${r.d.hitRate>=55?'hit':r.d.hitRate<=45?'miss':''}">${r.d.hitRate}%</td>
         <td class="${e>3?'hit':e<-3?'miss':''}">${e>0?'+':''}${e.toFixed(1)}%</td>
         <td style="font-weight:600;color:${e>2?'var(--g)':e<-2?'var(--r)':'var(--t3)'}">${v}</td></tr>`;
-    }).join('')}</tbody></table>
-    ${rows.some(r => r.d && r.d.note) ? '<div style="font-size:10px;color:var(--t3);margin-top:8px;">Note: Back-to-back and rest splits require schedule data from the BDL API.</div>' : ''}
-  </div>`;
-}
-
-function renderGameLog(el, p) {
-  const gl = p.gameLog || [];
-  if (!gl.length) {
-    el.innerHTML = `<div style="padding:24px;text-align:center;color:var(--t3);font-size:12px;">No game log data. This player may not be in the BallDontLie database, or stats haven't loaded yet.</div>`;
-    return;
-  }
-  el.innerHTML = `<div class="dc full"><div class="dc-t"><span class="dt" style="background:var(--r)"></span>Game Log — ${gl.length} games</div>
-    <table class="spt"><thead><tr><th>Date</th><th>Opp</th><th>H/A</th><th>Min</th><th>PTS</th><th>REB</th><th>AST</th><th>3PM</th></tr></thead>
-    <tbody>${gl.map(g => {
-      const d = g.date ? new Date(g.date).toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '—';
-      return `<tr><td>${d}</td><td>${g.opp||'—'}</td><td>${g.home?'H':'A'}</td><td>${g.min||'—'}</td>
-        <td style="font-weight:700">${g.pts??'—'}</td><td>${g.reb??'—'}</td><td>${g.ast??'—'}</td><td>${g.fg3m??'—'}</td></tr>`;
     }).join('')}</tbody></table></div>`;
 }
 
-function renderScenario(el, p) {
-  const myTeam = p.team || TEAM_MAP[p.name];
-  const outPlayers = S.scnPlayers.filter(sp => sp.team === myTeam && sp.name !== p.name);
+function renderGameLog(el,p){
+  const gl=p.gameLog||[];
+  if(!gl.length){el.innerHTML='<div style="padding:24px;text-align:center;color:var(--t3);font-size:12px;">No game log data available.</div>';return;}
+  el.innerHTML=`<div class="dc full"><div class="dc-t"><span class="dt" style="background:var(--r)"></span>Game Log — ${gl.length} games</div>
+    <table class="spt"><thead><tr><th>Date</th><th>Opp</th><th>H/A</th><th>Min</th><th>PTS</th><th>REB</th><th>AST</th><th>3PM</th></tr></thead>
+    <tbody>${gl.map(g=>{
+      const d=g.date?new Date(g.date).toLocaleDateString('en-US',{month:'short',day:'numeric'}):'—';
+      return`<tr><td>${d}</td><td>${g.opp||'—'}</td><td>${g.home?'H':'A'}</td><td>${g.min||'—'}</td><td style="font-weight:700">${g.pts??'—'}</td><td>${g.reb??'—'}</td><td>${g.ast??'—'}</td><td>${g.fg3m??'—'}</td></tr>`;
+    }).join('')}</tbody></table></div>`;
+}
 
-  el.innerHTML = `<div class="dc full">
+function renderScenario(el,p){
+  const myTeam=p.team||TEAM_MAP[p.name];
+  const outPlayers=S.scnPlayers.filter(sp=>sp.team===myTeam&&sp.name!==p.name);
+  el.innerHTML=`<div class="dc full">
     <div class="dc-t"><span class="dt" style="background:var(--p)"></span>Scenario Analysis — ${p.name}</div>
     <div style="margin-bottom:14px;">
-      <div style="font-size:12px;font-weight:600;margin-bottom:8px;color:var(--t2);">Teammates marked OUT (${myTeam}):</div>
+      <div style="font-size:12px;font-weight:600;margin-bottom:8px;color:var(--t2);">Teammates OUT (${myTeam||'?'}):</div>
       ${outPlayers.length
-        ? outPlayers.map(o=>`<span class="chip on" style="margin-right:5px;display:inline-flex">${o.name} OUT</span>`).join('')
-        : `<span style="color:var(--t3);font-size:12px;">None — add teammates in the Scenario bar above to see projected impacts.</span>`
-      }
+        ?outPlayers.map(o=>`<span class="chip on" style="margin-right:5px;display:inline-flex">${o.name} OUT</span>`).join('')
+        :`<span style="color:var(--t3);font-size:12px;">None — add teammates above to see impact.</span>`}
     </div>
-    ${p.scenarioBoost > 0 ? `
+    ${(p.scenarioBoost||0)>0?`
     <div class="sr" style="margin-bottom:14px;">
       <div class="sb2"><div class="sb2-l">Normal Avg</div><div class="sb2-v">${p.avg}</div></div>
-      <div class="sb2"><div class="sb2-l">Projected Avg</div><div class="sb2-v" style="color:var(--g)">${p.scenarioAvg}</div></div>
+      <div class="sb2"><div class="sb2-l">Projected</div><div class="sb2-v" style="color:var(--g)">${p.scenarioAvg}</div></div>
       <div class="sb2"><div class="sb2-l">Boost</div><div class="sb2-v" style="color:var(--p)">+${p.scenarioBoost}</div></div>
       <div class="sb2"><div class="sb2-l">New Edge</div><div class="sb2-v" style="color:${(p.scenarioEdge||0)>0?'var(--g)':'var(--r)'}">${(p.scenarioEdge||0)>0?'+':''}${p.scenarioEdge||0}%</div></div>
     </div>
-    <div class="va-reason">
-      When <strong>${outPlayers.map(o=>o.name).join(' & ')}</strong> ${outPlayers.length>1?'are':'is'} out,
-      ${p.name}'s usage rate increases. The projected <strong>+${p.scenarioBoost} boost</strong> is estimated
-      based on historical usage redistribution when star teammates miss games.
-      <br><br><em>Note: These are estimates, not real-time usage data. Always cross-reference with injury reports.</em>
-    </div>
-    ` : `<div style="padding:16px;text-align:center;color:var(--t3);font-size:12px;">No teammates from ${myTeam||'this team'} are marked as OUT. Use the Scenario bar above to add them.</div>`}
-    <div class="formula-box" style="margin-top:12px;">
-      <div class="fml-title">How scenario boosts work</div>
-      Star teammate missing → <code>+3.2 to +5.0 pts estimated boost</code><br>
-      Role player missing → <code>+1.0 to +2.0 pts estimated boost</code><br>
-      Based on historical patterns of usage redistribution in the NBA.
-    </div>
+    <div class="va-reason">When <strong>${outPlayers.map(o=>o.name).join(' & ')}</strong> ${outPlayers.length>1?'are':'is'} out, ${p.name}'s usage increases. Projected <strong>+${p.scenarioBoost} pt boost</strong> based on historical usage redistribution. <em>Always verify against current injury reports.</em></div>
+    `:`<div style="padding:16px;text-align:center;color:var(--t3);font-size:12px;">No teammates from ${myTeam||'this team'} are marked OUT.</div>`}
   </div>`;
 }
 
 // ── Render: Value Alerts ──
-function updateRisk() {
-  const v = parseInt(document.getElementById('riskSlider').value);
-  S.risk = v;
-  const labels = [
-    { n:'Conservative', c:'var(--g)', d:'Safest bets only: Edge 8%+, Confidence 70+, Hit Rate 60%+. Fewer alerts but highest conviction.' },
-    { n:'Balanced',     c:'var(--a)', d:'Moderate thresholds: Edge 5%+, Confidence 55+, Hit Rate 50%+. Good mix of quality and volume.' },
-    { n:'Aggressive',   c:'var(--r)', d:'Broader search: Edge 3%+, Confidence 40+. More alerts, higher risk.' },
+function updateRisk(v){
+  S.risk=parseInt(v||document.getElementById('riskSlider').value);
+  const labels=[
+    {n:'Conservative',c:'var(--g)'},
+    {n:'Balanced',c:'var(--a)'},
+    {n:'Aggressive',c:'var(--r)'},
   ];
-  const l = labels[v-1];
-  document.getElementById('riskVal').textContent = l.n;
-  document.getElementById('riskVal').style.color = l.c;
-  document.getElementById('riskDesc').textContent = l.d;
+  const l=labels[S.risk-1];
+  document.getElementById('riskVal').textContent=l.n;
+  document.getElementById('riskVal').style.color=l.c;
   renderAlerts();
 }
 
-function renderAlerts() {
-  const thresholds = [{edge:8,conf:70,hr:60},{edge:5,conf:55,hr:50},{edge:3,conf:40,hr:40}];
-  const t = thresholds[(S.risk||2)-1];
-  let alerts = S.data
-    .filter(p => Math.abs(p.edge||0) >= t.edge && (p.confidence||0) >= t.conf && (p.hitRate||0) >= t.hr)
-    .map(p => ({...p, vs: valueScore(p)}))
-    .sort((a,b) => b.vs - a.vs);
+function renderAlerts(){
+  const thresholds=[{edge:8,conf:70,hr:60},{edge:5,conf:55,hr:50},{edge:3,conf:40,hr:40}];
+  const t=thresholds[(S.risk||2)-1];
+  let alerts=S.data
+    .filter(p=>Math.abs(p.edge||0)>=t.edge&&(p.confidence||0)>=t.conf&&(p.hitRate||0)>=t.hr)
+    .map(p=>({...p,vs:valueScore(p)}))
+    .sort((a,b)=>b.vs-a.vs);
 
-  const grid = document.getElementById('vaGrid');
-  if (!alerts.length) {
-    grid.innerHTML = '<div style="padding:48px;text-align:center;color:var(--t3);font-size:13px;">No value alerts at current risk level.<br>Try loosening the slider or wait for more games to be posted.</div>';
+  const grid=document.getElementById('vaGrid');
+  if(!alerts.length){
+    grid.innerHTML=`<div style="padding:48px;text-align:center;color:var(--t3);font-size:13px;">No value alerts at this risk level.<br><br>Current thresholds: Edge ≥${t.edge}% · Confidence ≥${t.conf} · Hit Rate ≥${t.hr}%<br><br>Try the Aggressive setting or wait for more games to be posted.</div>`;
     return;
   }
-  grid.innerHTML = alerts.map(p => {
-    const dir = p.edge > 0 ? 'OVER' : 'UNDER';
-    const hs = getHeadshot(p.name);
-    const initials = p.name.split(' ').map(n=>n[0]).join('').substring(0,2);
-    const avHTML = hs ? `<img src="${hs}" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentElement.textContent='${initials}'">` : initials;
-    const strength = p.vs >= 40 ? 'strong' : p.vs >= 25 ? 'moderate' : 'risky';
-    const cc = (p.confidence||0) >= 70 ? 'var(--g)' : (p.confidence||0) >= 50 ? 'var(--a)' : 'var(--r)';
-    const reasons = [];
-    if (Math.abs(p.edge||0) >= 8) reasons.push(`<b>${Math.abs(p.edge).toFixed(1)}% edge</b> — very strong`);
-    else if (Math.abs(p.edge||0) >= 5) reasons.push(`<b>${Math.abs(p.edge).toFixed(1)}% edge</b> above the line`);
-    if ((p.hitRate||0) >= 70) reasons.push(`Hit rate <b>${p.hitRate}%</b> (7+ of 10 games over)`);
-    else if ((p.hitRate||0) >= 60) reasons.push(`Hit rate <b>${p.hitRate}%</b>`);
-    if ((p.dvpRank||15) <= 8) reasons.push(`Favorable DvP <b>#${p.dvpRank}</b> matchup`);
-    if ((p.scenarioBoost||0) > 0) reasons.push(`Scenario boost: <b>+${p.scenarioBoost}</b>`);
+  grid.innerHTML=alerts.map(p=>{
+    const isOver=p.edge>0;
+    const dir=isOver?'OVER':'UNDER';
+    const hs=getHeadshot(p.name);
+    const initials=p.name.split(' ').map(n=>n[0]).join('').substring(0,2);
+    const avHTML=hs?`<img src="${hs}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" onerror="this.parentElement.innerHTML='${initials}'">`:`${initials}`;
+    const strength=p.vs>=40?'strong':p.vs>=25?'moderate':'risky';
+    const cc=(p.confidence||0)>=70?'var(--g)':(p.confidence||0)>=50?'var(--a)':'var(--r)';
+    const reasons=[];
+    if(Math.abs(p.edge||0)>=8)reasons.push(`<b>${Math.abs(p.edge).toFixed(1)}% edge</b> — very strong`);
+    else if(Math.abs(p.edge||0)>=5)reasons.push(`<b>${Math.abs(p.edge).toFixed(1)}% edge</b> above threshold`);
+    if((p.hitRate||0)>=70)reasons.push(`Hit rate <b>${p.hitRate}%</b> (7+ of 10 games)`);
+    else if((p.hitRate||0)>=60)reasons.push(`Hit rate <b>${p.hitRate}%</b>`);
+    if((p.dvpRank||15)<=8)reasons.push(`Favorable DvP matchup <b>#${p.dvpRank}</b>`);
+    if((p.scenarioBoost||0)>0)reasons.push(`Scenario boost <b>+${p.scenarioBoost}</b>`);
 
-    return `<div class="va-card ${strength}">
+    return`<div class="va-card ${strength}">
       <div class="va-top">
         <div class="va-av">${avHTML}</div>
         <div class="va-info"><div class="va-name">${p.name}</div><div class="va-meta">${p.team||''} · ${(p.matchup||'').substring(0,25)}</div></div>
-        <div><div class="va-edge-big ${p.edge>0?'pos':'neg'}">${p.edge>0?'+':''}${(p.edge||0).toFixed(1)}%</div><div class="va-dir">${dir} ${p.line}</div></div>
+        <div class="va-right">
+          <div class="va-edge-big ${isOver?'pos':'neg'}">${isOver?'+':''}${(p.edge||0).toFixed(1)}%</div>
+          <div class="va-direction ${isOver?'over':'under'}">▲ BET ${dir}</div>
+        </div>
       </div>
+      <div style="font-size:12px;font-weight:700;color:var(--t3);margin-bottom:8px;">${dir} ${p.line} · Line: ${p.avg > p.line ? p.avg+' avg vs '+p.line+' line' : p.line+' line vs '+p.avg+' avg'}</div>
       <div class="va-stats">
-        <div class="va-stat"><div class="va-stat-v">${p.avg}</div><div class="va-stat-l">Avg</div></div>
+        <div class="va-stat"><div class="va-stat-v">${p.avg}</div><div class="va-stat-l">L10 Avg</div></div>
         <div class="va-stat"><div class="va-stat-v">${p.line}</div><div class="va-stat-l">Line</div></div>
         <div class="va-stat"><div class="va-stat-v">${p.hitRate||0}%</div><div class="va-stat-l">Hit Rate</div></div>
         <div class="va-stat"><div class="va-stat-v" style="color:${cc}">${p.confidence||0}</div><div class="va-stat-l">Conf.</div></div>
       </div>
-      <div class="va-reason">${reasons.join(' · ') || 'Moderate edge detected across multiple factors.'}</div>
+      <div class="va-reason">${reasons.join(' · ')||'Moderate edge detected.'}</div>
       <div class="va-formula">Value = <span>${Math.abs(p.edge||0).toFixed(1)}</span>×0.35 + <span>${Math.max(0,(p.hitRate||50)-50)}</span>×0.30 + <span>${p.confidence||0}</span>×0.35 = <span>${p.vs}</span></div>
     </div>`;
   }).join('');
 }
 
 // ── Sparkline ──
-function mkSpk(d, ln) {
-  if (!d || !d.length) return '';
-  const w = 70, h = 22, pad = 2;
-  const mn = Math.min(...d) - 2, mx = Math.max(...d) + 2, rng = mx - mn || 1;
-  const pts = d.map((v,i) => `${pad+(i/(d.length-1))*(w-pad*2)},${h-pad-((v-mn)/rng)*(h-pad*2)}`);
-  const ly = h - pad - ((ln-mn)/rng) * (h-pad*2);
-  return `<svg viewBox="0 0 ${w} ${h}">
-    <line x1="${pad}" y1="${ly}" x2="${w-pad}" y2="${ly}" stroke="rgba(0,0,0,.12)" stroke-width=".8" stroke-dasharray="2,1.5"/>
-    <polyline points="${pts.join(' ')}" fill="none" stroke="var(--b)" stroke-width="1.4"/>
-    ${d.map((v,i)=>{const x=pad+(i/(d.length-1))*(w-pad*2),y=h-pad-((v-mn)/rng)*(h-pad*2);return`<circle cx="${x}" cy="${y}" r="2" fill="${v>=ln?'var(--g)':'var(--r)'}"/>`;}).join('')}
-  </svg>`;
+function mkSpk(d,ln){
+  if(!d||!d.length)return'';
+  const w=70,h=22,pad=2,mn=Math.min(...d)-2,mx=Math.max(...d)+2,rng=mx-mn||1;
+  const pts=d.map((v,i)=>`${pad+(i/(d.length-1))*(w-pad*2)},${h-pad-((v-mn)/rng)*(h-pad*2)}`);
+  const ly=h-pad-((ln-mn)/rng)*(h-pad*2);
+  return`<svg viewBox="0 0 ${w} ${h}"><line x1="${pad}" y1="${ly}" x2="${w-pad}" y2="${ly}" stroke="rgba(0,0,0,.12)" stroke-width=".8" stroke-dasharray="2,1.5"/><polyline points="${pts.join(' ')}" fill="none" stroke="var(--b)" stroke-width="1.4"/>${d.map((v,i)=>{const x=pad+(i/(d.length-1))*(w-pad*2),y=h-pad-((v-mn)/rng)*(h-pad*2);return`<circle cx="${x}" cy="${y}" r="2" fill="${v>=ln?'var(--g)':'var(--r)'}"/>`;}).join('')}</svg>`;
 }
 
 // ── Utilities ──
-function setApi(k, v) {
-  S.api[k] = v;
-  document.getElementById('apiSt').innerHTML = Object.entries(S.api).map(([n,s]) =>
+function setApi(k,v){
+  S.api[k]=v;
+  document.getElementById('apiSt').innerHTML=Object.entries(S.api).map(([n,s])=>
     `<div class="api-b ${s==='ok'?'ok':s==='ld'?'ld':'err'}"><span class="d"></span>${n==='odds'?'Odds':n==='stats'?'Stats':'Scores'}</div>`
   ).join('');
 }
-function showSts(m, t='inf') {
-  const e = document.getElementById('sts');
-  e.className = `sts ${t}`;
-  e.innerHTML = `${m}<button class="dis" onclick="this.parentElement.classList.add('hide')">&times;</button>`;
+function showSts(m,t='inf'){
+  const e=document.getElementById('sts');
+  e.className=`sts ${t}`;
+  e.innerHTML=`${m}<button class="dis" onclick="this.parentElement.classList.add('hide')">&times;</button>`;
   e.classList.remove('hide');
-  if (t === 'suc') setTimeout(() => e.classList.add('hide'), 4000);
+  if(t==='suc')setTimeout(()=>e.classList.add('hide'),4000);
 }
 
-// ── Clock ──
-setInterval(() => {
-  document.getElementById('clk').textContent =
-    new Date().toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}) + ' · ' +
-    new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
-}, 1000);
+// ── Glossary tooltips (JS-positioned to prevent overflow) ──
+(function initGlossary(){
+  const tip=document.getElementById('glsTip');
+  document.querySelectorAll('.gls-pill').forEach(pill=>{
+    pill.addEventListener('mouseenter',()=>{
+      tip.innerHTML=pill.dataset.tip;
+      tip.style.display='block';
+      const rect=pill.getBoundingClientRect();
+      const tw=tip.offsetWidth||260,th=tip.offsetHeight||100;
+      let left=rect.left+rect.width/2-tw/2;
+      let top=rect.top-th-10;
+      if(left<8)left=8;
+      if(left+tw>window.innerWidth-8)left=window.innerWidth-tw-8;
+      if(top<8)top=rect.bottom+8;
+      tip.style.left=left+'px';
+      tip.style.top=top+'px';
+    });
+    pill.addEventListener('mouseleave',()=>{tip.style.display='none';});
+  });
+})();
 
-// ── Auto-refresh every 60s ──
-setInterval(() => loadData(), 60000);
+// ── Clock ──
+setInterval(()=>{
+  document.getElementById('clk').textContent=
+    new Date().toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})+' · '+
+    new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+},1000);
+
+// ── Auto-refresh ──
+setInterval(()=>loadData(),60000);
 
 // ── Boot ──
-(async () => {
-  setApi('odds','err'); setApi('stats','err'); setApi('scores','err');
-  const h = await apiGet('/api/health');
-  if (h.apis?.odds === 'configured') {
-    showSts('Backend connected, loading data…', 'inf');
-    await loadData();
-  } else {
-    showSts('Enter your API keys above and click Connect to start loading data.', 'inf');
-  }
+(async()=>{
+  setApi('odds','err');setApi('stats','err');setApi('scores','err');
+  const h=await apiGet('/api/health');
+  if(h.apis?.odds==='configured'){showSts('Backend connected, loading data…','inf');await loadData();}
+  else showSts('Enter your API keys above and click Connect to start.','inf');
 })();
 </script>
 </body>
