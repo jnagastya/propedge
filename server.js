@@ -778,13 +778,18 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// ---- START ----
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`\n  ╔═══════════════════════════════════════╗`);
-  console.log(`  ║  PropEdge v3 Server                   ║`);
-  console.log(`  ║  Running on http://localhost:${PORT}      ║`);
-  console.log(`  ║  Odds API: ${ODDS_KEY ? '✓ Configured' : '✗ Missing'}              ║`);
-  console.log(`  ║  BDL API:  ${BDL_KEY ? '✓ Configured' : '○ Missing'}              ║`);
-  console.log(`  ╚═══════════════════════════════════════╝\n`);
-});
+// ---- START (local dev only) ----
+if (require.main === module) {
+  const PORT = process.env.PORT || 3000;
+  app.listen(PORT, () => {
+    console.log(`\n  ╔═══════════════════════════════════════╗`);
+    console.log(`  ║  PropEdge v3 Server                   ║`);
+    console.log(`  ║  Running on http://localhost:${PORT}      ║`);
+    console.log(`  ║  Odds API: ${ODDS_KEY ? '✓ Configured' : '✗ Missing'}              ║`);
+    console.log(`  ║  BDL API:  ${BDL_KEY ? '✓ Configured' : '○ Missing'}              ║`);
+    console.log(`  ╚═══════════════════════════════════════╝\n`);
+  });
+}
+
+// Required for Vercel serverless
+module.exports = app;
