@@ -737,35 +737,34 @@ app.get('/api/debug/bdl', async (req, res) => {
   };
   if (!BDL_KEY) return res.json({ ...result, error: 'BDL_API_KEY env var is missing' });
   try {
-    // Step 1: Search for player (proper %20 encoding)
     const searchUrl = `${BDL_BASE}/players?search=${encodeURIComponent('LeBron James')}&per_page=1`;
     result.searchUrl = searchUrl;
-    const searchResp = await fetch(searchUrl, { headers: bdlHeaders() });
-    result.searchStatus = searchResp.status;
-    if (!searchResp.ok) {
-      const text = await searchResp.text();
-      return res.json({ ...result, error: `Search returned ${searchResp.status}`, body: text.slice(0, 300) });
-    }
-    const searchData = await searchResp.json();
-    const player = searchData.data?.[0];
-    result.playerFound = player ? `${player.first_name} ${player.last_name} (id=${player.id})` : 'none';
-    result.rawFirstResult = searchData.data?.[0] || null;
 
-    // Step 2: Fetch game log if player was found
-    if (player) {
-      const statsUrl = `${BDL_BASE}/stats?player_ids[]=${player.id}&seasons[]=${NBA_SEASON}&per_page=3`;
-      const statsResp = await fetch(statsUrl, { headers: bdlHeaders() });
-      result.statsStatus = statsResp.status;
-      if (statsResp.ok) {
-        const statsData = await statsResp.json();
-        result.gamesFound = statsData.data?.length || 0;
-        result.sampleGame = statsData.data?.[0]
-          ? { date: statsData.data[0].game?.date, pts: statsData.data[0].pts, reb: statsData.data[0].reb, ast: statsData.data[0].ast }
-          : null;
+    // Try plain key first, then Bearer prefix
+    for (const authHeader of [BDL_KEY, `Bearer ${BDL_KEY}`]) {
+      const searchResp = await fetch(searchUrl, { headers: { 'Authorization': authHeader } });
+      result[`status_${authHeader.startsWith('Bearer') ? 'bearer' : 'plain'}`] = searchResp.status;
+      const raw = await searchResp.text();
+      let parsed;
+      try { parsed = JSON.parse(raw); } catch { parsed = null; }
+      const player = parsed?.data?.[0];
+      if (player) {
+        result.workingAuthFormat = authHeader.startsWith('Bearer') ? 'Bearer <key>' : '<key> directly';
+        result.playerFound = `${player.first_name} ${player.last_name} (id=${player.id})`;
+        // Also test stats
+        const statsResp = await fetch(`${BDL_BASE}/stats?player_ids[]=${player.id}&seasons[]=${NBA_SEASON}&per_page=3`, { headers: { 'Authorization': authHeader } });
+        result.statsStatus = statsResp.status;
+        if (statsResp.ok) {
+          const sd = await statsResp.json();
+          result.gamesFound = sd.data?.length || 0;
+          result.sampleGame = sd.data?.[0] ? { date: sd.data[0].game?.date, pts: sd.data[0].pts } : null;
+        }
+        return res.json({ ...result, ok: true });
       }
+      result[`rawBody_${authHeader.startsWith('Bearer') ? 'bearer' : 'plain'}`] = raw.slice(0, 200);
     }
 
-    res.json({ ...result, ok: true });
+    res.json({ ...result, playerFound: 'none — both auth formats returned empty data' });
   } catch (err) {
     res.json({ ...result, error: err.message });
   }
