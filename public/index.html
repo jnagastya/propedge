@@ -586,8 +586,12 @@ async function apiGet(path) {
   catch(e) { return { error: e.message }; }
 }
 async function saveKeys() {
+  const oddsKey = document.getElementById('oddsKey').value.trim();
+  const bdlKey = document.getElementById('bdlKey').value.trim();
+  if (oddsKey) localStorage.setItem('pe_odds_key', oddsKey);
+  if (bdlKey) localStorage.setItem('pe_bdl_key', bdlKey);
   showSts('Connecting…','inf');
-  const r = await fetch(`${API}/api/config`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({oddsKey:document.getElementById('oddsKey').value,bdlKey:document.getElementById('bdlKey').value})});
+  const r = await fetch(`${API}/api/config`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({oddsKey,bdlKey})});
   const d = await r.json();
   setApi('odds', d.odds==='configured'?'ok':'err');
   setApi('stats', d.stats==='configured'?'ok':'ld');
@@ -603,7 +607,7 @@ async function loadData() {
   if (m.data&&!m.error){
     S.data=m.data;setApi('odds','ok');setApi('stats','ok');
     showSts(`Loaded ${S.data.length} players${m.cached?' (cached)':''}`,'suc');
-  } else if(m.error){setApi('odds','err');showSts(`Error: ${m.error}`,'err');S.data=[];}
+  } else if(m.error){setApi('odds','err');showSts(`⚠️ Refresh failed: ${m.error}. ${S.data.length?'Showing last loaded data.':'Enter API keys above.'}`,'err');}
   recalcScenario();renderTable();renderAlerts();
   document.getElementById('dAge').textContent='Just now';
 }
@@ -1107,6 +1111,15 @@ setInterval(()=>loadData(),60000);
 // ── Boot ──
 (async()=>{
   setApi('odds','err');setApi('stats','err');setApi('scores','err');
+  // Restore saved keys from previous session
+  const savedOdds = localStorage.getItem('pe_odds_key');
+  const savedBdl = localStorage.getItem('pe_bdl_key');
+  if (savedOdds) document.getElementById('oddsKey').value = savedOdds;
+  if (savedBdl) document.getElementById('bdlKey').value = savedBdl;
+  // Re-submit keys to server (needed after server restart)
+  if (savedOdds) {
+    await fetch(`${API}/api/config`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({oddsKey:savedOdds,bdlKey:savedBdl||''})});
+  }
   const h=await apiGet('/api/health');
   if(h.apis?.odds==='configured'){showSts('Backend connected, loading data…','inf');await loadData();}
   else showSts('Enter your API keys above and click Connect to start.','inf');
