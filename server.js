@@ -28,9 +28,9 @@ const cache = new NodeCache({
 });
 
 let ODDS_KEY = process.env.ODDS_API_KEY || '';
-let NBA_RAPID_KEY = process.env.NBA_RAPID_KEY || '';
+let BDL_KEY = process.env.BDL_API_KEY || '';
 const ODDS_BASE = 'https://api.the-odds-api.com/v4';
-const NBA_RAPID_BASE = 'https://nba-api-free-data.p.rapidapi.com';
+const BDL_BASE = 'https://api.balldontlie.io/v1';
 const NBA_BASE = 'https://stats.nba.com/stats';
 const STATS_TTL = 12 * 60 * 60; // 12-hour cache for stats
 
@@ -67,51 +67,65 @@ function teamAbbr(fullName) {
   return fullName.substring(0, 3).toUpperCase();
 }
 
-function rapidHeaders() {
-  return {
-    'X-RapidAPI-Key': NBA_RAPID_KEY,
-    'X-RapidAPI-Host': 'nba-api-free-data.p.rapidapi.com',
-    'Accept': 'application/json',
-  };
+function bdlHeaders() {
+  return { 'Authorization': BDL_KEY };
 }
 
 function normalizeNBAGameLog(rows) {
   return (Array.isArray(rows) ? rows : []).map(g => {
-    // Handle NBA.com-style all-caps headers (most likely from this API)
-    if (g.PTS !== undefined || g.GAME_DATE !== undefined) {
+    // BDL v1 format: { pts, reb, ast, ..., game: { date, home_team_id }, team: { id } }
+    if (g.game && g.team) {
+      const home = g.game.home_team_id === g.team.id;
       return {
-        date: g.GAME_DATE || '',
-        pts: +g.PTS || 0, reb: +g.REB || 0, ast: +g.AST || 0,
-        fg3m: +g.FG3M || 0, stl: +g.STL || 0, blk: +g.BLK || 0,
-        turnover: +g.TOV || 0, min: String(g.MIN || '0'),
-        home: !!(g.MATCHUP && g.MATCHUP.includes('vs.')),
-        matchup: g.MATCHUP || '', wl: g.WL || '',
+        date: (g.game.date || '').split('T')[0],
+        pts: +g.pts || 0, reb: +g.reb || 0, ast: +g.ast || 0,
+        fg3m: +g.fg3m || 0, stl: +g.stl || 0, blk: +g.blk || 0,
+        turnover: +g.turnover || 0, min: String(g.min || '0'),
+        home, matchup: g.team.abbreviation || '', wl: '',
       };
     }
-    // Handle lowercase format
+    // Lowercase flat format fallback
     return {
-      date: g.date || g.game_date || g.gameDate || '',
-      pts: +g.pts || +g.points || 0, reb: +g.reb || +g.rebounds || 0,
-      ast: +g.ast || +g.assists || 0, fg3m: +g.fg3m || 0,
-      stl: +g.stl || 0, blk: +g.blk || 0, turnover: +g.turnover || +g.tov || 0,
-      min: String(g.min || g.minutes || '0'), home: g.home || false,
-      matchup: g.matchup || '', wl: g.wl || '',
+      date: g.date || g.game_date || '',
+      pts: +g.pts || 0, reb: +g.reb || 0, ast: +g.ast || 0,
+      fg3m: +g.fg3m || 0, stl: +g.stl || 0, blk: +g.blk || 0,
+      turnover: +g.turnover || +g.tov || 0,
+      min: String(g.min || '0'), home: g.home || false,
+      matchup: '', wl: '',
     };
   }).filter(g => g.date);
 }
 
-function parseRapidResponse(raw) {
-  // NBA.com resultSets format
-  if (raw.resultSets) {
-    const rs = raw.resultSets.find(s => s.name === 'PlayerGameLog') || raw.resultSets[0];
-    if (rs && rs.headers && rs.rowSet) {
-      return rs.rowSet.map(row => { const o = {}; rs.headers.forEach((h,i) => o[h] = row[i]); return o; });
-    }
-  }
-  if (Array.isArray(raw)) return raw;
-  if (raw.data) return raw.data;
-  if (raw.games) return raw.games;
-  return [];
+// Fetch full season game log from BDL (handles cursor pagination)
+async function fetchBDLGameLog(playerId) {
+  let allRows = [];
+  let cursor = null;
+  do {
+    let url = `${BDL_BASE}/stats?player_ids[]=${playerId}&seasons[]=${NBA_SEASON}&per_page=100`;
+    if (cursor) url += `&cursor=${cursor}`;
+    const resp = await fetch(url, { headers: bdlHeaders() });
+    if (!resp.ok) throw new Error(`BDL stats ${resp.status}`);
+    const data = await resp.json();
+    allRows = allRows.concat(data.data || []);
+    cursor = data.meta?.next_cursor || null;
+  } while (cursor);
+  return normalizeNBAGameLog(allRows);
+}
+
+// Get BDL player ID by name, cached for 24h
+async function getBDLPlayerId(name) {
+  const ck = `bdl_pid_${name.toLowerCase().replace(/\s+/g, '_')}`;
+  const cached = cacheGet(ck);
+  if (cached !== undefined) return cached;
+  const resp = await fetch(`${BDL_BASE}/players?search=${encodeURIComponent(name)}&per_page=5`, { headers: bdlHeaders() });
+  if (!resp.ok) { cacheSet(ck, null, 3600); return null; }
+  const data = await resp.json();
+  const player = (data.data || []).find(p =>
+    `${p.first_name} ${p.last_name}`.toLowerCase() === name.toLowerCase()
+  ) || data.data?.[0];
+  const id = player ? player.id : null;
+  cacheSet(ck, id, 24 * 3600);
+  return id;
 }
 
 const NBA_IDS_SERVER = {
@@ -141,7 +155,7 @@ app.get('/api/status', (req, res) => {
   res.json({
     server: 'ok',
     oddsApi: ODDS_KEY ? 'configured' : 'missing',
-    nbaApi: NBA_RAPID_KEY ? 'configured' : 'missing',
+    nbaApi: BDL_KEY ? 'configured' : 'missing',
     cacheKeys: cache.keys().length,
     uptime: process.uptime(),
   });
@@ -155,7 +169,7 @@ app.get('/api/health', (req, res) => {
     server: 'ok',
     apis: {
       odds: ODDS_KEY ? 'configured' : 'missing',
-      stats: NBA_RAPID_KEY ? 'configured' : 'missing',
+      stats: BDL_KEY ? 'configured' : 'missing',
     },
     season: NBA_SEASON,
     uptime: process.uptime(),
@@ -171,7 +185,7 @@ app.post('/api/config', (req, res) => {
   cache.flushAll(); // clear cache so fresh data loads with new keys
   res.json({
     odds: ODDS_KEY ? 'configured' : 'missing',
-    stats: NBA_RAPID_KEY ? 'configured' : 'missing',
+    stats: BDL_KEY ? 'configured' : 'missing',
   });
 });
 
@@ -342,13 +356,22 @@ app.get('/api/odds/scores', async (req, res) => {
 app.get('/api/stats/player/search', async (req, res) => {
   const { name } = req.query;
   if (!name) return res.status(400).json({ error: 'name required' });
-  // Use NBA_IDS_SERVER for instant lookup without an API call
-  const id = NBA_IDS_SERVER[name];
-  if (id) return res.json({ data: [{ id, name }], cached: false });
-  // Fuzzy match
-  const match = Object.entries(NBA_IDS_SERVER).find(([n]) => n.toLowerCase().includes(name.toLowerCase()));
-  if (match) return res.json({ data: [{ id: match[1], name: match[0] }], cached: false });
-  res.json({ data: [], cached: false });
+  if (!BDL_KEY) return res.status(400).json({ error: 'BDL_API_KEY not configured' });
+
+  const ck = `bdl_search_${name.toLowerCase()}`;
+  const cached = cacheGet(ck);
+  if (cached !== undefined) return res.json({ data: cached, cached: true });
+
+  try {
+    const resp = await fetch(`${BDL_BASE}/players?search=${encodeURIComponent(name)}&per_page=5`, { headers: bdlHeaders() });
+    if (!resp.ok) throw new Error(`BDL ${resp.status}`);
+    const data = await resp.json();
+    const results = (data.data || []).map(p => ({ id: p.id, name: `${p.first_name} ${p.last_name}` }));
+    cacheSet(ck, results, 24 * 3600);
+    res.json({ data: results, cached: false });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ============================================================
@@ -356,19 +379,14 @@ app.get('/api/stats/player/search', async (req, res) => {
 // ============================================================
 app.get('/api/stats/player/:id/games', async (req, res) => {
   const { id } = req.params;
-  const ck = `nba_gl_${id}_${NBA_SEASON}`;
+  const ck = `bdl_gl_${id}_${NBA_SEASON}`;
   const cached = cacheGet(ck);
   if (cached) return res.json({ data: cached, cached: true });
 
-  if (!NBA_RAPID_KEY) return res.status(400).json({ error: 'NBA_RAPID_KEY not configured' });
+  if (!BDL_KEY) return res.status(400).json({ error: 'BDL_API_KEY not configured' });
 
   try {
-    const season = `${NBA_SEASON}-${String(NBA_SEASON + 1).slice(2)}`;
-    const url = `${NBA_RAPID_BASE}/nba-player-game-log?NbaPlayerID=${id}&Season=${encodeURIComponent(season)}&SeasonType=Regular+Season`;
-    const resp = await fetch(url, { headers: rapidHeaders() });
-    if (!resp.ok) throw new Error(`NBA API ${resp.status}: ${await resp.text()}`);
-    const raw = await resp.json();
-    const games = normalizeNBAGameLog(parseRapidResponse(raw));
+    const games = await fetchBDLGameLog(id);
     cacheSet(ck, games, STATS_TTL);
     res.json({ data: games, cached: false });
   } catch (err) {
@@ -382,22 +400,19 @@ app.get('/api/stats/player/:id/games', async (req, res) => {
 // ============================================================
 app.get('/api/stats/player/:id/averages', async (req, res) => {
   const { id } = req.params;
-  const ck = `nba_avg_${id}_${NBA_SEASON}`;
+  const ck = `bdl_avg_${id}_${NBA_SEASON}`;
   const cached = cacheGet(ck);
   if (cached) return res.json({ data: cached, cached: true });
 
-  if (!NBA_RAPID_KEY) return res.status(400).json({ error: 'NBA_RAPID_KEY not configured' });
+  if (!BDL_KEY) return res.status(400).json({ error: 'BDL_API_KEY not configured' });
 
   try {
-    const season = `${NBA_SEASON}-${String(NBA_SEASON + 1).slice(2)}`;
-    const url = `${NBA_RAPID_BASE}/nba-player-game-log?NbaPlayerID=${id}&Season=${encodeURIComponent(season)}&SeasonType=Regular+Season`;
-    const resp = await fetch(url, { headers: rapidHeaders() });
-    if (!resp.ok) throw new Error(`NBA API ${resp.status}`);
-    const raw = await resp.json();
-    const games = normalizeNBAGameLog(parseRapidResponse(raw));
-    if (!games.length) { res.json({ data: null, cached: false }); return; }
-    const avg = (k) => +(games.reduce((s, g) => s + (g[k] || 0), 0) / games.length).toFixed(1);
-    const result = { pts: avg('pts'), reb: avg('reb'), ast: avg('ast'), fg3m: avg('fg3m'), gp: games.length };
+    const resp = await fetch(`${BDL_BASE}/season_averages?season=${NBA_SEASON}&player_ids[]=${id}`, { headers: bdlHeaders() });
+    if (!resp.ok) throw new Error(`BDL ${resp.status}`);
+    const data = await resp.json();
+    const a = data.data?.[0];
+    if (!a) { res.json({ data: null, cached: false }); return; }
+    const result = { pts: a.pts, reb: a.reb, ast: a.ast, fg3m: a.fg3m, gp: a.games_played };
     cacheSet(ck, result, STATS_TTL);
     res.json({ data: result, cached: false });
   } catch (err) {
@@ -414,17 +429,12 @@ app.get('/api/stats/player/:id/splits', async (req, res) => {
   const line = parseFloat(req.query.line) || 0;
   const stat = req.query.stat || 'pts';
 
-  const ck = `nba_gl_${id}_${NBA_SEASON}`;
+  const ck = `bdl_gl_${id}_${NBA_SEASON}`;
   let games = cacheGet(ck);
   if (!games) {
-    if (!NBA_RAPID_KEY) return res.status(400).json({ error: 'NBA_RAPID_KEY not configured' });
+    if (!BDL_KEY) return res.status(400).json({ error: 'BDL_API_KEY not configured' });
     try {
-      const season = `${NBA_SEASON}-${String(NBA_SEASON + 1).slice(2)}`;
-      const url = `${NBA_RAPID_BASE}/nba-player-game-log?NbaPlayerID=${id}&Season=${encodeURIComponent(season)}&SeasonType=Regular+Season`;
-      const resp = await fetch(url, { headers: rapidHeaders() });
-      if (!resp.ok) throw new Error(`NBA API ${resp.status}`);
-      const raw = await resp.json();
-      games = normalizeNBAGameLog(parseRapidResponse(raw));
+      games = await fetchBDLGameLog(id);
       cacheSet(ck, games, STATS_TTL);
     } catch (err) {
       return res.status(500).json({ error: err.message });
@@ -595,38 +605,32 @@ app.get('/api/analytics/merged', async (req, res) => {
       }
     }
 
-    // Step 2: Enrich each player with stats using NBA_IDS_SERVER direct lookup
+    // Step 2: Enrich each player with stats via BDL
+    const statMap = {
+      'player_points': 'pts', 'player_rebounds': 'reb', 'player_assists': 'ast',
+      'player_threes': 'fg3m', 'player_steals': 'stl', 'player_blocks': 'blk',
+      'player_turnovers': 'turnover',
+    };
+    const statKey = statMap[market] || 'pts';
+
     const enriched = await Promise.all(players.slice(0, 50).map(async (p) => {
       try {
-        const nbaId = NBA_IDS_SERVER[p.name];
         let gameLog = [];
 
-        if (nbaId && NBA_RAPID_KEY) {
-          const glCk = `nba_gl_${nbaId}_${NBA_SEASON}`;
-          gameLog = cacheGet(glCk);
-          if (!gameLog) {
-            try {
-              const season = `${NBA_SEASON}-${String(NBA_SEASON + 1).slice(2)}`;
-              const glResp = await fetch(
-                `${NBA_RAPID_BASE}/nba-player-game-log?NbaPlayerID=${nbaId}&Season=${encodeURIComponent(season)}&SeasonType=Regular+Season`,
-                { headers: rapidHeaders() }
-              );
-              if (glResp.ok) {
-                const glData = await glResp.json();
-                gameLog = normalizeNBAGameLog(parseRapidResponse(glData));
+        if (BDL_KEY) {
+          const bdlId = await getBDLPlayerId(p.name);
+          if (bdlId) {
+            const glCk = `bdl_gl_${bdlId}_${NBA_SEASON}`;
+            gameLog = cacheGet(glCk);
+            if (!gameLog) {
+              try {
+                gameLog = await fetchBDLGameLog(bdlId);
                 cacheSet(glCk, gameLog, STATS_TTL);
-              }
-            } catch { gameLog = []; }
+              } catch { gameLog = []; }
+            }
+            gameLog = gameLog || [];
           }
-          gameLog = gameLog || [];
         }
-
-        const statMap = {
-          'player_points': 'pts', 'player_rebounds': 'reb', 'player_assists': 'ast',
-          'player_threes': 'fg3m', 'player_steals': 'stl', 'player_blocks': 'blk',
-          'player_turnovers': 'turnover',
-        };
-        const statKey = statMap[market] || 'pts';
 
         const sorted = [...gameLog].sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
         const l10Raw = sorted.slice(0, 10).map(g => g[statKey] || 0).reverse();
@@ -643,7 +647,6 @@ app.get('/api/analytics/merged', async (req, res) => {
 
         return {
           ...p, team, position: pos, avg, l10, hitRate, edge, dvpRank, dvpClass, confidence,
-          nbaId: nbaId || null,
           hasRealStats: gameLog.length >= 5,
           gamesPlayed: gameLog.length,
         };
@@ -655,7 +658,7 @@ app.get('/api/analytics/merged', async (req, res) => {
           ...p, team: guessTeam(p.name), position: guessPosition(p.name),
           avg, l10, hitRate: 50, edge: +((avg - p.line) / p.line * 100).toFixed(1),
           dvpRank: 15, dvpClass: 'Mid', confidence: 45,
-          nbaId: null, hasRealStats: false, gamesPlayed: 0,
+          hasRealStats: false, gamesPlayed: 0,
         };
       }
     }));
@@ -757,6 +760,6 @@ app.listen(PORT, () => {
   console.log(`  ║  PropEdge v3 Server                   ║`);
   console.log(`  ║  Running on http://localhost:${PORT}      ║`);
   console.log(`  ║  Odds API: ${ODDS_KEY ? '✓ Configured' : '✗ Missing'}              ║`);
-  console.log(`  ║  NBA API:  ${NBA_RAPID_KEY ? '✓ Configured' : '○ Missing'}              ║`);
+  console.log(`  ║  BDL API:  ${BDL_KEY ? '✓ Configured' : '○ Missing'}              ║`);
   console.log(`  ╚═══════════════════════════════════════╝\n`);
 });
