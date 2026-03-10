@@ -726,6 +726,31 @@ app.get('/api/cache/clear', (req, res) => {
 });
 
 // ============================================================
+// ROUTE: GET /api/debug/bdl — test BDL API connectivity
+// ============================================================
+app.get('/api/debug/bdl', async (req, res) => {
+  const result = {
+    keyConfigured: !!BDL_KEY,
+    keyPrefix: BDL_KEY ? BDL_KEY.substring(0, 8) + '...' : null,
+    season: NBA_SEASON,
+  };
+  if (!BDL_KEY) return res.json({ ...result, error: 'BDL_API_KEY env var is missing' });
+  try {
+    const resp = await fetch(`${BDL_BASE}/players?search=LeBron+James&per_page=1`, { headers: bdlHeaders() });
+    result.httpStatus = resp.status;
+    if (!resp.ok) {
+      const text = await resp.text();
+      return res.json({ ...result, error: `BDL returned ${resp.status}`, body: text.slice(0, 200) });
+    }
+    const data = await resp.json();
+    result.playerFound = data.data?.[0] ? `${data.data[0].first_name} ${data.data[0].last_name} (id=${data.data[0].id})` : 'none';
+    res.json({ ...result, ok: true });
+  } catch (err) {
+    res.json({ ...result, error: err.message });
+  }
+});
+
+// ============================================================
 // ROUTE: GET /api/headshot/:id — proxy NBA CDN to avoid CORS
 // ============================================================
 app.get('/api/headshot/:id', async (req, res) => {
