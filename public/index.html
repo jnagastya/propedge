@@ -792,7 +792,7 @@ function renderTable(){
     // Row classes
     let rowClass='';
     if(isValue)rowClass='value-row';
-    if(hasBoost)rowClass+=(rowClass?' ':')+'scn-row';
+    if(hasBoost)rowClass+=(rowClass?' ':'')+' scn-row';
 
     const tr=document.createElement('tr');
     tr.id=`r-${i}`;tr.className=rowClass.trim();
