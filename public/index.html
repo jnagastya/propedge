@@ -967,23 +967,21 @@ async function showDTab(i,tab,btn){
 }
 async function loadAndRenderSplits(el,p){
   if(p.splits){renderSplits(el,p);return;}
-  if(!p.bdlId){el.innerHTML='<div style="padding:20px;text-align:center;color:var(--t3);font-size:12px;">No player ID found — splits unavailable.</div>';return;}
   el.innerHTML='<div style="padding:20px;text-align:center;color:var(--t3);font-size:12px;">Loading splits…</div>';
   const statMap={'player_points':'pts','player_rebounds':'reb','player_assists':'ast','player_threes':'fg3m','player_steals':'stl','player_blocks':'blk','player_turnovers':'turnover'};
   const stat=statMap[S.market]||'pts';
-  const r=await apiGet(`/api/stats/player/${p.bdlId}/splits?line=${p.line}&stat=${stat}`);
+  const r=await apiGet(`/api/stats/player/name/${encodeURIComponent(p.name)}/splits?line=${p.line}&stat=${stat}`);
   if(r.data){p.splits=r.data;renderSplits(el,p);}
   else el.innerHTML=`<div style="padding:20px;text-align:center;color:var(--r);font-size:12px;">Error loading splits: ${r.error||'API error'}</div>`;
 }
 async function loadAndRenderGameLog(el,p){
   if(p.gameLog&&p.gameLog.length){renderGameLog(el,p);return;}
-  if(!p.bdlId){el.innerHTML='<div style="padding:24px;text-align:center;color:var(--t3);font-size:12px;">No player stats available.</div>';return;}
   el.innerHTML='<div style="padding:24px;text-align:center;color:var(--t3);font-size:12px;">Loading game log…</div>';
-  const r=await apiGet(`/api/stats/player/${p.bdlId}/games`);
+  const r=await apiGet(`/api/stats/player/name/${encodeURIComponent(p.name)}/games`);
   if(r.data&&r.data.length){
-    p.gameLog=r.data.sort((a,b)=>new Date(b.game?.date||0)-new Date(a.game?.date||0)).map(g=>({
-      date:g.game?.date,pts:g.pts,reb:g.reb,ast:g.ast,fg3m:g.fg3m,min:g.min,
-      home:g.game?.home_team_id===g.team?.id,
+    p.gameLog=r.data.sort((a,b)=>new Date(b.date||0)-new Date(a.date||0)).map(g=>({
+      date:g.date,pts:g.pts,reb:g.reb,ast:g.ast,fg3m:g.fg3m,min:g.min,
+      home:g.home,
     }));
     renderGameLog(el,p);
   } else el.innerHTML=`<div style="padding:24px;text-align:center;color:var(--t3);font-size:12px;">${r.error?`Error: ${r.error}`:'No game log data available.'}</div>`;

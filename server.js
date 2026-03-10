@@ -445,6 +445,51 @@ app.get('/api/stats/player/:id/splits', async (req, res) => {
   res.json({ data: splits, cached: false, gamesAnalyzed: games.length });
 });
 
+// ============================================================
+// ROUTE: GET /api/stats/player/name/:name/games — game log by player name
+// ============================================================
+app.get('/api/stats/player/name/:name/games', async (req, res) => {
+  const name = decodeURIComponent(req.params.name);
+  if (!BDL_KEY) return res.status(400).json({ error: 'BDL_API_KEY not configured' });
+  try {
+    const bdlId = await getBDLPlayerId(name);
+    if (!bdlId) return res.json({ data: [], cached: false, error: 'Player not found in BDL' });
+    const ck = `bdl_gl_${bdlId}_${NBA_SEASON}`;
+    const cached = cacheGet(ck);
+    if (cached) return res.json({ data: cached, cached: true });
+    const games = await fetchBDLGameLog(bdlId);
+    cacheSet(ck, games, STATS_TTL);
+    res.json({ data: games, cached: false });
+  } catch (err) {
+    console.error('Game log by name error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ============================================================
+// ROUTE: GET /api/stats/player/name/:name/splits — splits by player name
+// ============================================================
+app.get('/api/stats/player/name/:name/splits', async (req, res) => {
+  const name = decodeURIComponent(req.params.name);
+  const line = parseFloat(req.query.line) || 0;
+  const stat = req.query.stat || 'pts';
+  if (!BDL_KEY) return res.status(400).json({ error: 'BDL_API_KEY not configured' });
+  try {
+    const bdlId = await getBDLPlayerId(name);
+    if (!bdlId) return res.json({ data: null, cached: false, error: 'Player not found in BDL' });
+    const ck = `bdl_gl_${bdlId}_${NBA_SEASON}`;
+    let games = cacheGet(ck);
+    if (!games) {
+      games = await fetchBDLGameLog(bdlId);
+      cacheSet(ck, games, STATS_TTL);
+    }
+    res.json({ data: computeSplits(games, line, stat), cached: false, gamesAnalyzed: games.length });
+  } catch (err) {
+    console.error('Splits by name error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 function computeSplits(games, line, statKey) {
   if (!games || !games.length) return null;
 
@@ -605,63 +650,22 @@ app.get('/api/analytics/merged', async (req, res) => {
       }
     }
 
-    // Step 2: Enrich each player with stats via BDL
-    const statMap = {
-      'player_points': 'pts', 'player_rebounds': 'reb', 'player_assists': 'ast',
-      'player_threes': 'fg3m', 'player_steals': 'stl', 'player_blocks': 'blk',
-      'player_turnovers': 'turnover',
-    };
-    const statKey = statMap[market] || 'pts';
-
-    const enriched = await Promise.all(players.slice(0, 50).map(async (p) => {
-      try {
-        let gameLog = [];
-
-        if (BDL_KEY) {
-          const bdlId = await getBDLPlayerId(p.name);
-          if (bdlId) {
-            const glCk = `bdl_gl_${bdlId}_${NBA_SEASON}`;
-            gameLog = cacheGet(glCk);
-            if (!gameLog) {
-              try {
-                gameLog = await fetchBDLGameLog(bdlId);
-                cacheSet(glCk, gameLog, STATS_TTL);
-              } catch { gameLog = []; }
-            }
-            gameLog = gameLog || [];
-          }
-        }
-
-        const sorted = [...gameLog].sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
-        const l10Raw = sorted.slice(0, 10).map(g => g[statKey] || 0).reverse();
-        const l10 = l10Raw.length >= 5 ? l10Raw : generateFakeL10(p.line);
-
-        const avg = l10.length ? +(l10.reduce((a, b) => a + b, 0) / l10.length).toFixed(1) : p.line;
-        const hitRate = p.line ? Math.round(l10.filter(v => v >= p.line).length / l10.length * 100) : 50;
-        const edge = p.line ? +((avg - p.line) / p.line * 100).toFixed(1) : 0;
-        const pos = guessPosition(p.name);
-        const team = guessTeam(p.name);
-        const dvpRank = computeDvPRank(p.homeTeam === team ? p.awayTeam : p.homeTeam, pos);
-        const dvpClass = dvpRank <= 10 ? 'Easy' : dvpRank >= 21 ? 'Hard' : 'Mid';
-        const confidence = computeConfidence({ l10, hitRate, edge, dvpRank });
-
-        return {
-          ...p, team, position: pos, avg, l10, hitRate, edge, dvpRank, dvpClass, confidence,
-          hasRealStats: gameLog.length >= 5,
-          gamesPlayed: gameLog.length,
-        };
-      } catch (enrichErr) {
-        console.error(`Enrich error for ${p.name}:`, enrichErr.message);
-        const l10 = generateFakeL10(p.line);
-        const avg = +(l10.reduce((a, b) => a + b, 0) / l10.length).toFixed(1);
-        return {
-          ...p, team: guessTeam(p.name), position: guessPosition(p.name),
-          avg, l10, hitRate: 50, edge: +((avg - p.line) / p.line * 100).toFixed(1),
-          dvpRank: 15, dvpClass: 'Mid', confidence: 45,
-          hasRealStats: false, gamesPlayed: 0,
-        };
-      }
-    }));
+    // Step 2: Enrich each player with estimated stats (no BDL calls — fetched on-demand when player is clicked)
+    const enriched = players.slice(0, 50).map((p) => {
+      const l10 = generateFakeL10(p.line);
+      const avg = +(l10.reduce((a, b) => a + b, 0) / l10.length).toFixed(1);
+      const hitRate = p.line ? Math.round(l10.filter(v => v >= p.line).length / l10.length * 100) : 50;
+      const edge = p.line ? +((avg - p.line) / p.line * 100).toFixed(1) : 0;
+      const pos = guessPosition(p.name);
+      const team = guessTeam(p.name);
+      const dvpRank = computeDvPRank(p.homeTeam === team ? p.awayTeam : p.homeTeam, pos);
+      const dvpClass = dvpRank <= 10 ? 'Easy' : dvpRank >= 21 ? 'Hard' : 'Mid';
+      const confidence = computeConfidence({ l10, hitRate, edge, dvpRank });
+      return {
+        ...p, team, position: pos, avg, l10, hitRate, edge, dvpRank, dvpClass, confidence,
+        hasRealStats: false, gamesPlayed: 0,
+      };
+    });
 
     cacheSet(ck, enriched, 90);
     res.json({ data: enriched, cached: false, total: enriched.length });
