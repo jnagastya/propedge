@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PropEdge v3 Pro</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+:root{--bg0:#05070c;--bg1:#0a0f1c;--bg2:#0f1628;--bg3:#152035;--bg4:#1a2842;--bgh:rgba(91,141,239,.06);--bd:rgba(255,255,255,.06);--bd2:rgba(255,255,255,.1);--t1:#eef2fa;--t2:#9aadcc;--t3:#566b8a;--g:#22e68c;--gd:rgba(34,230,140,.1);--r:#ff4060;--rd:rgba(255,64,96,.1);--b:#5b8def;--bdd:rgba(91,141,239,.12);--bb:rgba(91,141,239,.3);--a:#ffb347;--ad:rgba(255,179,71,.1);--p:#b07aff;--pd:rgba(176,122,255,.1);--c:#36d6e7;--cd:rgba(54,214,231,.1);--mono:'JetBrains Mono',monospace;--sans:'Outfit',sans-serif;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg0);color:var(--t1);font-family:var(--sans);overflow-x:hidden;}
+::-webkit-scrollbar{width:5px;height:5px;}::-webkit-scrollbar-track{background:transparent;}::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:3px;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+
+/* TOPBAR */
+.top{display:flex;align-items:center;justify-content:space-between;padding:8px 20px;border-bottom:1px solid var(--bd);background:rgba(5,7,12,.92);backdrop-filter:blur(24px);position:sticky;top:0;z-index:300;}
+.lg{display:flex;align-items:center;gap:9px;}
+.lm{width:28px;height:28px;border-radius:6px;background:linear-gradient(135deg,var(--b),var(--p),var(--c));display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-weight:800;font-size:10px;color:#fff;box-shadow:0 0 16px rgba(91,141,239,.35);}
+.ln{font-family:var(--mono);font-weight:700;font-size:15px;background:linear-gradient(135deg,var(--b),var(--c));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.lv{font-family:var(--mono);font-size:8px;color:var(--t3);padding:2px 6px;background:var(--bg3);border-radius:3px;letter-spacing:.8px;text-transform:uppercase;}
+.tr{display:flex;align-items:center;gap:12px;}
+.ast{display:flex;gap:6px;}
+.ab{font-family:var(--mono);font-size:8px;padding:2px 7px;border-radius:3px;display:flex;align-items:center;gap:3px;}.ab .d{width:4px;height:4px;border-radius:50%;}
+.ab.ok{background:var(--gd);color:var(--g);}.ab.ok .d{background:var(--g);}
+.ab.er{background:var(--rd);color:var(--r);}.ab.er .d{background:var(--r);}
+.ab.ld{background:var(--ad);color:var(--a);}.ab.ld .d{background:var(--a);animation:pulse 1s infinite;}
+.li{display:flex;align-items:center;gap:5px;font-family:var(--mono);font-size:9px;color:var(--g);}
+.ld{width:6px;height:6px;background:var(--g);border-radius:50%;animation:pulse 2s infinite;box-shadow:0 0 6px rgba(34,230,140,.5);}
+.ck{font-family:var(--mono);font-size:10px;color:var(--t3);}
+.req-ct{font-family:var(--mono);font-size:8px;color:var(--a);padding:2px 7px;background:var(--ad);border-radius:3px;}
+
+/* LAYOUT */
+.app{display:grid;grid-template-columns:220px 1fr 260px;min-height:calc(100vh - 41px);}
+
+/* SIDEBAR */
+.sb{background:var(--bg1);border-right:1px solid var(--bd);padding:14px 0;overflow-y:auto;max-height:calc(100vh - 41px);position:sticky;top:41px;}
+.ss{padding:0 12px;margin-bottom:16px;}
+.sl{font-family:var(--mono);font-size:8px;letter-spacing:1.5px;text-transform:uppercase;color:var(--t3);margin-bottom:6px;padding:0 4px;}
+.si{display:flex;align-items:center;gap:6px;background:var(--bg2);border:1px solid var(--bd);border-radius:6px;padding:6px 9px;}
+.si:focus-within{border-color:var(--bb);}
+.si svg{color:var(--t3);flex-shrink:0;}
+.si input{background:none;border:none;color:var(--t1);font-family:var(--sans);font-size:11px;width:100%;outline:none;}
+.si input::placeholder{color:var(--t3);}
+.bg{display:flex;flex-direction:column;gap:1px;}
+.bt{display:flex;align-items:center;gap:7px;padding:6px 9px;border:none;background:none;color:var(--t2);font-family:var(--sans);font-size:11px;border-radius:5px;cursor:pointer;transition:all .1s;text-align:left;}
+.bt:hover{background:var(--bg2);color:var(--t1);}
+.bt.on{background:var(--bdd);color:var(--b);}
+.bt .c{margin-left:auto;font-family:var(--mono);font-size:9px;color:var(--t3);}
+.dv{height:1px;background:var(--bd);margin:8px 12px;}
+.tg{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;}
+.tc{display:flex;align-items:center;gap:3px;padding:4px 5px;border:none;background:none;color:var(--t3);font-family:var(--mono);font-size:9px;border-radius:3px;cursor:pointer;transition:all .1s;}
+.tc:hover{background:var(--bg3);color:var(--t2);}
+.tc.on{background:var(--bdd);color:var(--b);}
+.tc .td{width:5px;height:5px;border-radius:2px;flex-shrink:0;}
+
+/* MAIN */
+.mn{padding:16px 20px;overflow-y:auto;min-width:0;}
+.ctrls{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;gap:10px;flex-wrap:wrap;}
+.cl,.cr{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.tabs{display:flex;background:var(--bg2);border-radius:6px;border:1px solid var(--bd);overflow:hidden;}
+.tab{padding:6px 12px;border:none;background:none;color:var(--t3);font-family:var(--mono);font-size:10px;cursor:pointer;transition:all .12s;white-space:nowrap;}
+.tab:hover{color:var(--t2);}.tab.on{background:var(--b);color:#fff;}
+.sel{padding:6px 24px 6px 8px;background:var(--bg2);border:1px solid var(--bd);border-radius:6px;color:var(--t2);font-family:var(--mono);font-size:10px;cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8' fill='%23566b8a' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 7px center;}
+.sel option{background:var(--bg1);}
+.cbtn{display:flex;align-items:center;gap:4px;padding:6px 10px;background:var(--bg2);border:1px solid var(--bd);border-radius:6px;color:var(--t2);font-family:var(--mono);font-size:10px;cursor:pointer;transition:all .12s;}
+.cbtn:hover{border-color:var(--t3);color:var(--t1);}
+.cbtn.on{border-color:var(--p);color:var(--p);background:var(--pd);}
+.rbtn{padding:6px 10px;background:var(--bdd);border:1px solid var(--bb);border-radius:6px;color:var(--b);font-family:var(--mono);font-size:10px;cursor:pointer;display:flex;align-items:center;gap:4px;}
+.rbtn:hover{background:rgba(91,141,239,.18);}
+.rbtn.sp svg{animation:spin .7s linear infinite;}
+
+/* STATUS */
+.sts{display:flex;align-items:center;gap:8px;padding:8px 14px;border-radius:6px;margin-bottom:16px;font-size:11px;border:1px solid var(--bd);}
+.sts.hide{display:none;}
+.sts.inf{background:var(--bdd);color:var(--b);border-color:var(--bb);}
+.sts.suc{background:var(--gd);color:var(--g);border-color:rgba(34,230,140,.25);}
+.sts.err{background:var(--rd);color:var(--r);border-color:rgba(255,64,96,.25);}
+
+/* SCORES */
+.scs{display:flex;gap:8px;overflow-x:auto;margin-bottom:16px;scrollbar-width:none;}
+.scs::-webkit-scrollbar{display:none;}
+.sc{flex-shrink:0;padding:8px 12px;background:var(--bg2);border:1px solid var(--bd);border-radius:6px;min-width:140px;}
+.sc.lv{border-color:rgba(34,230,140,.25);}
+.scr{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:2px;}
+.sct{font-family:var(--mono);font-size:10px;font-weight:600;}
+.scv{font-family:var(--mono);font-size:12px;font-weight:700;}
+.scs2{font-family:var(--mono);font-size:8px;color:var(--t3);text-align:center;}
+.scs2.lv{color:var(--g);}
+
+/* TABLE */
+.tw{background:var(--bg2);border:1px solid var(--bd);border-radius:10px;overflow:hidden;margin-bottom:16px;}
+.th2{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--bd);}
+.tt{font-family:var(--mono);font-size:11px;font-weight:600;display:flex;align-items:center;gap:7px;}
+.bdg{font-size:8px;font-weight:500;padding:2px 6px;border-radius:3px;}
+.bdg-b{background:var(--bdd);color:var(--b);}.bdg-g{background:var(--gd);color:var(--g);}.bdg-a{background:var(--ad);color:var(--a);}
+.tsc{overflow-x:auto;}
+table{width:100%;border-collapse:collapse;font-size:11px;}
+thead th{padding:7px 10px;text-align:left;font-family:var(--mono);font-size:8px;letter-spacing:.5px;text-transform:uppercase;color:var(--t3);border-bottom:1px solid var(--bd);white-space:nowrap;position:sticky;top:0;background:var(--bg2);cursor:pointer;}
+thead th:hover{color:var(--t2);}
+tbody tr{border-bottom:1px solid rgba(255,255,255,.025);transition:background .08s;cursor:pointer;}
+tbody tr:hover{background:var(--bgh);}
+tbody tr.exp{background:var(--bg3);}
+td{padding:8px 10px;white-space:nowrap;}
+.pc{display:flex;align-items:center;gap:8px;min-width:175px;}
+.av2{width:30px;height:30px;border-radius:50%;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:10px;font-weight:600;color:var(--t3);flex-shrink:0;border:1.5px solid var(--bd);}
+.pi{display:flex;flex-direction:column;}
+.pn{font-weight:600;font-size:11px;}
+.pm{font-size:9px;color:var(--t3);display:flex;gap:4px;align-items:center;}
+.ptb{font-family:var(--mono);font-size:8px;padding:1px 4px;border-radius:2px;background:var(--bg4);}
+.et{display:inline-flex;align-items:center;padding:2px 6px;border-radius:3px;font-family:var(--mono);font-size:10px;font-weight:600;}
+.et.pos{background:var(--gd);color:var(--g);}.et.neg{background:var(--rd);color:var(--r);}.et.flat{background:var(--bg4);color:var(--t3);}
+.ouv{display:flex;align-items:center;gap:4px;}
+.oub{display:flex;width:50px;height:4px;border-radius:2px;overflow:hidden;gap:1px;}
+.ouo{background:var(--g);height:100%;}.ouu{background:var(--r);height:100%;}
+.oul{font-family:var(--mono);font-size:9px;color:var(--t3);}
+.spk{width:68px;height:20px;}.spk svg{width:100%;height:100%;}
+.dvt{font-family:var(--mono);font-size:9px;padding:2px 6px;border-radius:3px;}
+.dve{background:var(--gd);color:var(--g);}.dvm{background:var(--ad);color:var(--a);}.dvh{background:var(--rd);color:var(--r);}
+.cm{display:flex;align-items:center;gap:4px;}.cmb{width:40px;height:4px;background:var(--bg4);border-radius:2px;overflow:hidden;}.cmf{height:100%;border-radius:2px;}.cml{font-family:var(--mono);font-size:9px;color:var(--t3);}
+.rl{font-family:var(--mono);font-size:8px;padding:2px 5px;border-radius:3px;background:var(--gd);color:var(--g);}
+.rl.no{background:var(--ad);color:var(--a);}
+
+/* DETAIL ROW */
+.dr{display:none;}.dr.open{display:table-row;}
+.dr td{padding:0!important;background:var(--bg1)!important;}
+.di{padding:16px;animation:fadeUp .25s ease both;}
+.dit{display:flex;gap:4px;margin-bottom:14px;border-bottom:1px solid var(--bd);padding-bottom:8px;}
+.ditb{padding:5px 10px;border:none;background:none;color:var(--t3);font-family:var(--mono);font-size:9px;cursor:pointer;border-radius:4px 4px 0 0;transition:all .1s;}
+.ditb:hover{color:var(--t2);}.ditb.on{color:var(--b);background:var(--bdd);}
+.dig{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.dc{background:var(--bg2);border:1px solid var(--bd);border-radius:6px;padding:14px;}
+.dc.full{grid-column:1/-1;}
+.dct{font-family:var(--mono);font-size:8px;letter-spacing:.5px;text-transform:uppercase;color:var(--t3);margin-bottom:10px;display:flex;align-items:center;gap:5px;}
+.dct .dt{width:4px;height:4px;border-radius:50%;}
+.sr2{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
+.sb3{padding:10px;background:var(--bg1);border-radius:5px;border:1px solid rgba(255,255,255,.03);}
+.sb3l{font-family:var(--mono);font-size:8px;text-transform:uppercase;color:var(--t3);margin-bottom:3px;letter-spacing:.5px;}
+.sb3v{font-family:var(--mono);font-size:18px;font-weight:700;}
+.sb3s{font-size:9px;color:var(--t3);margin-top:2px;display:flex;align-items:center;gap:3px;}
+.up{color:var(--g);}.dn{color:var(--r);}
+.chb{width:100%;height:140px;background:var(--bg1);border-radius:5px;border:1px solid rgba(255,255,255,.03);position:relative;overflow:hidden;padding:8px;}
+.bars{display:flex;align-items:flex-end;gap:2px;height:110px;}
+.bar{flex:1;border-radius:2px 2px 0 0;position:relative;transition:all .15s;min-width:0;cursor:pointer;}
+.bar:hover{filter:brightness(1.4);}
+.bar-t{display:none;position:absolute;top:-24px;left:50%;transform:translateX(-50%);background:var(--bg4);color:var(--t1);font-family:var(--mono);font-size:8px;padding:2px 5px;border-radius:3px;white-space:nowrap;border:1px solid var(--bd);z-index:5;}
+.bar:hover .bar-t{display:block;}
+.lref{position:absolute;left:8px;right:8px;border-top:1.5px dashed rgba(255,255,255,.12);pointer-events:none;}
+.lref-l{position:absolute;right:0;top:-11px;font-family:var(--mono);font-size:7px;color:var(--t3);}
+.spt{width:100%;font-size:10px;border-collapse:collapse;}
+.spt th{font-family:var(--mono);font-size:8px;text-transform:uppercase;color:var(--t3);padding:5px 7px;text-align:left;border-bottom:1px solid var(--bd);}
+.spt td{padding:5px 7px;font-family:var(--mono);font-size:10px;color:var(--t2);border-bottom:1px solid rgba(255,255,255,.025);}
+.spt .hit{color:var(--g);font-weight:600;}.spt .miss{color:var(--r);font-weight:600;}
+.spt .hl{background:rgba(91,141,239,.06);}
+
+/* RIGHT PANEL */
+.rp{background:var(--bg1);border-left:1px solid var(--bd);padding:14px 0;overflow-y:auto;max-height:calc(100vh - 41px);position:sticky;top:41px;}
+.rpc{margin:0 12px;background:var(--bg2);border:1px solid var(--bd);border-radius:6px;padding:12px;margin-bottom:10px;}
+.va{padding:8px;background:var(--bg1);border-radius:5px;border:1px solid rgba(255,255,255,.03);margin-bottom:5px;cursor:pointer;transition:all .12s;}
+.va:hover{border-color:var(--t3);}
+.vat{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;}
+.van{font-size:11px;font-weight:600;}
+.vae{font-family:var(--mono);font-size:10px;font-weight:700;}
+.vae.pos{color:var(--g);}.vae.neg{color:var(--r);}
+.vad{font-size:9px;color:var(--t3);display:flex;gap:10px;}
+.vacb{flex:1;height:3px;background:var(--bg4);border-radius:2px;overflow:hidden;margin-top:4px;}
+.vacf{height:100%;border-radius:2px;}
+
+.inj{display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.025);}
+.inj:last-child{border-bottom:none;}
+.injl{display:flex;align-items:center;gap:7px;}
+.injd{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+.injd.out{background:var(--r);}.injd.gtd{background:var(--a);}.injd.prob{background:var(--g);}
+.injn{font-size:11px;font-weight:500;}
+.injdt{font-size:9px;color:var(--t3);}
+.injt{font-family:var(--mono);font-size:8px;padding:2px 6px;border-radius:3px;text-transform:uppercase;}
+.injt.out{background:var(--rd);color:var(--r);}.injt.gtd{background:var(--ad);color:var(--a);}.injt.prob{background:var(--gd);color:var(--g);}
+.stk{display:flex;align-items:center;gap:8px;padding:7px 8px;background:var(--bg1);border-radius:5px;border:1px solid rgba(255,255,255,.03);margin-bottom:5px;}
+.stkn{font-size:11px;font-weight:600;}.stkd{font-size:9px;color:var(--t3);}
+.stkv{font-family:var(--mono);font-size:10px;font-weight:600;padding:3px 7px;border-radius:3px;}
+.stkv.hot{background:var(--gd);color:var(--g);}.stkv.cold{background:var(--rd);color:var(--r);}
+
+@media(max-width:1300px){.app{grid-template-columns:200px 1fr;}.rp{display:none;}}
+@media(max-width:900px){.app{grid-template-columns:1fr;}.sb{display:none;}.sr2{grid-template-columns:repeat(2,1fr);}}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="lg"><div class="lm">PE</div><span class="ln">PropEdge</span><span class="lv">v3 Pro</span></div>
+  <div class="tr">
+    <div class="ast" id="apiSt"></div>
+    <span class="req-ct" id="reqCt" style="display:none;"></span>
+    <div class="li"><span class="ld"></span>Live</div>
+    <span class="ck" id="clk"></span>
+  </div>
+</header>
+<div class="app">
+  <aside class="sb">
+    <div class="ss"><div class="sl">Search</div><div class="si"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg><input type="text" placeholder="Player or team..." id="searchIn"/></div></div>
+    <div class="ss"><div class="sl">Prop Market</div><div class="bg" id="mktBtns"></div></div>
+    <div class="dv"></div>
+    <div class="ss"><div class="sl">Teams</div><div class="tg" id="teamG"></div></div>
+  </aside>
+
+  <main class="mn">
+    <div id="sts" class="sts hide"></div>
+    <div class="scs" id="scs"></div>
+    <div class="ctrls">
+      <div class="cl"><div class="tabs" id="viewTabs"></div></div>
+      <div class="cr">
+        <select class="sel" id="bk"><option value="draftkings">DraftKings</option><option value="fanduel">FanDuel</option><option value="betmgm">BetMGM</option><option value="caesars">Caesars</option></select>
+        <button class="cbtn" id="scnBtn" onclick="togScn()"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20V10M18 20V4M6 20v-4"/></svg>Scenario</button>
+        <button class="rbtn" id="rBtn" onclick="doRefresh()"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 4v6h6"/><path d="M23 20v-6h-6"/><path d="M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15"/></svg>Refresh</button>
+      </div>
+    </div>
+    <div class="tw">
+      <div class="th2">
+        <div class="tt">Player Props — <span id="mktLbl">Points</span> <span class="bdg bdg-b" id="pCnt">0</span> <span class="bdg bdg-g" id="dAge">Loading…</span> <span class="bdg bdg-a" id="srcBdg" style="display:none;"></span></div>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <span style="font-family:var(--mono);font-size:8px;color:var(--t3);">SORT:</span>
+          <select class="sel" id="sortS" onchange="doSort()" style="padding:4px 22px 4px 7px;"><option value="edge">Edge %</option><option value="conf">Confidence</option><option value="hitrate">Hit Rate</option><option value="avg">Avg</option><option value="line">Line</option><option value="name">Name</option></select>
+        </div>
+      </div>
+      <div class="tsc"><table><thead><tr><th>Player</th><th>Matchup</th><th>Line</th><th>Avg</th><th>Hit Rate</th><th>O/U</th><th>Trend</th><th>Edge</th><th>DvP</th><th>Conf.</th><th>Data</th></tr></thead><tbody id="tBody"></tbody></table></div>
+    </div>
+    <div style="text-align:center;padding:8px;font-family:var(--mono);font-size:9px;color:var(--t3);">Last refresh: <span id="lastUp">—</span> · Auto-refresh every 60s</div>
+  </main>
+
+  <aside class="rp">
+    <div class="ss"><div class="sl">Value Alerts</div></div>
+    <div id="vaList" style="padding:0 12px;"></div>
+    <div style="padding:0 12px;"><div class="dv"></div></div>
+    <div class="ss"><div class="sl">Injury Report</div></div>
+    <div class="rpc" id="injList"></div>
+    <div style="padding:0 12px;"><div class="dv"></div></div>
+    <div class="ss"><div class="sl">Hot & Cold</div></div>
+    <div id="stkList" style="padding:0 12px;"></div>
+  </aside>
+</div>
+
+<script>
+// =========================================================
+// PROPEDGE v3 FRONTEND — Connects to /api backend routes
+// =========================================================
+const API = window.location.origin; // Backend is same origin
+const S = { data:[], scores:[], sort:'edge', search:'', teamF:null, view:'all', market:'player_points', book:'draftkings', scnOn:false, scnPlayers:[], lastRef:null, reqRemaining:null };
+const TEAMS=[{a:'ATL',c:'#e03a3e'},{a:'BOS',c:'#007a33'},{a:'BKN',c:'#333'},{a:'CHA',c:'#1d1160'},{a:'CHI',c:'#ce1141'},{a:'CLE',c:'#860038'},{a:'DAL',c:'#00538c'},{a:'DEN',c:'#0e2240'},{a:'DET',c:'#c8102e'},{a:'GSW',c:'#1d428a'},{a:'HOU',c:'#ce1141'},{a:'IND',c:'#002d62'},{a:'LAC',c:'#c8102e'},{a:'LAL',c:'#552583'},{a:'MEM',c:'#5d76a9'},{a:'MIA',c:'#98002e'},{a:'MIL',c:'#00471b'},{a:'MIN',c:'#0c2340'},{a:'NOP',c:'#0c2340'},{a:'NYK',c:'#f58426'},{a:'OKC',c:'#007ac1'},{a:'ORL',c:'#0077c0'},{a:'PHI',c:'#006bb6'},{a:'PHX',c:'#e56020'},{a:'POR',c:'#e03a3e'},{a:'SAC',c:'#5a2d81'},{a:'SAS',c:'#c4ced4'},{a:'TOR',c:'#ce1141'},{a:'UTA',c:'#002b5c'},{a:'WAS',c:'#002b5c'}];
+const MKTS=[{k:'player_points',l:'Points',s:'PTS'},{k:'player_rebounds',l:'Rebounds',s:'REB'},{k:'player_assists',l:'Assists',s:'AST'},{k:'player_threes',l:'3-Pointers',s:'3PM'},{k:'player_points_rebounds_assists',l:'PRA',s:'PRA'},{k:'player_steals',l:'Steals',s:'STL'},{k:'player_blocks',l:'Blocks',s:'BLK'}];
+const VIEWS=['All Players','Best Edges','High Confidence','Trending'];
+const VKEYS=['all','edges','conf','trend'];
+
+// ---- API CALLS (to our backend) ----
+async function apiGet(path) {
+  try {
+    const r = await fetch(`${API}${path}`);
+    if (!r.ok) throw new Error(`${r.status}`);
+    return await r.json();
+  } catch(e) { console.error(`API ${path}:`, e); return null; }
+}
+
+async function fetchStatus() {
+  const r = await apiGet('/api/status');
+  if (!r) return;
+  setApi('server', r.server === 'ok' ? 'ok' : 'er');
+  setApi('odds', r.oddsApi === 'configured' ? 'ok' : 'er');
+  setApi('stats', r.bdlApi === 'configured' ? 'ok' : 'er');
+}
+
+async function fetchMerged() {
+  showSts('Fetching live data from backend…', 'inf');
+  setApi('odds','ld'); setApi('stats','ld');
+  const r = await apiGet(`/api/analytics/merged?market=${S.market}&book=${S.book}`);
+  if (!r || !r.data) {
+    setApi('odds','er'); setApi('stats','er');
+    showSts('Backend unreachable — make sure server is running', 'err');
+    return;
+  }
+  S.data = r.data;
+  const realCount = S.data.filter(p => p.hasRealStats).length;
+  setApi('odds', S.data.length > 0 ? 'ok' : 'er');
+  setApi('stats', realCount > 0 ? 'ok' : 'er');
+  const srcEl = document.getElementById('srcBdg');
+  srcEl.style.display = 'inline';
+  srcEl.textContent = `${realCount}/${S.data.length} real stats`;
+  srcEl.className = `bdg ${realCount > S.data.length / 2 ? 'bdg-g' : 'bdg-a'}`;
+  showSts(`Loaded ${S.data.length} player props (${realCount} with real game logs) — ${r.cached ? 'from cache' : 'fresh fetch'}`, 'suc');
+  S.lastRef = new Date();
+  renderAll();
+}
+
+async function fetchScores() {
+  const r = await apiGet('/api/odds/scores');
+  if (!r || !r.data) { setApi('scores','er'); return; }
+  S.scores = r.data;
+  setApi('scores','ok');
+  renderScores();
+}
+
+async function fetchSplits(bdlId, line, stat) {
+  if (!bdlId) return null;
+  const r = await apiGet(`/api/stats/player/${bdlId}/splits?line=${line}&stat=${stat}`);
+  return r?.data || null;
+}
+
+// ---- RENDER ----
+function renderAll() { renderScores(); renderTable(); renderAlerts(); renderStreaks(); updLast(); }
+
+function setApi(k,v) {
+  const el = document.getElementById('apiSt');
+  if (!el._state) el._state = {};
+  el._state[k] = v;
+  const order = ['server','odds','stats','scores'];
+  el.innerHTML = order.filter(n => el._state[n]).map(n => {
+    const labels = {server:'Server',odds:'Odds',stats:'Stats',scores:'Scores'};
+    return `<div class="ab ${el._state[n]||'er'}"><span class="d"></span>${labels[n]}</div>`;
+  }).join('');
+}
+
+function renderScores() {
+  const el = document.getElementById('scs');
+  if (!S.scores.length) { el.innerHTML = '<div style="padding:8px;font-size:10px;color:var(--t3);">No games loaded</div>'; return; }
+  el.innerHTML = S.scores.map(g => {
+    const status = g.completed ? 'Final' : (g.live ? 'Live' : new Date(g.commence).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}));
+    return `<div class="sc ${g.live?'lv':''}"><div class="scr"><span class="sct">${g.away}</span><span class="scv">${g.awayScore||'—'}</span></div><div class="scr"><span class="sct">${g.home}</span><span class="scv">${g.homeScore||'—'}</span></div><div class="scs2 ${g.live?'lv':''}">${status}</div></div>`;
+  }).join('');
+}
+
+function renderTable() {
+  let d = [...S.data];
+  if (S.search) { const q=S.search.toLowerCase(); d=d.filter(p=>(p.name||'').toLowerCase().includes(q)||(p.team||'').toLowerCase().includes(q)); }
+  if (S.teamF) d=d.filter(p=>p.team===S.teamF);
+  if (S.view==='edges') d=d.filter(p=>Math.abs(p.edge)>3);
+  else if (S.view==='conf') d=d.filter(p=>p.confidence>=65);
+  else if (S.view==='trend') d=d.filter(p=>{if(!p.l10||p.l10.length<6)return false;const l=p.l10.slice(-3).reduce((a,b)=>a+b,0)/3;const f=p.l10.slice(0,3).reduce((a,b)=>a+b,0)/3;return Math.abs(l-f)>2;});
+
+  const sf={edge:(a,b)=>Math.abs(b.edge)-Math.abs(a.edge),conf:(a,b)=>(b.confidence||0)-(a.confidence||0),hitrate:(a,b)=>(b.hitRate||0)-(a.hitRate||0),avg:(a,b)=>(b.avg||0)-(a.avg||0),line:(a,b)=>(b.line||0)-(a.line||0),name:(a,b)=>(a.name||'').localeCompare(b.name||'')};
+  d.sort(sf[S.sort]||sf.edge);
+
+  const tb = document.getElementById('tBody');
+  tb.innerHTML = '';
+  d.forEach((p,i) => {
+    const ec=p.edge>3?'pos':p.edge<-3?'neg':'flat';
+    const es=p.edge>0?'+':'';
+    const ini=(p.name||'??').split(' ').map(n=>n[0]).join('');
+    const oP=p.hitRate||50; const uP=100-oP;
+    const confCol=(p.confidence||0)>=70?'var(--g)':(p.confidence||0)>=50?'var(--a)':'var(--r)';
+    const dvtc=p.dvpClass==='Easy'?'dve':p.dvpClass==='Hard'?'dvh':'dvm';
+
+    const tr=document.createElement('tr');
+    tr.id=`r-${i}`;
+    tr.onclick=()=>togDet(i,p);
+    tr.innerHTML=`
+      <td><div class="pc"><div class="av2">${ini}</div><div class="pi"><span class="pn">${p.name}</span><span class="pm"><span class="ptb">${p.team||'???'}</span>${p.position||''}${p.overOdds?` · O${p.overOdds>0?'+':''}${p.overOdds}`:''}</span></div></div></td>
+      <td style="font-family:var(--mono);font-size:10px;color:var(--t2);">${p.matchup||'—'}</td>
+      <td style="font-family:var(--mono);font-weight:700;">${p.line}</td>
+      <td style="font-family:var(--mono);font-weight:600;">${p.avg}</td>
+      <td style="font-family:var(--mono);">${oP}%</td>
+      <td><div class="ouv"><div class="oub"><div class="ouo" style="width:${oP}%"></div><div class="ouu" style="width:${uP}%"></div></div><span class="oul">${oP}/${uP}</span></div></td>
+      <td><div class="spk">${mkSpk(p.l10||[],p.line)}</div></td>
+      <td><span class="et ${ec}">${es}${(p.edge||0).toFixed(1)}%</span></td>
+      <td><span class="dvt ${dvtc}">#${p.dvpRank||'?'} ${p.dvpClass||'?'}</span></td>
+      <td><div class="cm"><div class="cmb"><div class="cmf" style="width:${p.confidence||0}%;background:${confCol};"></div></div><span class="cml">${p.confidence||0}</span></div></td>
+      <td><span class="rl ${p.hasRealStats?'':'no'}">${p.hasRealStats?'✓ Live':'~ Est'}</span></td>
+    `;
+    tb.appendChild(tr);
+    const dr=document.createElement('tr');dr.className='dr';dr.id=`d-${i}`;
+    dr.innerHTML=`<td colspan="11"><div class="di" id="di-${i}"></div></td>`;
+    tb.appendChild(dr);
+  });
+  document.getElementById('pCnt').textContent=d.length;
+}
+
+function togDet(i,p){const r=document.getElementById(`d-${i}`);const mr=document.getElementById(`r-${i}`);const open=r.classList.contains('open');document.querySelectorAll('.dr').forEach(x=>x.classList.remove('open'));document.querySelectorAll('tbody tr').forEach(x=>x.classList.remove('exp'));if(!open){r.classList.add('open');mr.classList.add('exp');renderDet(i,p);}}
+
+async function renderDet(i,p){
+  const c=document.getElementById(`di-${i}`);
+  c.innerHTML=`<div class="dit">
+    <button class="ditb on" onclick="showTab(${i},'overview',this)">Overview</button>
+    <button class="ditb" onclick="showTab(${i},'splits',this)">Splits</button>
+    <button class="ditb" onclick="showTab(${i},'log',this)">Game Log</button>
+  </div><div id="dtc-${i}"><div style="padding:20px;text-align:center;color:var(--t3);">Loading…</div></div>`;
+  window._dp=p;
+  showTab(i,'overview',c.querySelector('.ditb'));
+}
+
+async function showTab(i,tab,btn){
+  const p=window._dp;const cont=document.getElementById(`dtc-${i}`);
+  btn.parentElement.querySelectorAll('.ditb').forEach(b=>b.classList.remove('on'));btn.classList.add('on');
+  if(tab==='overview') renderOverview(cont,p);
+  else if(tab==='splits') await renderSplits(cont,p);
+  else if(tab==='log') renderLog(cont,p);
+}
+
+function renderOverview(el,p){
+  const l10=p.l10||[];const l5=l10.slice(-5);
+  const l5a=l5.length?(l5.reduce((a,b)=>a+b,0)/5).toFixed(1):'—';
+  const sd=l10.length?Math.sqrt(l10.reduce((s,v)=>s+Math.pow(v-(l10.reduce((a,b)=>a+b,0)/l10.length),2),0)/l10.length).toFixed(1):'—';
+  const ceil=l10.length?Math.max(...l10):'—';const floor=l10.length?Math.min(...l10):'—';
+  const maxV=l10.length?Math.max(...l10)+5:1;
+  const bars=l10.map((v,j)=>`<div class="bar" style="height:${v/maxV*100}%;background:${v>=p.line?'var(--g)':'var(--r)'};opacity:${.5+j*.05}"><div class="bar-t">${v}</div></div>`).join('');
+  const lP=l10.length?(1-p.line/maxV)*100:50;
+  el.innerHTML=`<div class="dig">
+    <div class="dc"><div class="dct"><span class="dt" style="background:var(--b)"></span>Stats vs Line${p.hasRealStats?' (Live)':' (Estimated)'}</div>
+      <div class="sr2">
+        <div class="sb3"><div class="sb3l">Avg</div><div class="sb3v">${p.avg}</div><div class="sb3s">Line: ${p.line} <span class="${p.avg>p.line?'up':'dn'}">${p.avg>p.line?'▲':'▼'} ${Math.abs(p.avg-p.line).toFixed(1)}</span></div></div>
+        <div class="sb3"><div class="sb3l">Last 5</div><div class="sb3v">${l5a}</div><div class="sb3s">${parseFloat(l5a)>p.avg?'<span class="up">▲ Up</span>':'<span class="dn">▼ Down</span>'}</div></div>
+        <div class="sb3"><div class="sb3l">Std Dev</div><div class="sb3v">${sd}</div><div class="sb3s">Floor ${floor} · Ceil ${ceil}</div></div>
+        <div class="sb3"><div class="sb3l">Confidence</div><div class="sb3v" style="color:${(p.confidence||0)>=70?'var(--g)':(p.confidence||0)>=50?'var(--a)':'var(--r)'}">${p.confidence||0}</div><div class="sb3s">${(p.confidence||0)>=70?'High':(p.confidence||0)>=50?'Med':'Low'}</div></div>
+      </div></div>
+    <div class="dc"><div class="dct"><span class="dt" style="background:var(--g)"></span>Last 10 Games</div>
+      <div class="chb"><div class="lref" style="top:${lP}%"><span class="lref-l">LINE ${p.line}</span></div><div class="bars">${bars}</div></div></div>
+  </div>`;
+}
+
+async function renderSplits(el,p){
+  el.innerHTML='<div style="padding:20px;text-align:center;color:var(--t3);">Fetching splits from backend…</div>';
+  const statMap={'player_points':'pts','player_rebounds':'reb','player_assists':'ast','player_threes':'threes','player_steals':'stl','player_blocks':'blk'};
+  const stat=statMap[S.market]||'pts';
+  const splits=await fetchSplits(p.bdlId, p.line, stat);
+  if(!splits){el.innerHTML='<div class="dc full"><div class="dct"><span class="dt" style="background:var(--a)"></span>Splits unavailable — no BDL player match</div><div style="font-size:11px;color:var(--t3);padding:10px;">Player stats API returned no data. This may be due to rate limiting or the player not being in the BDL database for this season.</div></div>';return;}
+  const rows=[{l:'All Games',d:splits.all},{l:'Home',d:splits.home},{l:'Away',d:splits.away},{l:'Last 5',d:splits.last5},{l:'Last 10',d:splits.last10},{l:'Last 20',d:splits.last20}];
+  el.innerHTML=`<div class="dc full"><div class="dct"><span class="dt" style="background:var(--c)"></span>Historical Splits vs Line ${p.line} ${p.hasRealStats?'(Real Data)':'(Estimated)'}</div>
+    <table class="spt"><thead><tr><th>Split</th><th>Avg</th><th>GP</th><th>Hit Rate</th><th>Edge</th></tr></thead>
+    <tbody>${rows.map(r=>{if(!r.d||!r.d.gp)return'';const e=p.line?((r.d.avg-p.line)/p.line*100):0;const ec=e>3?'hit':e<-3?'miss':'';return`<tr><td style="font-weight:600;">${r.l}</td><td style="font-family:var(--mono);">${r.d.avg}</td><td style="font-family:var(--mono);">${r.d.gp}</td><td class="${r.d.hitRate>=55?'hit':r.d.hitRate<=45?'miss':''}" style="font-family:var(--mono);">${r.d.hitRate}%</td><td class="${ec}" style="font-family:var(--mono);">${e>0?'+':''}${e.toFixed(1)}%</td></tr>`;}).join('')}</tbody></table>
+    ${splits.b2b?.note?`<div style="margin-top:8px;font-size:9px;color:var(--t3);font-style:italic;">Note: B2B and rest splits require schedule integration (coming soon)</div>`:''}</div>`;
+}
+
+function renderLog(el,p){
+  const l10=p.l10||[];
+  const opps=['PHX','GSW','LAC','MEM','NOP','HOU','DEN','SAS','SAC','DAL'];
+  el.innerHTML=`<div class="dc full"><div class="dct"><span class="dt" style="background:var(--r)"></span>Recent Games ${p.hasRealStats?'(Live)':'(Simulated)'}</div>
+    <table class="spt"><thead><tr><th>Game</th><th>Opp</th><th>Stat</th><th>Line</th><th>Result</th></tr></thead>
+    <tbody>${l10.slice().reverse().map((v,j)=>{const d=new Date();d.setDate(d.getDate()-(j*2+1));const cls=v>=p.line?'hit':'miss';return`<tr><td>${d.toLocaleDateString('en-US',{month:'short',day:'numeric'})}</td><td>${opps[j%opps.length]}</td><td style="font-family:var(--mono);font-weight:600;" class="${cls}">${v}</td><td style="font-family:var(--mono);">${p.line}</td><td class="${cls}">${v>=p.line?'OVER':'UNDER'}</td></tr>`;}).join('')}</tbody></table></div>`;
+}
+
+function mkSpk(d,ln){if(!d.length)return'';const w=68,h=20,pad=2;const mn=Math.min(...d)-3,mx=Math.max(...d)+3,rng=mx-mn||1;const pts=d.map((v,i)=>`${pad+(i/(d.length-1))*(w-pad*2)},${h-pad-((v-mn)/rng)*(h-pad*2)}`);const ly=h-pad-((ln-mn)/rng)*(h-pad*2);return`<svg viewBox="0 0 ${w} ${h}"><line x1="${pad}" y1="${ly}" x2="${w-pad}" y2="${ly}" stroke="rgba(255,255,255,.08)" stroke-width=".7" stroke-dasharray="2,1.5"/><polyline points="${pts.join(' ')}" fill="none" stroke="var(--b)" stroke-width="1.2"/>${d.map((v,i)=>`<circle cx="${pad+(i/(d.length-1))*(w-pad*2)}" cy="${h-pad-((v-mn)/rng)*(h-pad*2)}" r="1.5" fill="${v>=ln?'var(--g)':'var(--r)'}"/>`).join('')}</svg>`;}
+
+function renderAlerts(){
+  const top=S.data.filter(p=>(p.confidence||0)>=55&&Math.abs(p.edge)>3).sort((a,b)=>(b.confidence||0)-(a.confidence||0)).slice(0,6);
+  document.getElementById('vaList').innerHTML=top.map(p=>{const confCol=(p.confidence||0)>=70?'var(--g)':'var(--a)';return`<div class="va"><div class="vat"><span class="van">${p.name}</span><span class="vae ${p.edge>0?'pos':'neg'}">${p.edge>0?'+':''}${p.edge.toFixed(1)}%</span></div><div class="vad"><span>${p.edge>0?'OVER':'UNDER'} ${p.line}</span><span>${p.hitRate}% HR</span><span>${p.hasRealStats?'✓':'~'}</span></div><div style="display:flex;align-items:center;gap:4px;margin-top:4px;"><div class="vacb"><div class="vacf" style="width:${p.confidence}%;background:${confCol};"></div></div><span style="font-family:var(--mono);font-size:8px;color:var(--t3);">${p.confidence}</span></div></div>`;}).join('')||'<div style="padding:10px;text-align:center;color:var(--t3);font-size:10px;">No alerts</div>';
+}
+
+function renderStreaks(){
+  const st=S.data.filter(p=>p.l10?.length>=5).map(p=>{const oc=(p.l10||[]).filter(v=>v>=p.line).length;return{...p,oc,type:oc>=7?'hot':oc<=3?'cold':null};}).filter(p=>p.type).slice(0,5);
+  document.getElementById('stkList').innerHTML=st.map(s=>`<div class="stk"><span style="font-size:14px;">${s.type==='hot'?'🔥':'🧊'}</span><div style="flex:1;"><div class="stkn">${s.name}</div><div class="stkd">${s.type==='hot'?'Over':'Under'} ${s.type==='hot'?s.oc:10-s.oc}/10</div></div><span class="stkv ${s.type}">${s.oc}/10</span></div>`).join('')||'<div style="padding:10px;text-align:center;color:var(--t3);font-size:10px;">No streaks</div>';
+}
+
+// Placeholder injuries (would come from a dedicated endpoint)
+document.getElementById('injList').innerHTML=[
+  {n:'LeBron James',t:'LAL',d:'Knee soreness',s:'out'},{n:'Anthony Davis',t:'LAL',d:'Calf strain',s:'out'},
+  {n:'Joel Embiid',t:'PHI',d:'Knee recovery',s:'out'},{n:'Kawhi Leonard',t:'LAC',d:'Knee mgmt',s:'out'},
+  {n:'Zion Williamson',t:'NOP',d:'Hamstring',s:'gtd'},{n:'Ja Morant',t:'MEM',d:'Shoulder',s:'prob'},
+].map(j=>`<div class="inj"><div class="injl"><span class="injd ${j.s}"></span><div><div class="injn">${j.n} <span style="color:var(--t3);font-size:9px;">${j.t}</span></div><div class="injdt">${j.d}</div></div></div><span class="injt ${j.s}">${j.s==='out'?'Out':j.s==='gtd'?'GTD':'Prob'}</span></div>`).join('');
+
+function showSts(m,t){const e=document.getElementById('sts');e.className=`sts ${t}`;e.innerHTML=m;e.classList.remove('hide');if(t==='suc')setTimeout(()=>e.classList.add('hide'),3500);}
+function updLast(){if(S.lastRef)document.getElementById('lastUp').textContent=S.lastRef.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit'});document.getElementById('dAge').textContent='Just now';}
+function updClk(){document.getElementById('clk').textContent=new Date().toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})+' · '+new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit'});}
+setInterval(updClk,1000);updClk();
+
+// INTERACTIONS
+function togScn(){S.scnOn=!S.scnOn;document.getElementById('scnBtn').classList.toggle('on');}
+function doSort(){S.sort=document.getElementById('sortS').value;renderTable();}
+async function doRefresh(){const b=document.getElementById('rBtn');b.classList.add('sp');await apiGet('/api/cache/clear');await Promise.all([fetchMerged(),fetchScores()]);b.classList.remove('sp');}
+document.getElementById('searchIn').addEventListener('input',function(){S.search=this.value;renderTable();});
+document.getElementById('bk').addEventListener('change',function(){S.book=this.value;fetchMerged();});
+
+// SIDEBAR INIT
+function initSB(){
+  const mb=document.getElementById('mktBtns');
+  MKTS.forEach((m,i)=>{const b=document.createElement('button');b.className=`bt ${i===0?'on':''}`;b.innerHTML=`${m.l} <span class="c">${m.s}</span>`;b.onclick=()=>{mb.querySelectorAll('.bt').forEach(x=>x.classList.remove('on'));b.classList.add('on');S.market=m.k;document.getElementById('mktLbl').textContent=m.l;fetchMerged();};mb.appendChild(b);});
+  const tg=document.getElementById('teamG');
+  TEAMS.forEach(t=>{const b=document.createElement('button');b.className='tc';b.innerHTML=`<span class="td" style="background:${t.c}"></span>${t.a}`;b.onclick=()=>{const on=b.classList.contains('on');tg.querySelectorAll('.tc').forEach(x=>x.classList.remove('on'));S.teamF=on?null:t.a;if(!on)b.classList.add('on');renderTable();};tg.appendChild(b);});
+  const vt=document.getElementById('viewTabs');
+  VIEWS.forEach((v,i)=>{const b=document.createElement('button');b.className=`tab ${i===0?'on':''}`;b.textContent=v;b.onclick=()=>{vt.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));b.classList.add('on');S.view=VKEYS[i];renderTable();};vt.appendChild(b);});
+}
+
+// AUTO REFRESH
+setInterval(()=>{if(S.lastRef){const s=Math.round((Date.now()-S.lastRef.getTime())/1000);if(s<60)document.getElementById('dAge').textContent=`${s}s ago`;else{document.getElementById('dAge').textContent=`${Math.floor(s/60)}m ago`;if(s>=90)fetchMerged();}}},10000);
+
+// BOOT
+(async function(){initSB();await fetchStatus();await Promise.all([fetchMerged(),fetchScores()]);})();
+</script>
+</body>
+</html>
