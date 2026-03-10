@@ -891,13 +891,36 @@ function renderDet(i,p){
   </div><div id="dtc-${i}"></div>`;
   showDTab(i,'overview',c.querySelector('.di-tab'));
 }
-function showDTab(i,tab,btn){
+async function showDTab(i,tab,btn){
   const p=window._dp,el=document.getElementById(`dtc-${i}`);
   btn.parentElement.querySelectorAll('.di-tab').forEach(b=>b.classList.remove('on'));btn.classList.add('on');
   if(tab==='overview')renderOverview(el,p);
-  else if(tab==='splits')renderSplits(el,p);
-  else if(tab==='gamelog')renderGameLog(el,p);
+  else if(tab==='splits')await loadAndRenderSplits(el,p);
+  else if(tab==='gamelog')await loadAndRenderGameLog(el,p);
   else if(tab==='scenario')renderScenario(el,p);
+}
+async function loadAndRenderSplits(el,p){
+  if(p.splits){renderSplits(el,p);return;}
+  if(!p.bdlId){el.innerHTML='<div style="padding:20px;text-align:center;color:var(--t3);font-size:12px;">No player ID found — splits unavailable.</div>';return;}
+  el.innerHTML='<div style="padding:20px;text-align:center;color:var(--t3);font-size:12px;">Loading splits…</div>';
+  const statMap={'player_points':'pts','player_rebounds':'reb','player_assists':'ast','player_threes':'fg3m','player_steals':'stl','player_blocks':'blk','player_turnovers':'turnover'};
+  const stat=statMap[S.market]||'pts';
+  const r=await apiGet(`/api/stats/player/${p.bdlId}/splits?line=${p.line}&stat=${stat}`);
+  if(r.data){p.splits=r.data;renderSplits(el,p);}
+  else el.innerHTML=`<div style="padding:20px;text-align:center;color:var(--r);font-size:12px;">Error loading splits: ${r.error||'API error'}</div>`;
+}
+async function loadAndRenderGameLog(el,p){
+  if(p.gameLog&&p.gameLog.length){renderGameLog(el,p);return;}
+  if(!p.bdlId){el.innerHTML='<div style="padding:24px;text-align:center;color:var(--t3);font-size:12px;">No player stats available.</div>';return;}
+  el.innerHTML='<div style="padding:24px;text-align:center;color:var(--t3);font-size:12px;">Loading game log…</div>';
+  const r=await apiGet(`/api/stats/player/${p.bdlId}/games`);
+  if(r.data&&r.data.length){
+    p.gameLog=r.data.sort((a,b)=>new Date(b.game?.date||0)-new Date(a.game?.date||0)).map(g=>({
+      date:g.game?.date,pts:g.pts,reb:g.reb,ast:g.ast,fg3m:g.fg3m,min:g.min,
+      home:g.game?.home_team_id===g.team?.id,
+    }));
+    renderGameLog(el,p);
+  } else el.innerHTML=`<div style="padding:24px;text-align:center;color:var(--t3);font-size:12px;">${r.error?`Error: ${r.error}`:'No game log data available.'}</div>`;
 }
 
 function renderOverview(el,p){
@@ -908,6 +931,7 @@ function renderOverview(el,p){
   const lP=p.line?(1-p.line/maxV)*100:50;
   const lean=leanInfo(p.edge||0);
   el.innerHTML=`<div class="di-grid">
+    ${!p.hasRealStats?`<div class="dc full" style="background:var(--a)15;border:1px solid var(--a)40;padding:8px 12px;border-radius:8px;font-size:11px;color:var(--a);">⚠️ Estimated stats only — real game data unavailable. Check BDL API key or verify player name matches exactly.</div>`:''}
     <div class="dc"><div class="dc-t"><span class="dt" style="background:var(--b)"></span>Stats vs Line</div>
       <div class="sr">
         <div class="sb2"><div class="sb2-l">L10 Avg</div><div class="sb2-v">${p.avg}</div><div class="sb2-s">Line ${p.line} <span class="${p.avg>p.line?'up':'dn'}">${p.avg>p.line?'▲':'▼'} ${Math.abs(p.avg-p.line).toFixed(1)}</span></div></div>
@@ -940,7 +964,7 @@ function renderOverview(el,p){
 
 function renderSplits(el,p){
   const sp=p.splits;
-  if(!sp){el.innerHTML='<div style="padding:20px;text-align:center;color:var(--t3);font-size:12px;">Split data requires a BallDontLie API key.</div>';return;}
+  if(!sp){el.innerHTML='<div style="padding:20px;text-align:center;color:var(--t3);font-size:12px;">No split data available. Ensure BDL API key is configured.</div>';return;}
   const rows=[{l:'Home',d:sp.home},{l:'Away',d:sp.away},{l:'Last 5',d:sp.last5},{l:'Last 10',d:sp.last10},{l:'Last 20',d:sp.last20},{l:'Back-to-Back',d:sp.b2b},{l:'3+ Days Rest',d:sp.rest3plus}];
   el.innerHTML=`<div class="dc full"><div class="dc-t"><span class="dt" style="background:var(--c)"></span>Splits vs Line ${p.line}</div>
     <table class="spt"><thead><tr><th>Split</th><th>Avg</th><th>GP</th><th>Hit Rate</th><th>Edge</th><th>Lean</th></tr></thead>
@@ -958,10 +982,10 @@ function renderGameLog(el,p){
   const gl=p.gameLog||[];
   if(!gl.length){el.innerHTML='<div style="padding:24px;text-align:center;color:var(--t3);font-size:12px;">No game log data available.</div>';return;}
   el.innerHTML=`<div class="dc full"><div class="dc-t"><span class="dt" style="background:var(--r)"></span>Game Log — ${gl.length} games</div>
-    <table class="spt"><thead><tr><th>Date</th><th>Opp</th><th>H/A</th><th>Min</th><th>PTS</th><th>REB</th><th>AST</th><th>3PM</th></tr></thead>
+    <table class="spt"><thead><tr><th>Date</th><th>H/A</th><th>Min</th><th>PTS</th><th>REB</th><th>AST</th><th>3PM</th></tr></thead>
     <tbody>${gl.map(g=>{
-      const d=g.date?new Date(g.date).toLocaleDateString('en-US',{month:'short',day:'numeric'}):'—';
-      return`<tr><td>${d}</td><td>${g.opp||'—'}</td><td>${g.home?'H':'A'}</td><td>${g.min||'—'}</td><td style="font-weight:700">${g.pts??'—'}</td><td>${g.reb??'—'}</td><td>${g.ast??'—'}</td><td>${g.fg3m??'—'}</td></tr>`;
+      const d=g.date?new Date(g.date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}):'—';
+      return`<tr><td>${d}</td><td>${g.home?'H':'A'}</td><td>${g.min||'—'}</td><td style="font-weight:700">${g.pts??'—'}</td><td>${g.reb??'—'}</td><td>${g.ast??'—'}</td><td>${g.fg3m??'—'}</td></tr>`;
     }).join('')}</tbody></table></div>`;
 }
 
