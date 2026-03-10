@@ -73,9 +73,10 @@ function bdlHeaders() {
 
 function normalizeNBAGameLog(rows) {
   return (Array.isArray(rows) ? rows : []).map(g => {
-    // BDL v1 format: { pts, reb, ast, ..., game: { date, home_team_id }, team: { id } }
+    // BDL v1 format: { pts, reb, ast, ..., game: { date }, team: { id, abbreviation } }
+    // Note: BDL stats game object does not include home_team_id per OpenAPI spec
     if (g.game && g.team) {
-      const home = g.game.home_team_id === g.team.id;
+      const home = g.game.home_team_id != null ? g.game.home_team_id === g.team.id : null;
       return {
         date: (g.game.date || '').split('T')[0],
         pts: +g.pts || 0, reb: +g.reb || 0, ast: +g.ast || 0,

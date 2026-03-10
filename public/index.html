@@ -995,7 +995,7 @@ function renderOverview(el,p){
   const lP=p.line?(1-p.line/maxV)*100:50;
   const lean=leanInfo(p.edge||0);
   el.innerHTML=`<div class="di-grid">
-    ${!p.hasRealStats?`<div class="dc full" style="background:var(--a)15;border:1px solid var(--a)40;padding:8px 12px;border-radius:8px;font-size:11px;color:var(--a);">⚠️ Estimated stats only — real game data unavailable. Check BDL API key or verify player name matches exactly.</div>`:''}
+    <div class="dc full" style="background:var(--a)15;border:1px solid var(--a)40;padding:8px 12px;border-radius:8px;font-size:11px;color:var(--a);">📊 Overview uses projected stats. Click <b>Splits</b> or <b>Game Log</b> for real game data.</div>
     <div class="dc"><div class="dc-t"><span class="dt" style="background:var(--b)"></span>Stats vs Line</div>
       <div class="sr">
         <div class="sb2"><div class="sb2-l">L10 Avg</div><div class="sb2-v">${p.avg}</div><div class="sb2-s">Line ${p.line} <span class="${p.avg>p.line?'up':'dn'}">${p.avg>p.line?'▲':'▼'} ${Math.abs(p.avg-p.line).toFixed(1)}</span></div></div>
