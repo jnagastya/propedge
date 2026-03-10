@@ -28,10 +28,11 @@ const cache = new NodeCache({
 });
 
 let ODDS_KEY = process.env.ODDS_API_KEY || '';
-let BDL_KEY = process.env.BDL_API_KEY || '';
+let NBA_RAPID_KEY = process.env.NBA_RAPID_KEY || '';
 const ODDS_BASE = 'https://api.the-odds-api.com/v4';
-const BDL_BASE = 'https://api.balldontlie.io/v1';
+const NBA_RAPID_BASE = 'https://nba-api-free-data.p.rapidapi.com';
 const NBA_BASE = 'https://stats.nba.com/stats';
+const STATS_TTL = 12 * 60 * 60; // 12-hour cache for stats
 
 // ---- NBA SEASON HELPER ----
 function currentNBASeason() {
@@ -66,6 +67,73 @@ function teamAbbr(fullName) {
   return fullName.substring(0, 3).toUpperCase();
 }
 
+function rapidHeaders() {
+  return {
+    'X-RapidAPI-Key': NBA_RAPID_KEY,
+    'X-RapidAPI-Host': 'nba-api-free-data.p.rapidapi.com',
+    'Accept': 'application/json',
+  };
+}
+
+function normalizeNBAGameLog(rows) {
+  return (Array.isArray(rows) ? rows : []).map(g => {
+    // Handle NBA.com-style all-caps headers (most likely from this API)
+    if (g.PTS !== undefined || g.GAME_DATE !== undefined) {
+      return {
+        date: g.GAME_DATE || '',
+        pts: +g.PTS || 0, reb: +g.REB || 0, ast: +g.AST || 0,
+        fg3m: +g.FG3M || 0, stl: +g.STL || 0, blk: +g.BLK || 0,
+        turnover: +g.TOV || 0, min: String(g.MIN || '0'),
+        home: !!(g.MATCHUP && g.MATCHUP.includes('vs.')),
+        matchup: g.MATCHUP || '', wl: g.WL || '',
+      };
+    }
+    // Handle lowercase format
+    return {
+      date: g.date || g.game_date || g.gameDate || '',
+      pts: +g.pts || +g.points || 0, reb: +g.reb || +g.rebounds || 0,
+      ast: +g.ast || +g.assists || 0, fg3m: +g.fg3m || 0,
+      stl: +g.stl || 0, blk: +g.blk || 0, turnover: +g.turnover || +g.tov || 0,
+      min: String(g.min || g.minutes || '0'), home: g.home || false,
+      matchup: g.matchup || '', wl: g.wl || '',
+    };
+  }).filter(g => g.date);
+}
+
+function parseRapidResponse(raw) {
+  // NBA.com resultSets format
+  if (raw.resultSets) {
+    const rs = raw.resultSets.find(s => s.name === 'PlayerGameLog') || raw.resultSets[0];
+    if (rs && rs.headers && rs.rowSet) {
+      return rs.rowSet.map(row => { const o = {}; rs.headers.forEach((h,i) => o[h] = row[i]); return o; });
+    }
+  }
+  if (Array.isArray(raw)) return raw;
+  if (raw.data) return raw.data;
+  if (raw.games) return raw.games;
+  return [];
+}
+
+const NBA_IDS_SERVER = {
+  "LeBron James":2544,"Stephen Curry":201939,"Kevin Durant":201142,
+  "Giannis Antetokounmpo":203507,"Nikola Jokic":203999,"Luka Doncic":1629029,
+  "Joel Embiid":203954,"Jayson Tatum":1628369,"Shai Gilgeous-Alexander":1628983,
+  "Anthony Edwards":1630162,"Donovan Mitchell":1628378,"Tyrese Haliburton":1630169,
+  "LaMelo Ball":1630163,"Devin Booker":1626164,"Trae Young":1629027,
+  "Jalen Brunson":1628973,"De'Aaron Fox":1628368,"Cade Cunningham":1630595,
+  "Tyrese Maxey":1630178,"Domantas Sabonis":1627734,"Anthony Davis":203076,
+  "Damian Lillard":203081,"Jimmy Butler":202710,"Ja Morant":1629630,
+  "Zion Williamson":1629627,"Paolo Banchero":1631094,"Austin Reaves":1630559,
+  "Rui Hachimura":1629060,"Karl-Anthony Towns":1626157,"Bam Adebayo":1628389,
+  "Jaylen Brown":1627759,"Kristaps Porzingis":204001,"Kyrie Irving":202681,
+  "Jamal Murray":1627750,"Desmond Bane":1630217,"Franz Wagner":1630532,
+  "Brandon Ingram":1627742,"Lauri Markkanen":1628374,"Scottie Barnes":1630567,
+  "Mikal Bridges":1628969,"RJ Barrett":1629628,"Alperen Sengun":1630578,
+  "Jalen Williams":1631114,"Chet Holmgren":1631096,"Victor Wembanyama":1641705,
+  "Jalen Green":1630224,"Evan Mobley":1630596,"Darius Garland":1629636,
+  "Kawhi Leonard":202695,"Pascal Siakam":1627783,
+};
+
 // ============================================================
 // ROUTE: GET /api/status — health check + API key validation
 // ============================================================
@@ -73,7 +141,7 @@ app.get('/api/status', (req, res) => {
   res.json({
     server: 'ok',
     oddsApi: ODDS_KEY ? 'configured' : 'missing',
-    bdlApi: BDL_KEY ? 'configured' : 'optional',
+    nbaApi: NBA_RAPID_KEY ? 'configured' : 'missing',
     cacheKeys: cache.keys().length,
     uptime: process.uptime(),
   });
@@ -87,7 +155,7 @@ app.get('/api/health', (req, res) => {
     server: 'ok',
     apis: {
       odds: ODDS_KEY ? 'configured' : 'missing',
-      stats: BDL_KEY ? 'configured' : 'optional',
+      stats: NBA_RAPID_KEY ? 'configured' : 'missing',
     },
     season: NBA_SEASON,
     uptime: process.uptime(),
@@ -98,13 +166,12 @@ app.get('/api/health', (req, res) => {
 // ROUTE: POST /api/config — accept API keys from frontend
 // ============================================================
 app.post('/api/config', (req, res) => {
-  const { oddsKey, bdlKey } = req.body || {};
+  const { oddsKey } = req.body || {};
   if (oddsKey) ODDS_KEY = oddsKey.trim();
-  if (bdlKey) BDL_KEY = bdlKey.trim();
   cache.flushAll(); // clear cache so fresh data loads with new keys
   res.json({
     odds: ODDS_KEY ? 'configured' : 'missing',
-    stats: BDL_KEY ? 'configured' : 'optional',
+    stats: NBA_RAPID_KEY ? 'configured' : 'missing',
   });
 });
 
@@ -273,48 +340,36 @@ app.get('/api/odds/scores', async (req, res) => {
 // ROUTE: GET /api/stats/player/search — search players
 // ============================================================
 app.get('/api/stats/player/search', async (req, res) => {
-  try {
-    const name = req.query.name;
-    if (!name) return res.status(400).json({ error: 'name required' });
-
-    const ck = `ps_${name.toLowerCase()}`;
-    const cached = cacheGet(ck);
-    if (cached) return res.json({ data: cached, cached: true });
-
-    const headers = BDL_KEY ? { 'Authorization': BDL_KEY } : {};
-    const url = `${BDL_BASE}/players?search=${encodeURIComponent(name)}&per_page=5`;
-    const resp = await fetch(url, { headers });
-    if (!resp.ok) throw new Error(`BDL search: ${resp.status}`);
-    const data = await resp.json();
-
-    cacheSet(ck, data.data || [], parseInt(process.env.CACHE_TTL_STATS) || 300);
-    res.json({ data: data.data || [], cached: false });
-  } catch (err) {
-    console.error('Player search error:', err.message);
-    res.status(500).json({ error: err.message });
-  }
+  const { name } = req.query;
+  if (!name) return res.status(400).json({ error: 'name required' });
+  // Use NBA_IDS_SERVER for instant lookup without an API call
+  const id = NBA_IDS_SERVER[name];
+  if (id) return res.json({ data: [{ id, name }], cached: false });
+  // Fuzzy match
+  const match = Object.entries(NBA_IDS_SERVER).find(([n]) => n.toLowerCase().includes(name.toLowerCase()));
+  if (match) return res.json({ data: [{ id: match[1], name: match[0] }], cached: false });
+  res.json({ data: [], cached: false });
 });
 
 // ============================================================
 // ROUTE: GET /api/stats/player/:id/games — game log
 // ============================================================
 app.get('/api/stats/player/:id/games', async (req, res) => {
+  const { id } = req.params;
+  const ck = `nba_gl_${id}_${NBA_SEASON}`;
+  const cached = cacheGet(ck);
+  if (cached) return res.json({ data: cached, cached: true });
+
+  if (!NBA_RAPID_KEY) return res.status(400).json({ error: 'NBA_RAPID_KEY not configured' });
+
   try {
-    const { id } = req.params;
-    const season = req.query.season || NBA_SEASON;
-
-    const ck = `gl_${id}_${season}`;
-    const cached = cacheGet(ck);
-    if (cached) return res.json({ data: cached, cached: true });
-
-    const headers = BDL_KEY ? { 'Authorization': BDL_KEY } : {};
-    const url = `${BDL_BASE}/stats?player_ids[]=${id}&seasons[]=${season}&per_page=100`;
-    const resp = await fetch(url, { headers });
-    if (!resp.ok) throw new Error(`BDL stats: ${resp.status}`);
-    const data = await resp.json();
-
-    const games = data.data || [];
-    cacheSet(ck, games, parseInt(process.env.CACHE_TTL_STATS) || 300);
+    const season = `${NBA_SEASON}-${String(NBA_SEASON + 1).slice(2)}`;
+    const url = `${NBA_RAPID_BASE}/nba-player-game-log?NbaPlayerID=${id}&Season=${encodeURIComponent(season)}&SeasonType=Regular+Season`;
+    const resp = await fetch(url, { headers: rapidHeaders() });
+    if (!resp.ok) throw new Error(`NBA API ${resp.status}: ${await resp.text()}`);
+    const raw = await resp.json();
+    const games = normalizeNBAGameLog(parseRapidResponse(raw));
+    cacheSet(ck, games, STATS_TTL);
     res.json({ data: games, cached: false });
   } catch (err) {
     console.error('Game log error:', err.message);
@@ -326,23 +381,25 @@ app.get('/api/stats/player/:id/games', async (req, res) => {
 // ROUTE: GET /api/stats/player/:id/averages — season averages
 // ============================================================
 app.get('/api/stats/player/:id/averages', async (req, res) => {
+  const { id } = req.params;
+  const ck = `nba_avg_${id}_${NBA_SEASON}`;
+  const cached = cacheGet(ck);
+  if (cached) return res.json({ data: cached, cached: true });
+
+  if (!NBA_RAPID_KEY) return res.status(400).json({ error: 'NBA_RAPID_KEY not configured' });
+
   try {
-    const { id } = req.params;
-    const season = req.query.season || NBA_SEASON;
-
-    const ck = `avg_${id}_${season}`;
-    const cached = cacheGet(ck);
-    if (cached) return res.json({ data: cached, cached: true });
-
-    const headers = BDL_KEY ? { 'Authorization': BDL_KEY } : {};
-    const url = `${BDL_BASE}/season_averages?player_ids[]=${id}&season=${season}`;
-    const resp = await fetch(url, { headers });
-    if (!resp.ok) throw new Error(`BDL averages: ${resp.status}`);
-    const data = await resp.json();
-
-    const avg = data.data?.[0] || null;
-    cacheSet(ck, avg, parseInt(process.env.CACHE_TTL_STATS) || 300);
-    res.json({ data: avg, cached: false });
+    const season = `${NBA_SEASON}-${String(NBA_SEASON + 1).slice(2)}`;
+    const url = `${NBA_RAPID_BASE}/nba-player-game-log?NbaPlayerID=${id}&Season=${encodeURIComponent(season)}&SeasonType=Regular+Season`;
+    const resp = await fetch(url, { headers: rapidHeaders() });
+    if (!resp.ok) throw new Error(`NBA API ${resp.status}`);
+    const raw = await resp.json();
+    const games = normalizeNBAGameLog(parseRapidResponse(raw));
+    if (!games.length) { res.json({ data: null, cached: false }); return; }
+    const avg = (k) => +(games.reduce((s, g) => s + (g[k] || 0), 0) / games.length).toFixed(1);
+    const result = { pts: avg('pts'), reb: avg('reb'), ast: avg('ast'), fg3m: avg('fg3m'), gp: games.length };
+    cacheSet(ck, result, STATS_TTL);
+    res.json({ data: result, cached: false });
   } catch (err) {
     console.error('Averages error:', err.message);
     res.status(500).json({ error: err.message });
@@ -353,71 +410,55 @@ app.get('/api/stats/player/:id/averages', async (req, res) => {
 // ROUTE: GET /api/stats/player/:id/splits — computed splits
 // ============================================================
 app.get('/api/stats/player/:id/splits', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const season = req.query.season || NBA_SEASON;
-    const line = parseFloat(req.query.line) || 0;
-    const stat = req.query.stat || 'pts';
+  const { id } = req.params;
+  const line = parseFloat(req.query.line) || 0;
+  const stat = req.query.stat || 'pts';
 
-    // Get game log first
-    const ck = `gl_${id}_${season}`;
-    let games = cacheGet(ck);
-    if (!games) {
-      const headers = BDL_KEY ? { 'Authorization': BDL_KEY } : {};
-      const url = `${BDL_BASE}/stats?player_ids[]=${id}&seasons[]=${season}&per_page=100`;
-      const resp = await fetch(url, { headers });
-      if (!resp.ok) throw new Error(`BDL stats: ${resp.status}`);
-      const data = await resp.json();
-      games = data.data || [];
-      cacheSet(ck, games, parseInt(process.env.CACHE_TTL_STATS) || 300);
+  const ck = `nba_gl_${id}_${NBA_SEASON}`;
+  let games = cacheGet(ck);
+  if (!games) {
+    if (!NBA_RAPID_KEY) return res.status(400).json({ error: 'NBA_RAPID_KEY not configured' });
+    try {
+      const season = `${NBA_SEASON}-${String(NBA_SEASON + 1).slice(2)}`;
+      const url = `${NBA_RAPID_BASE}/nba-player-game-log?NbaPlayerID=${id}&Season=${encodeURIComponent(season)}&SeasonType=Regular+Season`;
+      const resp = await fetch(url, { headers: rapidHeaders() });
+      if (!resp.ok) throw new Error(`NBA API ${resp.status}`);
+      const raw = await resp.json();
+      games = normalizeNBAGameLog(parseRapidResponse(raw));
+      cacheSet(ck, games, STATS_TTL);
+    } catch (err) {
+      return res.status(500).json({ error: err.message });
     }
-
-    // Compute splits
-    const splits = computeSplits(games, line, stat);
-    res.json({ data: splits, cached: false, gamesAnalyzed: games.length });
-  } catch (err) {
-    console.error('Splits error:', err.message);
-    res.status(500).json({ error: err.message });
   }
+
+  const splits = computeSplits(games, line, stat);
+  res.json({ data: splits, cached: false, gamesAnalyzed: games.length });
 });
 
 function computeSplits(games, line, statKey) {
-  if (!games.length) return null;
+  if (!games || !games.length) return null;
 
   const getVal = (g) => {
     const map = { pts: g.pts, reb: g.reb, ast: g.ast, stl: g.stl, blk: g.blk,
-      threes: g.fg3m, pra: (g.pts||0) + (g.reb||0) + (g.ast||0), to: g.turnover };
-    return map[statKey] || g.pts || 0;
+      fg3m: g.fg3m, pra: (g.pts||0)+(g.reb||0)+(g.ast||0), turnover: g.turnover };
+    return map[statKey] ?? g.pts ?? 0;
   };
 
   const calc = (subset) => {
     if (!subset.length) return { avg: 0, gp: 0, hitRate: 0, values: [] };
     const vals = subset.map(getVal);
-    const avg = +(vals.reduce((a,b) => a+b, 0) / vals.length).toFixed(1);
+    const avg = +(vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1);
     const hr = line ? Math.round(vals.filter(v => v >= line).length / vals.length * 100) : 0;
     return { avg, gp: vals.length, hitRate: hr, values: vals };
   };
 
-  // Sort by date
-  const sorted = [...games].sort((a,b) => new Date(b.game?.date || 0) - new Date(a.game?.date || 0));
-
-  // Home vs Away
-  const home = sorted.filter(g => g.game?.home_team_id === g.team?.id);
-  const away = sorted.filter(g => g.game?.home_team_id !== g.team?.id);
-
-  // Last N
-  const last5 = sorted.slice(0, 5);
-  const last10 = sorted.slice(0, 10);
-  const last20 = sorted.slice(0, 20);
+  const sorted = [...games].sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+  const home = sorted.filter(g => g.home === true);
+  const away = sorted.filter(g => g.home === false);
 
   return {
-    all: calc(sorted),
-    home: calc(home),
-    away: calc(away),
-    last5: calc(last5),
-    last10: calc(last10),
-    last20: calc(last20),
-    // We can't easily detect B2B/rest from BDL data, so flag these
+    all: calc(sorted), home: calc(home), away: calc(away),
+    last5: calc(sorted.slice(0, 5)), last10: calc(sorted.slice(0, 10)), last20: calc(sorted.slice(0, 20)),
     b2b: { avg: 0, gp: 0, hitRate: 0, note: 'Requires schedule data' },
     rest3plus: { avg: 0, gp: 0, hitRate: 0, note: 'Requires schedule data' },
   };
@@ -554,62 +595,32 @@ app.get('/api/analytics/merged', async (req, res) => {
       }
     }
 
-    // Step 2: Enrich each player with stats (batch BDL lookups)
+    // Step 2: Enrich each player with stats using NBA_IDS_SERVER direct lookup
     const enriched = await Promise.all(players.slice(0, 50).map(async (p) => {
       try {
-        // Search BDL for player
-        const headers = BDL_KEY ? { 'Authorization': BDL_KEY } : {};
-        const nameParts = p.name.split(' ');
-        const searchName = nameParts.length >= 2 ? `${nameParts[0]} ${nameParts[nameParts.length-1]}` : p.name;
-
-        const sCk = `ps_${searchName.toLowerCase()}`;
-        let searchResult = cacheGet(sCk);
-        if (!searchResult) {
-          try {
-            const sResp = await fetch(`${BDL_BASE}/players?search=${encodeURIComponent(searchName)}&per_page=1`, { headers });
-            if (sResp.ok) {
-              const sData = await sResp.json();
-              searchResult = sData.data || [];
-              cacheSet(sCk, searchResult, 600);
-            }
-          } catch { searchResult = []; }
-        }
-
-        const bdlPlayer = searchResult?.[0];
+        const nbaId = NBA_IDS_SERVER[p.name];
         let gameLog = [];
-        let seasonAvg = null;
 
-        if (bdlPlayer) {
-          // Get game log
-          const glCk = `gl_${bdlPlayer.id}_${NBA_SEASON}`;
+        if (nbaId && NBA_RAPID_KEY) {
+          const glCk = `nba_gl_${nbaId}_${NBA_SEASON}`;
           gameLog = cacheGet(glCk);
           if (!gameLog) {
             try {
-              const glResp = await fetch(`${BDL_BASE}/stats?player_ids[]=${bdlPlayer.id}&seasons[]=${NBA_SEASON}&per_page=82`, { headers });
+              const season = `${NBA_SEASON}-${String(NBA_SEASON + 1).slice(2)}`;
+              const glResp = await fetch(
+                `${NBA_RAPID_BASE}/nba-player-game-log?NbaPlayerID=${nbaId}&Season=${encodeURIComponent(season)}&SeasonType=Regular+Season`,
+                { headers: rapidHeaders() }
+              );
               if (glResp.ok) {
                 const glData = await glResp.json();
-                gameLog = glData.data || [];
-                cacheSet(glCk, gameLog, 300);
+                gameLog = normalizeNBAGameLog(parseRapidResponse(glData));
+                cacheSet(glCk, gameLog, STATS_TTL);
               }
             } catch { gameLog = []; }
           }
-
-          // Get season averages
-          const avCk = `avg_${bdlPlayer.id}_${NBA_SEASON}`;
-          seasonAvg = cacheGet(avCk);
-          if (!seasonAvg) {
-            try {
-              const avResp = await fetch(`${BDL_BASE}/season_averages?player_ids[]=${bdlPlayer.id}&season=${NBA_SEASON}`, { headers });
-              if (avResp.ok) {
-                const avData = await avResp.json();
-                seasonAvg = avData.data?.[0] || null;
-                cacheSet(avCk, seasonAvg, 300);
-              }
-            } catch { seasonAvg = null; }
-          }
+          gameLog = gameLog || [];
         }
 
-        // Map market to stat key
         const statMap = {
           'player_points': 'pts', 'player_rebounds': 'reb', 'player_assists': 'ast',
           'player_threes': 'fg3m', 'player_steals': 'stl', 'player_blocks': 'blk',
@@ -617,51 +628,34 @@ app.get('/api/analytics/merged', async (req, res) => {
         };
         const statKey = statMap[market] || 'pts';
 
-        // Extract L10 values
-        const sorted = [...gameLog].sort((a, b) => new Date(b.game?.date || 0) - new Date(a.game?.date || 0));
+        const sorted = [...gameLog].sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
         const l10Raw = sorted.slice(0, 10).map(g => g[statKey] || 0).reverse();
         const l10 = l10Raw.length >= 5 ? l10Raw : generateFakeL10(p.line);
 
-        // Compute analytics
-        const avg = l10.length ? +(l10.reduce((a,b) => a+b, 0) / l10.length).toFixed(1) : p.line;
+        const avg = l10.length ? +(l10.reduce((a, b) => a + b, 0) / l10.length).toFixed(1) : p.line;
         const hitRate = p.line ? Math.round(l10.filter(v => v >= p.line).length / l10.length * 100) : 50;
         const edge = p.line ? +((avg - p.line) / p.line * 100).toFixed(1) : 0;
-        const pos = bdlPlayer?.position || guessPosition(p.name);
-        const team = bdlPlayer ? teamFromBDL(bdlPlayer) : guessTeam(p.name);
+        const pos = guessPosition(p.name);
+        const team = guessTeam(p.name);
         const dvpRank = computeDvPRank(p.homeTeam === team ? p.awayTeam : p.homeTeam, pos);
         const dvpClass = dvpRank <= 10 ? 'Easy' : dvpRank >= 21 ? 'Hard' : 'Mid';
-
-        // Confidence score
         const confidence = computeConfidence({ l10, hitRate, edge, dvpRank });
 
         return {
-          ...p,
-          team,
-          position: pos,
-          avg,
-          l10,
-          hitRate,
-          edge,
-          dvpRank,
-          dvpClass,
-          confidence,
-          bdlId: bdlPlayer?.id || null,
+          ...p, team, position: pos, avg, l10, hitRate, edge, dvpRank, dvpClass, confidence,
+          nbaId: nbaId || null,
           hasRealStats: gameLog.length >= 5,
           gamesPlayed: gameLog.length,
-          seasonAvg: seasonAvg ? {
-            pts: seasonAvg.pts, reb: seasonAvg.reb, ast: seasonAvg.ast,
-            fg3m: seasonAvg.fg3m, min: seasonAvg.min, fga: seasonAvg.fga,
-          } : null,
         };
       } catch (enrichErr) {
         console.error(`Enrich error for ${p.name}:`, enrichErr.message);
         const l10 = generateFakeL10(p.line);
-        const avg = +(l10.reduce((a,b) => a+b, 0) / l10.length).toFixed(1);
+        const avg = +(l10.reduce((a, b) => a + b, 0) / l10.length).toFixed(1);
         return {
           ...p, team: guessTeam(p.name), position: guessPosition(p.name),
           avg, l10, hitRate: 50, edge: +((avg - p.line) / p.line * 100).toFixed(1),
           dvpRank: 15, dvpClass: 'Mid', confidence: 45,
-          bdlId: null, hasRealStats: false, gamesPlayed: 0, seasonAvg: null,
+          nbaId: null, hasRealStats: false, gamesPlayed: 0,
         };
       }
     }));
@@ -719,13 +713,6 @@ function guessTeam(name) {
   return map[name.toLowerCase()] || '???';
 }
 
-function teamFromBDL(player) {
-  if (!player?.team) return '???';
-  const map = { 1:'ATL',2:'BOS',3:'BKN',4:'CHA',5:'CHI',6:'CLE',7:'DAL',8:'DEN',9:'DET',10:'GSW',
-    11:'HOU',12:'IND',13:'LAC',14:'LAL',15:'MEM',16:'MIA',17:'MIL',18:'MIN',19:'NOP',20:'NYK',
-    21:'OKC',22:'ORL',23:'PHI',24:'PHX',25:'POR',26:'SAC',27:'SAS',28:'TOR',29:'UTA',30:'WAS' };
-  return map[player.team.id] || player.team.abbreviation || '???';
-}
 
 // ============================================================
 // ROUTE: GET /api/cache/clear — manual cache flush
@@ -770,6 +757,6 @@ app.listen(PORT, () => {
   console.log(`  ║  PropEdge v3 Server                   ║`);
   console.log(`  ║  Running on http://localhost:${PORT}      ║`);
   console.log(`  ║  Odds API: ${ODDS_KEY ? '✓ Configured' : '✗ Missing'}              ║`);
-  console.log(`  ║  BDL API:  ${BDL_KEY ? '✓ Configured' : '○ Optional'}              ║`);
+  console.log(`  ║  NBA API:  ${NBA_RAPID_KEY ? '✓ Configured' : '○ Missing'}              ║`);
   console.log(`  ╚═══════════════════════════════════════╝\n`);
 });

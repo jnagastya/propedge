@@ -103,13 +103,6 @@ body{background:var(--bg0);color:var(--t1);font-family:var(--sans);min-height:10
 .chip-a{border-style:dashed;color:var(--t3);}.chip-a:hover{color:var(--p);border-color:var(--p);}
 .scn-note{font-size:11px;color:var(--t3);width:100%;margin-top:2px;}
 
-/* ── CONFIG BAR ── */
-.config-bar{display:flex;gap:10px;align-items:center;padding:12px 16px;background:var(--bg1);border:1px solid var(--bd);border-radius:10px;margin-bottom:14px;flex-wrap:wrap;box-shadow:var(--shadow);}
-.config-bar label{font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;}
-.cfg-i{padding:7px 10px;background:var(--bg2);border:1px solid var(--bd);border-radius:7px;color:var(--t1);font-family:var(--sans);font-size:12px;outline:none;width:260px;}
-.cfg-i:focus{border-color:var(--b);}
-.cfg-btn{padding:7px 14px;background:var(--b);border:none;border-radius:7px;color:#fff;font-family:var(--sans);font-size:12px;font-weight:600;cursor:pointer;}
-.cfg-btn:hover{background:#1d4ed8;}.cfg-btn.sec{background:var(--bg3);color:var(--t2);}.cfg-btn.sec:hover{background:var(--bg4);}
 
 /* ── GLOSSARY PILLS ── */
 .glossary{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;}
@@ -302,8 +295,66 @@ td{padding:8px 10px;white-space:nowrap;}
 .va-formula{margin-top:8px;font-size:10px;color:var(--t3);padding:8px 10px;background:var(--bg2);border-radius:6px;line-height:1.7;border:1px solid var(--bd);}
 .va-formula span{color:var(--b);font-weight:700;}
 
+/* ── SIMULATOR ── */
+.sim-view{display:none;}.sim-view.show{display:block;}
+.sim-hdr{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;}
+.sim-stat{background:var(--bg1);border:1px solid var(--bd);border-radius:10px;padding:14px 16px;box-shadow:var(--shadow);}
+.sim-stat-l{font-size:10px;font-weight:700;text-transform:uppercase;color:var(--t3);letter-spacing:.5px;margin-bottom:6px;}
+.sim-stat-v{font-size:22px;font-weight:800;color:var(--t1);}
+.sim-stat-v.pos{color:var(--g);}.sim-stat-v.neg{color:var(--r);}
+.sim-section{background:var(--bg1);border:1px solid var(--bd);border-radius:10px;margin-bottom:14px;overflow:hidden;box-shadow:var(--shadow);}
+.sim-sec-hdr{display:flex;align-items:center;justify-content:space-between;padding:11px 16px;border-bottom:1px solid var(--bd);background:var(--bg2);}
+.sim-sec-title{font-size:13px;font-weight:600;}
+.bet-card{padding:14px 16px;border-bottom:1px solid var(--bd);}
+.bet-card:last-child{border-bottom:none;}
+.bet-card-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+.bet-player{font-size:13px;font-weight:700;}
+.bet-meta{font-size:11px;color:var(--t3);margin-top:2px;}
+.bet-dir{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:800;}
+.bet-dir.over{background:var(--gb);color:var(--g);}.bet-dir.under{background:var(--rb);color:var(--r);}
+.bet-actions{display:flex;gap:6px;margin-top:10px;}
+.bet-act{padding:5px 12px;border:none;border-radius:6px;font-family:var(--sans);font-size:11px;font-weight:600;cursor:pointer;}
+.bet-act.won{background:var(--gd);color:var(--g);border:1px solid var(--gb);}
+.bet-act.lost{background:var(--rd);color:var(--r);border:1px solid var(--rb);}
+.bet-act.void{background:var(--bg3);color:var(--t2);border:1px solid var(--bd);}
+.bet-act.auto{background:var(--bld);color:var(--b);border:1px solid var(--bb);}
+.hist-row{display:grid;grid-template-columns:60px 1fr auto auto;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--bd);font-size:12px;}
+.hist-row:last-child{border-bottom:none;}
+.hist-status{font-weight:700;font-size:11px;padding:2px 8px;border-radius:20px;text-align:center;}
+.hist-status.won{background:var(--gd);color:var(--g);}.hist-status.lost{background:var(--rd);color:var(--r);}.hist-status.void{background:var(--bg3);color:var(--t3);}
+.hist-pnl.pos{color:var(--g);font-weight:700;}.hist-pnl.neg{color:var(--r);font-weight:700;}
+/* Bet button in table */
+.bet-btn{padding:4px 9px;background:var(--b);border:none;border-radius:5px;color:#fff;font-size:10px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:3px;font-family:var(--sans);}
+.bet-btn:hover{background:#1d4ed8;}
+/* Bet Modal */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:800;align-items:center;justify-content:center;}
+.modal-overlay.show{display:flex;}
+.modal{background:var(--bg1);border-radius:14px;padding:24px;width:380px;max-width:95vw;box-shadow:var(--shadow-md);animation:cardIn .2s ease both;}
+.modal-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;}
+.modal-title{font-size:16px;font-weight:700;}
+.modal-close{background:none;border:none;font-size:20px;color:var(--t3);cursor:pointer;line-height:1;}
+.modal-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--bd);font-size:12px;}
+.modal-row:last-of-type{border-bottom:none;}
+.modal-lbl{color:var(--t3);font-weight:600;}
+.modal-val{font-weight:700;}
+.dir-toggle{display:flex;gap:4px;margin:14px 0;}
+.dir-btn{flex:1;padding:8px;border:2px solid var(--bd);border-radius:8px;background:none;font-family:var(--sans);font-size:13px;font-weight:700;cursor:pointer;transition:all .1s;}
+.dir-btn.over.on{border-color:var(--g);background:var(--gd);color:var(--g);}
+.dir-btn.under.on{border-color:var(--r);background:var(--rd);color:var(--r);}
+.stake-row{margin:14px 0;}
+.stake-lbl{font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;}
+.stake-input{width:100%;padding:10px 12px;background:var(--bg2);border:1px solid var(--bd);border-radius:8px;font-family:var(--sans);font-size:16px;font-weight:700;color:var(--t1);outline:none;}
+.stake-input:focus{border-color:var(--b);}
+.payout-preview{display:flex;justify-content:space-between;background:var(--bg2);border-radius:8px;padding:10px 12px;margin-bottom:16px;font-size:12px;}
+.place-btn{width:100%;padding:12px;background:var(--b);border:none;border-radius:8px;color:#fff;font-family:var(--sans);font-size:14px;font-weight:700;cursor:pointer;}
+.place-btn:hover{background:#1d4ed8;}.place-btn:disabled{background:var(--bg4);color:var(--t3);cursor:not-allowed;}
+/* Balance edit */
+.bal-edit{display:flex;align-items:center;gap:8px;}
+.bal-inp{width:120px;padding:6px 10px;background:var(--bg2);border:1px solid var(--bd);border-radius:7px;font-family:var(--sans);font-size:14px;font-weight:700;outline:none;}
+.bal-inp:focus{border-color:var(--b);}
+
 /* ── RESPONSIVE ── */
-@media(max-width:900px){.sr{grid-template-columns:repeat(2,1fr);}.di-grid{grid-template-columns:1fr;}.va-grid{grid-template-columns:1fr;}.config-bar{flex-direction:column;align-items:flex-start;}}
+@media(max-width:900px){.sr{grid-template-columns:repeat(2,1fr);}.di-grid{grid-template-columns:1fr;}.va-grid{grid-template-columns:1fr;}}
 @media(max-width:600px){.app{padding:10px;}.ctrls{flex-direction:column;align-items:flex-start;}.glossary{display:none;}}
 </style>
 </head>
@@ -311,6 +362,17 @@ td{padding:8px 10px;white-space:nowrap;}
 
 <!-- Hidden tooltip element for glossary (repositioned by JS) -->
 <div class="gls-tip" id="glsTip"></div>
+
+<!-- Bet Placement Modal -->
+<div class="modal-overlay" id="betModal">
+  <div class="modal">
+    <div class="modal-hdr">
+      <span class="modal-title">Place Bet</span>
+      <button class="modal-close" onclick="closeBetModal()">✕</button>
+    </div>
+    <div id="modalBody"></div>
+  </div>
+</div>
 
 <header class="topbar">
   <div class="logo-g">
@@ -328,22 +390,13 @@ td{padding:8px 10px;white-space:nowrap;}
 <nav class="nav-tabs">
   <button class="nav-tab on" onclick="switchView('props',this)">Player Props</button>
   <button class="nav-tab alert-tab" onclick="switchView('alerts',this)">Value Alerts <span class="alert-dot" id="alertDot" style="display:none"></span></button>
+  <button class="nav-tab sim-tab" onclick="switchView('simulator',this)">Simulator 🎲</button>
 </nav>
 
 <div class="app">
   <div id="sts" class="sts hide"></div>
 
-  <!-- API CONFIG -->
-  <div class="config-bar" id="configBar">
-    <label>Odds API Key</label>
-    <input class="cfg-i" type="password" id="oddsKey" placeholder="From the-odds-api.com (required)…"/>
-    <label>BDL Key</label>
-    <input class="cfg-i" type="text" id="bdlKey" placeholder="BallDontLie key (optional)…"/>
-    <button class="cfg-btn" onclick="saveKeys()">Connect</button>
-    <button class="cfg-btn sec" onclick="document.getElementById('configBar').style.display='none'">Hide</button>
-  </div>
-
-  <!-- ======= PROPS VIEW ======= -->
+<!-- ======= PROPS VIEW ======= -->
   <div id="propsView">
     <!-- SCORES RIBBON -->
     <div class="scs" id="scs"></div>
@@ -453,7 +506,7 @@ td{padding:8px 10px;white-space:nowrap;}
           <thead><tr>
             <th>Player</th><th>Matchup</th><th>Line</th><th>Odds</th>
             <th>Avg</th><th>Hit Rate</th><th>O/U</th><th>Trend</th>
-            <th>Edge</th><th>Lean</th><th>DvP</th><th>Confidence</th><th>Value</th>
+            <th>Edge</th><th>Lean</th><th>DvP</th><th>Confidence</th><th>Value</th><th>Bet</th>
             <th id="scnTh" style="display:none">Scenario ⚡</th>
           </tr></thead>
           <tbody id="tBody"></tbody>
@@ -475,6 +528,28 @@ td{padding:8px 10px;white-space:nowrap;}
       <span><span class="dot" style="background:var(--r)"></span>Aggressive: Edge 3%+, Conf 40+, Hit 40%+</span>
     </div>
     <div class="va-grid" id="vaGrid"></div>
+  </div>
+
+  <!-- ======= SIMULATOR VIEW ======= -->
+  <div class="sim-view" id="simView">
+    <!-- Balance Header -->
+    <div class="sim-hdr" id="simHdr"></div>
+    <!-- Open Bets -->
+    <div class="sim-section">
+      <div class="sim-sec-hdr">
+        <span class="sim-sec-title">Open Bets</span>
+        <button class="cbtn" onclick="tryAutoResolve()" style="font-size:11px;padding:5px 10px;">⟳ Auto-Resolve</button>
+      </div>
+      <div id="openBets"></div>
+    </div>
+    <!-- Bet History -->
+    <div class="sim-section">
+      <div class="sim-sec-hdr">
+        <span class="sim-sec-title">Bet History</span>
+        <button class="cbtn" onclick="clearHistory()" style="font-size:11px;padding:5px 10px;color:var(--r);">Clear History</button>
+      </div>
+      <div id="betHistory"></div>
+    </div>
   </div>
 </div>
 
@@ -585,18 +660,6 @@ async function apiGet(path) {
   try { const r = await fetch(`${API}${path}`); return await r.json(); }
   catch(e) { return { error: e.message }; }
 }
-async function saveKeys() {
-  const oddsKey = document.getElementById('oddsKey').value.trim();
-  const bdlKey = document.getElementById('bdlKey').value.trim();
-  if (oddsKey) localStorage.setItem('pe_odds_key', oddsKey);
-  if (bdlKey) localStorage.setItem('pe_bdl_key', bdlKey);
-  showSts('Connecting…','inf');
-  const r = await fetch(`${API}/api/config`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({oddsKey,bdlKey})});
-  const d = await r.json();
-  setApi('odds', d.odds==='configured'?'ok':'err');
-  setApi('stats', d.stats==='configured'?'ok':'ld');
-  await loadData();
-}
 async function loadData() {
   setApi('odds','ld');setApi('stats','ld');setApi('scores','ld');
   showSts('Fetching live data…','inf');
@@ -619,7 +682,9 @@ function switchView(view,btn){
   btn.classList.add('on');
   document.getElementById('propsView').style.display=view==='props'?'block':'none';
   document.getElementById('alertsView').classList.toggle('show',view==='alerts');
+  document.getElementById('simView').classList.toggle('show',view==='simulator');
   if(view==='alerts')renderAlerts();
+  if(view==='simulator'){renderSimulator();tryAutoResolve();}
 }
 
 // ── Game filter ──
@@ -827,11 +892,12 @@ function renderTable(){
         <span class="cb-l" style="color:${cc}">${p.confidence||0}</span>
       </div></td>
       <td>${isValue?'<span class="val-badge">⚡ VALUE</span>':`<span style="color:var(--t3);font-size:11px;font-weight:600;">${vs}</span>`}</td>
+      <td><button class="bet-btn" onclick="event.stopPropagation();openBetModal(${JSON.stringify(p).replace(/"/g,'&quot;')})">🎲 Bet</button></td>
       ${S.scnOn?`<td>${(p.scenarioBoost||0)>0?`<span class="scn-boost">+${p.scenarioBoost} pts</span>`:'<span style="color:var(--t3)">—</span>'}</td>`:''}
     `;
     tb.appendChild(tr);
     const dr=document.createElement('tr');dr.className='dr';dr.id=`d-${i}`;
-    dr.innerHTML=`<td colspan="${S.scnOn?14:13}"><div class="di" id="di-${i}"></div></td>`;
+    dr.innerHTML=`<td colspan="${S.scnOn?15:14}"><div class="di" id="di-${i}"></div></td>`;
     tb.appendChild(dr);
   });
   document.getElementById('pCnt').textContent=d.length+' players';
@@ -1135,19 +1201,286 @@ setInterval(()=>loadData(),7200000);
 // ── Boot ──
 (async()=>{
   setApi('odds','err');setApi('stats','err');setApi('scores','err');
-  // Restore saved keys from previous session
-  const savedOdds = localStorage.getItem('pe_odds_key');
-  const savedBdl = localStorage.getItem('pe_bdl_key');
-  if (savedOdds) document.getElementById('oddsKey').value = savedOdds;
-  if (savedBdl) document.getElementById('bdlKey').value = savedBdl;
-  // Re-submit keys to server (needed after server restart)
-  if (savedOdds) {
-    await fetch(`${API}/api/config`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({oddsKey:savedOdds,bdlKey:savedBdl||''})});
-  }
   const h=await apiGet('/api/health');
   if(h.apis?.odds==='configured'){showSts('Backend connected, loading data…','inf');await loadData();}
-  else showSts('Enter your API keys above and click Connect to start.','inf');
+  else showSts('Odds API key not configured on server. Check your environment variables.','err');
 })();
+
+// ══════════════════════════════════════════════
+// BETTING SIMULATOR
+// ══════════════════════════════════════════════
+
+// ── localStorage helpers ──
+function simLoad() {
+  return {
+    balance: parseFloat(localStorage.getItem('pe_sim_balance') || '1000'),
+    bets: JSON.parse(localStorage.getItem('pe_sim_bets') || '[]'),
+  };
+}
+function simSave(state) {
+  localStorage.setItem('pe_sim_balance', state.balance.toFixed(2));
+  localStorage.setItem('pe_sim_bets', JSON.stringify(state.bets));
+}
+
+// ── Payout calculation ──
+function calcPayout(stake, odds) {
+  if (odds > 0) return +(stake * odds / 100).toFixed(2);
+  return +(stake * 100 / Math.abs(odds)).toFixed(2);
+}
+
+// ── Bet modal ──
+let _betPlayer = null;
+let _betDir = 'over';
+function openBetModal(p) {
+  _betPlayer = p;
+  const lean = (p.edge || 0) >= 0 ? 'over' : 'under';
+  _betDir = lean;
+  const sim = simLoad();
+  const mktLabels = {player_points:'Points',player_rebounds:'Rebounds',player_assists:'Assists',player_threes:'3-Pointers',player_points_rebounds_assists:'PRA'};
+  const mktLabel = mktLabels[p.market || S.market] || 'Stats';
+  const edge = p.edge || 0;
+  const isValue = (p.confidence||0) >= 55 && Math.abs(edge) > 4;
+  document.getElementById('modalBody').innerHTML = `
+    <div class="modal-row"><span class="modal-lbl">Player</span><span class="modal-val">${p.name}</span></div>
+    <div class="modal-row"><span class="modal-lbl">Matchup</span><span class="modal-val">${p.matchup||'—'}</span></div>
+    <div class="modal-row"><span class="modal-lbl">Line</span><span class="modal-val">${p.line} ${mktLabel}</span></div>
+    <div class="modal-row"><span class="modal-lbl">Edge</span><span class="modal-val" style="color:${edge>0?'var(--g)':'var(--r)'}">${edge>0?'+':''}${edge.toFixed(1)}%${isValue?' ⚡':''}</span></div>
+    <div class="modal-row"><span class="modal-lbl">Balance</span><span class="modal-val">$${sim.balance.toFixed(2)}</span></div>
+    <div class="dir-toggle">
+      <button class="dir-btn over${_betDir==='over'?' on':''}" onclick="setBetDir('over',this)">▲ OVER ${p.overOdds?(p.overOdds>0?'+':'')+p.overOdds:''}</button>
+      <button class="dir-btn under${_betDir==='under'?' on':''}" onclick="setBetDir('under',this)">▼ UNDER ${p.underOdds?(p.underOdds>0?'+':'')+p.underOdds:''}</button>
+    </div>
+    <div class="stake-row">
+      <div class="stake-lbl">Stake ($)</div>
+      <input class="stake-input" type="number" id="stakeInp" min="1" max="${sim.balance.toFixed(0)}" step="5" value="25" oninput="updatePayoutPreview()"/>
+    </div>
+    <div class="payout-preview" id="payoutPreview">
+      <span>To Win: <strong id="toWinAmt">—</strong></span>
+      <span>Total Return: <strong id="totalRetAmt">—</strong></span>
+    </div>
+    <button class="place-btn" onclick="placeBet()">Place Bet</button>
+  `;
+  document.getElementById('betModal').classList.add('show');
+  updatePayoutPreview();
+}
+function closeBetModal() { document.getElementById('betModal').classList.remove('show'); _betPlayer = null; }
+function setBetDir(dir, btn) {
+  _betDir = dir;
+  btn.parentElement.querySelectorAll('.dir-btn').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+  updatePayoutPreview();
+}
+function updatePayoutPreview() {
+  if (!_betPlayer) return;
+  const stake = parseFloat(document.getElementById('stakeInp')?.value) || 0;
+  const odds = _betDir === 'over' ? (_betPlayer.overOdds || -110) : (_betPlayer.underOdds || -110);
+  const toWin = calcPayout(stake, odds);
+  document.getElementById('toWinAmt').textContent = `$${toWin.toFixed(2)}`;
+  document.getElementById('totalRetAmt').textContent = `$${(stake + toWin).toFixed(2)}`;
+}
+function placeBet() {
+  if (!_betPlayer) return;
+  const sim = simLoad();
+  const stake = parseFloat(document.getElementById('stakeInp')?.value) || 0;
+  if (stake <= 0 || stake > sim.balance) { alert('Invalid stake amount.'); return; }
+  const odds = _betDir === 'over' ? (_betPlayer.overOdds || -110) : (_betPlayer.underOdds || -110);
+  const toWin = calcPayout(stake, odds);
+  const mktLabels = {player_points:'PTS',player_rebounds:'REB',player_assists:'AST',player_threes:'3PM',player_points_rebounds_assists:'PRA'};
+  const edge = _betPlayer.edge || 0;
+  const isValue = (_betPlayer.confidence||0) >= 55 && Math.abs(edge) > 4;
+  const bet = {
+    id: Date.now() + '-' + Math.random().toString(36).slice(2, 7),
+    placedAt: new Date().toISOString(),
+    player: _betPlayer.name, team: _betPlayer.team || '—',
+    matchup: _betPlayer.matchup || '—',
+    market: _betPlayer.market || S.market,
+    marketLabel: mktLabels[_betPlayer.market || S.market] || 'Stat',
+    line: _betPlayer.line, direction: _betDir, odds,
+    stake, toWin,
+    edge: edge, confidence: _betPlayer.confidence || 0,
+    isValue, nbaId: _betPlayer.nbaId || null,
+    gameTime: _betPlayer.gameTime || null,
+    status: 'open', settledAt: null, actualResult: null, pnl: null,
+  };
+  sim.balance -= stake;
+  sim.bets.unshift(bet);
+  simSave(sim);
+  closeBetModal();
+  showSts(`Bet placed: ${_betPlayer.name} ${_betDir.toUpperCase()} ${_betPlayer.line} · $${stake} to win $${toWin.toFixed(2)}`,'suc');
+  if (document.getElementById('simView').classList.contains('show')) renderSimulator();
+}
+
+// ── Settle bets ──
+function settleBet(betId, result) {
+  const sim = simLoad();
+  const bet = sim.bets.find(b => b.id === betId);
+  if (!bet || bet.status !== 'open') return;
+  bet.status = result; // 'won' | 'lost' | 'void'
+  bet.settledAt = new Date().toISOString();
+  if (result === 'won') { bet.pnl = bet.toWin; sim.balance += bet.stake + bet.toWin; }
+  else if (result === 'lost') { bet.pnl = -bet.stake; }
+  else { bet.pnl = 0; sim.balance += bet.stake; } // void: refund stake
+  simSave(sim);
+  renderSimulator();
+  showSts(`Bet ${result.toUpperCase()}: ${bet.player} ${bet.direction.toUpperCase()} ${bet.line}`, result === 'won' ? 'suc' : 'err');
+}
+
+// ── Auto-resolve: check scores for completed games, then fetch player stats ──
+async function tryAutoResolve() {
+  const sim = simLoad();
+  const open = sim.bets.filter(b => b.status === 'open');
+  if (!open.length) return;
+
+  for (const bet of open) {
+    // Find matching completed game in scores
+    const matchup = bet.matchup; // e.g. "DAL @ LAL"
+    const [away, home] = (matchup || '').split(' @ ');
+    if (!away || !home) continue;
+    const game = S.scores.find(g =>
+      (g.away === away && g.home === home) ||
+      (g.away === home && g.home === away)
+    );
+    if (!game || !game.completed) continue;
+
+    // Game is done — try to fetch player stats
+    if (!bet.nbaId) continue;
+    try {
+      const r = await apiGet(`/api/stats/player/${bet.nbaId}/games`);
+      if (!r.data || !r.data.length) continue;
+      // Find the game by date proximity (bet gameTime vs game date)
+      const betDate = bet.gameTime ? new Date(bet.gameTime).toISOString().slice(0,10) : null;
+      // Get the most recent game entry
+      const sorted = [...r.data].sort((a, b) => new Date(b.date||0) - new Date(a.date||0));
+      let g = betDate ? sorted.find(g => g.date && g.date.startsWith(betDate)) : sorted[0];
+      if (!g) g = sorted[0]; // fallback to most recent
+      if (!g) continue;
+
+      const statMap = {player_points:'pts',player_rebounds:'reb',player_assists:'ast',player_threes:'fg3m',player_steals:'stl',player_blocks:'blk',player_turnovers:'turnover'};
+      const statKey = statMap[bet.market] || 'pts';
+      const actual = g[statKey] ?? null;
+      if (actual === null) continue;
+
+      bet.actualResult = actual;
+      bet.status = actual >= bet.line ? (bet.direction === 'over' ? 'won' : 'lost') : (bet.direction === 'under' ? 'won' : 'lost');
+      bet.settledAt = new Date().toISOString();
+      if (bet.status === 'won') { bet.pnl = bet.toWin; sim.balance += bet.stake + bet.toWin; }
+      else { bet.pnl = -bet.stake; }
+    } catch { continue; }
+  }
+  simSave(sim);
+  renderSimulator();
+}
+
+// ── Render Simulator tab ──
+function renderSimulator() {
+  const sim = simLoad();
+  const open = sim.bets.filter(b => b.status === 'open');
+  const settled = sim.bets.filter(b => b.status !== 'open');
+  const won = settled.filter(b => b.status === 'won');
+  const lost = settled.filter(b => b.status === 'lost');
+  const totalPnl = settled.reduce((s, b) => s + (b.pnl || 0), 0);
+  const openExposure = open.reduce((s, b) => s + b.stake, 0);
+
+  // Header stats
+  document.getElementById('simHdr').innerHTML = `
+    <div class="sim-stat">
+      <div class="sim-stat-l">Balance</div>
+      <div class="sim-stat-v">$${sim.balance.toFixed(2)}</div>
+      <div class="bal-edit" style="margin-top:6px;">
+        <input class="bal-inp" id="balInp" type="number" value="${sim.balance.toFixed(0)}" min="0" step="100" style="font-size:12px;padding:4px 8px;"/>
+        <button class="cbtn" onclick="setBalance()" style="padding:4px 10px;font-size:11px;">Set</button>
+      </div>
+    </div>
+    <div class="sim-stat">
+      <div class="sim-stat-l">Total P&L</div>
+      <div class="sim-stat-v ${totalPnl>=0?'pos':'neg'}">${totalPnl>=0?'+':''}$${Math.abs(totalPnl).toFixed(2)}</div>
+      <div style="font-size:11px;color:var(--t3);margin-top:4px;">From ${settled.length} settled bets</div>
+    </div>
+    <div class="sim-stat">
+      <div class="sim-stat-l">Win Rate</div>
+      <div class="sim-stat-v">${settled.length ? Math.round(won.length/settled.length*100) : 0}%</div>
+      <div style="font-size:11px;color:var(--t3);margin-top:4px;">${won.length}W · ${lost.length}L</div>
+    </div>
+    <div class="sim-stat">
+      <div class="sim-stat-l">Open Exposure</div>
+      <div class="sim-stat-v">${open.length} bets</div>
+      <div style="font-size:11px;color:var(--t3);margin-top:4px;">$${openExposure.toFixed(2)} at risk</div>
+    </div>
+  `;
+
+  // Open bets
+  const obEl = document.getElementById('openBets');
+  if (!open.length) {
+    obEl.innerHTML = '<div style="padding:24px;text-align:center;color:var(--t3);font-size:13px;">No open bets. Go to Player Props and click 🎲 Bet.</div>';
+  } else {
+    obEl.innerHTML = open.map(b => {
+      const odds = (b.odds > 0 ? '+' : '') + b.odds;
+      return `<div class="bet-card">
+        <div class="bet-card-top">
+          <div>
+            <div class="bet-player">${b.player}</div>
+            <div class="bet-meta">${b.matchup} · ${b.marketLabel} ${b.line}</div>
+          </div>
+          <span class="bet-dir ${b.direction}">${b.direction === 'over' ? '▲ OVER' : '▼ UNDER'}</span>
+        </div>
+        <div style="display:flex;gap:16px;font-size:11px;color:var(--t2);">
+          <span>Stake: <strong>$${b.stake.toFixed(2)}</strong></span>
+          <span>To Win: <strong style="color:var(--g)">$${b.toWin.toFixed(2)}</strong></span>
+          <span>Odds: <strong>${odds}</strong></span>
+          <span>Edge: <strong style="color:${b.edge>=0?'var(--g)':'var(--r)'}">${b.edge>=0?'+':''}${b.edge.toFixed(1)}%</strong></span>
+          ${b.isValue?'<span class="val-badge">⚡ VALUE</span>':''}
+        </div>
+        <div style="font-size:10px;color:var(--t3);margin-top:4px;">${new Date(b.placedAt).toLocaleString()}</div>
+        <div class="bet-actions">
+          <button class="bet-act auto" onclick="tryAutoResolve()">⟳ Auto</button>
+          <button class="bet-act won" onclick="settleBet('${b.id}','won')">✓ Won</button>
+          <button class="bet-act lost" onclick="settleBet('${b.id}','lost')">✗ Lost</button>
+          <button class="bet-act void" onclick="settleBet('${b.id}','void')">— Void</button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  // Bet history
+  const histEl = document.getElementById('betHistory');
+  if (!settled.length) {
+    histEl.innerHTML = '<div style="padding:24px;text-align:center;color:var(--t3);font-size:13px;">No settled bets yet.</div>';
+  } else {
+    histEl.innerHTML = settled.map(b => {
+      const pnlFmt = b.pnl >= 0 ? `+$${b.pnl.toFixed(2)}` : `-$${Math.abs(b.pnl).toFixed(2)}`;
+      const resultNote = b.actualResult !== null ? ` (Actual: ${b.actualResult})` : '';
+      return `<div class="hist-row">
+        <span class="hist-status ${b.status}">${b.status.toUpperCase()}</span>
+        <div>
+          <div style="font-weight:600;">${b.player} <span style="color:${b.direction==='over'?'var(--g)':'var(--r)'};">${b.direction.toUpperCase()}</span> ${b.line} ${b.marketLabel}</div>
+          <div style="font-size:10px;color:var(--t3);">${b.matchup} · Edge ${b.edge>=0?'+':''}${b.edge.toFixed(1)}%${b.isValue?' ⚡':''} · ${new Date(b.placedAt).toLocaleDateString()}${resultNote}</div>
+        </div>
+        <span class="hist-pnl ${b.pnl>=0?'pos':'neg'}">${pnlFmt}</span>
+        <span style="font-size:11px;color:var(--t3);">$${b.stake}</span>
+      </div>`;
+    }).join('');
+  }
+}
+
+function setBalance() {
+  const val = parseFloat(document.getElementById('balInp')?.value);
+  if (isNaN(val) || val < 0) return;
+  const sim = simLoad();
+  sim.balance = val;
+  simSave(sim);
+  renderSimulator();
+}
+
+function clearHistory() {
+  if (!confirm('Clear all settled bet history?')) return;
+  const sim = simLoad();
+  sim.bets = sim.bets.filter(b => b.status === 'open');
+  simSave(sim);
+  renderSimulator();
+}
+
+// Close modal on overlay click
+document.getElementById('betModal').addEventListener('click', e => { if(e.target === document.getElementById('betModal')) closeBetModal(); });
 </script>
 </body>
 </html>
