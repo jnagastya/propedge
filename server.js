@@ -27,11 +27,21 @@ const cache = new NodeCache({
   checkperiod: 30,
 });
 
-const ODDS_KEY = process.env.ODDS_API_KEY || '';
-const BDL_KEY = process.env.BDL_API_KEY || '';
+let ODDS_KEY = process.env.ODDS_API_KEY || '';
+let BDL_KEY = process.env.BDL_API_KEY || '';
 const ODDS_BASE = 'https://api.the-odds-api.com/v4';
 const BDL_BASE = 'https://api.balldontlie.io/v1';
 const NBA_BASE = 'https://stats.nba.com/stats';
+
+// ---- NBA SEASON HELPER ----
+function currentNBASeason() {
+  const now = new Date();
+  const month = now.getMonth() + 1;
+  const year = now.getFullYear();
+  // NBA season starts in October; season=year means Oct year – Jun year+1
+  return month >= 10 ? year : year - 1;
+}
+const NBA_SEASON = currentNBASeason(); // e.g. 2025 for 2025-26 season
 
 // ---- HELPERS ----
 function cacheGet(key) { return cache.get(key); }
@@ -66,6 +76,35 @@ app.get('/api/status', (req, res) => {
     bdlApi: BDL_KEY ? 'configured' : 'optional',
     cacheKeys: cache.keys().length,
     uptime: process.uptime(),
+  });
+});
+
+// ============================================================
+// ROUTE: GET /api/health — alias for /api/status (frontend compat)
+// ============================================================
+app.get('/api/health', (req, res) => {
+  res.json({
+    server: 'ok',
+    apis: {
+      odds: ODDS_KEY ? 'configured' : 'missing',
+      stats: BDL_KEY ? 'configured' : 'optional',
+    },
+    season: NBA_SEASON,
+    uptime: process.uptime(),
+  });
+});
+
+// ============================================================
+// ROUTE: POST /api/config — accept API keys from frontend
+// ============================================================
+app.post('/api/config', (req, res) => {
+  const { oddsKey, bdlKey } = req.body || {};
+  if (oddsKey) ODDS_KEY = oddsKey.trim();
+  if (bdlKey) BDL_KEY = bdlKey.trim();
+  cache.flushAll(); // clear cache so fresh data loads with new keys
+  res.json({
+    odds: ODDS_KEY ? 'configured' : 'missing',
+    stats: BDL_KEY ? 'configured' : 'optional',
   });
 });
 
@@ -262,7 +301,7 @@ app.get('/api/stats/player/search', async (req, res) => {
 app.get('/api/stats/player/:id/games', async (req, res) => {
   try {
     const { id } = req.params;
-    const season = req.query.season || 2024;
+    const season = req.query.season || NBA_SEASON;
 
     const ck = `gl_${id}_${season}`;
     const cached = cacheGet(ck);
@@ -289,7 +328,7 @@ app.get('/api/stats/player/:id/games', async (req, res) => {
 app.get('/api/stats/player/:id/averages', async (req, res) => {
   try {
     const { id } = req.params;
-    const season = req.query.season || 2024;
+    const season = req.query.season || NBA_SEASON;
 
     const ck = `avg_${id}_${season}`;
     const cached = cacheGet(ck);
@@ -316,7 +355,7 @@ app.get('/api/stats/player/:id/averages', async (req, res) => {
 app.get('/api/stats/player/:id/splits', async (req, res) => {
   try {
     const { id } = req.params;
-    const season = req.query.season || 2024;
+    const season = req.query.season || NBA_SEASON;
     const line = parseFloat(req.query.line) || 0;
     const stat = req.query.stat || 'pts';
 
@@ -400,7 +439,7 @@ app.get('/api/analytics/dvp', async (req, res) => {
       : position === 'SF' || position === 'PF' ? 'F' : 'C';
 
     try {
-      const url = `${NBA_BASE}/leaguedashptdefend?DefenseCategory=Overall&LeagueID=00&PerMode=PerGame&Season=2024-25&SeasonType=Regular+Season&PlayerPosition=${nbaPosition}`;
+      const url = `${NBA_BASE}/leaguedashptdefend?DefenseCategory=Overall&LeagueID=00&PerMode=PerGame&Season=${NBA_SEASON}-${String(NBA_SEASON+1).slice(2)}&SeasonType=Regular+Season&PlayerPosition=${nbaPosition}`;
       const resp = await fetch(url, {
         headers: {
           'User-Agent': 'Mozilla/5.0',
@@ -542,11 +581,11 @@ app.get('/api/analytics/merged', async (req, res) => {
 
         if (bdlPlayer) {
           // Get game log
-          const glCk = `gl_${bdlPlayer.id}_2024`;
+          const glCk = `gl_${bdlPlayer.id}_${NBA_SEASON}`;
           gameLog = cacheGet(glCk);
           if (!gameLog) {
             try {
-              const glResp = await fetch(`${BDL_BASE}/stats?player_ids[]=${bdlPlayer.id}&seasons[]=2024&per_page=82`, { headers });
+              const glResp = await fetch(`${BDL_BASE}/stats?player_ids[]=${bdlPlayer.id}&seasons[]=${NBA_SEASON}&per_page=82`, { headers });
               if (glResp.ok) {
                 const glData = await glResp.json();
                 gameLog = glData.data || [];
@@ -556,11 +595,11 @@ app.get('/api/analytics/merged', async (req, res) => {
           }
 
           // Get season averages
-          const avCk = `avg_${bdlPlayer.id}_2024`;
+          const avCk = `avg_${bdlPlayer.id}_${NBA_SEASON}`;
           seasonAvg = cacheGet(avCk);
           if (!seasonAvg) {
             try {
-              const avResp = await fetch(`${BDL_BASE}/season_averages?player_ids[]=${bdlPlayer.id}&season=2024`, { headers });
+              const avResp = await fetch(`${BDL_BASE}/season_averages?player_ids[]=${bdlPlayer.id}&season=${NBA_SEASON}`, { headers });
               if (avResp.ok) {
                 const avData = await avResp.json();
                 seasonAvg = avData.data?.[0] || null;
