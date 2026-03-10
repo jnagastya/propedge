@@ -30,7 +30,7 @@ const cache = new NodeCache({
 let ODDS_KEY = process.env.ODDS_API_KEY || '';
 let BDL_KEY = process.env.BDL_API_KEY || '';
 const ODDS_BASE = 'https://api.the-odds-api.com/v4';
-const BDL_BASE = 'https://api.balldontlie.io/v1';
+const BDL_BASE = 'https://api.balldontlie.io/nba/v1';
 const NBA_BASE = 'https://stats.nba.com/stats';
 const STATS_TTL = 12 * 60 * 60; // 12-hour cache for stats
 
@@ -407,7 +407,7 @@ app.get('/api/stats/player/:id/averages', async (req, res) => {
   if (!BDL_KEY) return res.status(400).json({ error: 'BDL_API_KEY not configured' });
 
   try {
-    const resp = await fetch(`${BDL_BASE}/season_averages?season=${NBA_SEASON}&player_ids[]=${id}`, { headers: bdlHeaders() });
+    const resp = await fetch(`${BDL_BASE}/season_averages?season=${NBA_SEASON}&player_id=${id}`, { headers: bdlHeaders() });
     if (!resp.ok) throw new Error(`BDL ${resp.status}`);
     const data = await resp.json();
     const a = data.data?.[0];
