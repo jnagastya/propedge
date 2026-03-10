@@ -733,17 +733,38 @@ app.get('/api/debug/bdl', async (req, res) => {
     keyConfigured: !!BDL_KEY,
     keyPrefix: BDL_KEY ? BDL_KEY.substring(0, 8) + '...' : null,
     season: NBA_SEASON,
+    bdlBase: BDL_BASE,
   };
   if (!BDL_KEY) return res.json({ ...result, error: 'BDL_API_KEY env var is missing' });
   try {
-    const resp = await fetch(`${BDL_BASE}/players?search=LeBron+James&per_page=1`, { headers: bdlHeaders() });
-    result.httpStatus = resp.status;
-    if (!resp.ok) {
-      const text = await resp.text();
-      return res.json({ ...result, error: `BDL returned ${resp.status}`, body: text.slice(0, 200) });
+    // Step 1: Search for player (proper %20 encoding)
+    const searchUrl = `${BDL_BASE}/players?search=${encodeURIComponent('LeBron James')}&per_page=1`;
+    result.searchUrl = searchUrl;
+    const searchResp = await fetch(searchUrl, { headers: bdlHeaders() });
+    result.searchStatus = searchResp.status;
+    if (!searchResp.ok) {
+      const text = await searchResp.text();
+      return res.json({ ...result, error: `Search returned ${searchResp.status}`, body: text.slice(0, 300) });
     }
-    const data = await resp.json();
-    result.playerFound = data.data?.[0] ? `${data.data[0].first_name} ${data.data[0].last_name} (id=${data.data[0].id})` : 'none';
+    const searchData = await searchResp.json();
+    const player = searchData.data?.[0];
+    result.playerFound = player ? `${player.first_name} ${player.last_name} (id=${player.id})` : 'none';
+    result.rawFirstResult = searchData.data?.[0] || null;
+
+    // Step 2: Fetch game log if player was found
+    if (player) {
+      const statsUrl = `${BDL_BASE}/stats?player_ids[]=${player.id}&seasons[]=${NBA_SEASON}&per_page=3`;
+      const statsResp = await fetch(statsUrl, { headers: bdlHeaders() });
+      result.statsStatus = statsResp.status;
+      if (statsResp.ok) {
+        const statsData = await statsResp.json();
+        result.gamesFound = statsData.data?.length || 0;
+        result.sampleGame = statsData.data?.[0]
+          ? { date: statsData.data[0].game?.date, pts: statsData.data[0].pts, reb: statsData.data[0].reb, ast: statsData.data[0].ast }
+          : null;
+      }
+    }
+
     res.json({ ...result, ok: true });
   } catch (err) {
     res.json({ ...result, error: err.message });
