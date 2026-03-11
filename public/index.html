@@ -1059,9 +1059,10 @@ async function loadData() {
     S.data=m.data;parlayExcluded=new Set();alertMktCache={};setApi('odds','ok');setApi('stats','ok');
     showSts(`Loaded ${S.data.length} players${m.cached?' (cached)':''}`,'suc');
   } else if(m.error){setApi('odds','err');showSts(`⚠️ Refresh failed: ${m.error}. ${S.data.length?'Showing last loaded data.':'Enter API keys above.'}`,'err');}
-  recalcScenario();renderTable();renderAlerts();
+  recalcScenario();renderTable();
   _lastRefreshAt=Date.now();
   document.getElementById('dAge').textContent='Just now';
+  // Enrich player stats, then pre-load all alert markets and render alerts once — stable snapshot
   enrichAllPlayers();
 }
 async function enrichAllPlayers(){
@@ -1073,8 +1074,14 @@ async function enrichAllPlayers(){
     await Promise.allSettled(chunk.map(p=>enrichPlayerStats(null,p)));
     if(i+BATCH<players.length) await new Promise(r=>setTimeout(r,600));
   }
-  // Re-render once after all enrichment is done — avoids destroying open player cards mid-batch
-  renderTable();renderAlerts();
+  // Stats enrichment done — re-render table once with final stats
+  renderTable();
+  // Now pre-fetch all alert markets in parallel (served from server cache, cheap)
+  // and render alerts exactly once with the final complete dataset
+  const ALL_ALERT_MKTS = ['player_points','player_rebounds','player_assists','player_threes','player_points_rebounds_assists'];
+  alertMktCache[S.market] = S.data;
+  await Promise.all(ALL_ALERT_MKTS.filter(mk=>mk!==S.market).map(mk=>loadAlertMarket(mk)));
+  renderAlerts();
 }
 async function doRefresh(){document.getElementById('rBtn').classList.add('sp');await apiGet('/api/cache/clear');await loadData();document.getElementById('rBtn').classList.remove('sp');}
 
@@ -1097,10 +1104,8 @@ function switchView(v, btn) {
   if (v === 'parlay') renderParlay();
   if (v === 'favorites') renderFavorites();
   if (v === 'alerts') {
-    renderAlerts();
-    if (!Object.keys(alertMktCache).length) {
-      ALERT_MARKETS.filter(m => m.key !== 'all').forEach(m => loadAlertMarket(m.key));
-    }
+    // Alerts are pre-rendered after enrichment — only re-render if not yet loaded
+    if (!document.getElementById('vaGrid').children.length) renderAlerts();
   }
 }
 
