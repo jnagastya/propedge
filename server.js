@@ -218,12 +218,19 @@ async function getBDLPlayerId(name) {
     results = await trySearch(lastName);
   }
 
-  // Pick best match by score
+  // Pick best match by score; on ties prefer active-roster players, then higher ID
+  // (BDL assigns higher IDs to newer players, so higher ID = more likely current player)
   let best = null;
   let bestScore = 0;
   for (const p of results) {
     const score = nameMatchScore(p, name);
-    if (score > bestScore) { bestScore = score; best = p; }
+    if (score > bestScore) {
+      bestScore = score; best = p;
+    } else if (score === bestScore && best) {
+      const pActive = !!p.team, bestActive = !!best.team;
+      if (pActive && !bestActive) { best = p; }                   // prefer active over inactive
+      else if (pActive === bestActive && p.id > best.id) { best = p; } // prefer higher ID (newer)
+    }
   }
 
   // Only accept single-result fallback if score is 0 and there's exactly 1 result
@@ -906,6 +913,9 @@ app.get('/api/cron/refresh-stats', async (req, res) => {
 app.get('/api/debug/player/:name', async (req, res) => {
   const name = decodeURIComponent(req.params.name);
   try {
+    // Bust cached player ID so re-lookup uses latest matching logic
+    const ck = `bdl_pid_${name.toLowerCase().replace(/\s+/g, '_')}`;
+    cache.delete(ck);
     const { id, position } = await getBDLPlayerId(name);
     if (!id) return res.json({ name, found: false, error: 'Player not found in BDL' });
     const games = await fetchBDLGameLog(id);
@@ -916,6 +926,23 @@ app.get('/api/debug/player/:name', async (req, res) => {
   } catch (err) {
     res.json({ name, error: err.message });
   }
+});
+
+// ============================================================
+// ROUTE: GET /api/debug/clear-player/:name — wipe cached data so next fetch re-resolves
+// ============================================================
+app.get('/api/debug/clear-player/:name', async (req, res) => {
+  const name = decodeURIComponent(req.params.name);
+  const pidKey = `bdl_pid_${name.toLowerCase().replace(/\s+/g, '_')}`;
+  const glKey  = `gl_name_${name.toLowerCase().replace(/\s+/g, '_')}`;
+  cache.delete(pidKey);
+  cache.delete(glKey);
+  let sbDeleted = false;
+  if (supabase) {
+    const { error } = await supabase.from('player_stats').delete().eq('player_name', name);
+    sbDeleted = !error;
+  }
+  res.json({ name, memoryCleared: true, supabaseDeleted: sbDeleted });
 });
 
 // ============================================================
