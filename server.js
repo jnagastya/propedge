@@ -353,6 +353,7 @@ app.get('/api/odds/scores', async (req, res) => {
 
 // ============================================================
 // ROUTE: GET /api/stats/player/search — search players
+// NOTE: Specific string routes MUST come before param routes (:id)
 // ============================================================
 app.get('/api/stats/player/search', async (req, res) => {
   const { name } = req.query;
@@ -376,7 +377,54 @@ app.get('/api/stats/player/search', async (req, res) => {
 });
 
 // ============================================================
-// ROUTE: GET /api/stats/player/:id/games — game log
+// ROUTE: GET /api/stats/player/name/:name/games — game log by player name
+// IMPORTANT: Must be before /api/stats/player/:id/games
+// ============================================================
+app.get('/api/stats/player/name/:name/games', async (req, res) => {
+  const name = decodeURIComponent(req.params.name);
+  if (!BDL_KEY) return res.status(400).json({ error: 'BDL_API_KEY not configured' });
+  try {
+    const bdlId = await getBDLPlayerId(name);
+    if (!bdlId) return res.json({ data: [], cached: false, error: 'Player not found in BDL' });
+    const ck = `bdl_gl_${bdlId}_${NBA_SEASON}`;
+    const cached = cacheGet(ck);
+    if (cached) return res.json({ data: cached, cached: true });
+    const games = await fetchBDLGameLog(bdlId);
+    cacheSet(ck, games, STATS_TTL);
+    res.json({ data: games, cached: false });
+  } catch (err) {
+    console.error('Game log by name error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ============================================================
+// ROUTE: GET /api/stats/player/name/:name/splits — splits by player name
+// IMPORTANT: Must be before /api/stats/player/:id/splits
+// ============================================================
+app.get('/api/stats/player/name/:name/splits', async (req, res) => {
+  const name = decodeURIComponent(req.params.name);
+  const line = parseFloat(req.query.line) || 0;
+  const stat = req.query.stat || 'pts';
+  if (!BDL_KEY) return res.status(400).json({ error: 'BDL_API_KEY not configured' });
+  try {
+    const bdlId = await getBDLPlayerId(name);
+    if (!bdlId) return res.json({ data: null, cached: false, error: 'Player not found in BDL' });
+    const ck = `bdl_gl_${bdlId}_${NBA_SEASON}`;
+    let games = cacheGet(ck);
+    if (!games) {
+      games = await fetchBDLGameLog(bdlId);
+      cacheSet(ck, games, STATS_TTL);
+    }
+    res.json({ data: computeSplits(games, line, stat), cached: false, gamesAnalyzed: games.length });
+  } catch (err) {
+    console.error('Splits by name error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ============================================================
+// ROUTE: GET /api/stats/player/:id/games — game log by BDL player ID
 // ============================================================
 app.get('/api/stats/player/:id/games', async (req, res) => {
   const { id } = req.params;
@@ -423,7 +471,7 @@ app.get('/api/stats/player/:id/averages', async (req, res) => {
 });
 
 // ============================================================
-// ROUTE: GET /api/stats/player/:id/splits — computed splits
+// ROUTE: GET /api/stats/player/:id/splits — computed splits by BDL ID
 // ============================================================
 app.get('/api/stats/player/:id/splits', async (req, res) => {
   const { id } = req.params;
@@ -444,51 +492,6 @@ app.get('/api/stats/player/:id/splits', async (req, res) => {
 
   const splits = computeSplits(games, line, stat);
   res.json({ data: splits, cached: false, gamesAnalyzed: games.length });
-});
-
-// ============================================================
-// ROUTE: GET /api/stats/player/name/:name/games — game log by player name
-// ============================================================
-app.get('/api/stats/player/name/:name/games', async (req, res) => {
-  const name = decodeURIComponent(req.params.name);
-  if (!BDL_KEY) return res.status(400).json({ error: 'BDL_API_KEY not configured' });
-  try {
-    const bdlId = await getBDLPlayerId(name);
-    if (!bdlId) return res.json({ data: [], cached: false, error: 'Player not found in BDL' });
-    const ck = `bdl_gl_${bdlId}_${NBA_SEASON}`;
-    const cached = cacheGet(ck);
-    if (cached) return res.json({ data: cached, cached: true });
-    const games = await fetchBDLGameLog(bdlId);
-    cacheSet(ck, games, STATS_TTL);
-    res.json({ data: games, cached: false });
-  } catch (err) {
-    console.error('Game log by name error:', err.message);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// ============================================================
-// ROUTE: GET /api/stats/player/name/:name/splits — splits by player name
-// ============================================================
-app.get('/api/stats/player/name/:name/splits', async (req, res) => {
-  const name = decodeURIComponent(req.params.name);
-  const line = parseFloat(req.query.line) || 0;
-  const stat = req.query.stat || 'pts';
-  if (!BDL_KEY) return res.status(400).json({ error: 'BDL_API_KEY not configured' });
-  try {
-    const bdlId = await getBDLPlayerId(name);
-    if (!bdlId) return res.json({ data: null, cached: false, error: 'Player not found in BDL' });
-    const ck = `bdl_gl_${bdlId}_${NBA_SEASON}`;
-    let games = cacheGet(ck);
-    if (!games) {
-      games = await fetchBDLGameLog(bdlId);
-      cacheSet(ck, games, STATS_TTL);
-    }
-    res.json({ data: computeSplits(games, line, stat), cached: false, gamesAnalyzed: games.length });
-  } catch (err) {
-    console.error('Splits by name error:', err.message);
-    res.status(500).json({ error: err.message });
-  }
 });
 
 function computeSplits(games, line, statKey) {

@@ -956,6 +956,36 @@ function renderDet(i,p){
     ${scnTab}
   </div><div id="dtc-${i}"></div>`;
   showDTab(i,'overview',c.querySelector('.di-tab'));
+  // Fetch real BDL stats in background; auto-refresh overview when ready
+  if(!p.hasRealStats) enrichPlayerFromBDL(i,p);
+}
+async function enrichPlayerFromBDL(i,p){
+  try{
+    const r=await apiGet(`/api/stats/player/name/${encodeURIComponent(p.name)}/games`);
+    if(!r.data||!r.data.length) return;
+    const statMap={'player_points':'pts','player_rebounds':'reb','player_assists':'ast',
+      'player_threes':'fg3m','player_steals':'stl','player_blocks':'blk','player_turnovers':'turnover'};
+    const statKey=statMap[S.market]||'pts';
+    const sorted=r.data.sort((a,b)=>new Date(b.date||0)-new Date(a.date||0));
+    const vals=sorted.map(g=>+(g[statKey]||0));
+    if(!vals.length) return;
+    const l10=vals.slice(0,10);
+    const avg=+(vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(1);
+    const hitRate=p.line?Math.round(vals.filter(v=>v>=p.line).length/vals.length*100):50;
+    const edge=p.line?+((avg-p.line)/p.line*100).toFixed(1):0;
+    // Recompute confidence from real data
+    const stdDev=Math.sqrt(l10.reduce((s,v)=>s+Math.pow(v-(l10.reduce((a,b)=>a+b,0)/l10.length),2),0)/l10.length);
+    const cv=avg?stdDev/avg:1;
+    let conf=50+Math.min(Math.abs(edge)*2,20)+((1-Math.min(cv,0.5))*20)+Math.abs(hitRate-50)*0.3;
+    if(p.dvpRank<=8) conf+=10; else if(p.dvpRank>=24) conf-=5;
+    conf=Math.max(0,Math.min(100,Math.round(conf)));
+    Object.assign(p,{avg,l10,hitRate,edge,confidence:conf,hasRealStats:true,gamesPlayed:vals.length,gameLog:sorted});
+    // Re-render overview if still on that tab
+    const activeTab=document.querySelector(`#di-${i} .di-tab.on`);
+    if(activeTab&&activeTab.textContent.trim()==='Overview'){
+      renderOverview(document.getElementById(`dtc-${i}`),p);
+    }
+  }catch(e){console.warn('BDL enrich failed:',e.message);}
 }
 async function showDTab(i,tab,btn){
   const p=window._dp,el=document.getElementById(`dtc-${i}`);
@@ -995,7 +1025,7 @@ function renderOverview(el,p){
   const lP=p.line?(1-p.line/maxV)*100:50;
   const lean=leanInfo(p.edge||0);
   el.innerHTML=`<div class="di-grid">
-    <div class="dc full" style="background:var(--a)15;border:1px solid var(--a)40;padding:8px 12px;border-radius:8px;font-size:11px;color:var(--a);">📊 Overview uses projected stats. Click <b>Splits</b> or <b>Game Log</b> for real game data.</div>
+    ${!p.hasRealStats?`<div class="dc full" style="background:var(--a)15;border:1px solid var(--a)40;padding:8px 12px;border-radius:8px;font-size:11px;color:var(--a);">⏳ Loading real stats from BDL…</div>`:`<div class="dc full" style="background:var(--g)15;border:1px solid var(--g)40;padding:8px 12px;border-radius:8px;font-size:11px;color:var(--g);">✓ Stats from BDL — ${p.gamesPlayed} games this season</div>`}
     <div class="dc"><div class="dc-t"><span class="dt" style="background:var(--b)"></span>Stats vs Line</div>
       <div class="sr">
         <div class="sb2"><div class="sb2-l">L10 Avg</div><div class="sb2-v">${p.avg}</div><div class="sb2-s">Line ${p.line} <span class="${p.avg>p.line?'up':'dn'}">${p.avg>p.line?'▲':'▼'} ${Math.abs(p.avg-p.line).toFixed(1)}</span></div></div>
