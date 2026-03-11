@@ -320,7 +320,8 @@ td{padding:9px 11px;white-space:nowrap;}
 .va-reason b{color:var(--t1);}
 .player-flag{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;margin-right:4px;}
 .flag-injury{background:rgba(251,191,36,.15);color:#fbbf24;border:1px solid rgba(251,191,36,.3);}
-.flag-minutes{background:rgba(139,92,246,.15);color:#a78bfa;border:1px solid rgba(139,92,246,.3);}
+.flag-minutes-up{background:rgba(34,197,94,.15);color:#4ade80;border:1px solid rgba(34,197,94,.3);}
+.flag-minutes-down{background:rgba(239,68,68,.15);color:#f87171;border:1px solid rgba(239,68,68,.3);}
 .va-formula{margin-top:8px;font-size:10px;color:var(--t3);padding:8px 10px;background:var(--bg2);border-radius:6px;line-height:1.7;border:1px solid var(--bd);}
 .va-formula span{color:var(--b);font-weight:700;}
 
@@ -1383,7 +1384,7 @@ function renderTable(){
         <div class="pi">
           <span class="pn">${p.name}${hasBoost?'<span class="scn-icon">⚡+'+p.scenarioBoost+'</span>':''}</span>
           <span class="pm"><span class="ptb">${p.team||'—'}</span><span>${p.position||''}</span></span>
-          ${(p.returnFromInjury>=2||p.minutesFlag!==0)?`<span class="pm" style="margin-top:2px;display:flex;gap:3px;flex-wrap:wrap;">${p.returnFromInjury>=2?`<span class="player-flag flag-injury" style="font-size:9px;padding:1px 5px;">⚠ Back (${p.returnFromInjury}G)</span>`:''}${p.minutesFlag!==0?`<span class="player-flag flag-minutes" style="font-size:9px;padding:1px 5px;">⏱ ${Math.abs(Math.round(p.minutesFlag*100))}% ${p.minutesFlag>0?'↑':'↓'} min</span>`:''}</span>`:''}
+          ${(p.returnFromInjury>=2||p.minutesFlag!==0)?`<span class="pm" style="margin-top:2px;display:flex;gap:3px;flex-wrap:wrap;">${p.returnFromInjury>=2?`<span class="player-flag flag-injury" style="font-size:9px;padding:1px 5px;">⚠ Back (${p.returnFromInjury}G)</span>`:''}${p.minutesFlag!==0?`<span class="player-flag ${p.minutesFlag>0?'flag-minutes-up':'flag-minutes-down'}" style="font-size:9px;padding:1px 5px;">⏱ ${Math.abs(Math.round(p.minutesFlag*100))}% ${p.minutesFlag>0?'↑':'↓'} min</span>`:''}</span>`:''}
         </div>
       </div></td>
       <td style="color:var(--t2);font-size:11px;">${(p.matchup||'—').substring(0,28)}</td>
@@ -1598,7 +1599,7 @@ function renderOverview(el,p){
   // Build player flags
   const flags=[];
   if(p.returnFromInjury>=2)flags.push(`<span class="player-flag flag-injury">⚠ Returning — ${p.returnFromInjury} game${p.returnFromInjury>1?'s':''} missed</span>`);
-  if(p.minutesFlag!==0){const dir=p.minutesFlag>0?'↑ more':'↓ fewer';const pct=Math.abs(Math.round(p.minutesFlag*100));flags.push(`<span class="player-flag flag-minutes">⏱ ${pct}% ${dir} minutes recently</span>`);}
+  if(p.minutesFlag!==0){const dir=p.minutesFlag>0?'↑ more':'↓ fewer';const pct=Math.abs(Math.round(p.minutesFlag*100));const mCls=p.minutesFlag>0?'flag-minutes-up':'flag-minutes-down';flags.push(`<span class="player-flag ${mCls}">⏱ ${pct}% ${dir} minutes recently</span>`);}
   const flagsHTML=flags.length?`<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:4px;">${flags.join('')}</div>`:'';
   el.innerHTML=`<div class="di-grid">
     ${p.hasRealStats?`<div class="dc full" style="background:var(--g)15;border:1px solid var(--g)40;padding:8px 12px;border-radius:8px;font-size:11px;color:var(--g);">✓ Stats from NBA.com — ${p.gamesPlayed} games this season${flagsHTML}</div>`:p.statsError?`<div class="dc full" style="background:var(--r)15;border:1px solid var(--r)40;padding:8px 12px;border-radius:8px;font-size:11px;color:var(--r);">⚠ Stats unavailable: ${p.statsError}</div>`:`<div class="dc full" style="background:var(--a)15;border:1px solid var(--a)40;padding:8px 12px;border-radius:8px;font-size:11px;color:var(--a);">⏳ Loading real stats from NBA.com…</div>`}
@@ -2104,14 +2105,18 @@ function renderAlerts(){
     const reasons=[];
     // Use directional stats: for UNDER bets flip the hit rate perspective
     const dirHR=isOver?(p.hitRate||50):(100-(p.hitRate||50));
+    // Weighted model probability (L5×35% + L10×40% + Season×25%), directional
+    const rawModelProb=p.modelProb!=null?p.modelProb:(p.hitRate||50)/100;
+    const dirModelProb=isOver?rawModelProb:1-rawModelProb;
+    const dirModelProbPct=Math.round(dirModelProb*100);
     const implP=(isOver?((p.impliedProbOver??impliedProb(p.overOdds))*100):((p.impliedProbUnder??impliedProb(p.underOdds))*100)).toFixed(1);
     const evPct=p._dirEV??0;
     const betOdds=isOver?p.overOdds:p.underOdds;
     const betOddsFmt=betOdds?(betOdds>0?'+':'')+betOdds:'—';
     if(Math.abs(p.edge||0)>=8)reasons.push(`<b>${Math.abs(p.edge).toFixed(1)}% edge</b> — very strong`);
     else if(Math.abs(p.edge||0)>=5)reasons.push(`<b>${Math.abs(p.edge).toFixed(1)}% edge</b> above threshold`);
-    if(dirHR>=70)reasons.push(`${isOver?'Over':'Under'} hit rate <b>${dirHR}%</b> (7+ of 10 games)`);
-    else if(dirHR>=60)reasons.push(`${isOver?'Over':'Under'} hit rate <b>${dirHR}%</b>`);
+    if(dirModelProbPct>=70)reasons.push(`Model prob <b>${dirModelProbPct}%</b> (weighted L5/L10/Season)`);
+    else if(dirModelProbPct>=60)reasons.push(`Model prob <b>${dirModelProbPct}%</b>`);
     if(evPct>5)reasons.push(`EV <b>+${evPct}%</b> vs implied odds`);
     if((p.scenarioBoost||0)>0)reasons.push(`Scenario boost <b>+${p.scenarioBoost}</b>`);
 
@@ -2123,7 +2128,7 @@ function renderAlerts(){
             <button class="fav-btn${favorites.has(p.name)?' on':''}" data-name="${p.name.replace(/"/g,'&quot;')}" onclick="toggleFav('${p.name.replace(/'/g,"\\'")}',event)" title="${favorites.has(p.name)?'Remove from watchlist':'Add to watchlist'}" style="font-size:13px;margin-left:2px;">${favorites.has(p.name)?'⭐':'☆'}</button>
           </div>
           <div class="va-meta">${p.team||''} · ${(p.matchup||'').substring(0,25)}</div>
-          ${(p.returnFromInjury>=2||p.minutesFlag!==0)?`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;">${p.returnFromInjury>=2?`<span class="player-flag flag-injury">⚠ Back after ${p.returnFromInjury} games missed</span>`:''}${p.minutesFlag!==0?`<span class="player-flag flag-minutes">⏱ ${Math.abs(Math.round(p.minutesFlag*100))}% ${p.minutesFlag>0?'↑ more':'↓ fewer'} minutes</span>`:''}</div>`:''}</div>
+          ${(p.returnFromInjury>=2||p.minutesFlag!==0)?`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;">${p.returnFromInjury>=2?`<span class="player-flag flag-injury">⚠ Back after ${p.returnFromInjury} games missed</span>`:''}${p.minutesFlag!==0?`<span class="player-flag ${p.minutesFlag>0?'flag-minutes-up':'flag-minutes-down'}">⏱ ${Math.abs(Math.round(p.minutesFlag*100))}% ${p.minutesFlag>0?'↑ more':'↓ fewer'} minutes</span>`:''}</div>`:''}</div>
         <div class="va-right">
           <div class="va-edge-big ${isOver?'pos':'neg'}">${isOver?'+':''}${(p.edge||0).toFixed(1)}%</div>
           <div class="va-direction ${isOver?'over':'under'}">${isOver?'▲':'▼'} BET ${dir}</div>
@@ -2132,13 +2137,13 @@ function renderAlerts(){
       <div style="font-size:12px;font-weight:700;color:var(--t3);margin-bottom:8px;">${dir} ${p.line} ${MKT_SHORT[p.market||S.market]||''} · ${betOddsFmt} odds · ${isOver?p.avg+' avg vs '+p.line+' line':p.line+' line vs '+p.avg+' avg'}</div>
       <div class="va-stats">
         <div class="va-stat"><div class="va-stat-v">${p.avg}</div><div class="va-stat-l">L10 Avg</div></div>
-        <div class="va-stat"><div class="va-stat-v">${dirHR}%</div><div class="va-stat-l">${isOver?'Over':'Under'} Rate</div></div>
+        <div class="va-stat"><div class="va-stat-v">${dirModelProbPct}%</div><div class="va-stat-l">Model Prob</div></div>
         <div class="va-stat"><div class="va-stat-v">${implP}%</div><div class="va-stat-l">Implied Prob</div></div>
         <div class="va-stat"><div class="va-stat-v" style="color:${evPct>0?'var(--g)':'var(--r)'}">${evPct>0?'+':''}${evPct}%</div><div class="va-stat-l">Exp. Value</div></div>
         <div class="va-stat"><div class="va-stat-v" style="color:${cc}">${p.confidence||0}</div><div class="va-stat-l">Conf.</div></div>
       </div>
       <div class="va-reason">${reasons.join(' · ')||'Moderate edge detected.'}</div>
-      <div class="va-formula">EV = ModelProb (${dirHR}%) × Payout − (1−ModelProb) × Stake = <span style="color:${evPct>0?'var(--g)':'var(--r)'}">${evPct>0?'+':''}${evPct}%</span></div>
+      <div class="va-formula">EV = ModelProb (<span>${dirModelProbPct}%</span>) × Payout − (1−ModelProb) × Stake = <span style="color:${evPct>0?'var(--g)':'var(--r)'}">${evPct>0?'+':''}${evPct}%</span></div>
       <button class="bet-btn" style="width:100%;margin-top:10px;padding:9px;font-size:13px;border-radius:8px;" onclick="event.stopPropagation();openBetModal(${JSON.stringify(p).replace(/"/g,'&quot;')})">🎲 Place Bet — ${isOver?'OVER':'UNDER'} ${p.line}</button>
     </div>`;
   }).join('');
