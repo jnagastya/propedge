@@ -632,40 +632,50 @@ function computeSplits(games, line, statKey) {
 // ============================================================
 // ROUTE: GET /api/analytics/merged — THE BIG ONE
 // Full merged dataset: odds + stats + analytics
+// All markets fetched in a single per-game request to minimise Odds API quota usage
+const ALL_PROP_MARKETS = 'player_points,player_rebounds,player_assists,player_threes,player_points_rebounds_assists';
+
 // ============================================================
 app.get('/api/analytics/merged', async (req, res) => {
   try {
     const market = req.query.market || 'player_points';
-    const book = req.query.book || 'draftkings';
+    const book = req.query.book || 'combined';
 
+    // Fast path: per-market enriched cache
     const ck = `merged_${market}_${book}`;
     const cached = cacheGet(ck);
     if (cached) return res.json({ data: cached, cached: true });
 
-    // Step 1: Get all props
-    const now = new Date();
-    let players = [];
-    if (ODDS_KEY) {
-      const evtUrl = `${ODDS_BASE}/sports/basketball_nba/events?apiKey=${ODDS_KEY}&regions=us&oddsFormat=american`;
-      const evtResp = await fetch(evtUrl);
+    // Step 1: Get raw props for all markets at once (shared across market switches)
+    const allCk = `allMarkets_${book}`;
+    let allPlayers = cacheGet(allCk);
+
+    if (!allPlayers && ODDS_KEY) {
+      const now = new Date();
+      allPlayers = [];
+      const evtResp = await fetch(`${ODDS_BASE}/sports/basketball_nba/events?apiKey=${ODDS_KEY}&regions=us&oddsFormat=american`);
       if (evtResp.ok) {
         const events = await evtResp.json();
-
-        // Only fetch props for games that haven't started yet — saves Odds API quota
         const upcomingEvents = events.filter(evt => new Date(evt.commence_time) > now);
 
         const propPromises = upcomingEvents.map(async (evt) => {
           try {
-            const pUrl = `${ODDS_BASE}/sports/basketball_nba/events/${evt.id}/odds?apiKey=${ODDS_KEY}&regions=us&markets=${market}&oddsFormat=american`;
+            // Fetch ALL markets in one request per game instead of one market at a time
+            const pUrl = `${ODDS_BASE}/sports/basketball_nba/events/${evt.id}/odds?apiKey=${ODDS_KEY}&regions=us&markets=${ALL_PROP_MARKETS}&oddsFormat=american`;
             const pResp = await fetch(pUrl);
             return pResp.ok ? await pResp.json() : null;
           } catch { return null; }
         });
 
         const rawProps = (await Promise.all(propPromises)).filter(Boolean);
-        players.push(...aggregatePlayers(rawProps, book));
+        allPlayers = aggregatePlayers(rawProps, book);
+        // Cache raw combined players for the full TTL — all market views derive from this
+        cacheSet(allCk, allPlayers, parseInt(process.env.CACHE_TTL_ODDS) || 120);
       }
     }
+
+    // Filter to requested market
+    const players = (allPlayers || []).filter(p => p.market === market);
 
     // Step 2: Enrich each player with estimated stats + EV from odds
     const enriched = players.map((p) => {
