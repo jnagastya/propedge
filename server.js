@@ -73,6 +73,92 @@ async function sbSetGameLog(playerName, bdlId, gameLog) {
   } catch (e) { console.warn('Supabase write failed:', e.message); }
 }
 
+// ---- BDL TEAM ID → ABBREVIATION MAP ----
+// BDL uses fixed numeric IDs for all 30 teams
+const BDL_TEAM_ID_MAP = {
+  1:'ATL', 2:'BOS', 3:'BKN', 4:'CHA', 5:'CHI', 6:'CLE', 7:'DAL', 8:'DEN',
+  9:'DET', 10:'GSW', 11:'HOU', 12:'IND', 13:'LAC', 14:'LAL', 15:'MEM',
+  16:'MIA', 17:'MIL', 18:'MIN', 19:'NOP', 20:'NYK', 21:'OKC', 22:'ORL',
+  23:'PHI', 24:'PHX', 25:'POR', 26:'SAC', 27:'SAS', 28:'TOR', 29:'UTA', 30:'WAS',
+};
+
+// ---- DvP IN-MEMORY CACHE ----
+// Loaded from Supabase on boot and after cron refresh
+// Structure: { 'ATL_PG': 14, 'BOS_SG': 3, ... }
+let dvpMemCache = {};
+
+async function loadDvPCache() {
+  if (!supabase) return;
+  try {
+    const { data } = await supabase.from('dvp_rankings').select('team, position, rank');
+    if (data?.length) {
+      dvpMemCache = {};
+      data.forEach(r => { dvpMemCache[`${r.team}_${r.position}`] = r.rank; });
+      console.log(`DvP cache loaded: ${data.length} entries`);
+    }
+  } catch (e) { console.warn('DvP cache load failed:', e.message); }
+}
+
+// Compute DvP rankings from all player game logs in Supabase and store results
+async function computeAndStoreDvP() {
+  if (!supabase) return { error: 'Supabase not configured' };
+  try {
+    // Fetch all cached player game logs
+    const { data: players, error } = await supabase
+      .from('player_stats')
+      .select('player_name, game_log');
+    if (error || !players?.length) return { error: error?.message || 'No players in cache' };
+
+    // Accumulate: acc[position][opp_team_abbr] = { total, count }
+    const acc = {};
+    const statKeys = { PG: 'pts', SG: 'pts', SF: 'pts', PF: 'pts', C: 'pts' };
+
+    for (const { player_name, game_log } of players) {
+      if (!game_log?.length) continue;
+      const pos = guessPosition(player_name);
+      if (!pos) continue;
+      if (!acc[pos]) acc[pos] = {};
+
+      for (const game of game_log) {
+        const oppId = game.opp_team_id;
+        if (!oppId) continue;
+        const oppAbbr = BDL_TEAM_ID_MAP[oppId];
+        if (!oppAbbr) continue;
+        const val = game.pts ?? 0;
+        if (!acc[pos][oppAbbr]) acc[pos][oppAbbr] = { total: 0, count: 0 };
+        acc[pos][oppAbbr].total += val;
+        acc[pos][oppAbbr].count++;
+      }
+    }
+
+    // Rank teams per position (most pts allowed = rank 1 = easiest)
+    const rows = [];
+    for (const [pos, teams] of Object.entries(acc)) {
+      const sorted = Object.entries(teams)
+        .filter(([, v]) => v.count >= 5) // need at least 5 games of data
+        .map(([team, v]) => ({ team, avg: v.total / v.count }))
+        .sort((a, b) => b.avg - a.avg); // highest avg allowed = rank 1
+
+      sorted.forEach(({ team, avg }, idx) => {
+        rows.push({ team, position: pos, rank: idx + 1, avg_allowed: +avg.toFixed(1) });
+      });
+    }
+
+    if (!rows.length) return { error: 'No DvP data computed — game logs may lack opp_team_id' };
+
+    // Upsert into Supabase
+    await supabase.from('dvp_rankings').upsert(rows, { onConflict: 'team,position' });
+
+    // Reload in-memory cache
+    await loadDvPCache();
+    console.log(`DvP computed and stored: ${rows.length} team×position entries`);
+    return { ok: true, entries: rows.length };
+  } catch (e) {
+    console.error('DvP compute error:', e.message);
+    return { error: e.message };
+  }
+}
+
 // ---- NBA SEASON HELPER ----
 function currentNBASeason() {
   const now = new Date();
@@ -136,7 +222,7 @@ async function fetchBDLGameLog(playerId) {
       pts: +g.pts || 0, reb: +g.reb || 0, ast: +g.ast || 0,
       fg3m: +g.fg3m || 0, stl: +g.stl || 0, blk: +g.blk || 0,
       turnover: +g.turnover || 0, min: String(g.min || '0'),
-      home, wl: '',
+      home, wl: '', opp_team_id: opp || null,
     };
   }).filter(g => g && g.date);
 }
@@ -765,6 +851,8 @@ function computeConfidence({ hitRate, dvpRank, modelProb, impliedProbOver, avg, 
 }
 
 function computeDvPRank(opp, pos) {
+  if (opp && pos && dvpMemCache[`${opp}_${pos}`]) return dvpMemCache[`${opp}_${pos}`];
+  // Fallback: deterministic hash (used until real DvP data is computed)
   const seed = (opp + pos).split('').reduce((a, c) => a + c.charCodeAt(0), 0);
   return ((seed * 7) % 30) + 1;
 }
@@ -928,7 +1016,9 @@ app.get('/api/cron/refresh-stats', async (req, res) => {
       if (i < names.length - 1) await new Promise(r => setTimeout(r, 800));
     }
 
-    res.json({ success: true, processed: names.length, ...results });
+    // After all player stats are fresh, recompute DvP rankings from the new data
+    const dvpResult = await computeAndStoreDvP();
+    res.json({ success: true, processed: names.length, dvp: dvpResult, ...results });
   } catch (err) {
     res.status(500).json({ error: err.message, ...results });
   }
@@ -1005,6 +1095,9 @@ if (require.main === module) {
     console.log(`  ╚═══════════════════════════════════════╝\n`);
   });
 }
+
+// Load DvP cache from Supabase on cold start (non-blocking)
+loadDvPCache().catch(e => console.warn('DvP boot load failed:', e.message));
 
 // Required for Vercel serverless
 module.exports = app;
