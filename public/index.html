@@ -854,8 +854,6 @@ function renderScores(data){
 function renderTable(){
   let d=[...S.data];
   const now=new Date();
-  // Hide players whose games are already live/started unless user opts to show all
-  if(!S.showLive) d=d.filter(p=>!p.isLive&&(!p.gameTime||new Date(p.gameTime)>now));
   const q=(document.getElementById('searchIn').value||'').toLowerCase();
   if(q)d=d.filter(p=>p.name.toLowerCase().includes(q)||(p.team||'').toLowerCase().includes(q)||(p.matchup||'').toLowerCase().includes(q));
   if(S.gameFilter){
@@ -895,8 +893,16 @@ function renderTable(){
     const lean=leanInfo(edge,evOver);
     const hasBoost=S.scnOn&&(p.scenarioBoost||0)>0;
 
-    const edgeTip=`Edge = (Avg − Line) / Line × 100\n= (${p.avg} − ${p.line}) / ${p.line} × 100\n= ${es}${edge.toFixed(1)}%\n\nPositive edge → lean OVER\nNegative edge → lean UNDER`;
-    const confTip=`Confidence: ${p.confidence||0}/100\n\nEdge component:  +${Math.min(Math.abs(edge)*2,20).toFixed(0)}\nConsistency:     +${((1-Math.min(((p.stdDev||3)/(p.avg||1)),.5))*20).toFixed(0)}\nHit rate signal: +${(Math.abs((p.hitRate||50)-50)*.3).toFixed(0)}\nDvP matchup:     ${(p.dvpRank||15)<=8?'+10':(p.dvpRank||15)>=24?'-5':'+0'}\nTrend:           ±5\nBase:            50`;
+    const edgeTip=`Edge = (Avg − Line) / Line × 100\n= (${p.avg} − ${p.line}) / ${p.line} × 100\n= ${es}${edge.toFixed(1)}%\n\nPositive edge → model avg exceeds the line\nNegative edge → model avg below the line`;
+    const implP=p.impliedProbOver??impliedProb(p.overOdds);
+    const mProb=(p.hitRate||50)/100;
+    const evEdge=mProb-implP;
+    const evPts=Math.min(Math.max(evEdge*200+20,0),40);
+    const cv=p.avg>0&&p.stdDev!=null?p.stdDev/p.avg:0.4;
+    const cvPts=Math.max(0,Math.round((0.5-Math.min(cv,0.5))/0.5*20));
+    const hrPts=Math.min(Math.max(((p.hitRate||50)-50)*0.6,-15),30);
+    const dvpPts=(p.dvpRank||15)<=10?10:(p.dvpRank||15)>=21?0:5;
+    const confTip=`Confidence: ${p.confidence||0}/100\n\n1. EV Edge (0–40):    ${evPts.toFixed(0)} pts\n   Model ${(mProb*100).toFixed(1)}% vs Implied ${(implP*100).toFixed(1)}% → ${evEdge>=0?'+':''}${(evEdge*100).toFixed(1)}% gap\n\n2. Hit Rate (−15–+30): ${hrPts.toFixed(0)} pts\n   ${p.hitRate||50}% hit rate vs 50% baseline\n\n3. Consistency (0–20): ${cvPts} pts\n   CV = ${cv.toFixed(2)} (stdDev ${p.stdDev??'—'} / avg ${p.avg})\n\n4. Matchup DvP (0–10): ${dvpPts} pts\n   Opp rank #${p.dvpRank||'—'} (${(p.dvpRank||15)<=10?'Easy':(p.dvpRank||15)>=21?'Hard':'Mid'})`;
 
     // Row classes
     let rowClass='';
@@ -940,9 +946,7 @@ function renderTable(){
     dr.innerHTML=`<td colspan="${S.scnOn?15:14}"><div class="di" id="di-${i}"></div></td>`;
     tb.appendChild(dr);
   });
-  const liveHidden=S.data.filter(p=>p.isLive||new Date(p.gameTime||0)<=now).length;
-  const showLiveBtn=!S.showLive&&liveHidden>0?` <span style="cursor:pointer;text-decoration:underline;color:var(--a)" onclick="S.showLive=true;renderTable()">(+${liveHidden} live)</span>`:'';
-  document.getElementById('pCnt').innerHTML=d.length+' players'+showLiveBtn;
+  document.getElementById('pCnt').innerHTML=d.length+' players';
   const valCount=S.data.filter(p=>valueScore(p)>=30&&Math.abs(p.edge||0)>4&&(p.confidence||0)>=55&&(p.evOver??0)>3).length;
   document.getElementById('alertDot').style.display=valCount>0?'':'none';
 
@@ -1022,10 +1026,20 @@ async function enrichPlayerStats(i,p){
     const edge=p.line?+((avg-p.line)/p.line*100).toFixed(1):0;
     const l10avg=l10.reduce((a,b)=>a+b,0)/l10.length;
     const stdDev=+(Math.sqrt(l10.reduce((s,v)=>s+Math.pow(v-l10avg,2),0)/l10.length)).toFixed(1);
-    const cv=avg?stdDev/avg:1;
-    let conf=50+Math.min(Math.abs(edge)*2,20)+((1-Math.min(cv,0.5))*20)+Math.abs(hitRate-50)*0.3;
-    if(p.dvpRank<=8) conf+=10; else if(p.dvpRank>=24) conf-=5;
-    conf=Math.max(0,Math.min(100,Math.round(conf)));
+    const cv=avg?stdDev/avg:0.4;
+    const modelProb=p.modelProb||0.5;
+    const impliedProbOver=p.impliedProbOver||0.5;
+    const dvpRank=p.dvpRank||15;
+    // EV Edge (0–40 pts)
+    const evEdge=(modelProb)-(impliedProbOver);
+    const evPts=Math.min(Math.max(evEdge*200+20,0),40);
+    // Hit Rate Signal (−15 to +30 pts)
+    const hrPts=Math.min(Math.max((hitRate-50)*0.6,-15),30);
+    // Consistency (0–20 pts): inverse CV
+    const cvPts=Math.max(0,Math.round((0.5-Math.min(cv,0.5))/0.5*20));
+    // Matchup DvP (0–10 pts)
+    const dvpPts=dvpRank<=10?10:dvpRank>=21?0:5;
+    const conf=Math.max(0,Math.min(100,Math.round(evPts+hrPts+cvPts+dvpPts)));
     Object.assign(p,{avg,l10,hitRate,edge,stdDev,confidence:conf,hasRealStats:true,statsError:null,gamesPlayed:vals.length,gameLog:sorted});
     if(i!=null){
       const activeTab=document.querySelector(`#di-${i} .di-tab.on`);

@@ -553,6 +553,7 @@ app.get('/api/analytics/merged', async (req, res) => {
     if (cached) return res.json({ data: cached, cached: true });
 
     // Step 1: Get all props
+    const now = new Date();
     let players = [];
     if (ODDS_KEY) {
       const evtUrl = `${ODDS_BASE}/sports/basketball_nba/events?apiKey=${ODDS_KEY}&regions=us&oddsFormat=american`;
@@ -560,7 +561,10 @@ app.get('/api/analytics/merged', async (req, res) => {
       if (evtResp.ok) {
         const events = await evtResp.json();
 
-        const propPromises = events.slice(0, 8).map(async (evt) => {
+        // Only fetch props for games that haven't started yet — saves Odds API quota
+        const upcomingEvents = events.filter(evt => new Date(evt.commence_time) > now);
+
+        const propPromises = upcomingEvents.map(async (evt) => {
           try {
             const pUrl = `${ODDS_BASE}/sports/basketball_nba/events/${evt.id}/odds?apiKey=${ODDS_KEY}&regions=us&markets=${market}&oddsFormat=american`;
             const pResp = await fetch(pUrl);
@@ -604,8 +608,7 @@ app.get('/api/analytics/merged', async (req, res) => {
     }
 
     // Step 2: Enrich each player with estimated stats + EV from odds
-    const now = new Date();
-    const enriched = players.slice(0, 50).map((p) => {
+    const enriched = players.map((p) => {
       const l10 = generateFakeL10(p.line);
       const avg = +(l10.reduce((a, b) => a + b, 0) / l10.length).toFixed(1);
       const hitRate = p.line ? Math.round(l10.filter(v => v >= p.line).length / l10.length * 100) : 50;
@@ -614,16 +617,16 @@ app.get('/api/analytics/merged', async (req, res) => {
       const team = guessTeam(p.name);
       const dvpRank = computeDvPRank(p.homeTeam === team ? p.awayTeam : p.homeTeam, pos);
       const dvpClass = dvpRank <= 10 ? 'Easy' : dvpRank >= 21 ? 'Hard' : 'Mid';
-      const confidence = computeConfidence({ l10, hitRate, edge, dvpRank });
       const modelProb = hitRate / 100;
       const impliedProbOver = impliedProb(p.overOdds);
       const impliedProbUnder = impliedProb(p.underOdds);
+      const stdDev = +(Math.sqrt(l10.reduce((s,v) => s + Math.pow(v - avg, 2), 0) / l10.length)).toFixed(1);
+      const confidence = computeConfidence({ hitRate, dvpRank, modelProb, impliedProbOver, avg, stdDev });
       const evOver = calcEV(modelProb, p.overOdds);
       const evUnder = calcEV(1 - modelProb, p.underOdds);
-      const isLive = p.gameTime ? new Date(p.gameTime) <= now : false;
       return {
         ...p, team, position: pos, avg, l10, hitRate, edge, dvpRank, dvpClass, confidence,
-        modelProb, impliedProbOver, impliedProbUnder, evOver, evUnder, isLive,
+        modelProb, impliedProbOver, impliedProbUnder, evOver, evUnder, isLive: false,
         hasRealStats: false, gamesPlayed: 0,
       };
     });
@@ -641,17 +644,28 @@ function generateFakeL10(line) {
   return Array.from({ length: 10 }, () => Math.max(0, Math.round(line + (Math.random() - 0.45) * line * 0.4)));
 }
 
-function computeConfidence({ l10, hitRate, edge, dvpRank }) {
-  let score = 50;
-  score += Math.min(Math.abs(edge) * 2, 20);
-  const avg = l10.reduce((a,b) => a+b, 0) / l10.length;
-  const stdDev = Math.sqrt(l10.reduce((s,v) => s + Math.pow(v - avg, 2), 0) / l10.length);
-  const cv = avg ? stdDev / avg : 1;
-  score += (1 - Math.min(cv, 0.5)) * 20;
-  score += Math.abs(hitRate - 50) * 0.3;
-  if (dvpRank <= 8) score += 10;
-  else if (dvpRank >= 24) score -= 5;
-  return Math.max(0, Math.min(100, Math.round(score)));
+function computeConfidence({ hitRate, dvpRank, modelProb, impliedProbOver, avg, stdDev }) {
+  // 1. EV Edge (0–40 pts): does our model probability beat the implied probability?
+  //    evEdge = modelProb − impliedProbOver
+  //    0 gap = 20 pts (neutral), +10% gap = 40 pts, −10% gap = 0 pts
+  const evEdge = (modelProb || 0.5) - (impliedProbOver || 0.5);
+  const evPts = Math.min(Math.max(evEdge * 200 + 20, 0), 40);
+
+  // 2. Hit Rate Signal (−15 to +30 pts): how far above 50% is the hit rate?
+  //    50% = 0 pts, 70% = +12 pts, 80% = +18 pts
+  //    Below 50% is penalized: 40% = −6 pts, 30% = −12 pts
+  const hrPts = Math.min(Math.max((hitRate - 50) * 0.6, -15), 30);
+
+  // 3. Consistency (0–20 pts): inverse coefficient of variation
+  //    CV = stdDev / avg. Lower CV = more consistent player = more confident.
+  //    CV 0.0 = 20 pts (no variance), CV 0.5+ = 0 pts (very volatile)
+  const cv = avg > 0 && stdDev != null ? stdDev / avg : 0.4;
+  const cvPts = Math.max(0, Math.round((0.5 - Math.min(cv, 0.5)) / 0.5 * 20));
+
+  // 4. Matchup DvP (0–10 pts): is the opposing defense easy or hard?
+  const dvpPts = dvpRank <= 10 ? 10 : dvpRank >= 21 ? 0 : 5;
+
+  return Math.max(0, Math.min(100, Math.round(evPts + hrPts + cvPts + dvpPts)));
 }
 
 function computeDvPRank(opp, pos) {
