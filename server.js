@@ -33,7 +33,7 @@ let BDL_KEY = process.env.BDL_API_KEY || '';
 const ODDS_BASE = 'https://api.the-odds-api.com/v4';
 const BDL_BASE = 'https://api.balldontlie.io/nba/v1';
 const NBA_BASE = 'https://stats.nba.com/stats';
-const STATS_TTL = 12 * 60 * 60; // 12-hour cache for stats
+const STATS_TTL = 3 * 60 * 60; // 3-hour cache for stats (games happen daily)
 
 // ---- SUPABASE SETUP ----
 const SUPABASE_URL = process.env.SUPABASE_URL || '';
@@ -54,9 +54,9 @@ async function sbGetGameLog(playerName) {
     if (error || !data) return null;
     // Reject if from a different season (e.g. last year's data still in Supabase)
     if (data.season !== NBA_SEASON) return null;
-    // Treat as stale if older than 20 hours
+    // Treat as stale if older than 6 hours
     const age = Date.now() - new Date(data.last_fetched).getTime();
-    if (age > 20 * 60 * 60 * 1000) return null;
+    if (age > 6 * 60 * 60 * 1000) return null;
     return data.game_log;
   } catch { return null; }
 }
@@ -535,7 +535,7 @@ app.get('/api/stats/player/name/:name/games', async (req, res) => {
   const name = decodeURIComponent(req.params.name);
   try {
     // Layer 1: in-memory cache (fastest)
-    const ckMem = `gl_name_${name.toLowerCase().replace(/\s+/g,'_')}`;
+    const ckMem = `gl_name_${NBA_SEASON}_${name.toLowerCase().replace(/\s+/g,'_')}`;
     const memHit = cacheGet(ckMem);
     if (memHit) return res.json({ data: memHit, cached: true, source: 'memory' });
 
@@ -569,7 +569,7 @@ app.get('/api/stats/player/name/:name/splits', async (req, res) => {
   const line = parseFloat(req.query.line) || 0;
   const stat = req.query.stat || 'pts';
   try {
-    const ckMem = `gl_name_${name.toLowerCase().replace(/\s+/g,'_')}`;
+    const ckMem = `gl_name_${NBA_SEASON}_${name.toLowerCase().replace(/\s+/g,'_')}`;
     let games = cacheGet(ckMem);
     if (!games) {
       games = await sbGetGameLog(name);
@@ -944,7 +944,7 @@ app.get('/api/debug/player/:name', async (req, res) => {
 app.get('/api/debug/clear-player/:name', async (req, res) => {
   const name = decodeURIComponent(req.params.name);
   const pidKey = `bdl_pid_${name.toLowerCase().replace(/\s+/g, '_')}`;
-  const glKey  = `gl_name_${name.toLowerCase().replace(/\s+/g, '_')}`;
+  const glKey  = `gl_name_${NBA_SEASON}_${name.toLowerCase().replace(/\s+/g, '_')}`;
   cache.delete(pidKey);
   cache.delete(glKey);
   let sbDeleted = false;
