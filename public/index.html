@@ -191,12 +191,13 @@ td{padding:9px 11px;white-space:nowrap;}
 .sb2-v{font-size:20px;font-weight:800;color:var(--t1);}
 .sb2-s{font-size:10px;color:var(--t3);margin-top:3px;}
 .up{color:var(--g);font-weight:600;}.dn{color:var(--r);font-weight:600;}
-.chb{width:100%;height:140px;background:var(--bg2);border-radius:8px;border:1px solid var(--bd);position:relative;overflow:hidden;padding:8px;}
-.bars{display:flex;align-items:flex-end;gap:3px;height:110px;}
-.bar{flex:1;border-radius:3px 3px 0 0;position:relative;cursor:pointer;transition:filter .1s;}
-.bar:hover{filter:brightness(1.2);}
-.bar-t{display:none;position:absolute;top:-26px;left:50%;transform:translateX(-50%);background:var(--bg4);color:var(--t1);border:1px solid var(--bd);font-size:9px;padding:2px 6px;border-radius:4px;white-space:nowrap;z-index:5;}
-.bar:hover .bar-t{display:block;}
+.chb{width:100%;height:162px;background:var(--bg2);border-radius:8px;border:1px solid var(--bd);position:relative;overflow:visible;padding:8px;}
+.bars{display:flex;align-items:flex-end;gap:3px;height:110px;margin-top:24px;}
+.bar{flex:1;border-radius:3px 3px 0 0;position:relative;transition:filter .1s;}
+.bar:hover{filter:brightness(1.25);}
+.bar-t{display:block;position:absolute;top:-18px;left:50%;transform:translateX(-50%);font-size:9px;font-weight:700;color:var(--t2);white-space:nowrap;pointer-events:none;}
+.bar.dnp-bar{opacity:.35;border-radius:3px;}
+.bar.dnp-bar .bar-t{color:var(--t3);font-weight:600;}
 .lref{position:absolute;left:8px;right:8px;border-top:1.5px dashed var(--bd2);pointer-events:none;}
 .lref-l{position:absolute;right:0;top:-13px;font-size:9px;color:var(--t3);font-weight:600;}
 .spt{width:100%;font-size:11px;border-collapse:collapse;}
@@ -317,6 +318,9 @@ td{padding:9px 11px;white-space:nowrap;}
 .va-stat-l{font-size:9px;font-weight:600;color:var(--t3);text-transform:uppercase;margin-top:2px;letter-spacing:.4px;}
 .va-reason{font-size:11px;color:var(--t2);background:var(--bg2);padding:9px 11px;border-radius:6px;line-height:1.55;border:1px solid var(--bd);}
 .va-reason b{color:var(--t1);}
+.player-flag{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;margin-right:4px;}
+.flag-injury{background:rgba(251,191,36,.15);color:#fbbf24;border:1px solid rgba(251,191,36,.3);}
+.flag-minutes{background:rgba(139,92,246,.15);color:#a78bfa;border:1px solid rgba(139,92,246,.3);}
 .va-formula{margin-top:8px;font-size:10px;color:var(--t3);padding:8px 10px;background:var(--bg2);border-radius:6px;line-height:1.7;border:1px solid var(--bd);}
 .va-formula span{color:var(--b);font-weight:700;}
 
@@ -1481,11 +1485,25 @@ async function enrichPlayerStats(i,p){
       'player_threes':'fg3m','player_steals':'stl','player_blocks':'blk','player_turnovers':'turnover'};
     const statKey=statMap[S.market]||'pts';
     const sorted=r.data.sort((a,b)=>new Date(b.date||0)-new Date(a.date||0));
-    // Filter out DNP/inactive games (0 minutes played) so they don't pollute averages
+    // rawL10 = last 10 calendar games (may include DNPs) — used for the bar chart only
+    const rawL10=sorted.slice(0,10);
+    // Filter out DNP/inactive games (0 minutes played) for stats calculations
     const played=sorted.filter(g=>parseInt(g.min||'0')>0);
     if(!played.length){p.statsError='No games with minutes played found';return;}
     const vals=played.map(g=>+(g[statKey]||0));
     const l10=vals.slice(0,10);
+    // Return-from-injury flag: count consecutive DNPs right before the first played game
+    const firstPlayedIdx=sorted.findIndex(g=>parseInt(g.min||'0')>0);
+    const returnFromInjury=firstPlayedIdx>=2?firstPlayedIdx:0;
+    // Minutes deviation flag: compare recent 5 games avg vs season avg (20%+ threshold)
+    const minVals=played.map(g=>parseFloat(g.min)||0).filter(m=>m>0);
+    let minutesFlag=0;
+    if(minVals.length>=5){
+      const seasonAvgMin=minVals.reduce((a,b)=>a+b,0)/minVals.length;
+      const recent5Min=minVals.slice(0,5).reduce((a,b)=>a+b,0)/5;
+      const minDiff=(recent5Min-seasonAvgMin)/seasonAvgMin;
+      if(Math.abs(minDiff)>=0.20)minutesFlag=+minDiff.toFixed(2);
+    }
     const avg=+(vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(1);
     const hitRate=p.line?Math.round(vals.filter(v=>v>=p.line).length/vals.length*100):50;
     const edge=p.line?+((avg-p.line)/p.line*100).toFixed(1):0;
@@ -1506,7 +1524,7 @@ async function enrichPlayerStats(i,p){
     const hrPts=Math.min(Math.max((dirHR-50)*0.67,-17),33);
     const cvPts=Math.max(0,Math.round((0.5-Math.min(cv,0.5))/0.5*23));
     const conf=Math.max(0,Math.min(100,Math.round(evPts+hrPts+cvPts)));
-    Object.assign(p,{avg,l10,hitRate,edge,stdDev,evOver,evUnder,confidence:conf,hasRealStats:true,statsError:null,gamesPlayed:vals.length,gameLog:sorted});
+    Object.assign(p,{avg,l10,rawL10,hitRate,edge,stdDev,evOver,evUnder,confidence:conf,hasRealStats:true,statsError:null,gamesPlayed:vals.length,gameLog:sorted,returnFromInjury,minutesFlag});
     if(i!=null){
       const activeTab=document.querySelector(`#di-${i} .di-tab.on`);
       if(activeTab&&activeTab.textContent.trim()==='Overview')renderOverview(document.getElementById(`dtc-${i}`),p);
@@ -1548,14 +1566,31 @@ async function loadAndRenderGameLog(el,p){
 }
 
 function renderOverview(el,p){
+  const statMap={'player_points':'pts','player_rebounds':'reb','player_assists':'ast','player_threes':'fg3m','player_steals':'stl','player_blocks':'blk','player_turnovers':'turnover'};
+  const statKey=statMap[S.market]||'pts';
   const l5=(p.l10||[]).slice(0,5);
   const l5a=l5.length?(l5.reduce((a,b)=>a+b,0)/5).toFixed(1):'—';
-  const ceil=Math.max(...(p.l10||[0])),floor=Math.min(...(p.l10||[0])),maxV=ceil+5;
-  const bars=(p.l10||[]).map((v,j)=>`<div class="bar" style="height:${v/maxV*100}%;background:${v>=p.line?'var(--g)':'var(--r)'};opacity:${0.55+j*0.045}"><div class="bar-t">${v}</div></div>`).join('');
+  const ceil=Math.max(...(p.l10||[0])),floor=Math.min(...(p.l10||[0]));
+  // Use rawL10 (includes DNPs) for the chart; fallback to l10
+  const chartGames=p.rawL10||[];
+  const playedVals=chartGames.map(g=>parseInt(g.min||'0')>0?+(g[statKey]||0):null).filter(v=>v!==null);
+  const maxV=Math.max(...(playedVals.length?playedVals:[0]),p.line||0)+5;
+  const bars=chartGames.map((g,j)=>{
+    const isDNP=parseInt(g.min||'0')===0;
+    const v=isDNP?null:+(g[statKey]||0);
+    const h=isDNP?6:Math.max(3,+(v/maxV*100).toFixed(1));
+    const bg=isDNP?'var(--bg4)':(v>=p.line?'var(--g)':'var(--r)');
+    return`<div class="bar${isDNP?' dnp-bar':''}" style="height:${h}%;background:${bg}"><div class="bar-t">${isDNP?'DNP':v}</div></div>`;
+  }).join('');
   const lP=p.line?(1-p.line/maxV)*100:50;
   const lean=leanInfo(p.edge||0);
+  // Build player flags
+  const flags=[];
+  if(p.returnFromInjury>=2)flags.push(`<span class="player-flag flag-injury">⚠ Returning — ${p.returnFromInjury} game${p.returnFromInjury>1?'s':''} missed</span>`);
+  if(p.minutesFlag!==0){const dir=p.minutesFlag>0?'↑ more':'↓ fewer';const pct=Math.abs(Math.round(p.minutesFlag*100));flags.push(`<span class="player-flag flag-minutes">⏱ ${pct}% ${dir} minutes recently</span>`);}
+  const flagsHTML=flags.length?`<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:4px;">${flags.join('')}</div>`:'';
   el.innerHTML=`<div class="di-grid">
-    ${p.hasRealStats?`<div class="dc full" style="background:var(--g)15;border:1px solid var(--g)40;padding:8px 12px;border-radius:8px;font-size:11px;color:var(--g);">✓ Stats from NBA.com — ${p.gamesPlayed} games this season</div>`:p.statsError?`<div class="dc full" style="background:var(--r)15;border:1px solid var(--r)40;padding:8px 12px;border-radius:8px;font-size:11px;color:var(--r);">⚠ Stats unavailable: ${p.statsError}</div>`:`<div class="dc full" style="background:var(--a)15;border:1px solid var(--a)40;padding:8px 12px;border-radius:8px;font-size:11px;color:var(--a);">⏳ Loading real stats from NBA.com…</div>`}
+    ${p.hasRealStats?`<div class="dc full" style="background:var(--g)15;border:1px solid var(--g)40;padding:8px 12px;border-radius:8px;font-size:11px;color:var(--g);">✓ Stats from NBA.com — ${p.gamesPlayed} games this season${flagsHTML}</div>`:p.statsError?`<div class="dc full" style="background:var(--r)15;border:1px solid var(--r)40;padding:8px 12px;border-radius:8px;font-size:11px;color:var(--r);">⚠ Stats unavailable: ${p.statsError}</div>`:`<div class="dc full" style="background:var(--a)15;border:1px solid var(--a)40;padding:8px 12px;border-radius:8px;font-size:11px;color:var(--a);">⏳ Loading real stats from NBA.com…</div>`}
     <div class="dc"><div class="dc-t"><span class="dt" style="background:var(--b)"></span>Stats vs Line</div>
       <div class="sr">
         <div class="sb2"><div class="sb2-l">L10 Avg</div><div class="sb2-v">${p.avg}</div><div class="sb2-s">Line ${p.line} <span class="${p.avg>p.line?'up':'dn'}">${p.avg>p.line?'▲':'▼'} ${Math.abs(p.avg-p.line).toFixed(1)}</span></div></div>
@@ -1564,13 +1599,13 @@ function renderOverview(el,p){
         <div class="sb2"><div class="sb2-l">Confidence</div><div class="sb2-v" style="color:${(p.confidence||0)>=70?'var(--g)':(p.confidence||0)>=50?'var(--a)':'var(--r)'}">${p.confidence||0}</div><div class="sb2-s">${(p.confidence||0)>=70?'High':(p.confidence||0)>=50?'Med':'Low'}</div></div>
       </div>
     </div>
-    <div class="dc"><div class="dc-t"><span class="dt" style="background:var(--g)"></span>Last 10 Games</div>
+    <div class="dc"><div class="dc-t"><span class="dt" style="background:var(--g)"></span>Last 10 Calendar Games <span style="font-size:10px;color:var(--t3);font-weight:400;margin-left:4px;">(DNPs shown but excluded from averages)</span></div>
       <div class="chb"><div class="lref" style="top:${lP}%"><span class="lref-l">LINE ${p.line}</span></div><div class="bars">${bars}</div></div>
     </div>
     ${p.bookLines&&Object.keys(p.bookLines).length>1?`<div class="dc full">
       <div class="dc-t"><span class="dt" style="background:var(--c)"></span>Book Comparison — Consensus Line: ${p.line}</div>
       <table class="spt"><thead><tr><th>Sportsbook</th><th>Line</th><th>Over Odds</th><th>Under Odds</th></tr></thead>
-      <tbody>${Object.values(p.bookLines).sort((a,b)=>a.line-b.line).map(bl=>{
+      <tbody>${Object.values(p.bookLines).filter(bl=>!['Bovada','BetOnline.ag','MyBookie.ag'].includes(bl.bookName)).sort((a,b)=>a.line-b.line).map(bl=>{
         const diff=+(bl.line-p.line).toFixed(1);
         const diffStr=diff>0?`<span style="color:var(--r);font-size:10px"> +${diff}</span>`:diff<0?`<span style="color:var(--g);font-size:10px"> ${diff}</span>`:'';
         const ov=bl.overOdds?(bl.overOdds>0?'+':'')+bl.overOdds:'—';
@@ -1615,7 +1650,8 @@ function renderBookComparison(el,p){
   if(!bl||!Object.keys(bl).length){
     el.innerHTML='<div style="padding:20px;text-align:center;color:var(--t3);font-size:12px;">Book data only available in Combined mode.</div>';return;
   }
-  const lines=Object.values(bl);
+  const EXCL_BOOKS=new Set(['Bovada','BetOnline.ag','MyBookie.ag']);
+  const lines=Object.values(bl).filter(b=>!EXCL_BOOKS.has(b.bookName));
   const avgLine=p.line;
   const lineVals=lines.map(b=>b.line);
   const minLine=Math.min(...lineVals),maxLine=Math.max(...lineVals);

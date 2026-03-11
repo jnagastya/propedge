@@ -299,9 +299,10 @@ function aggregatePlayers(rawProps, book) {
     };
 
     if (book === 'combined') {
-      // Aggregate all bookmakers for each player
+      // Aggregate regulated US sportsbooks only — exclude offshore/unlicensed books
+      const EXCLUDED_BOOKS = new Set(['bovada', 'betonlineag', 'mybookieag', 'lowvig']);
       const playerMap = {}; // key = playerName|market
-      evt.bookmakers.forEach(bk => {
+      evt.bookmakers.filter(bk => !EXCLUDED_BOOKS.has(bk.key)).forEach(bk => {
         bk.markets?.forEach(mkt => {
           const byPlayer = {};
           mkt.outcomes?.forEach(o => {
