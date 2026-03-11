@@ -142,7 +142,7 @@ async function fetchBDLGameLog(playerId) {
       turnover: +g.turnover || 0, min: String(g.min || '0'),
       home, wl: '', opp_team_id: opp || null,
     };
-  }).filter(g => g && g.date);
+  }).filter(g => g && g.date && parseInt(g.min || '0') > 0); // exclude DNP/inactive games
 }
 
 // Strip common name suffixes so "Jaren Jackson Jr." matches "Jaren Jackson"
@@ -616,7 +616,7 @@ function computeSplits(games, line, statKey) {
     return { avg, gp: vals.length, hitRate: hr, values: vals };
   };
 
-  const sorted = [...games].sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+  const sorted = [...games].filter(g => parseInt(g.min || '0') > 0).sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
   const home = sorted.filter(g => g.home === true);
   const away = sorted.filter(g => g.home === false);
 

@@ -1231,16 +1231,25 @@ function computeKelly(modelProb, americanOdds){
   const q=1-p;
   return Math.max(0,(b*p-q)/b);
 }
-function valueScore(p){
-  // Blend: edge (25%) + hit rate (25%) + confidence (25%) + EV (25%)
+function getDirectionalEV(p){
+  // Returns EV for the direction the model favours (over if edge>=0, under if edge<0)
   const evOver=p.evOver??calcEV((p.hitRate||50)/100,p.overOdds);
-  const evScore=Math.min(Math.max(evOver,-20),20); // clamp -20..+20
-  return Math.round(Math.abs(p.edge||0)*0.25+Math.max(0,(p.hitRate||0)-50)*0.25+(p.confidence||0)*0.25+(evScore+20)*0.25);
+  const evUnder=p.evUnder??calcEV(1-(p.hitRate||50)/100,p.underOdds);
+  return (p.edge||0)>=0?evOver:evUnder;
 }
-function leanInfo(edge,evOver){
-  const ev=evOver??0;
-  if(edge>4||ev>5)return{label:'OVER ▲',cls:'over',pct:Math.min(90,55+Math.abs(edge)*2)};
-  if(edge<-4||ev<-5)return{label:'UNDER ▼',cls:'under',pct:Math.max(10,45-Math.abs(edge)*2)};
+function valueScore(p){
+  // Directional blend: |edge| (25%) + directional hit rate above 50% (25%) + confidence (25%) + directional EV (25%)
+  const dirEV=getDirectionalEV(p);
+  const evScore=Math.min(Math.max(dirEV,-20),20);
+  // Hit rate: for under bets use under hit rate (100 - hitRate)
+  const isOver=(p.edge||0)>=0;
+  const dirHR=isOver?(p.hitRate||50):(100-(p.hitRate||50));
+  return Math.round(Math.abs(p.edge||0)*0.25+Math.max(0,dirHR-50)*0.25+(p.confidence||0)*0.25+(evScore+20)*0.25);
+}
+function leanInfo(edge){
+  // Lean is purely edge-based — edge is the ground truth direction signal
+  if(edge>2)return{label:'OVER ▲',cls:'over',pct:Math.min(90,55+edge*1.5)};
+  if(edge<-2)return{label:'UNDER ▼',cls:'under',pct:Math.max(10,45-Math.abs(edge)*1.5)};
   return{label:'EVEN',cls:'even',pct:50};
 }
 // ── Refresh timer ──
@@ -1306,13 +1315,18 @@ function renderTable(){
     const cc=(p.confidence||0)>=70?'var(--g)':(p.confidence||0)>=50?'var(--a)':'var(--r)';
     const vs=valueScore(p);
     const evOver=p.evOver??calcEV((p.hitRate||50)/100,p.overOdds);
-    const isValue=vs>=30&&Math.abs(edge)>4&&(p.confidence||0)>=55&&evOver>3;
-    const qKelly=computeKelly((p.hitRate||50)/100,p.overOdds)*0.25;
+    const evUnder=p.evUnder??calcEV(1-(p.hitRate||50)/100,p.underOdds);
+    const dirEV=edge>=0?evOver:evUnder; // EV for the recommended bet direction
+    const isValue=vs>=30&&Math.abs(edge)>4&&(p.confidence||0)>=55&&dirEV>3;
+    // Kelly: use the correct directional odds
+    const betOdds=edge>=0?p.overOdds:p.underOdds;
+    const dirHitRate=edge>=0?(p.hitRate||50):(100-(p.hitRate||50));
+    const qKelly=computeKelly(dirHitRate/100,betOdds)*0.25;
     const qKellyPct=(qKelly*100).toFixed(1);
     const kellyColor=qKelly>=0.03?'var(--g)':qKelly>=0.01?'var(--a)':'var(--t3)';
     const overFmt=p.overOdds?(p.overOdds>0?'+':'')+p.overOdds:'—';
     const underFmt=p.underOdds?(p.underOdds>0?'+':'')+p.underOdds:'—';
-    const lean=leanInfo(edge,evOver);
+    const lean=leanInfo(edge);
     const hasBoost=S.scnOn&&(p.scenarioBoost||0)>0;
 
     const edgeTip=`Edge = (Avg − Line) / Line × 100\n= (${p.avg} − ${p.line}) / ${p.line} × 100\n= ${es}${edge.toFixed(1)}%\n\nPositive edge → model avg exceeds the line\nNegative edge → model avg below the line`;
@@ -1358,7 +1372,7 @@ function renderTable(){
         <span class="cb-l" style="color:${cc}">${p.confidence||0}</span>
       </div></td>
       <td><span style="font-size:11px;font-weight:700;color:${kellyColor}">${qKelly>0?qKellyPct+'%':'—'}</span></td>
-      <td>${isValue?`<span class="val-badge" title="EV: ${evOver>0?'+':''}${evOver}%">⚡ VALUE</span>`:`<span style="color:var(--t3);font-size:11px;font-weight:600;">${evOver>0?'<span style=\'color:var(--g)\'>+'+evOver+'%</span>':'<span>'+evOver+'%</span>'}</span>`}</td>
+      <td>${isValue?`<span class="val-badge" title="${edge>=0?'Over':'Under'} EV: ${dirEV>0?'+':''}${dirEV}%">⚡ VALUE</span>`:`<span style="color:var(--t3);font-size:11px;font-weight:600;">${dirEV>0?`<span style='color:var(--g)'>+${dirEV}%</span>`:`<span>${dirEV}%</span>`}</span>`}</td>
       <td><button class="bet-btn" onclick="event.stopPropagation();openBetModal(${JSON.stringify(p).replace(/"/g,'&quot;')})">🎲 Bet</button></td>
       <td><button class="fav-btn${favorites.has(p.name)?' on':''}" data-name="${p.name.replace(/"/g,'&quot;')}" onclick="toggleFav('${p.name.replace(/'/g,"\\'")}',event)" title="${favorites.has(p.name)?'Remove from watchlist':'Add to watchlist'}">${favorites.has(p.name)?'⭐':'☆'}</button></td>
       ${S.scnOn?`<td>${(p.scenarioBoost||0)>0?`<span class="scn-boost">+${p.scenarioBoost} pts</span>`:'<span style="color:var(--t3)">—</span>'}</td>`:''}
@@ -1369,7 +1383,7 @@ function renderTable(){
     tb.appendChild(dr);
   });
   document.getElementById('pCnt').innerHTML=d.length+' players';
-  const valCount=S.data.filter(p=>valueScore(p)>=30&&Math.abs(p.edge||0)>4&&(p.confidence||0)>=55&&(p.evOver??0)>3).length;
+  const valCount=S.data.filter(p=>{const dEV=getDirectionalEV(p);return valueScore(p)>=30&&Math.abs(p.edge||0)>4&&(p.confidence||0)>=55&&dEV>3;}).length;
   document.getElementById('alertDot').style.display=valCount>0?'':'none';
 
   // Attach floating tooltip listeners for edge/conf cells
@@ -1442,8 +1456,10 @@ async function enrichPlayerStats(i,p){
       'player_threes':'fg3m','player_steals':'stl','player_blocks':'blk','player_turnovers':'turnover'};
     const statKey=statMap[S.market]||'pts';
     const sorted=r.data.sort((a,b)=>new Date(b.date||0)-new Date(a.date||0));
-    const vals=sorted.map(g=>+(g[statKey]||0));
-    if(!vals.length){p.statsError='No stat values found';return;}
+    // Filter out DNP/inactive games (0 minutes played) so they don't pollute averages
+    const played=sorted.filter(g=>parseInt(g.min||'0')>0);
+    if(!played.length){p.statsError='No games with minutes played found';return;}
+    const vals=played.map(g=>+(g[statKey]||0));
     const l10=vals.slice(0,10);
     const avg=+(vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(1);
     const hitRate=p.line?Math.round(vals.filter(v=>v>=p.line).length/vals.length*100):50;
@@ -1451,17 +1467,21 @@ async function enrichPlayerStats(i,p){
     const l10avg=l10.reduce((a,b)=>a+b,0)/l10.length;
     const stdDev=+(Math.sqrt(l10.reduce((s,v)=>s+Math.pow(v-l10avg,2),0)/l10.length)).toFixed(1);
     const cv=avg?stdDev/avg:0.4;
-    const modelProb=p.modelProb||0.5;
-    const impliedProbOver=p.impliedProbOver||0.5;
-    // EV Edge (0–44 pts)
-    const evEdge=(modelProb)-(impliedProbOver);
+    // Always recompute EV from real stats — never trust the server's fake-L10-based evOver
+    const evOver=calcEV(hitRate/100,p.overOdds);
+    const evUnder=calcEV(1-hitRate/100,p.underOdds);
+    // Directional confidence: assess confidence FOR THE BET DIRECTION the model favours
+    // If edge<0 (model says under), flip hit rate perspective so 95% under hit rate scores HIGH
+    const isOverBet=edge>=0;
+    const dirHR=isOverBet?hitRate:(100-hitRate);
+    const dirModelProb=isOverBet?hitRate/100:1-hitRate/100;
+    const dirImpliedProb=isOverBet?(p.impliedProbOver||0.5):(p.impliedProbUnder||0.5);
+    const evEdge=dirModelProb-dirImpliedProb;
     const evPts=Math.min(Math.max(evEdge*220+22,0),44);
-    // Hit Rate Signal (−17 to +33 pts)
-    const hrPts=Math.min(Math.max((hitRate-50)*0.67,-17),33);
-    // Consistency (0–23 pts): inverse CV
+    const hrPts=Math.min(Math.max((dirHR-50)*0.67,-17),33);
     const cvPts=Math.max(0,Math.round((0.5-Math.min(cv,0.5))/0.5*23));
     const conf=Math.max(0,Math.min(100,Math.round(evPts+hrPts+cvPts)));
-    Object.assign(p,{avg,l10,hitRate,edge,stdDev,confidence:conf,hasRealStats:true,statsError:null,gamesPlayed:vals.length,gameLog:sorted});
+    Object.assign(p,{avg,l10,hitRate,edge,stdDev,evOver,evUnder,confidence:conf,hasRealStats:true,statsError:null,gamesPlayed:vals.length,gameLog:sorted});
     if(i!=null){
       const activeTab=document.querySelector(`#di-${i} .di-tab.on`);
       if(activeTab&&activeTab.textContent.trim()==='Overview')renderOverview(document.getElementById(`dtc-${i}`),p);
@@ -1543,11 +1563,22 @@ function renderOverview(el,p){
           <div style="font-size:12px;color:var(--t2);margin-top:4px;">Based on ${(p.edge||0).toFixed(1)}% edge · ${p.hitRate||0}% hit rate · ${p.confidence||0}/100 confidence</div>
         </div>
         <div style="font-size:11px;color:var(--t2);line-height:1.7;flex:2;background:var(--bg2);padding:10px 12px;border-radius:8px;border:1px solid var(--bd);">
-          <strong>Edge:</strong> <code>(${p.avg} − ${p.line}) / ${p.line} × 100 = ${(p.edge||0)>0?'+':''}${(p.edge||0).toFixed(1)}%</code><br>
-          <strong>Implied prob (Over):</strong> <code>${((p.impliedProbOver??impliedProb(p.overOdds))*100).toFixed(1)}%</code> · <strong>Model prob:</strong> <code>${(p.hitRate||50)}%</code><br>
-          <strong>EV (Over ${p.overOdds>0?'+':''}${p.overOdds||'—'}):</strong> <code style="color:${(p.evOver??0)>0?'var(--g)':'var(--r)'}">${(p.evOver??0)>0?'+':''}${p.evOver??0}%</code> per $100 wagered<br>
-          <strong>Value score:</strong> <code>${Math.abs(p.edge||0).toFixed(1)}×0.25 + ${Math.max(0,(p.hitRate||50)-50)}×0.25 + ${p.confidence||0}×0.25 + EV×0.25 = ${valueScore(p)}</code><br>
-          ${(()=>{const fk=computeKelly((p.hitRate||50)/100,p.overOdds);const qk=fk*0.25;const kc=fk>0.05?'var(--g)':fk>0?'var(--a)':'var(--r)';return`<strong>¼ Kelly:</strong> <code style="color:${kc}">${(qk*100).toFixed(1)}% of bankroll</code> — bet ~$${Math.max(1,Math.floor(1000*qk))} per $1,000`;})()}
+          ${(()=>{
+            const isOverBet=(p.edge||0)>=0;
+            const betOddsVal=isOverBet?(p.overOdds||0):(p.underOdds||0);
+            const betOddsFmt=(betOddsVal>0?'+':'')+betOddsVal;
+            const betDirEV=isOverBet?(p.evOver??calcEV((p.hitRate||50)/100,p.overOdds)):(p.evUnder??calcEV(1-(p.hitRate||50)/100,p.underOdds));
+            const dirHR=isOverBet?(p.hitRate||50):(100-(p.hitRate||50));
+            const dirImplied=isOverBet?((p.impliedProbOver??impliedProb(p.overOdds))*100):((p.impliedProbUnder??impliedProb(p.underOdds))*100);
+            const fk=computeKelly(dirHR/100,betOddsVal);const qk=fk*0.25;
+            const kc=fk>0.05?'var(--g)':fk>0?'var(--a)':'var(--r)';
+            const vs=valueScore(p);
+            return `<strong>Edge:</strong> <code>(${p.avg} − ${p.line}) / ${p.line} × 100 = ${(p.edge||0)>0?'+':''}${(p.edge||0).toFixed(1)}%</code><br>
+          <strong>Implied prob (${isOverBet?'Over':'Under'}):</strong> <code>${dirImplied.toFixed(1)}%</code> · <strong>Model hit rate (${isOverBet?'Over':'Under'}):</strong> <code>${dirHR}%</code><br>
+          <strong>EV (${isOverBet?'Over':'Under'} ${betOddsFmt}):</strong> <code style="color:${betDirEV>0?'var(--g)':'var(--r)'}">${betDirEV>0?'+':''}${betDirEV}%</code> per $100 wagered<br>
+          <strong>Value score:</strong> <code>${Math.abs(p.edge||0).toFixed(1)}×0.25 + ${Math.max(0,dirHR-50)}×0.25 + ${p.confidence||0}×0.25 + EV×0.25 = ${vs}</code><br>
+          <strong>¼ Kelly:</strong> <code style="color:${kc}">${(qk*100).toFixed(1)}% of bankroll</code> — bet ~$${Math.max(1,Math.floor(1000*qk))} per $1,000`;
+          })()}
         </div>
       </div>
     </div>
@@ -1818,8 +1849,8 @@ function renderAlerts(){
   const thresholds=[{edge:8,conf:70,hr:60},{edge:5,conf:55,hr:50},{edge:3,conf:40,hr:40}];
   const t=thresholds[(S.risk||2)-1];
   let alerts=getAlertData()
-    .filter(p=>Math.abs(p.edge||0)>=t.edge&&(p.confidence||0)>=t.conf&&(p.hitRate||0)>=t.hr&&(p.evOver??calcEV((p.hitRate||50)/100,p.overOdds))>0)
-    .map(p=>({...p,vs:valueScore(p),evOver:p.evOver??calcEV((p.hitRate||50)/100,p.overOdds)}))
+    .map(p=>({...p,vs:valueScore(p),_dirEV:getDirectionalEV(p)}))
+    .filter(p=>Math.abs(p.edge||0)>=t.edge&&(p.confidence||0)>=t.conf&&p._dirEV>0)
     .sort((a,b)=>b.vs-a.vs);
 
   const grid=document.getElementById('vaGrid');
@@ -1838,13 +1869,16 @@ function renderAlerts(){
     const rankLabel=rank===0?'🥇':rank===1?'🥈':rank===2?'🥉':`#${rank+1}`;
     const cc=(p.confidence||0)>=70?'var(--g)':(p.confidence||0)>=50?'var(--a)':'var(--r)';
     const reasons=[];
-    const implP=((p.impliedProbOver??impliedProb(p.overOdds))*100).toFixed(1);
-    const modelP=(p.hitRate||50);
-    const evPct=p.evOver??0;
+    // Use directional stats: for UNDER bets flip the hit rate perspective
+    const dirHR=isOver?(p.hitRate||50):(100-(p.hitRate||50));
+    const implP=(isOver?((p.impliedProbOver??impliedProb(p.overOdds))*100):((p.impliedProbUnder??impliedProb(p.underOdds))*100)).toFixed(1);
+    const evPct=p._dirEV??0;
+    const betOdds=isOver?p.overOdds:p.underOdds;
+    const betOddsFmt=betOdds?(betOdds>0?'+':'')+betOdds:'—';
     if(Math.abs(p.edge||0)>=8)reasons.push(`<b>${Math.abs(p.edge).toFixed(1)}% edge</b> — very strong`);
     else if(Math.abs(p.edge||0)>=5)reasons.push(`<b>${Math.abs(p.edge).toFixed(1)}% edge</b> above threshold`);
-    if((p.hitRate||0)>=70)reasons.push(`Hit rate <b>${p.hitRate}%</b> (7+ of 10 games)`);
-    else if((p.hitRate||0)>=60)reasons.push(`Hit rate <b>${p.hitRate}%</b>`);
+    if(dirHR>=70)reasons.push(`${isOver?'Over':'Under'} hit rate <b>${dirHR}%</b> (7+ of 10 games)`);
+    else if(dirHR>=60)reasons.push(`${isOver?'Over':'Under'} hit rate <b>${dirHR}%</b>`);
     if(evPct>5)reasons.push(`EV <b>+${evPct}%</b> vs implied odds`);
     if((p.scenarioBoost||0)>0)reasons.push(`Scenario boost <b>+${p.scenarioBoost}</b>`);
 
@@ -1859,19 +1893,19 @@ function renderAlerts(){
         </div>
         <div class="va-right">
           <div class="va-edge-big ${isOver?'pos':'neg'}">${isOver?'+':''}${(p.edge||0).toFixed(1)}%</div>
-          <div class="va-direction ${isOver?'over':'under'}">▲ BET ${dir}</div>
+          <div class="va-direction ${isOver?'over':'under'}">${isOver?'▲':'▼'} BET ${dir}</div>
         </div>
       </div>
-      <div style="font-size:12px;font-weight:700;color:var(--t3);margin-bottom:8px;">${dir} ${p.line} ${MKT_SHORT[p.market||S.market]||''} · ${p.overOdds>0?'+':''}${p.overOdds||'—'} odds · ${p.avg > p.line ? p.avg+' avg vs '+p.line+' line' : p.line+' line vs '+p.avg+' avg'}</div>
+      <div style="font-size:12px;font-weight:700;color:var(--t3);margin-bottom:8px;">${dir} ${p.line} ${MKT_SHORT[p.market||S.market]||''} · ${betOddsFmt} odds · ${isOver?p.avg+' avg vs '+p.line+' line':p.line+' line vs '+p.avg+' avg'}</div>
       <div class="va-stats">
         <div class="va-stat"><div class="va-stat-v">${p.avg}</div><div class="va-stat-l">L10 Avg</div></div>
-        <div class="va-stat"><div class="va-stat-v">${p.hitRate||0}%</div><div class="va-stat-l">Model Prob</div></div>
+        <div class="va-stat"><div class="va-stat-v">${dirHR}%</div><div class="va-stat-l">${isOver?'Over':'Under'} Rate</div></div>
         <div class="va-stat"><div class="va-stat-v">${implP}%</div><div class="va-stat-l">Implied Prob</div></div>
         <div class="va-stat"><div class="va-stat-v" style="color:${evPct>0?'var(--g)':'var(--r)'}">${evPct>0?'+':''}${evPct}%</div><div class="va-stat-l">Exp. Value</div></div>
         <div class="va-stat"><div class="va-stat-v" style="color:${cc}">${p.confidence||0}</div><div class="va-stat-l">Conf.</div></div>
       </div>
       <div class="va-reason">${reasons.join(' · ')||'Moderate edge detected.'}</div>
-      <div class="va-formula">EV = ModelProb (${modelP}%) × Payout − (1−ModelProb) × Stake = <span style="color:${evPct>0?'var(--g)':'var(--r)'}">${evPct>0?'+':''}${evPct}%</span></div>
+      <div class="va-formula">EV = ModelProb (${dirHR}%) × Payout − (1−ModelProb) × Stake = <span style="color:${evPct>0?'var(--g)':'var(--r)'}">${evPct>0?'+':''}${evPct}%</span></div>
       <button class="bet-btn" style="width:100%;margin-top:10px;padding:9px;font-size:13px;border-radius:8px;" onclick="event.stopPropagation();openBetModal(${JSON.stringify(p).replace(/"/g,'&quot;')})">🎲 Place Bet — ${isOver?'OVER':'UNDER'} ${p.line}</button>
     </div>`;
   }).join('');
