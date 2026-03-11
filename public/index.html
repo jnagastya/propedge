@@ -678,10 +678,13 @@ async function loadData() {
 async function enrichAllPlayers(){
   const players=S.data||[];
   if(!players.length) return;
-  await Promise.allSettled(players.map(async p=>{
-    await enrichPlayerStats(null,p);
+  const BATCH=3;
+  for(let i=0;i<players.length;i+=BATCH){
+    const chunk=players.slice(i,i+BATCH);
+    await Promise.allSettled(chunk.map(p=>enrichPlayerStats(null,p)));
     renderTable();renderAlerts();
-  }));
+    if(i+BATCH<players.length) await new Promise(r=>setTimeout(r,600));
+  }
 }
 async function doRefresh(){document.getElementById('rBtn').classList.add('sp');await apiGet('/api/cache/clear');await loadData();document.getElementById('rBtn').classList.remove('sp');}
 
