@@ -60,13 +60,14 @@ async function sbGetGameLog(playerName) {
 }
 
 // Write game log to Supabase cache (upsert by player_name)
-async function sbSetGameLog(playerName, bdlId, gameLog) {
+async function sbSetGameLog(playerName, bdlId, gameLog, position) {
   if (!supabase || !gameLog?.length) return;
   try {
     await supabase.from('player_stats').upsert({
       player_name: playerName,
       bdl_id: bdlId,
       game_log: gameLog,
+      position: position || null,  // BDL-sourced position: 'G', 'F', or 'C'
       season: NBA_SEASON,
       last_fetched: new Date().toISOString(),
     }, { onConflict: 'player_name' });
@@ -103,19 +104,19 @@ async function loadDvPCache() {
 async function computeAndStoreDvP() {
   if (!supabase) return { error: 'Supabase not configured' };
   try {
-    // Fetch all cached player game logs
+    // Fetch all cached player game logs (including BDL-sourced position)
     const { data: players, error } = await supabase
       .from('player_stats')
-      .select('player_name, game_log');
+      .select('player_name, game_log, position');
     if (error || !players?.length) return { error: error?.message || 'No players in cache' };
 
     // Accumulate: acc[position][opp_team_abbr] = { total, count }
     const acc = {};
-    const statKeys = { PG: 'pts', SG: 'pts', SF: 'pts', PF: 'pts', C: 'pts' };
 
-    for (const { player_name, game_log } of players) {
+    for (const { player_name, game_log, position: storedPos } of players) {
       if (!game_log?.length) continue;
-      const pos = guessPosition(player_name);
+      // Use BDL position if available, fall back to name-based guess
+      const pos = storedPos || guessPosition(player_name);
       if (!pos) continue;
       if (!acc[pos]) acc[pos] = {};
 
@@ -252,7 +253,17 @@ function nameMatchScore(bdlPlayer, target) {
   return 0;
 }
 
-// Search BDL for player ID by name, cached 24h
+// Normalize BDL position string to broad category used for DvP
+function normalizeBDLPosition(pos) {
+  if (!pos) return 'F';
+  const p = pos.toUpperCase();
+  if (p.startsWith('G')) return 'G';   // G, G-F, PG, SG
+  if (p === 'C' || p === 'F-C' || p === 'C-F') return 'C';
+  return 'F';                           // F, SF, PF, F-G, F-C (non-center)
+}
+
+// Search BDL for player ID + position by name, cached 24h
+// Returns { id, position } or { id: null, position: null }
 async function getBDLPlayerId(name) {
   const ck = `bdl_pid_${name.toLowerCase().replace(/\s+/g, '_')}`;
   const cached = cacheGet(ck);
@@ -295,12 +306,16 @@ async function getBDLPlayerId(name) {
   // (avoids picking a random wrong player when multiple results exist)
   if (!best && results.length === 1) best = results[0];
 
-  const id = (best && bestScore >= 40) ? best.id : (results.length === 1 ? results[0]?.id : null);
-  if (best) console.log(`BDL name match: "${name}" → "${best.first_name} ${best.last_name}" (score=${bestScore})`);
+  const resolved = (best && bestScore >= 40) ? best : (results.length === 1 ? results[0] : null);
+  const id = resolved?.id ?? null;
+  const position = resolved ? normalizeBDLPosition(resolved.position) : null;
+
+  if (resolved) console.log(`BDL name match: "${name}" → "${resolved.first_name} ${resolved.last_name}" pos=${resolved.position} (score=${bestScore})`);
   else console.warn(`BDL name lookup failed: "${name}" (${results.length} results, best score=${bestScore})`);
 
-  cacheSet(ck, id ?? null, 24 * 3600);
-  return id ?? null;
+  const result = { id, position };
+  cacheSet(ck, result, 24 * 3600);
+  return result;
 }
 
 
@@ -520,7 +535,7 @@ app.get('/api/stats/player/search', async (req, res) => {
   const { name } = req.query;
   if (!name) return res.status(400).json({ error: 'name required' });
   try {
-    const id = await getBDLPlayerId(name);
+    const { id } = await getBDLPlayerId(name);
     res.json({ data: id ? [{ id, name }] : [], cached: false });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -547,11 +562,11 @@ app.get('/api/stats/player/name/:name/games', async (req, res) => {
     }
 
     // Layer 3: Live BDL fetch
-    const nbaId = await getBDLPlayerId(name);
+    const { id: nbaId, position: bdlPos } = await getBDLPlayerId(name);
     if (!nbaId) return res.json({ data: [], cached: false, error: `Player not found: ${name}` });
     const games = await fetchBDLGameLog(nbaId);
     cacheSet(ckMem, games, STATS_TTL);
-    await sbSetGameLog(name, nbaId, games); // persist for future requests
+    await sbSetGameLog(name, nbaId, games, bdlPos); // persist for future requests
     res.json({ data: games, cached: false, source: 'bdl' });
   } catch (err) {
     console.error('Game log by name error:', err.message);
@@ -573,10 +588,10 @@ app.get('/api/stats/player/name/:name/splits', async (req, res) => {
     if (!games) {
       games = await sbGetGameLog(name);
       if (!games) {
-        const nbaId = await getBDLPlayerId(name);
+        const { id: nbaId, position: bdlPos } = await getBDLPlayerId(name);
         if (!nbaId) return res.json({ data: null, cached: false, error: `Player not found: ${name}` });
         games = await fetchBDLGameLog(nbaId);
-        await sbSetGameLog(name, nbaId, games);
+        await sbSetGameLog(name, nbaId, games, bdlPos);
       }
       cacheSet(ckMem, games, STATS_TTL);
     }
@@ -1004,10 +1019,10 @@ app.get('/api/cron/refresh-stats', async (req, res) => {
         const existing = await sbGetGameLog(name);
         if (existing) { results.skipped.push(name); continue; }
 
-        const bdlId = await getBDLPlayerId(name);
+        const { id: bdlId, position: bdlPos } = await getBDLPlayerId(name);
         if (!bdlId) { results.failed.push(`${name} (not found in BDL)`); continue; }
         const games = await fetchBDLGameLog(bdlId);
-        await sbSetGameLog(name, bdlId, games);
+        await sbSetGameLog(name, bdlId, games, bdlPos);
         results.ok.push(name);
       } catch (e) {
         results.failed.push(`${name} (${e.message})`);
