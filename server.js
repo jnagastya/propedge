@@ -67,66 +67,81 @@ function teamAbbr(fullName) {
   return fullName.substring(0, 3).toUpperCase();
 }
 
-function bdlHeaders() {
-  return { 'Authorization': BDL_KEY };
+// ---- stats.nba.com HEADERS (required to avoid 403) ----
+const NBA_STATS_HEADERS = {
+  'Accept': 'application/json, text/plain, */*',
+  'Accept-Language': 'en-US,en;q=0.9',
+  'Connection': 'keep-alive',
+  'Host': 'stats.nba.com',
+  'Origin': 'https://www.nba.com',
+  'Referer': 'https://www.nba.com/',
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  'x-nba-stats-origin': 'stats',
+  'x-nba-stats-token': 'true',
+};
+
+// Convert NBA_SEASON int (e.g. 2025) → "2025-26" format for stats.nba.com
+function nbaSeasonStr() {
+  const y = NBA_SEASON;
+  return `${y}-${String(y + 1).slice(2)}`;
 }
 
-function normalizeNBAGameLog(rows) {
-  return (Array.isArray(rows) ? rows : []).map(g => {
-    // BDL v1 format: { pts, reb, ast, ..., game: { date }, team: { id, abbreviation } }
-    // Note: BDL stats game object does not include home_team_id per OpenAPI spec
-    if (g.game && g.team) {
-      const home = g.game.home_team_id != null ? g.game.home_team_id === g.team.id : null;
-      return {
-        date: (g.game.date || '').split('T')[0],
-        pts: +g.pts || 0, reb: +g.reb || 0, ast: +g.ast || 0,
-        fg3m: +g.fg3m || 0, stl: +g.stl || 0, blk: +g.blk || 0,
-        turnover: +g.turnover || 0, min: String(g.min || '0'),
-        home, matchup: g.team.abbreviation || '', wl: '',
-      };
-    }
-    // Lowercase flat format fallback
+// Fetch player game log from stats.nba.com/stats/playergamelog
+async function fetchNBAGameLog(playerId) {
+  const season = nbaSeasonStr();
+  const url = `${NBA_BASE}/playergamelog?PlayerID=${playerId}&Season=${season}&SeasonType=Regular%20Season`;
+  const resp = await fetch(url, { headers: NBA_STATS_HEADERS });
+  if (!resp.ok) throw new Error(`stats.nba.com ${resp.status}`);
+  const data = await resp.json();
+  const rs = data.resultSets?.[0];
+  if (!rs || !rs.rowSet) return [];
+  const h = rs.headers;
+  return rs.rowSet.map(row => {
+    const o = {};
+    h.forEach((k, i) => { o[k] = row[i]; });
+    // MATCHUP: "LAL vs. GSW" = home, "LAL @ GSW" = away
+    const home = typeof o.MATCHUP === 'string' && !o.MATCHUP.includes('@');
     return {
-      date: g.date || g.game_date || '',
-      pts: +g.pts || 0, reb: +g.reb || 0, ast: +g.ast || 0,
-      fg3m: +g.fg3m || 0, stl: +g.stl || 0, blk: +g.blk || 0,
-      turnover: +g.turnover || +g.tov || 0,
-      min: String(g.min || '0'), home: g.home || false,
-      matchup: '', wl: '',
+      date: o.GAME_DATE || '',
+      pts: +o.PTS || 0, reb: +o.REB || 0, ast: +o.AST || 0,
+      fg3m: +o.FG3M || 0, stl: +o.STL || 0, blk: +o.BLK || 0,
+      turnover: +o.TOV || 0, min: String(o.MIN || '0'),
+      home, matchup: o.MATCHUP || '', wl: o.WL || '',
     };
   }).filter(g => g.date);
 }
 
-// Fetch full season game log from BDL (handles cursor pagination)
-async function fetchBDLGameLog(playerId) {
-  let allRows = [];
-  let cursor = null;
-  do {
-    let url = `${BDL_BASE}/stats?player_ids[]=${playerId}&seasons[]=${NBA_SEASON}&per_page=100`;
-    if (cursor) url += `&cursor=${cursor}`;
-    const resp = await fetch(url, { headers: bdlHeaders() });
-    if (!resp.ok) throw new Error(`BDL stats ${resp.status}`);
-    const data = await resp.json();
-    allRows = allRows.concat(data.data || []);
-    cursor = data.meta?.next_cursor || null;
-  } while (cursor);
-  return normalizeNBAGameLog(allRows);
-}
-
-// Get BDL player ID by name, cached for 24h
-async function getBDLPlayerId(name) {
-  const ck = `bdl_pid_${name.toLowerCase().replace(/\s+/g, '_')}`;
+// Get NBA.com player ID by name — checks hardcoded map first, then commonallplayers
+async function getNBAPlayerId(name) {
+  const ck = `nba_pid_${name.toLowerCase().replace(/\s+/g, '_')}`;
   const cached = cacheGet(ck);
   if (cached !== undefined) return cached;
-  const resp = await fetch(`${BDL_BASE}/players?search=${encodeURIComponent(name)}&per_page=5`, { headers: bdlHeaders() });
-  if (!resp.ok) { cacheSet(ck, null, 3600); return null; }
-  const data = await resp.json();
-  const player = (data.data || []).find(p =>
-    `${p.first_name} ${p.last_name}`.toLowerCase() === name.toLowerCase()
-  ) || data.data?.[0];
-  const id = player ? player.id : null;
-  cacheSet(ck, id, 24 * 3600);
-  return id;
+
+  // Hardcoded map for common players (instant, no API call)
+  if (NBA_IDS_SERVER[name]) {
+    cacheSet(ck, NBA_IDS_SERVER[name], 24 * 3600);
+    return NBA_IDS_SERVER[name];
+  }
+
+  // Fall back to searching commonallplayers
+  try {
+    const url = `${NBA_BASE}/commonallplayers?LeagueID=00&Season=${nbaSeasonStr()}&IsOnlyCurrentSeason=1`;
+    const resp = await fetch(url, { headers: NBA_STATS_HEADERS });
+    if (!resp.ok) { cacheSet(ck, null, 3600); return null; }
+    const data = await resp.json();
+    const rs = data.resultSets?.[0];
+    if (!rs) { cacheSet(ck, null, 3600); return null; }
+    const nameIdx = rs.headers.indexOf('DISPLAY_FIRST_LAST');
+    const idIdx = rs.headers.indexOf('PERSON_ID');
+    const nameLower = name.toLowerCase();
+    const player = rs.rowSet.find(row => row[nameIdx]?.toLowerCase() === nameLower);
+    const id = player ? player[idIdx] : null;
+    cacheSet(ck, id, 24 * 3600);
+    return id;
+  } catch {
+    cacheSet(ck, null, 3600);
+    return null;
+  }
 }
 
 const NBA_IDS_SERVER = {
@@ -156,7 +171,7 @@ app.get('/api/status', (req, res) => {
   res.json({
     server: 'ok',
     oddsApi: ODDS_KEY ? 'configured' : 'missing',
-    nbaApi: BDL_KEY ? 'configured' : 'missing',
+    nbaApi: 'stats.nba.com (keyless)',
     cacheKeys: cache.keys().length,
     uptime: process.uptime(),
   });
@@ -170,7 +185,7 @@ app.get('/api/health', (req, res) => {
     server: 'ok',
     apis: {
       odds: ODDS_KEY ? 'configured' : 'missing',
-      stats: BDL_KEY ? 'configured' : 'missing',
+      stats: 'stats.nba.com (keyless)',
     },
     season: NBA_SEASON,
     uptime: process.uptime(),
@@ -186,7 +201,7 @@ app.post('/api/config', (req, res) => {
   cache.flushAll(); // clear cache so fresh data loads with new keys
   res.json({
     odds: ODDS_KEY ? 'configured' : 'missing',
-    stats: BDL_KEY ? 'configured' : 'missing',
+    stats: 'stats.nba.com (keyless)',
   });
 });
 
@@ -352,25 +367,15 @@ app.get('/api/odds/scores', async (req, res) => {
 });
 
 // ============================================================
-// ROUTE: GET /api/stats/player/search — search players
+// ROUTE: GET /api/stats/player/search — search players via NBA.com
 // NOTE: Specific string routes MUST come before param routes (:id)
 // ============================================================
 app.get('/api/stats/player/search', async (req, res) => {
   const { name } = req.query;
   if (!name) return res.status(400).json({ error: 'name required' });
-  if (!BDL_KEY) return res.status(400).json({ error: 'BDL_API_KEY not configured' });
-
-  const ck = `bdl_search_${name.toLowerCase()}`;
-  const cached = cacheGet(ck);
-  if (cached !== undefined) return res.json({ data: cached, cached: true });
-
   try {
-    const resp = await fetch(`${BDL_BASE}/players?search=${encodeURIComponent(name)}&per_page=5`, { headers: bdlHeaders() });
-    if (!resp.ok) throw new Error(`BDL ${resp.status}`);
-    const data = await resp.json();
-    const results = (data.data || []).map(p => ({ id: p.id, name: `${p.first_name} ${p.last_name}` }));
-    cacheSet(ck, results, 24 * 3600);
-    res.json({ data: results, cached: false });
+    const id = await getNBAPlayerId(name);
+    res.json({ data: id ? [{ id, name }] : [], cached: false });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -382,14 +387,13 @@ app.get('/api/stats/player/search', async (req, res) => {
 // ============================================================
 app.get('/api/stats/player/name/:name/games', async (req, res) => {
   const name = decodeURIComponent(req.params.name);
-  if (!BDL_KEY) return res.status(400).json({ error: 'BDL_API_KEY not configured' });
   try {
-    const bdlId = await getBDLPlayerId(name);
-    if (!bdlId) return res.json({ data: [], cached: false, error: 'Player not found in BDL' });
-    const ck = `bdl_gl_${bdlId}_${NBA_SEASON}`;
+    const nbaId = await getNBAPlayerId(name);
+    if (!nbaId) return res.json({ data: [], cached: false, error: `Player not found: ${name}` });
+    const ck = `nba_gl_${nbaId}_${NBA_SEASON}`;
     const cached = cacheGet(ck);
     if (cached) return res.json({ data: cached, cached: true });
-    const games = await fetchBDLGameLog(bdlId);
+    const games = await fetchNBAGameLog(nbaId);
     cacheSet(ck, games, STATS_TTL);
     res.json({ data: games, cached: false });
   } catch (err) {
@@ -406,14 +410,13 @@ app.get('/api/stats/player/name/:name/splits', async (req, res) => {
   const name = decodeURIComponent(req.params.name);
   const line = parseFloat(req.query.line) || 0;
   const stat = req.query.stat || 'pts';
-  if (!BDL_KEY) return res.status(400).json({ error: 'BDL_API_KEY not configured' });
   try {
-    const bdlId = await getBDLPlayerId(name);
-    if (!bdlId) return res.json({ data: null, cached: false, error: 'Player not found in BDL' });
-    const ck = `bdl_gl_${bdlId}_${NBA_SEASON}`;
+    const nbaId = await getNBAPlayerId(name);
+    if (!nbaId) return res.json({ data: null, cached: false, error: `Player not found: ${name}` });
+    const ck = `nba_gl_${nbaId}_${NBA_SEASON}`;
     let games = cacheGet(ck);
     if (!games) {
-      games = await fetchBDLGameLog(bdlId);
+      games = await fetchNBAGameLog(nbaId);
       cacheSet(ck, games, STATS_TTL);
     }
     res.json({ data: computeSplits(games, line, stat), cached: false, gamesAnalyzed: games.length });
@@ -424,18 +427,15 @@ app.get('/api/stats/player/name/:name/splits', async (req, res) => {
 });
 
 // ============================================================
-// ROUTE: GET /api/stats/player/:id/games — game log by BDL player ID
+// ROUTE: GET /api/stats/player/:id/games — game log by NBA player ID
 // ============================================================
 app.get('/api/stats/player/:id/games', async (req, res) => {
-  const { id } = req.params;
-  const ck = `bdl_gl_${id}_${NBA_SEASON}`;
+  const id = req.params.id;
+  const ck = `nba_gl_${id}_${NBA_SEASON}`;
   const cached = cacheGet(ck);
   if (cached) return res.json({ data: cached, cached: true });
-
-  if (!BDL_KEY) return res.status(400).json({ error: 'BDL_API_KEY not configured' });
-
   try {
-    const games = await fetchBDLGameLog(id);
+    const games = await fetchNBAGameLog(id);
     cacheSet(ck, games, STATS_TTL);
     res.json({ data: games, cached: false });
   } catch (err) {
@@ -445,53 +445,23 @@ app.get('/api/stats/player/:id/games', async (req, res) => {
 });
 
 // ============================================================
-// ROUTE: GET /api/stats/player/:id/averages — season averages
-// ============================================================
-app.get('/api/stats/player/:id/averages', async (req, res) => {
-  const { id } = req.params;
-  const ck = `bdl_avg_${id}_${NBA_SEASON}`;
-  const cached = cacheGet(ck);
-  if (cached) return res.json({ data: cached, cached: true });
-
-  if (!BDL_KEY) return res.status(400).json({ error: 'BDL_API_KEY not configured' });
-
-  try {
-    const resp = await fetch(`${BDL_BASE}/season_averages?season=${NBA_SEASON}&player_id=${id}`, { headers: bdlHeaders() });
-    if (!resp.ok) throw new Error(`BDL ${resp.status}`);
-    const data = await resp.json();
-    const a = data.data?.[0];
-    if (!a) { res.json({ data: null, cached: false }); return; }
-    const result = { pts: a.pts, reb: a.reb, ast: a.ast, fg3m: a.fg3m, gp: a.games_played };
-    cacheSet(ck, result, STATS_TTL);
-    res.json({ data: result, cached: false });
-  } catch (err) {
-    console.error('Averages error:', err.message);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// ============================================================
-// ROUTE: GET /api/stats/player/:id/splits — computed splits by BDL ID
+// ROUTE: GET /api/stats/player/:id/splits — computed splits by NBA player ID
 // ============================================================
 app.get('/api/stats/player/:id/splits', async (req, res) => {
-  const { id } = req.params;
+  const id = req.params.id;
   const line = parseFloat(req.query.line) || 0;
   const stat = req.query.stat || 'pts';
-
-  const ck = `bdl_gl_${id}_${NBA_SEASON}`;
+  const ck = `nba_gl_${id}_${NBA_SEASON}`;
   let games = cacheGet(ck);
   if (!games) {
-    if (!BDL_KEY) return res.status(400).json({ error: 'BDL_API_KEY not configured' });
     try {
-      games = await fetchBDLGameLog(id);
+      games = await fetchNBAGameLog(id);
       cacheSet(ck, games, STATS_TTL);
     } catch (err) {
       return res.status(500).json({ error: err.message });
     }
   }
-
-  const splits = computeSplits(games, line, stat);
-  res.json({ data: splits, cached: false, gamesAnalyzed: games.length });
+  res.json({ data: computeSplits(games, line, stat), cached: false, gamesAnalyzed: games.length });
 });
 
 function computeSplits(games, line, statKey) {
@@ -734,45 +704,32 @@ app.get('/api/cache/clear', (req, res) => {
 });
 
 // ============================================================
-// ROUTE: GET /api/debug/bdl — test BDL API connectivity
+// ROUTE: GET /api/debug/nba — test stats.nba.com connectivity
 // ============================================================
-app.get('/api/debug/bdl', async (req, res) => {
-  const result = {
-    keyConfigured: !!BDL_KEY,
-    keyPrefix: BDL_KEY ? BDL_KEY.substring(0, 8) + '...' : null,
-    season: NBA_SEASON,
-    bdlBase: BDL_BASE,
-  };
-  if (!BDL_KEY) return res.json({ ...result, error: 'BDL_API_KEY env var is missing' });
+app.get('/api/debug/nba', async (req, res) => {
+  const result = { season: nbaSeasonStr(), source: 'stats.nba.com', nbaBase: NBA_BASE };
   try {
-    const searchUrl = `${BDL_BASE}/players?search=${encodeURIComponent('LeBron James')}&per_page=1`;
-    result.searchUrl = searchUrl;
-
-    // Try plain key first, then Bearer prefix
-    for (const authHeader of [BDL_KEY, `Bearer ${BDL_KEY}`]) {
-      const searchResp = await fetch(searchUrl, { headers: { 'Authorization': authHeader } });
-      result[`status_${authHeader.startsWith('Bearer') ? 'bearer' : 'plain'}`] = searchResp.status;
-      const raw = await searchResp.text();
-      let parsed;
-      try { parsed = JSON.parse(raw); } catch { parsed = null; }
-      const player = parsed?.data?.[0];
-      if (player) {
-        result.workingAuthFormat = authHeader.startsWith('Bearer') ? 'Bearer <key>' : '<key> directly';
-        result.playerFound = `${player.first_name} ${player.last_name} (id=${player.id})`;
-        // Also test stats
-        const statsResp = await fetch(`${BDL_BASE}/stats?player_ids[]=${player.id}&seasons[]=${NBA_SEASON}&per_page=3`, { headers: { 'Authorization': authHeader } });
-        result.statsStatus = statsResp.status;
-        if (statsResp.ok) {
-          const sd = await statsResp.json();
-          result.gamesFound = sd.data?.length || 0;
-          result.sampleGame = sd.data?.[0] ? { date: sd.data[0].game?.date, pts: sd.data[0].pts } : null;
-        }
-        return res.json({ ...result, ok: true });
-      }
-      result[`rawBody_${authHeader.startsWith('Bearer') ? 'bearer' : 'plain'}`] = raw.slice(0, 200);
+    const lebronId = NBA_IDS_SERVER['LeBron James'];
+    const url = `${NBA_BASE}/playergamelog?PlayerID=${lebronId}&Season=${nbaSeasonStr()}&SeasonType=Regular%20Season`;
+    result.testUrl = url;
+    const resp = await fetch(url, { headers: NBA_STATS_HEADERS });
+    result.httpStatus = resp.status;
+    if (!resp.ok) {
+      result.error = `stats.nba.com returned ${resp.status}`;
+      return res.json(result);
     }
-
-    res.json({ ...result, playerFound: 'none — both auth formats returned empty data' });
+    const data = await resp.json();
+    const rs = data.resultSets?.[0];
+    const rows = rs?.rowSet || [];
+    result.gamesFound = rows.length;
+    if (rows.length) {
+      const h = rs.headers;
+      const o = {};
+      h.forEach((k, i) => { o[k] = rows[0][i]; });
+      result.sampleGame = { date: o.GAME_DATE, pts: o.PTS, matchup: o.MATCHUP, wl: o.WL };
+    }
+    result.ok = true;
+    res.json(result);
   } catch (err) {
     res.json({ ...result, error: err.message });
   }
@@ -813,8 +770,8 @@ if (require.main === module) {
     console.log(`\n  ╔═══════════════════════════════════════╗`);
     console.log(`  ║  PropEdge v3 Server                   ║`);
     console.log(`  ║  Running on http://localhost:${PORT}      ║`);
-    console.log(`  ║  Odds API: ${ODDS_KEY ? '✓ Configured' : '✗ Missing'}              ║`);
-    console.log(`  ║  BDL API:  ${BDL_KEY ? '✓ Configured' : '○ Missing'}              ║`);
+    console.log(`  ║  Odds API:    ${ODDS_KEY ? '✓ Configured' : '✗ Missing'}           ║`);
+    console.log(`  ║  Stats API:   ✓ stats.nba.com (no key)   ║`);
     console.log(`  ╚═══════════════════════════════════════╝\n`);
   });
 }
