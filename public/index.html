@@ -358,6 +358,7 @@ td{padding:9px 11px;white-space:nowrap;}
 .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:800;align-items:center;justify-content:center;backdrop-filter:blur(4px);}
 .modal-overlay.show{display:flex;}
 .modal{background:var(--bg1);border:1px solid var(--bd);border-radius:var(--radius-lg);padding:24px;width:380px;max-width:95vw;box-shadow:var(--shadow-md);animation:cardIn .2s ease both;}
+.modal-detail{width:700px;max-width:96vw;max-height:88vh;overflow-y:auto;}
 .modal-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;}
 .modal-title{font-size:16px;font-weight:700;}
 .modal-close{background:none;border:none;font-size:20px;color:var(--t3);cursor:pointer;line-height:1;}
@@ -477,6 +478,20 @@ td{padding:9px 11px;white-space:nowrap;}
     </div>
     <button class="login-btn" id="loginBtn" onclick="doLogin()">Sign In</button>
     <div class="login-err" id="loginErr"></div>
+  </div>
+</div>
+
+<!-- Player Detail Modal (from Value Alerts) -->
+<div class="modal-overlay" id="playerDetailModal">
+  <div class="modal modal-detail">
+    <div class="modal-hdr">
+      <div>
+        <div class="modal-title" id="pdm-name"></div>
+        <div style="font-size:11px;color:var(--t3);margin-top:2px;" id="pdm-sub"></div>
+      </div>
+      <button class="modal-close" onclick="closeAlertDetail()">✕</button>
+    </div>
+    <div id="di-va"></div>
   </div>
 </div>
 
@@ -1453,6 +1468,19 @@ function positionTip(tip,rect){
   tip.style.top=top+'px';
 }
 
+function openAlertDetail(p){
+  const modal=document.getElementById('playerDetailModal');
+  const MKT=p.market||S.market;
+  document.getElementById('pdm-name').textContent=p.name;
+  document.getElementById('pdm-sub').textContent=`${p.team||''} · ${MKT_SHORT[MKT]||MKT||''} ${p.line} · ${(p.matchup||'').substring(0,30)}`;
+  modal.classList.add('show');
+  document.body.style.overflow='hidden';
+  renderDet('va',p);
+}
+function closeAlertDetail(){
+  document.getElementById('playerDetailModal').classList.remove('show');
+  document.body.style.overflow='';
+}
 function togDet(i,p){
   const r=document.getElementById(`d-${i}`),mr=document.getElementById(`r-${i}`);
   const open=r.classList.contains('open');
@@ -2092,6 +2120,7 @@ function renderAlerts(){
     grid.innerHTML=`<div style="padding:48px;text-align:center;color:var(--t3);font-size:13px;">No value alerts at the <b>${t.label}</b> level.<br><br>Minimum value score required: ${t.minVS}/100<br><br>Try Aggressive mode or wait for real stats to finish loading.</div>`;
     return;
   }
+  window._vaAlerts=alerts;
   grid.innerHTML=alerts.map((p,rank)=>{
     const isOver=p.edge>0;
     const dir=isOver?'OVER':'UNDER';
@@ -2120,12 +2149,12 @@ function renderAlerts(){
     if(evPct>5)reasons.push(`EV <b>+${evPct}%</b> vs implied odds`);
     if((p.scenarioBoost||0)>0)reasons.push(`Scenario boost <b>+${p.scenarioBoost}</b>`);
 
-    return`<div class="va-card ${strength}">
+    return`<div class="va-card ${strength}" onclick="openAlertDetail(_vaAlerts[${rank}])" style="cursor:pointer;">
       <div class="va-top">
         <div class="va-av">${avHTML}</div>
         <div class="va-info">
           <div class="va-name">${p.name} <span style="font-size:11px;font-weight:700;color:${rankColor};margin-left:4px;">${rankLabel}</span>${showMktTag&&p.market?`<span class="va-mkt-tag">${MKT_SHORT[p.market]||p.market}</span>`:''}
-            <button class="fav-btn${favorites.has(p.name)?' on':''}" data-name="${p.name.replace(/"/g,'&quot;')}" onclick="toggleFav('${p.name.replace(/'/g,"\\'")}',event)" title="${favorites.has(p.name)?'Remove from watchlist':'Add to watchlist'}" style="font-size:13px;margin-left:2px;">${favorites.has(p.name)?'⭐':'☆'}</button>
+            <button class="fav-btn${favorites.has(p.name)?' on':''}" data-name="${p.name.replace(/"/g,'&quot;')}" onclick="event.stopPropagation();toggleFav('${p.name.replace(/'/g,"\\'")}',event)" title="${favorites.has(p.name)?'Remove from watchlist':'Add to watchlist'}" style="font-size:13px;margin-left:2px;">${favorites.has(p.name)?'⭐':'☆'}</button>
           </div>
           <div class="va-meta">${p.team||''} · ${(p.matchup||'').substring(0,25)}</div>
           ${(p.returnFromInjury>=2||p.minutesFlag!==0)?`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;">${p.returnFromInjury>=2?`<span class="player-flag flag-injury">⚠ Back after ${p.returnFromInjury} games missed</span>`:''}${p.minutesFlag!==0?`<span class="player-flag ${p.minutesFlag>0?'flag-minutes-up':'flag-minutes-down'}">⏱ ${Math.abs(Math.round(p.minutesFlag*100))}% ${p.minutesFlag>0?'↑ more':'↓ fewer'} minutes</span>`:''}</div>`:''}</div>
@@ -2567,6 +2596,7 @@ function clearHistory() {
 
 // Close modal on overlay click
 document.getElementById('betModal').addEventListener('click', e => { if(e.target === document.getElementById('betModal')) closeBetModal(); });
+document.getElementById('playerDetailModal').addEventListener('click', e => { if(e.target === document.getElementById('playerDetailModal')) closeAlertDetail(); });
 </script>
 </body>
 </html>

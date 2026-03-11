@@ -205,7 +205,13 @@ async function getBDLPlayerId(name) {
     results = await trySearch(normedTitle);
   }
 
-  // Search 3: just last name as fallback
+  // Search 3: expand common abbreviations (CJ → C.J., PJ → P.J., AJ → A.J.)
+  if (!results.length) {
+    const expanded = name.replace(/\b([A-Z]{2,3})\b/g, m => m.split('').join('.') + '.');
+    if (expanded !== name) results = await trySearch(expanded);
+  }
+
+  // Search 4: just last name as fallback
   if (!results.length) {
     const lastName = name.trim().split(' ').pop();
     results = await trySearch(lastName);
@@ -231,7 +237,8 @@ async function getBDLPlayerId(name) {
   else console.warn(`BDL name lookup failed: "${name}" (${results.length} results, best score=${bestScore})`);
 
   const result = { id, position };
-  cacheSet(ck, result, 24 * 3600);
+  // Cache successful lookups for 24h; failures only 30min so they auto-retry
+  cacheSet(ck, result, id ? 24 * 3600 : 1800);
   return result;
 }
 
