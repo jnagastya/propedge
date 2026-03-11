@@ -868,8 +868,9 @@ app.get('/api/cache/clear', (req, res) => {
 // the props feed and stores them in Supabase so page loads are instant.
 // ============================================================
 app.get('/api/cron/refresh-stats', async (req, res) => {
-  // Simple secret check to prevent public abuse
-  if (req.headers['x-cron-secret'] !== process.env.CRON_SECRET && process.env.CRON_SECRET) {
+  // Accept secret via header (Vercel Cron) or query param (manual browser trigger)
+  const secret = req.headers['x-cron-secret'] || req.query.secret;
+  if (process.env.CRON_SECRET && secret !== process.env.CRON_SECRET) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
   if (!supabase) return res.status(503).json({ error: 'Supabase not configured' });
