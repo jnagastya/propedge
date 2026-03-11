@@ -48,10 +48,12 @@ async function sbGetGameLog(playerName) {
   try {
     const { data, error } = await supabase
       .from('player_stats')
-      .select('game_log, last_fetched')
+      .select('game_log, last_fetched, season')
       .eq('player_name', playerName)
       .single();
     if (error || !data) return null;
+    // Reject if from a different season (e.g. last year's data still in Supabase)
+    if (data.season !== NBA_SEASON) return null;
     // Treat as stale if older than 20 hours
     const age = Date.now() - new Date(data.last_fetched).getTime();
     if (age > 20 * 60 * 60 * 1000) return null;
