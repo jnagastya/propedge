@@ -54,9 +54,9 @@ async function sbGetGameLog(playerName) {
     if (error || !data) return null;
     // Reject if from a different season (e.g. last year's data still in Supabase)
     if (data.season !== NBA_SEASON) return null;
-    // Treat as stale if older than 6 hours
+    // Treat as stale if older than 12 hours
     const age = Date.now() - new Date(data.last_fetched).getTime();
-    if (age > 6 * 60 * 60 * 1000) return null;
+    if (age > 12 * 60 * 60 * 1000) return null;
     return data.game_log;
   } catch { return null; }
 }
@@ -199,7 +199,14 @@ async function getBDLPlayerId(name) {
 
   const trySearch = async (query) => {
     try {
-      const resp = await fetch(`${BDL_BASE}/players?search=${encodeURIComponent(query)}&per_page=10`, { headers: bdlHeaders() });
+      let resp;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        resp = await fetch(`${BDL_BASE}/players?search=${encodeURIComponent(query)}&per_page=10`, { headers: bdlHeaders() });
+        if (resp.status !== 429) break;
+        const wait = (attempt + 1) * 2000;
+        console.warn(`BDL 429 on player search "${query}", retrying in ${wait}ms`);
+        await new Promise(r => setTimeout(r, wait));
+      }
       if (!resp.ok) return [];
       const data = await resp.json();
       return data.data || [];
