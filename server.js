@@ -76,6 +76,32 @@ async function sbSetGameLog(playerName, bdlId, gameLog, position) {
   } catch (e) { console.warn('Supabase write failed:', e.message); }
 }
 
+// Read odds from Supabase cache (returns null if not found)
+async function sbGetOdds(book) {
+  if (!supabase) return null;
+  try {
+    const { data, error } = await supabase
+      .from('odds_cache')
+      .select('players, last_fetched')
+      .eq('book', book)
+      .single();
+    if (error || !data) return null;
+    return data.players;
+  } catch { return null; }
+}
+
+// Write odds to Supabase cache (upsert by book)
+async function sbSetOdds(book, players) {
+  if (!supabase || !players?.length) return;
+  try {
+    await supabase.from('odds_cache').upsert({
+      book,
+      players,
+      last_fetched: new Date().toISOString(),
+    }, { onConflict: 'book' });
+  } catch (e) { console.warn('Supabase odds write failed:', e.message); }
+}
+
 // ---- BDL TEAM ID → ABBREVIATION MAP ----
 // BDL uses fixed numeric IDs for all 30 teams
 
@@ -690,7 +716,16 @@ app.get('/api/analytics/merged', async (req, res) => {
     const allCk = `allMarkets_${book}`;
     let allPlayers = cacheGet(allCk);
 
+    if (!allPlayers) {
+      // Layer 1: Supabase odds cache (populated by cron — zero Odds API calls for users)
+      allPlayers = await sbGetOdds(book);
+      if (allPlayers) {
+        cacheSet(allCk, allPlayers, parseInt(process.env.CACHE_TTL_ODDS) || 1800);
+      }
+    }
+
     if (!allPlayers && ODDS_KEY) {
+      // Layer 2: Live Odds API fallback (only if Supabase has no data yet)
       const now = new Date();
       allPlayers = [];
       const evtResp = await fetch(`${ODDS_BASE}/sports/basketball_nba/events?apiKey=${ODDS_KEY}&regions=us&oddsFormat=american`);
@@ -700,7 +735,6 @@ app.get('/api/analytics/merged', async (req, res) => {
 
         const propPromises = upcomingEvents.map(async (evt) => {
           try {
-            // Fetch ALL markets in one request per game instead of one market at a time
             const pUrl = `${ODDS_BASE}/sports/basketball_nba/events/${evt.id}/odds?apiKey=${ODDS_KEY}&regions=us&markets=${ALL_PROP_MARKETS}&oddsFormat=american`;
             const pResp = await fetch(pUrl);
             return pResp.ok ? await pResp.json() : null;
@@ -709,8 +743,7 @@ app.get('/api/analytics/merged', async (req, res) => {
 
         const rawProps = (await Promise.all(propPromises)).filter(Boolean);
         allPlayers = aggregatePlayers(rawProps, book);
-        // Cache raw combined players for the full TTL — all market views derive from this
-        cacheSet(allCk, allPlayers, parseInt(process.env.CACHE_TTL_ODDS) || 120);
+        cacheSet(allCk, allPlayers, parseInt(process.env.CACHE_TTL_ODDS) || 1800);
       }
     }
 
@@ -931,6 +964,58 @@ app.get('/api/cron/refresh-stats', async (req, res) => {
     res.json({ success: true, processed: names.length, ...results });
   } catch (err) {
     res.status(500).json({ error: err.message, ...results });
+  }
+});
+
+// ============================================================
+// ROUTE: GET /api/cron/refresh-odds — store Odds API data in Supabase
+// Runs on schedule so users never hit the Odds API directly
+// ============================================================
+app.get('/api/cron/refresh-odds', async (req, res) => {
+  const secret = req.headers['x-cron-secret'] || req.query.secret;
+  if (process.env.CRON_SECRET && secret !== process.env.CRON_SECRET) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  if (!supabase) return res.status(503).json({ error: 'Supabase not configured' });
+  if (!ODDS_KEY) return res.status(503).json({ error: 'Odds API key not configured' });
+
+  try {
+    // Fetch upcoming events
+    const evtResp = await fetch(`${ODDS_BASE}/sports/basketball_nba/events?apiKey=${ODDS_KEY}&regions=us&oddsFormat=american`);
+    if (!evtResp.ok) return res.status(502).json({ error: `Events fetch failed: ${evtResp.status}` });
+    const events = await evtResp.json();
+    const now = new Date();
+    const upcoming = events.filter(e => new Date(e.commence_time) > now);
+
+    if (!upcoming.length) return res.json({ success: true, message: 'No upcoming games', stored: [] });
+
+    // Fetch all markets for all upcoming games sequentially to avoid hammering the API
+    const rawProps = [];
+    for (const evt of upcoming) {
+      try {
+        const pUrl = `${ODDS_BASE}/sports/basketball_nba/events/${evt.id}/odds?apiKey=${ODDS_KEY}&regions=us&markets=${ALL_PROP_MARKETS}&oddsFormat=american`;
+        const pResp = await fetch(pUrl);
+        if (pResp.ok) rawProps.push(await pResp.json());
+      } catch { /* skip */ }
+    }
+
+    // Aggregate and store for each book mode we support
+    const books = ['combined', 'draftkings', 'fanduel', 'betmgm', 'caesars', 'pointsbet'];
+    const stored = [];
+    for (const book of books) {
+      const players = aggregatePlayers(rawProps, book);
+      if (players.length) {
+        await sbSetOdds(book, players);
+        stored.push({ book, players: players.length });
+      }
+    }
+
+    // Bust in-memory cache so next request pulls fresh Supabase data
+    books.forEach(b => cache.del(`allMarkets_${b}`));
+
+    res.json({ success: true, games: upcoming.length, stored });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
