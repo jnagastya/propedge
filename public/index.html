@@ -1399,7 +1399,7 @@ function renderTable(){
         <div class="pi">
           <span class="pn">${p.name}${hasBoost?'<span class="scn-icon">⚡+'+p.scenarioBoost+'</span>':''}</span>
           <span class="pm"><span class="ptb">${p.team||'—'}</span><span>${p.position||''}</span></span>
-          ${(p.returnFromInjury>=2||p.minutesFlag!==0)?`<span class="pm" style="margin-top:2px;display:flex;gap:3px;flex-wrap:wrap;">${p.returnFromInjury>=2?`<span class="player-flag flag-injury" style="font-size:9px;padding:1px 5px;">⚠ Back (${p.returnFromInjury}G)</span>`:''}${p.minutesFlag!==0?`<span class="player-flag ${p.minutesFlag>0?'flag-minutes-up':'flag-minutes-down'}" style="font-size:9px;padding:1px 5px;">⏱ ${Math.abs(Math.round(p.minutesFlag*100))}% ${p.minutesFlag>0?'↑':'↓'} min</span>`:''}</span>`:''}
+          ${(p.returnFromInjury>=2||p.minutesFlag)?`<span class="pm" style="margin-top:2px;display:flex;gap:3px;flex-wrap:wrap;">${p.returnFromInjury>=2?`<span class="player-flag flag-injury" style="font-size:9px;padding:1px 5px;">⚠ Back (${p.returnFromInjury}G)</span>`:''}${p.minutesFlag?`<span class="player-flag ${p.minutesFlag>0?'flag-minutes-up':'flag-minutes-down'}" style="font-size:9px;padding:1px 5px;">⏱ ${Math.abs(Math.round(p.minutesFlag*100))}% ${p.minutesFlag>0?'↑':'↓'} min</span>`:''}</span>`:''}
         </div>
       </div></td>
       <td style="color:var(--t2);font-size:11px;">${(p.matchup||'—').substring(0,28)}</td>
@@ -1627,7 +1627,7 @@ function renderOverview(el,p){
   // Build player flags
   const flags=[];
   if(p.returnFromInjury>=2)flags.push(`<span class="player-flag flag-injury">⚠ Returning — ${p.returnFromInjury} game${p.returnFromInjury>1?'s':''} missed</span>`);
-  if(p.minutesFlag!==0){const dir=p.minutesFlag>0?'↑ more':'↓ fewer';const pct=Math.abs(Math.round(p.minutesFlag*100));const mCls=p.minutesFlag>0?'flag-minutes-up':'flag-minutes-down';flags.push(`<span class="player-flag ${mCls}">⏱ ${pct}% ${dir} minutes recently</span>`);}
+  if(p.minutesFlag){const dir=p.minutesFlag>0?'↑ more':'↓ fewer';const pct=Math.abs(Math.round(p.minutesFlag*100));const mCls=p.minutesFlag>0?'flag-minutes-up':'flag-minutes-down';flags.push(`<span class="player-flag ${mCls}">⏱ ${pct}% ${dir} minutes recently</span>`);}
   const flagsHTML=flags.length?`<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:4px;">${flags.join('')}</div>`:'';
   el.innerHTML=`<div class="di-grid">
     ${p.hasRealStats?`<div class="dc full" style="background:var(--g)15;border:1px solid var(--g)40;padding:8px 12px;border-radius:8px;font-size:11px;color:var(--g);">✓ Stats from NBA.com — ${p.gamesPlayed} games this season${flagsHTML}</div>`:p.statsError?`<div class="dc full" style="background:var(--r)15;border:1px solid var(--r)40;padding:8px 12px;border-radius:8px;font-size:11px;color:var(--r);">⚠ Stats unavailable: ${p.statsError}</div>`:`<div class="dc full" style="background:var(--a)15;border:1px solid var(--a)40;padding:8px 12px;border-radius:8px;font-size:11px;color:var(--a);">⏳ Loading real stats from NBA.com…</div>`}
@@ -2157,7 +2157,7 @@ function renderAlerts(){
             <button class="fav-btn${favorites.has(p.name)?' on':''}" data-name="${p.name.replace(/"/g,'&quot;')}" onclick="event.stopPropagation();toggleFav('${p.name.replace(/'/g,"\\'")}',event)" title="${favorites.has(p.name)?'Remove from watchlist':'Add to watchlist'}" style="font-size:13px;margin-left:2px;">${favorites.has(p.name)?'⭐':'☆'}</button>
           </div>
           <div class="va-meta">${p.team||''} · ${(p.matchup||'').substring(0,25)}</div>
-          ${(p.returnFromInjury>=2||p.minutesFlag!==0)?`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;">${p.returnFromInjury>=2?`<span class="player-flag flag-injury">⚠ Back after ${p.returnFromInjury} games missed</span>`:''}${p.minutesFlag!==0?`<span class="player-flag ${p.minutesFlag>0?'flag-minutes-up':'flag-minutes-down'}">⏱ ${Math.abs(Math.round(p.minutesFlag*100))}% ${p.minutesFlag>0?'↑ more':'↓ fewer'} minutes</span>`:''}</div>`:''}</div>
+          ${(p.returnFromInjury>=2||p.minutesFlag)?`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;">${p.returnFromInjury>=2?`<span class="player-flag flag-injury">⚠ Back after ${p.returnFromInjury} games missed</span>`:''}${p.minutesFlag?`<span class="player-flag ${p.minutesFlag>0?'flag-minutes-up':'flag-minutes-down'}">⏱ ${Math.abs(Math.round(p.minutesFlag*100))}% ${p.minutesFlag>0?'↑ more':'↓ fewer'} minutes</span>`:''}</div>`:''}</div>
         <div class="va-right">
           <div class="va-edge-big ${isOver?'pos':'neg'}">${isOver?'+':''}${(p.edge||0).toFixed(1)}%</div>
           <div class="va-direction ${isOver?'over':'under'}">${isOver?'▲':'▼'} BET ${dir}</div>
