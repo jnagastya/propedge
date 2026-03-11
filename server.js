@@ -90,7 +90,14 @@ function nbaSeasonStr() {
 async function fetchNBAGameLog(playerId) {
   const season = nbaSeasonStr();
   const url = `${NBA_BASE}/playergamelog?PlayerID=${playerId}&Season=${season}&SeasonType=Regular%20Season`;
-  const resp = await fetch(url, { headers: NBA_STATS_HEADERS });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8000);
+  let resp;
+  try {
+    resp = await fetch(url, { headers: NBA_STATS_HEADERS, signal: controller.signal });
+  } finally {
+    clearTimeout(timeout);
+  }
   if (!resp.ok) throw new Error(`stats.nba.com ${resp.status}`);
   const data = await resp.json();
   const rs = data.resultSets?.[0];
