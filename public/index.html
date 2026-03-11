@@ -956,10 +956,10 @@ function renderDet(i,p){
     ${scnTab}
   </div><div id="dtc-${i}"></div>`;
   showDTab(i,'overview',c.querySelector('.di-tab'));
-  // Fetch real BDL stats in background; auto-refresh overview when ready
-  if(!p.hasRealStats) enrichPlayerFromBDL(i,p);
+  // Fetch real stats from stats.nba.com in background; auto-refresh overview when ready
+  if(!p.hasRealStats) enrichPlayerStats(i,p);
 }
-async function enrichPlayerFromBDL(i,p){
+async function enrichPlayerStats(i,p){
   try{
     const r=await apiGet(`/api/stats/player/name/${encodeURIComponent(p.name)}/games`);
     if(!r.data||!r.data.length) return;
@@ -985,7 +985,7 @@ async function enrichPlayerFromBDL(i,p){
     if(activeTab&&activeTab.textContent.trim()==='Overview'){
       renderOverview(document.getElementById(`dtc-${i}`),p);
     }
-  }catch(e){console.warn('BDL enrich failed:',e.message);}
+  }catch(e){console.warn('Stats enrich failed:',e.message);}
 }
 async function showDTab(i,tab,btn){
   const p=window._dp,el=document.getElementById(`dtc-${i}`);
@@ -1025,7 +1025,7 @@ function renderOverview(el,p){
   const lP=p.line?(1-p.line/maxV)*100:50;
   const lean=leanInfo(p.edge||0);
   el.innerHTML=`<div class="di-grid">
-    ${!p.hasRealStats?`<div class="dc full" style="background:var(--a)15;border:1px solid var(--a)40;padding:8px 12px;border-radius:8px;font-size:11px;color:var(--a);">⏳ Loading real stats from BDL…</div>`:`<div class="dc full" style="background:var(--g)15;border:1px solid var(--g)40;padding:8px 12px;border-radius:8px;font-size:11px;color:var(--g);">✓ Stats from BDL — ${p.gamesPlayed} games this season</div>`}
+    ${!p.hasRealStats?`<div class="dc full" style="background:var(--a)15;border:1px solid var(--a)40;padding:8px 12px;border-radius:8px;font-size:11px;color:var(--a);">⏳ Loading real stats from NBA.com…</div>`:`<div class="dc full" style="background:var(--g)15;border:1px solid var(--g)40;padding:8px 12px;border-radius:8px;font-size:11px;color:var(--g);">✓ Stats from NBA.com — ${p.gamesPlayed} games this season</div>`}
     <div class="dc"><div class="dc-t"><span class="dt" style="background:var(--b)"></span>Stats vs Line</div>
       <div class="sr">
         <div class="sb2"><div class="sb2-l">L10 Avg</div><div class="sb2-v">${p.avg}</div><div class="sb2-s">Line ${p.line} <span class="${p.avg>p.line?'up':'dn'}">${p.avg>p.line?'▲':'▼'} ${Math.abs(p.avg-p.line).toFixed(1)}</span></div></div>
@@ -1058,7 +1058,7 @@ function renderOverview(el,p){
 
 function renderSplits(el,p){
   const sp=p.splits;
-  if(!sp){el.innerHTML='<div style="padding:20px;text-align:center;color:var(--t3);font-size:12px;">No split data available. Ensure BDL API key is configured.</div>';return;}
+  if(!sp){el.innerHTML='<div style="padding:20px;text-align:center;color:var(--t3);font-size:12px;">No split data available.</div>';return;}
   const rows=[{l:'Home',d:sp.home},{l:'Away',d:sp.away},{l:'Last 5',d:sp.last5},{l:'Last 10',d:sp.last10},{l:'Last 20',d:sp.last20},{l:'Back-to-Back',d:sp.b2b},{l:'3+ Days Rest',d:sp.rest3plus}];
   el.innerHTML=`<div class="dc full"><div class="dc-t"><span class="dt" style="background:var(--c)"></span>Splits vs Line ${p.line}</div>
     <table class="spt"><thead><tr><th>Split</th><th>Avg</th><th>GP</th><th>Hit Rate</th><th>Edge</th><th>Lean</th></tr></thead>
