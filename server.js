@@ -15,6 +15,7 @@ const cors = require('cors');
 const fetch = require('node-fetch');
 const NodeCache = require('node-cache');
 const path = require('path');
+const { createClient } = require('@supabase/supabase-js');
 
 const app = express();
 app.use(cors());
@@ -33,6 +34,44 @@ const ODDS_BASE = 'https://api.the-odds-api.com/v4';
 const BDL_BASE = 'https://api.balldontlie.io/nba/v1';
 const NBA_BASE = 'https://stats.nba.com/stats';
 const STATS_TTL = 12 * 60 * 60; // 12-hour cache for stats
+
+// ---- SUPABASE SETUP ----
+const SUPABASE_URL = process.env.SUPABASE_URL || '';
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY || '';
+const supabase = SUPABASE_URL && SUPABASE_KEY
+  ? createClient(SUPABASE_URL, SUPABASE_KEY)
+  : null;
+
+// Read game log from Supabase cache (returns null if not found or stale)
+async function sbGetGameLog(playerName) {
+  if (!supabase) return null;
+  try {
+    const { data, error } = await supabase
+      .from('player_stats')
+      .select('game_log, last_fetched')
+      .eq('player_name', playerName)
+      .single();
+    if (error || !data) return null;
+    // Treat as stale if older than 20 hours
+    const age = Date.now() - new Date(data.last_fetched).getTime();
+    if (age > 20 * 60 * 60 * 1000) return null;
+    return data.game_log;
+  } catch { return null; }
+}
+
+// Write game log to Supabase cache (upsert by player_name)
+async function sbSetGameLog(playerName, bdlId, gameLog) {
+  if (!supabase || !gameLog?.length) return;
+  try {
+    await supabase.from('player_stats').upsert({
+      player_name: playerName,
+      bdl_id: bdlId,
+      game_log: gameLog,
+      season: NBA_SEASON,
+      last_fetched: new Date().toISOString(),
+    }, { onConflict: 'player_name' });
+  } catch (e) { console.warn('Supabase write failed:', e.message); }
+}
 
 // ---- NBA SEASON HELPER ----
 function currentNBASeason() {
@@ -403,14 +442,25 @@ app.get('/api/stats/player/search', async (req, res) => {
 app.get('/api/stats/player/name/:name/games', async (req, res) => {
   const name = decodeURIComponent(req.params.name);
   try {
+    // Layer 1: in-memory cache (fastest)
+    const ckMem = `gl_name_${name.toLowerCase().replace(/\s+/g,'_')}`;
+    const memHit = cacheGet(ckMem);
+    if (memHit) return res.json({ data: memHit, cached: true, source: 'memory' });
+
+    // Layer 2: Supabase persistent cache
+    const sbHit = await sbGetGameLog(name);
+    if (sbHit) {
+      cacheSet(ckMem, sbHit, STATS_TTL);
+      return res.json({ data: sbHit, cached: true, source: 'supabase' });
+    }
+
+    // Layer 3: Live BDL fetch
     const nbaId = await getBDLPlayerId(name);
     if (!nbaId) return res.json({ data: [], cached: false, error: `Player not found: ${name}` });
-    const ck = `bdl_gl_${nbaId}_${NBA_SEASON}`;
-    const cached = cacheGet(ck);
-    if (cached) return res.json({ data: cached, cached: true });
     const games = await fetchBDLGameLog(nbaId);
-    cacheSet(ck, games, STATS_TTL);
-    res.json({ data: games, cached: false });
+    cacheSet(ckMem, games, STATS_TTL);
+    await sbSetGameLog(name, nbaId, games); // persist for future requests
+    res.json({ data: games, cached: false, source: 'bdl' });
   } catch (err) {
     console.error('Game log by name error:', err.message);
     res.status(500).json({ error: err.message });
@@ -426,13 +476,17 @@ app.get('/api/stats/player/name/:name/splits', async (req, res) => {
   const line = parseFloat(req.query.line) || 0;
   const stat = req.query.stat || 'pts';
   try {
-    const nbaId = await getBDLPlayerId(name);
-    if (!nbaId) return res.json({ data: null, cached: false, error: `Player not found: ${name}` });
-    const ck = `bdl_gl_${nbaId}_${NBA_SEASON}`;
-    let games = cacheGet(ck);
+    const ckMem = `gl_name_${name.toLowerCase().replace(/\s+/g,'_')}`;
+    let games = cacheGet(ckMem);
     if (!games) {
-      games = await fetchBDLGameLog(nbaId);
-      cacheSet(ck, games, STATS_TTL);
+      games = await sbGetGameLog(name);
+      if (!games) {
+        const nbaId = await getBDLPlayerId(name);
+        if (!nbaId) return res.json({ data: null, cached: false, error: `Player not found: ${name}` });
+        games = await fetchBDLGameLog(nbaId);
+        await sbSetGameLog(name, nbaId, games);
+      }
+      cacheSet(ckMem, games, STATS_TTL);
     }
     res.json({ data: computeSplits(games, line, stat), cached: false, gamesAnalyzed: games.length });
   } catch (err) {
@@ -806,6 +860,71 @@ function guessTeam(name) {
 app.get('/api/cache/clear', (req, res) => {
   cache.flushAll();
   res.json({ message: 'Cache cleared', keys: 0 });
+});
+
+// ============================================================
+// ROUTE: GET /api/cron/refresh-stats — nightly BDL → Supabase pre-fetch
+// Called by Vercel Cron. Fetches game logs for all players currently in
+// the props feed and stores them in Supabase so page loads are instant.
+// ============================================================
+app.get('/api/cron/refresh-stats', async (req, res) => {
+  // Simple secret check to prevent public abuse
+  if (req.headers['x-cron-secret'] !== process.env.CRON_SECRET && process.env.CRON_SECRET) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  if (!supabase) return res.status(503).json({ error: 'Supabase not configured' });
+  if (!BDL_KEY) return res.status(503).json({ error: 'BDL key not configured' });
+
+  const results = { ok: [], failed: [], skipped: [] };
+  try {
+    // Get current player list from the odds feed
+    const evtUrl = `${ODDS_BASE}/sports/basketball_nba/events?apiKey=${ODDS_KEY}&regions=us&oddsFormat=american`;
+    const evtResp = await fetch(evtUrl);
+    if (!evtResp.ok) return res.status(502).json({ error: 'Could not fetch events from Odds API' });
+    const events = await evtResp.json();
+    const now = new Date();
+    const upcoming = events.filter(e => new Date(e.commence_time) > now);
+
+    // Collect player names from one bookmaker per game
+    const playerNames = new Set();
+    for (const evt of upcoming.slice(0, 10)) {
+      try {
+        const pUrl = `${ODDS_BASE}/sports/basketball_nba/events/${evt.id}/odds?apiKey=${ODDS_KEY}&regions=us&markets=player_points&oddsFormat=american`;
+        const pResp = await fetch(pUrl);
+        if (!pResp.ok) continue;
+        const pData = await pResp.json();
+        const bk = pData.bookmakers?.[0];
+        bk?.markets?.[0]?.outcomes?.forEach(o => {
+          if (o.description) playerNames.add(o.description);
+        });
+      } catch { /* skip */ }
+    }
+
+    // Fetch BDL stats for each player with throttling
+    const names = [...playerNames];
+    for (let i = 0; i < names.length; i++) {
+      const name = names[i];
+      try {
+        // Skip if Supabase already has fresh data (< 20h old)
+        const existing = await sbGetGameLog(name);
+        if (existing) { results.skipped.push(name); continue; }
+
+        const bdlId = await getBDLPlayerId(name);
+        if (!bdlId) { results.failed.push(`${name} (not found in BDL)`); continue; }
+        const games = await fetchBDLGameLog(bdlId);
+        await sbSetGameLog(name, bdlId, games);
+        results.ok.push(name);
+      } catch (e) {
+        results.failed.push(`${name} (${e.message})`);
+      }
+      // Throttle to avoid BDL rate limits
+      if (i < names.length - 1) await new Promise(r => setTimeout(r, 800));
+    }
+
+    res.json({ success: true, processed: names.length, ...results });
+  } catch (err) {
+    res.status(500).json({ error: err.message, ...results });
+  }
 });
 
 // ============================================================
