@@ -1320,7 +1320,7 @@ function renderTable(){
   }
   const sf={
     edge:(a,b)=>Math.abs(b.edge||0)-Math.abs(a.edge||0),
-    kelly:(a,b)=>computeKelly((b.hitRate||50)/100,b.overOdds)-computeKelly((a.hitRate||50)/100,a.overOdds),
+    kelly:(a,b)=>{const pa=a.modelProb!=null?((a.edge||0)>=0?a.modelProb:1-a.modelProb):(a.hitRate||50)/100;const pb=b.modelProb!=null?((b.edge||0)>=0?b.modelProb:1-b.modelProb):(b.hitRate||50)/100;const oa=(a.edge||0)>=0?a.overOdds:a.underOdds;const ob=(b.edge||0)>=0?b.overOdds:b.underOdds;return computeKelly(pb,ob)-computeKelly(pa,oa);},
     conf:(a,b)=>(b.confidence||0)-(a.confidence||0),
     val:(a,b)=>valueScore(b)-valueScore(a),
     hr:(a,b)=>(b.hitRate||0)-(a.hitRate||0),
@@ -1347,10 +1347,11 @@ function renderTable(){
     const evUnder=p.evUnder??calcEV(1-(p.hitRate||50)/100,p.underOdds);
     const dirEV=edge>=0?evOver:evUnder; // EV for the recommended bet direction
     const isValue=vs>=30&&Math.abs(edge)>4&&(p.confidence||0)>=55&&dirEV>3;
-    // Kelly: use the correct directional odds
+    // Kelly: use weighted modelProb if available (more accurate than raw hitRate)
     const betOdds=edge>=0?p.overOdds:p.underOdds;
-    const dirHitRate=edge>=0?(p.hitRate||50):(100-(p.hitRate||50));
-    const qKelly=computeKelly(dirHitRate/100,betOdds)*0.25;
+    const baseProb=p.modelProb!=null?p.modelProb:(p.hitRate||50)/100;
+    const dirModelProbKelly=edge>=0?baseProb:1-baseProb;
+    const qKelly=computeKelly(dirModelProbKelly,betOdds)*0.25;
     const qKellyPct=(qKelly*100).toFixed(1);
     const kellyColor=qKelly>=0.03?'var(--g)':qKelly>=0.01?'var(--a)':'var(--t3)';
     const overFmt=p.overOdds?(p.overOdds>0?'+':'')+p.overOdds:'—';
@@ -1505,26 +1506,35 @@ async function enrichPlayerStats(i,p){
       if(Math.abs(minDiff)>=0.20)minutesFlag=+minDiff.toFixed(2);
     }
     const avg=+(vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(1);
+    // hitRate = raw season hit rate (all played games) — kept for display in the table
     const hitRate=p.line?Math.round(vals.filter(v=>v>=p.line).length/vals.length*100):50;
     const edge=p.line?+((avg-p.line)/p.line*100).toFixed(1):0;
     const l10avg=l10.reduce((a,b)=>a+b,0)/l10.length;
     const stdDev=+(Math.sqrt(l10.reduce((s,v)=>s+Math.pow(v-l10avg,2),0)/l10.length)).toFixed(1);
     const cv=avg?stdDev/avg:0.4;
-    // Always recompute EV from real stats — never trust the server's fake-L10-based evOver
-    const evOver=calcEV(hitRate/100,p.overOdds);
-    const evUnder=calcEV(1-hitRate/100,p.underOdds);
-    // Directional confidence: assess confidence FOR THE BET DIRECTION the model favours
-    // If edge<0 (model says under), flip hit rate perspective so 95% under hit rate scores HIGH
+    // --- Weighted Model Probability ---
+    // Season HR is the full baseline, but recent games are weighted heavier
+    // because NBA form, role changes, and matchups shift mid-season.
+    // Weights: L5 (35%) + L10 (40%) + Season (25%)
+    const l10HitRate=p.line&&l10.length?Math.round(l10.filter(v=>v>=p.line).length/l10.length*100):hitRate;
+    const l5=vals.slice(0,5);
+    const l5HitRate=(l5.length>=3&&p.line)?Math.round(l5.filter(v=>v>=p.line).length/l5.length*100):l10HitRate;
+    const modelProb=Math.min(0.97,Math.max(0.03,(l5HitRate*0.35+l10HitRate*0.40+hitRate*0.25)/100));
+    // Always recompute EV from real weighted model prob
+    const evOver=calcEV(modelProb,p.overOdds);
+    const evUnder=calcEV(1-modelProb,p.underOdds);
+    // Directional confidence: assess for the direction the model favours
     const isOverBet=edge>=0;
-    const dirHR=isOverBet?hitRate:(100-hitRate);
-    const dirModelProb=isOverBet?hitRate/100:1-hitRate/100;
+    // Directional hit rate also uses weighted prob for consistency
+    const dirModelProb=isOverBet?modelProb:1-modelProb;
+    const dirHR=Math.round(dirModelProb*100);
     const dirImpliedProb=isOverBet?(p.impliedProbOver||0.5):(p.impliedProbUnder||0.5);
     const evEdge=dirModelProb-dirImpliedProb;
     const evPts=Math.min(Math.max(evEdge*220+22,0),44);
     const hrPts=Math.min(Math.max((dirHR-50)*0.67,-17),33);
     const cvPts=Math.max(0,Math.round((0.5-Math.min(cv,0.5))/0.5*23));
     const conf=Math.max(0,Math.min(100,Math.round(evPts+hrPts+cvPts)));
-    Object.assign(p,{avg,l10,rawL10,hitRate,edge,stdDev,evOver,evUnder,confidence:conf,hasRealStats:true,statsError:null,gamesPlayed:vals.length,gameLog:sorted,returnFromInjury,minutesFlag});
+    Object.assign(p,{avg,l10,rawL10,hitRate,l10HitRate,l5HitRate,modelProb,edge,stdDev,evOver,evUnder,confidence:conf,hasRealStats:true,statsError:null,gamesPlayed:vals.length,gameLog:sorted,returnFromInjury,minutesFlag});
     if(i!=null){
       const activeTab=document.querySelector(`#di-${i} .di-tab.on`);
       if(activeTab&&activeTab.textContent.trim()==='Overview')renderOverview(document.getElementById(`dtc-${i}`),p);
@@ -1594,10 +1604,22 @@ function renderOverview(el,p){
     <div class="dc"><div class="dc-t"><span class="dt" style="background:var(--b)"></span>Stats vs Line</div>
       <div class="sr">
         <div class="sb2"><div class="sb2-l">L10 Avg</div><div class="sb2-v">${p.avg}</div><div class="sb2-s">Line ${p.line} <span class="${p.avg>p.line?'up':'dn'}">${p.avg>p.line?'▲':'▼'} ${Math.abs(p.avg-p.line).toFixed(1)}</span></div></div>
-        <div class="sb2"><div class="sb2-l">Last 5</div><div class="sb2-v">${l5a}</div><div class="sb2-s">${parseFloat(l5a||0)>p.avg?'<span class="up">▲ Hot</span>':'<span class="dn">▼ Cold</span>'}</div></div>
+        <div class="sb2"><div class="sb2-l">Last 5 Avg</div><div class="sb2-v">${l5a}</div><div class="sb2-s">${parseFloat(l5a||0)>p.avg?'<span class="up">▲ Hot</span>':'<span class="dn">▼ Cold</span>'}</div></div>
         <div class="sb2"><div class="sb2-l">Std Dev</div><div class="sb2-v">${p.stdDev||'—'}</div><div class="sb2-s">Floor ${floor} · Ceil ${ceil}</div></div>
         <div class="sb2"><div class="sb2-l">Confidence</div><div class="sb2-v" style="color:${(p.confidence||0)>=70?'var(--g)':(p.confidence||0)>=50?'var(--a)':'var(--r)'}">${p.confidence||0}</div><div class="sb2-s">${(p.confidence||0)>=70?'High':(p.confidence||0)>=50?'Med':'Low'}</div></div>
       </div>
+      ${p.hasRealStats?`<div style="margin-top:10px;padding:9px 11px;background:var(--bg1);border-radius:7px;border:1px solid var(--bd);font-size:11px;">
+        <div style="font-weight:700;color:var(--t2);margin-bottom:6px;">Model Probability Breakdown</div>
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+          <span style="color:var(--t3);">L5 Hit Rate:</span><strong>${p.l5HitRate??'—'}%</strong>
+          <span style="color:var(--bd2)">×35%</span>
+          <span style="color:var(--t3);margin-left:6px;">L10 Hit Rate:</span><strong>${p.l10HitRate??'—'}%</strong>
+          <span style="color:var(--bd2)">×40%</span>
+          <span style="color:var(--t3);margin-left:6px;">Season HR:</span><strong>${p.hitRate??'—'}%</strong>
+          <span style="color:var(--bd2)">×25%</span>
+          <span style="margin-left:6px;padding:2px 8px;border-radius:8px;background:var(--bld);color:var(--b);font-weight:800;">= ${p.modelProb!=null?Math.round(p.modelProb*100):(p.hitRate??50)}%</span>
+        </div>
+      </div>`:''}
     </div>
     <div class="dc"><div class="dc-t"><span class="dt" style="background:var(--g)"></span>Last 10 Calendar Games <span style="font-size:10px;color:var(--t3);font-weight:400;margin-left:4px;">(DNPs shown but excluded from averages)</span></div>
       <div class="chb"><div class="lref" style="top:${lP}%"><span class="lref-l">LINE ${p.line}</span></div><div class="bars">${bars}</div></div>
@@ -1819,7 +1841,7 @@ function addToCustomParlay(p,dir){
   const direction=dir||_betDir||((p.edge||0)>=0?'over':'under');
   const odds=direction==='over'?(p.overOdds||-110):(p.underOdds||-110);
   const idx=customParlayLegs.findIndex(l=>l.name===p.name&&l.market===market);
-  const leg={name:p.name,team:p.team||'—',matchup:p.matchup||'—',market,marketLabel:mktLbls[market]||'Stat',line:p.line,direction,odds,hitRate:p.hitRate||50,edge:p.edge||0,confidence:p.confidence||0,avg:p.avg||0};
+  const leg={name:p.name,team:p.team||'—',matchup:p.matchup||'—',market,marketLabel:mktLbls[market]||'Stat',line:p.line,direction,odds,hitRate:p.hitRate||50,modelProb:p.modelProb??null,edge:p.edge||0,confidence:p.confidence||0,avg:p.avg||0};
   if(idx>=0)customParlayLegs[idx]=leg;else customParlayLegs.push(leg);
   updateParlayNavBadge();
   closeBetModal();
@@ -1837,7 +1859,7 @@ function updateParlayPayoutPreview(combDecimal){
 function openParlayBetModal(){
   if(!customParlayLegs.length)return;
   const combDecimal=customParlayLegs.reduce((prod,l)=>prod*toDecimal(l.odds),1);
-  const combModelProb=customParlayLegs.reduce((prod,l)=>{const dHR=l.direction==='over'?l.hitRate:(100-l.hitRate);return prod*(dHR/100);},1);
+  const combModelProb=customParlayLegs.reduce((prod,l)=>{const mp=l.modelProb!=null?l.modelProb:(l.hitRate||50)/100;const dProb=l.direction==='over'?mp:1-mp;return prod*dProb;},1);
   const combImplied=customParlayLegs.reduce((prod,l)=>prod*impliedProb(l.odds),1);
   const payoutPer100=+(100*(combDecimal-1)).toFixed(2);
   const evParlay=+(combModelProb*payoutPer100-(1-combModelProb)*100).toFixed(1);
@@ -1906,7 +1928,7 @@ function renderCustomParlay(){
     return;
   }
   const combDecimal=customParlayLegs.reduce((prod,l)=>prod*toDecimal(l.odds),1);
-  const combModelProb=customParlayLegs.reduce((prod,l)=>{const dHR=l.direction==='over'?l.hitRate:(100-l.hitRate);return prod*(dHR/100);},1);
+  const combModelProb=customParlayLegs.reduce((prod,l)=>{const mp=l.modelProb!=null?l.modelProb:(l.hitRate||50)/100;const dProb=l.direction==='over'?mp:1-mp;return prod*dProb;},1);
   const combImplied=customParlayLegs.reduce((prod,l)=>prod*impliedProb(l.odds),1);
   const payoutPer100=+(100*(combDecimal-1)).toFixed(2);
   const evParlay=+(combModelProb*payoutPer100-(1-combModelProb)*100).toFixed(1);
@@ -1989,7 +2011,7 @@ function renderParlay(){
     return;
   }
   const combDecimal=legs.reduce((prod,p)=>prod*toDecimal(p.overOdds),1);
-  const combModelProb=legs.reduce((prod,p)=>prod*((p.hitRate||50)/100),1);
+  const combModelProb=legs.reduce((prod,p)=>{const mp=p.modelProb!=null?p.modelProb:(p.hitRate||50)/100;return prod*mp;},1);
   const combImplied=legs.reduce((prod,p)=>prod*(p.impliedProbOver??impliedProb(p.overOdds)),1);
   const payoutPer100=+(100*(combDecimal-1)).toFixed(2);
   const evParlay=+(combModelProb*payoutPer100-(1-combModelProb)*100).toFixed(1);
@@ -2246,7 +2268,9 @@ function openBetModal(p) {
   const mktLabel = mktLabels[p.market || S.market] || 'Stats';
   const edge = p.edge || 0;
   const isValue = (p.confidence||0) >= 55 && Math.abs(edge) > 4;
-  const modelProb = (p.hitRate||50)/100;
+  // Use weighted modelProb if available, fall back to raw hitRate
+  const rawModelProb = p.modelProb!=null ? p.modelProb : (p.hitRate||50)/100;
+  const modelProb = lean === 'over' ? rawModelProb : 1 - rawModelProb;
   const activeOdds = lean === 'over' ? (p.overOdds||-110) : (p.underOdds||-110);
   const fullKelly = computeKelly(modelProb, activeOdds);
   const quarterKelly = fullKelly * 0.25;
@@ -2258,7 +2282,7 @@ function openBetModal(p) {
     <div class="modal-row"><span class="modal-lbl">Matchup</span><span class="modal-val">${p.matchup||'—'}</span></div>
     <div class="modal-row"><span class="modal-lbl">Line</span><span class="modal-val">${p.line} ${mktLabel}</span></div>
     <div class="modal-row"><span class="modal-lbl">Edge</span><span class="modal-val" style="color:${edge>0?'var(--g)':'var(--r)'}">${edge>0?'+':''}${edge.toFixed(1)}%${isValue?' ⚡':''}</span></div>
-    <div class="modal-row"><span class="modal-lbl">Model Prob</span><span class="modal-val">${(modelProb*100).toFixed(0)}%</span></div>
+    <div class="modal-row"><span class="modal-lbl">Model Prob</span><span class="modal-val">${(modelProb*100).toFixed(0)}% <span style="font-size:10px;color:var(--t3);">(weighted: L5×35%+L10×40%+Season×25%)</span></span></div>
     <div class="modal-row" style="background:${kellyColor}10;border-radius:6px;padding:8px 4px;">
       <span class="modal-lbl">¼ Kelly Stake</span>
       <span class="modal-val" style="color:${kellyColor}">
