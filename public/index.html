@@ -2135,7 +2135,7 @@ function renderAlerts(){
   let alerts=getAlertData()
     .map(p=>({...p,vs:valueScore(p),_dirEV:getDirectionalEV(p)}))
     .filter(p=>p.vs>=t.minVS&&Math.abs(p.edge||0)>=2&&p._dirEV>0)
-    .sort((a,b)=>b.vs-a.vs);
+    .sort((a,b)=>b._dirEV-a._dirEV);
 
   const grid=document.getElementById('vaGrid');
   if(!alerts.length){
@@ -2181,11 +2181,11 @@ function renderAlerts(){
           <div class="va-meta">${p.team||''} · ${(p.matchup||'').substring(0,25)}</div>
           ${(p.returnFromInjury>=2||p.minutesFlag||(p.dnpCount>=5))?`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;">${p.returnFromInjury>=2?`<span class="player-flag flag-injury">⚠ Back after ${p.returnFromInjury} games missed</span>`:''}${p.minutesFlag?`<span class="player-flag ${p.minutesFlag>0?'flag-minutes-up':'flag-minutes-down'}">⏱ ${Math.abs(Math.round(p.minutesFlag*100))}% ${p.minutesFlag>0?'↑ more':'↓ fewer'} minutes</span>`:''}${p.dnpCount>=5?`<span class="player-flag flag-dnp">✗ ${p.dnpCount} DNPs/10</span>`:''}</div>`:''}</div>
         <div class="va-right">
-          <div class="va-edge-big ${isOver?'pos':'neg'}">${isOver?'+':''}${(p.edge||0).toFixed(1)}%</div>
+          <div class="va-edge-big ${evPct>0?'pos':'neg'}">${evPct>0?'+':''}${evPct}%</div>
           <div class="va-direction ${isOver?'over':'under'}">${isOver?'▲':'▼'} BET ${dir}</div>
         </div>
       </div>
-      <div style="font-size:12px;font-weight:700;color:var(--t3);margin-bottom:8px;">${dir} ${p.line} ${MKT_SHORT[p.market||S.market]||''} · ${betOddsFmt} odds · ${isOver?p.avg+' avg vs '+p.line+' line':p.line+' line vs '+p.avg+' avg'}</div>
+      <div style="font-size:12px;font-weight:700;color:var(--t3);margin-bottom:8px;">${dir} ${p.line} ${MKT_SHORT[p.market||S.market]||''} · ${betOddsFmt} odds · ${(p.edge||0).toFixed(1)}% edge · ${isOver?p.avg+' avg vs '+p.line+' line':p.line+' line vs '+p.avg+' avg'}</div>
       <div class="va-stats">
         <div class="va-stat"><div class="va-stat-v">${p.avg}</div><div class="va-stat-l">L10 Avg</div></div>
         <div class="va-stat"><div class="va-stat-v">${dirModelProbPct}%</div><div class="va-stat-l">Model Prob</div></div>
