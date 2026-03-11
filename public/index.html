@@ -672,6 +672,7 @@ async function loadData() {
     showSts(`Loaded ${S.data.length} players${m.cached?' (cached)':''}`,'suc');
   } else if(m.error){setApi('odds','err');showSts(`⚠️ Refresh failed: ${m.error}. ${S.data.length?'Showing last loaded data.':'Enter API keys above.'}`,'err');}
   recalcScenario();renderTable();renderAlerts();
+  _lastRefreshAt=Date.now();
   document.getElementById('dAge').textContent='Just now';
   enrichAllPlayers();
 }
@@ -799,14 +800,37 @@ function recalcScenario(){
 }
 
 // ── Analytics helpers ──
-function valueScore(p){
-  return Math.round(Math.abs(p.edge||0)*0.35+Math.max(0,(p.hitRate||0)-50)*0.30+(p.confidence||0)*0.35);
+function impliedProb(odds){
+  if(!odds) return 0.5;
+  const o=+odds;
+  return o>0?100/(o+100):Math.abs(o)/(Math.abs(o)+100);
 }
-function leanInfo(edge){
-  if(edge>4)return{label:'OVER ▲',cls:'over',pct:Math.min(90,55+Math.abs(edge)*2)};
-  if(edge<-4)return{label:'UNDER ▼',cls:'under',pct:Math.max(10,45-Math.abs(edge)*2)};
+function calcEV(modelProb,odds){
+  if(!odds||modelProb==null) return 0;
+  const o=+odds;
+  const payout=o>0?o/100:100/Math.abs(o);
+  return +((modelProb*payout-(1-modelProb))*100).toFixed(1);
+}
+function valueScore(p){
+  // Blend: edge (25%) + hit rate (25%) + confidence (25%) + EV (25%)
+  const evOver=p.evOver??calcEV((p.hitRate||50)/100,p.overOdds);
+  const evScore=Math.min(Math.max(evOver,-20),20); // clamp -20..+20
+  return Math.round(Math.abs(p.edge||0)*0.25+Math.max(0,(p.hitRate||0)-50)*0.25+(p.confidence||0)*0.25+(evScore+20)*0.25);
+}
+function leanInfo(edge,evOver){
+  const ev=evOver??0;
+  if(edge>4||ev>5)return{label:'OVER ▲',cls:'over',pct:Math.min(90,55+Math.abs(edge)*2)};
+  if(edge<-4||ev<-5)return{label:'UNDER ▼',cls:'under',pct:Math.max(10,45-Math.abs(edge)*2)};
   return{label:'EVEN',cls:'even',pct:50};
 }
+// ── Refresh timer ──
+let _lastRefreshAt=null;
+setInterval(()=>{
+  if(!_lastRefreshAt) return;
+  const mins=Math.floor((Date.now()-_lastRefreshAt)/60000);
+  const el=document.getElementById('dAge');
+  if(el) el.textContent=mins<1?'Just now':mins===1?'1 min ago':`${mins} mins ago`;
+},30000);
 
 // ── Render: Scores ──
 function renderScores(data){
@@ -829,6 +853,9 @@ function renderScores(data){
 // ── Render: Table ──
 function renderTable(){
   let d=[...S.data];
+  const now=new Date();
+  // Hide players whose games are already live/started unless user opts to show all
+  if(!S.showLive) d=d.filter(p=>!p.isLive&&(!p.gameTime||new Date(p.gameTime)>now));
   const q=(document.getElementById('searchIn').value||'').toLowerCase();
   if(q)d=d.filter(p=>p.name.toLowerCase().includes(q)||(p.team||'').toLowerCase().includes(q)||(p.matchup||'').toLowerCase().includes(q));
   if(S.gameFilter){
@@ -861,10 +888,11 @@ function renderTable(){
     const dvC=p.dvpRank<=10?'dv-e':p.dvpRank>=21?'dv-h':'dv-m';
     const dvL=p.dvpRank<=10?'Easy':p.dvpRank>=21?'Hard':'Mid';
     const vs=valueScore(p);
-    const isValue=vs>=30&&Math.abs(edge)>4&&(p.confidence||0)>=55;
+    const evOver=p.evOver??calcEV((p.hitRate||50)/100,p.overOdds);
+    const isValue=vs>=30&&Math.abs(edge)>4&&(p.confidence||0)>=55&&evOver>3;
     const overFmt=p.overOdds?(p.overOdds>0?'+':'')+p.overOdds:'—';
     const underFmt=p.underOdds?(p.underOdds>0?'+':'')+p.underOdds:'—';
-    const lean=leanInfo(edge);
+    const lean=leanInfo(edge,evOver);
     const hasBoost=S.scnOn&&(p.scenarioBoost||0)>0;
 
     const edgeTip=`Edge = (Avg − Line) / Line × 100\n= (${p.avg} − ${p.line}) / ${p.line} × 100\n= ${es}${edge.toFixed(1)}%\n\nPositive edge → lean OVER\nNegative edge → lean UNDER`;
@@ -903,7 +931,7 @@ function renderTable(){
         <div class="cb-bar"><div class="cb-fill" style="width:${p.confidence||0}%;background:${cc};"></div></div>
         <span class="cb-l" style="color:${cc}">${p.confidence||0}</span>
       </div></td>
-      <td>${isValue?'<span class="val-badge">⚡ VALUE</span>':`<span style="color:var(--t3);font-size:11px;font-weight:600;">${vs}</span>`}</td>
+      <td>${isValue?`<span class="val-badge" title="EV: ${evOver>0?'+':''}${evOver}%">⚡ VALUE</span>`:`<span style="color:var(--t3);font-size:11px;font-weight:600;">${evOver>0?'<span style=\'color:var(--g)\'>+'+evOver+'%</span>':'<span>'+evOver+'%</span>'}</span>`}</td>
       <td><button class="bet-btn" onclick="event.stopPropagation();openBetModal(${JSON.stringify(p).replace(/"/g,'&quot;')})">🎲 Bet</button></td>
       ${S.scnOn?`<td>${(p.scenarioBoost||0)>0?`<span class="scn-boost">+${p.scenarioBoost} pts</span>`:'<span style="color:var(--t3)">—</span>'}</td>`:''}
     `;
@@ -912,8 +940,10 @@ function renderTable(){
     dr.innerHTML=`<td colspan="${S.scnOn?15:14}"><div class="di" id="di-${i}"></div></td>`;
     tb.appendChild(dr);
   });
-  document.getElementById('pCnt').textContent=d.length+' players';
-  const valCount=S.data.filter(p=>valueScore(p)>=30&&Math.abs(p.edge||0)>4&&(p.confidence||0)>=55).length;
+  const liveHidden=S.data.filter(p=>p.isLive||new Date(p.gameTime||0)<=now).length;
+  const showLiveBtn=!S.showLive&&liveHidden>0?` <span style="cursor:pointer;text-decoration:underline;color:var(--a)" onclick="S.showLive=true;renderTable()">(+${liveHidden} live)</span>`:'';
+  document.getElementById('pCnt').innerHTML=d.length+' players'+showLiveBtn;
+  const valCount=S.data.filter(p=>valueScore(p)>=30&&Math.abs(p.edge||0)>4&&(p.confidence||0)>=55&&(p.evOver??0)>3).length;
   document.getElementById('alertDot').style.display=valCount>0?'':'none';
 
   // Attach floating tooltip listeners for edge/conf cells
@@ -1066,9 +1096,10 @@ function renderOverview(el,p){
           <div style="font-size:12px;color:var(--t2);margin-top:4px;">Based on ${(p.edge||0).toFixed(1)}% edge · ${p.hitRate||0}% hit rate · ${p.confidence||0}/100 confidence</div>
         </div>
         <div style="font-size:11px;color:var(--t2);line-height:1.7;flex:2;background:var(--bg2);padding:10px 12px;border-radius:8px;border:1px solid var(--bd);">
-          <strong>Edge:</strong> <code>${p.avg} − ${p.line} / ${p.line} × 100 = ${(p.edge||0)>0?'+':''}${(p.edge||0).toFixed(1)}%</code><br>
-          <strong>Value:</strong> <code>${Math.abs(p.edge||0).toFixed(1)}×0.35 + ${Math.max(0,(p.hitRate||50)-50)}×0.30 + ${p.confidence||0}×0.35 = ${valueScore(p)}</code><br>
-          <strong>Lean track:</strong> Red (Under) ←→ Green (Over) · dot at edge position
+          <strong>Edge:</strong> <code>(${p.avg} − ${p.line}) / ${p.line} × 100 = ${(p.edge||0)>0?'+':''}${(p.edge||0).toFixed(1)}%</code><br>
+          <strong>Implied prob (Over):</strong> <code>${((p.impliedProbOver??impliedProb(p.overOdds))*100).toFixed(1)}%</code> · <strong>Model prob:</strong> <code>${(p.hitRate||50)}%</code><br>
+          <strong>EV (Over ${p.overOdds>0?'+':''}${p.overOdds||'—'}):</strong> <code style="color:${(p.evOver??0)>0?'var(--g)':'var(--r)'}">${(p.evOver??0)>0?'+':''}${p.evOver??0}%</code> per $100 wagered<br>
+          <strong>Value score:</strong> <code>${Math.abs(p.edge||0).toFixed(1)}×0.25 + ${Math.max(0,(p.hitRate||50)-50)}×0.25 + ${p.confidence||0}×0.25 + EV×0.25 = ${valueScore(p)}</code>
         </div>
       </div>
     </div>
@@ -1143,8 +1174,8 @@ function renderAlerts(){
   const thresholds=[{edge:8,conf:70,hr:60},{edge:5,conf:55,hr:50},{edge:3,conf:40,hr:40}];
   const t=thresholds[(S.risk||2)-1];
   let alerts=S.data
-    .filter(p=>Math.abs(p.edge||0)>=t.edge&&(p.confidence||0)>=t.conf&&(p.hitRate||0)>=t.hr)
-    .map(p=>({...p,vs:valueScore(p)}))
+    .filter(p=>Math.abs(p.edge||0)>=t.edge&&(p.confidence||0)>=t.conf&&(p.hitRate||0)>=t.hr&&(p.evOver??calcEV((p.hitRate||50)/100,p.overOdds))>0)
+    .map(p=>({...p,vs:valueScore(p),evOver:p.evOver??calcEV((p.hitRate||50)/100,p.overOdds)}))
     .sort((a,b)=>b.vs-a.vs);
 
   const grid=document.getElementById('vaGrid');
@@ -1161,10 +1192,14 @@ function renderAlerts(){
     const strength=p.vs>=40?'strong':p.vs>=25?'moderate':'risky';
     const cc=(p.confidence||0)>=70?'var(--g)':(p.confidence||0)>=50?'var(--a)':'var(--r)';
     const reasons=[];
+    const implP=((p.impliedProbOver??impliedProb(p.overOdds))*100).toFixed(1);
+    const modelP=(p.hitRate||50);
+    const evPct=p.evOver??0;
     if(Math.abs(p.edge||0)>=8)reasons.push(`<b>${Math.abs(p.edge).toFixed(1)}% edge</b> — very strong`);
     else if(Math.abs(p.edge||0)>=5)reasons.push(`<b>${Math.abs(p.edge).toFixed(1)}% edge</b> above threshold`);
     if((p.hitRate||0)>=70)reasons.push(`Hit rate <b>${p.hitRate}%</b> (7+ of 10 games)`);
     else if((p.hitRate||0)>=60)reasons.push(`Hit rate <b>${p.hitRate}%</b>`);
+    if(evPct>5)reasons.push(`EV <b>+${evPct}%</b> vs implied odds`);
     if((p.dvpRank||15)<=8)reasons.push(`Favorable DvP matchup <b>#${p.dvpRank}</b>`);
     if((p.scenarioBoost||0)>0)reasons.push(`Scenario boost <b>+${p.scenarioBoost}</b>`);
 
@@ -1177,15 +1212,16 @@ function renderAlerts(){
           <div class="va-direction ${isOver?'over':'under'}">▲ BET ${dir}</div>
         </div>
       </div>
-      <div style="font-size:12px;font-weight:700;color:var(--t3);margin-bottom:8px;">${dir} ${p.line} · Line: ${p.avg > p.line ? p.avg+' avg vs '+p.line+' line' : p.line+' line vs '+p.avg+' avg'}</div>
+      <div style="font-size:12px;font-weight:700;color:var(--t3);margin-bottom:8px;">${dir} ${p.line} · ${p.overOdds>0?'+':''}${p.overOdds||'—'} odds · Line: ${p.avg > p.line ? p.avg+' avg vs '+p.line : p.line+' line vs '+p.avg+' avg'}</div>
       <div class="va-stats">
         <div class="va-stat"><div class="va-stat-v">${p.avg}</div><div class="va-stat-l">L10 Avg</div></div>
-        <div class="va-stat"><div class="va-stat-v">${p.line}</div><div class="va-stat-l">Line</div></div>
-        <div class="va-stat"><div class="va-stat-v">${p.hitRate||0}%</div><div class="va-stat-l">Hit Rate</div></div>
+        <div class="va-stat"><div class="va-stat-v">${p.hitRate||0}%</div><div class="va-stat-l">Model Prob</div></div>
+        <div class="va-stat"><div class="va-stat-v">${implP}%</div><div class="va-stat-l">Implied Prob</div></div>
+        <div class="va-stat"><div class="va-stat-v" style="color:${evPct>0?'var(--g)':'var(--r)'}">${evPct>0?'+':''}${evPct}%</div><div class="va-stat-l">Exp. Value</div></div>
         <div class="va-stat"><div class="va-stat-v" style="color:${cc}">${p.confidence||0}</div><div class="va-stat-l">Conf.</div></div>
       </div>
       <div class="va-reason">${reasons.join(' · ')||'Moderate edge detected.'}</div>
-      <div class="va-formula">Value = <span>${Math.abs(p.edge||0).toFixed(1)}</span>×0.35 + <span>${Math.max(0,(p.hitRate||50)-50)}</span>×0.30 + <span>${p.confidence||0}</span>×0.35 = <span>${p.vs}</span></div>
+      <div class="va-formula">EV = ModelProb (${modelP}%) × Payout − (1−ModelProb) × Stake = <span style="color:${evPct>0?'var(--g)':'var(--r)'}">${evPct>0?'+':''}${evPct}%</span></div>
     </div>`;
   }).join('');
 }
