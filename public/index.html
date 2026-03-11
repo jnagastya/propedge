@@ -363,8 +363,8 @@ td{padding:9px 11px;white-space:nowrap;}
 @media(max-width:600px){.app{padding:12px;}.ctrls{flex-direction:column;align-items:flex-start;}.glossary{display:none;}}
 
 /* -- VIEW TRANSITIONS -- */
-.view-pane{opacity:0;transform:translateY(6px);transition:opacity .22s ease,transform .22s ease;}
-.view-pane.show{opacity:1;transform:translateY(0);}
+.view-pane{display:none;}
+.view-pane.show{display:block;animation:fadeUp .18s ease both;}
 
 /* ── FAVORITES ── */
 .fav-view{display:none;}.fav-view.show{display:block;}
