@@ -76,89 +76,6 @@ async function sbSetGameLog(playerName, bdlId, gameLog, position) {
 
 // ---- BDL TEAM ID → ABBREVIATION MAP ----
 // BDL uses fixed numeric IDs for all 30 teams
-const BDL_TEAM_ID_MAP = {
-  1:'ATL', 2:'BOS', 3:'BKN', 4:'CHA', 5:'CHI', 6:'CLE', 7:'DAL', 8:'DEN',
-  9:'DET', 10:'GSW', 11:'HOU', 12:'IND', 13:'LAC', 14:'LAL', 15:'MEM',
-  16:'MIA', 17:'MIL', 18:'MIN', 19:'NOP', 20:'NYK', 21:'OKC', 22:'ORL',
-  23:'PHI', 24:'PHX', 25:'POR', 26:'SAC', 27:'SAS', 28:'TOR', 29:'UTA', 30:'WAS',
-};
-
-// ---- DvP IN-MEMORY CACHE ----
-// Loaded from Supabase on boot and after cron refresh
-// Structure: { 'ATL_PG': 14, 'BOS_SG': 3, ... }
-let dvpMemCache = {};
-
-async function loadDvPCache() {
-  if (!supabase) return;
-  try {
-    const { data } = await supabase.from('dvp_rankings').select('team, position, rank');
-    if (data?.length) {
-      dvpMemCache = {};
-      data.forEach(r => { dvpMemCache[`${r.team}_${r.position}`] = r.rank; });
-      console.log(`DvP cache loaded: ${data.length} entries`);
-    }
-  } catch (e) { console.warn('DvP cache load failed:', e.message); }
-}
-
-// Compute DvP rankings from all player game logs in Supabase and store results
-async function computeAndStoreDvP() {
-  if (!supabase) return { error: 'Supabase not configured' };
-  try {
-    // Fetch all cached player game logs (including BDL-sourced position)
-    const { data: players, error } = await supabase
-      .from('player_stats')
-      .select('player_name, game_log, position');
-    if (error || !players?.length) return { error: error?.message || 'No players in cache' };
-
-    // Accumulate: acc[position][opp_team_abbr] = { total, count }
-    const acc = {};
-
-    for (const { player_name, game_log, position: storedPos } of players) {
-      if (!game_log?.length) continue;
-      // Use BDL position if available, fall back to name-based guess
-      const pos = storedPos || guessPosition(player_name);
-      if (!pos) continue;
-      if (!acc[pos]) acc[pos] = {};
-
-      for (const game of game_log) {
-        const oppId = game.opp_team_id;
-        if (!oppId) continue;
-        const oppAbbr = BDL_TEAM_ID_MAP[oppId];
-        if (!oppAbbr) continue;
-        const val = game.pts ?? 0;
-        if (!acc[pos][oppAbbr]) acc[pos][oppAbbr] = { total: 0, count: 0 };
-        acc[pos][oppAbbr].total += val;
-        acc[pos][oppAbbr].count++;
-      }
-    }
-
-    // Rank teams per position (most pts allowed = rank 1 = easiest)
-    const rows = [];
-    for (const [pos, teams] of Object.entries(acc)) {
-      const sorted = Object.entries(teams)
-        .filter(([, v]) => v.count >= 5) // need at least 5 games of data
-        .map(([team, v]) => ({ team, avg: v.total / v.count }))
-        .sort((a, b) => b.avg - a.avg); // highest avg allowed = rank 1
-
-      sorted.forEach(({ team, avg }, idx) => {
-        rows.push({ team, position: pos, rank: idx + 1, avg_allowed: +avg.toFixed(1) });
-      });
-    }
-
-    if (!rows.length) return { error: 'No DvP data computed — game logs may lack opp_team_id' };
-
-    // Upsert into Supabase
-    await supabase.from('dvp_rankings').upsert(rows, { onConflict: 'team,position' });
-
-    // Reload in-memory cache
-    await loadDvPCache();
-    console.log(`DvP computed and stored: ${rows.length} team×position entries`);
-    return { ok: true, entries: rows.length };
-  } catch (e) {
-    console.error('DvP compute error:', e.message);
-    return { error: e.message };
-  }
-}
 
 // ---- NBA SEASON HELPER ----
 function currentNBASeason() {
@@ -712,72 +629,6 @@ function computeSplits(games, line, statKey) {
 }
 
 // ============================================================
-// ROUTE: GET /api/analytics/dvp — Defense vs Position
-// ============================================================
-app.get('/api/analytics/dvp', async (req, res) => {
-  try {
-    const position = req.query.position || 'G';
-
-    const ck = `dvp_${position}`;
-    const cached = cacheGet(ck);
-    if (cached) return res.json({ data: cached, cached: true });
-
-    // Try NBA.com stats endpoint for DvP
-    const nbaPosition = position === 'PG' || position === 'SG' ? 'G'
-      : position === 'SF' || position === 'PF' ? 'F' : 'C';
-
-    try {
-      const url = `${NBA_BASE}/leaguedashptdefend?DefenseCategory=Overall&LeagueID=00&PerMode=PerGame&Season=${NBA_SEASON}-${String(NBA_SEASON+1).slice(2)}&SeasonType=Regular+Season&PlayerPosition=${nbaPosition}`;
-      const resp = await fetch(url, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0',
-          'Referer': 'https://stats.nba.com/',
-          'Accept': 'application/json',
-        }
-      });
-
-      if (resp.ok) {
-        const data = await resp.json();
-        const rows = data.resultSets?.[0];
-        if (rows) {
-          const headers = rows.headers;
-          const mapped = rows.rowSet.map(row => {
-            const obj = {};
-            headers.forEach((h, i) => obj[h] = row[i]);
-            return obj;
-          });
-          cacheSet(ck, mapped, parseInt(process.env.CACHE_TTL_DVP) || 600);
-          return res.json({ data: mapped, cached: false, source: 'nba.com' });
-        }
-      }
-    } catch (nbaErr) {
-      console.log('NBA.com DvP unavailable, using computed fallback');
-    }
-
-    // Fallback: compute from team defensive ratings
-    const fallback = computeFallbackDvP(position);
-    cacheSet(ck, fallback, parseInt(process.env.CACHE_TTL_DVP) || 600);
-    res.json({ data: fallback, cached: false, source: 'computed' });
-  } catch (err) {
-    console.error('DvP error:', err.message);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-function computeFallbackDvP(position) {
-  // Seed-based deterministic rankings per team+position
-  const teams = ['ATL','BOS','BKN','CHA','CHI','CLE','DAL','DEN','DET','GSW',
-    'HOU','IND','LAC','LAL','MEM','MIA','MIL','MIN','NOP','NYK',
-    'OKC','ORL','PHI','PHX','POR','SAC','SAS','TOR','UTA','WAS'];
-
-  return teams.map(t => {
-    const seed = (t + position).split('').reduce((a, c) => a + c.charCodeAt(0), 0);
-    const rank = ((seed * 7) % 30) + 1;
-    const ppg = +(105 + (30 - rank) / 30 * 15 + ((seed % 5) - 2)).toFixed(1);
-    return { team: t, rank, ppg, position };
-  }).sort((a, b) => a.rank - b.rank);
-}
-
 // ============================================================
 // ROUTE: GET /api/analytics/merged — THE BIG ONE
 // Full merged dataset: odds + stats + analytics
@@ -824,17 +675,15 @@ app.get('/api/analytics/merged', async (req, res) => {
       const edge = p.line ? +((avg - p.line) / p.line * 100).toFixed(1) : 0;
       const pos = guessPosition(p.name);
       const team = guessTeam(p.name);
-      const dvpRank = computeDvPRank(p.homeTeam === team ? p.awayTeam : p.homeTeam, pos);
-      const dvpClass = dvpRank <= 10 ? 'Easy' : dvpRank >= 21 ? 'Hard' : 'Mid';
       const modelProb = hitRate / 100;
       const impliedProbOver = impliedProb(p.overOdds);
       const impliedProbUnder = impliedProb(p.underOdds);
       const stdDev = +(Math.sqrt(l10.reduce((s,v) => s + Math.pow(v - avg, 2), 0) / l10.length)).toFixed(1);
-      const confidence = computeConfidence({ hitRate, dvpRank, modelProb, impliedProbOver, avg, stdDev });
+      const confidence = computeConfidence({ hitRate, modelProb, impliedProbOver, avg, stdDev });
       const evOver = calcEV(modelProb, p.overOdds);
       const evUnder = calcEV(1 - modelProb, p.underOdds);
       return {
-        ...p, team, position: pos, avg, l10, hitRate, edge, dvpRank, dvpClass, confidence,
+        ...p, team, position: pos, avg, l10, hitRate, edge, confidence,
         modelProb, impliedProbOver, impliedProbUnder, evOver, evUnder, isLive: false,
         hasRealStats: false, gamesPlayed: 0,
       };
@@ -853,35 +702,17 @@ function generateFakeL10(line) {
   return Array.from({ length: 10 }, () => Math.max(0, Math.round(line + (Math.random() - 0.45) * line * 0.4)));
 }
 
-function computeConfidence({ hitRate, dvpRank, modelProb, impliedProbOver, avg, stdDev }) {
-  // 1. EV Edge (0–40 pts): does our model probability beat the implied probability?
-  //    evEdge = modelProb − impliedProbOver
-  //    0 gap = 20 pts (neutral), +10% gap = 40 pts, −10% gap = 0 pts
+function computeConfidence({ hitRate, modelProb, impliedProbOver, avg, stdDev }) {
+  // 1. EV Edge (0–44 pts)
   const evEdge = (modelProb || 0.5) - (impliedProbOver || 0.5);
-  const evPts = Math.min(Math.max(evEdge * 200 + 20, 0), 40);
-
-  // 2. Hit Rate Signal (−15 to +30 pts): how far above 50% is the hit rate?
-  //    50% = 0 pts, 70% = +12 pts, 80% = +18 pts
-  //    Below 50% is penalized: 40% = −6 pts, 30% = −12 pts
-  const hrPts = Math.min(Math.max((hitRate - 50) * 0.6, -15), 30);
-
-  // 3. Consistency (0–20 pts): inverse coefficient of variation
-  //    CV = stdDev / avg. Lower CV = more consistent player = more confident.
-  //    CV 0.0 = 20 pts (no variance), CV 0.5+ = 0 pts (very volatile)
+  const evPts = Math.min(Math.max(evEdge * 220 + 22, 0), 44);
+  // 2. Hit Rate Signal (−17 to +33 pts)
+  const hrPts = Math.min(Math.max((hitRate - 50) * 0.67, -17), 33);
+  // 3. Consistency (0–23 pts): inverse CV
   const cv = avg > 0 && stdDev != null ? stdDev / avg : 0.4;
-  const cvPts = Math.max(0, Math.round((0.5 - Math.min(cv, 0.5)) / 0.5 * 20));
-
-  // 4. Matchup DvP (0–10 pts): is the opposing defense easy or hard?
-  const dvpPts = dvpRank <= 10 ? 10 : dvpRank >= 21 ? 0 : 5;
-
-  return Math.max(0, Math.min(100, Math.round(evPts + hrPts + cvPts + dvpPts)));
-}
-
-function computeDvPRank(opp, pos) {
-  if (opp && pos && dvpMemCache[`${opp}_${pos}`]) return dvpMemCache[`${opp}_${pos}`];
-  // Fallback: deterministic hash (used until real DvP data is computed)
-  const seed = (opp + pos).split('').reduce((a, c) => a + c.charCodeAt(0), 0);
-  return ((seed * 7) % 30) + 1;
+  const cvPts = Math.max(0, Math.round((0.5 - Math.min(cv, 0.5)) / 0.5 * 23));
+  // Scale to 0–100 (max raw = 44+33+23 = 100)
+  return Math.max(0, Math.min(100, Math.round(evPts + hrPts + cvPts)));
 }
 
 function guessPosition(name) {
@@ -1043,9 +874,7 @@ app.get('/api/cron/refresh-stats', async (req, res) => {
       if (i < names.length - 1) await new Promise(r => setTimeout(r, 800));
     }
 
-    // After all player stats are fresh, recompute DvP rankings from the new data
-    const dvpResult = await computeAndStoreDvP();
-    res.json({ success: true, processed: names.length, dvp: dvpResult, ...results });
+    res.json({ success: true, processed: names.length, ...results });
   } catch (err) {
     res.status(500).json({ error: err.message, ...results });
   }
@@ -1124,7 +953,6 @@ if (require.main === module) {
 }
 
 // Load DvP cache from Supabase on cold start (non-blocking)
-loadDvPCache().catch(e => console.warn('DvP boot load failed:', e.message));
 
 // Required for Vercel serverless
 module.exports = app;
