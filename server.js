@@ -102,46 +102,82 @@ async function fetchBDLGameLog(playerId) {
   }).filter(g => g && g.date);
 }
 
+// Strip common name suffixes so "Jaren Jackson Jr." matches "Jaren Jackson"
+function normalizeName(name) {
+  return name
+    .replace(/\s+(jr\.?|sr\.?|ii|iii|iv|v)$/i, '')
+    .replace(/['']/g, "'")  // normalize apostrophes (De'Aaron vs De'Aaron)
+    .trim()
+    .toLowerCase();
+}
+
+// Score how well a BDL player object matches a target name (higher = better)
+function nameMatchScore(bdlPlayer, target) {
+  const full = `${bdlPlayer.first_name} ${bdlPlayer.last_name}`;
+  const normFull = normalizeName(full);
+  const normTarget = normalizeName(target);
+  if (normFull === normTarget) return 100;                    // exact normalized match
+  if (normFull.includes(normTarget) || normTarget.includes(normFull)) return 80; // substring
+  // Check if last name matches and first initial matches
+  const tParts = normTarget.split(' ');
+  const bLast = bdlPlayer.last_name.toLowerCase();
+  const bFirst = bdlPlayer.first_name.toLowerCase();
+  if (bLast === tParts[tParts.length - 1] && bFirst[0] === tParts[0][0]) return 60;
+  if (bLast === tParts[tParts.length - 1]) return 40;        // last name only
+  return 0;
+}
+
 // Search BDL for player ID by name, cached 24h
 async function getBDLPlayerId(name) {
   const ck = `bdl_pid_${name.toLowerCase().replace(/\s+/g, '_')}`;
   const cached = cacheGet(ck);
   if (cached !== undefined) return cached;
-  try {
-    const resp = await fetch(`${BDL_BASE}/players?search=${encodeURIComponent(name)}&per_page=5`, { headers: bdlHeaders() });
-    if (!resp.ok) { cacheSet(ck, null, 3600); return null; }
-    const data = await resp.json();
-    const player = (data.data || []).find(p =>
-      `${p.first_name} ${p.last_name}`.toLowerCase() === name.toLowerCase()
-    ) || data.data?.[0];
-    const id = player ? player.id : null;
-    cacheSet(ck, id, 24 * 3600);
-    return id;
-  } catch {
-    cacheSet(ck, null, 3600);
-    return null;
+
+  const trySearch = async (query) => {
+    try {
+      const resp = await fetch(`${BDL_BASE}/players?search=${encodeURIComponent(query)}&per_page=10`, { headers: bdlHeaders() });
+      if (!resp.ok) return [];
+      const data = await resp.json();
+      return data.data || [];
+    } catch { return []; }
+  };
+
+  // Search 1: full name
+  let results = await trySearch(name);
+
+  // Search 2: normalized name (strip suffix) if different
+  const normed = normalizeName(name);
+  const normedTitle = normed.replace(/\b\w/g, c => c.toUpperCase());
+  if (!results.length && normedTitle !== name) {
+    results = await trySearch(normedTitle);
   }
+
+  // Search 3: just last name as fallback
+  if (!results.length) {
+    const lastName = name.trim().split(' ').pop();
+    results = await trySearch(lastName);
+  }
+
+  // Pick best match by score
+  let best = null;
+  let bestScore = 0;
+  for (const p of results) {
+    const score = nameMatchScore(p, name);
+    if (score > bestScore) { bestScore = score; best = p; }
+  }
+
+  // Only accept single-result fallback if score is 0 and there's exactly 1 result
+  // (avoids picking a random wrong player when multiple results exist)
+  if (!best && results.length === 1) best = results[0];
+
+  const id = (best && bestScore >= 40) ? best.id : (results.length === 1 ? results[0]?.id : null);
+  if (best) console.log(`BDL name match: "${name}" → "${best.first_name} ${best.last_name}" (score=${bestScore})`);
+  else console.warn(`BDL name lookup failed: "${name}" (${results.length} results, best score=${bestScore})`);
+
+  cacheSet(ck, id ?? null, 24 * 3600);
+  return id ?? null;
 }
 
-const NBA_IDS_SERVER = {
-  "LeBron James":2544,"Stephen Curry":201939,"Kevin Durant":201142,
-  "Giannis Antetokounmpo":203507,"Nikola Jokic":203999,"Luka Doncic":1629029,
-  "Joel Embiid":203954,"Jayson Tatum":1628369,"Shai Gilgeous-Alexander":1628983,
-  "Anthony Edwards":1630162,"Donovan Mitchell":1628378,"Tyrese Haliburton":1630169,
-  "LaMelo Ball":1630163,"Devin Booker":1626164,"Trae Young":1629027,
-  "Jalen Brunson":1628973,"De'Aaron Fox":1628368,"Cade Cunningham":1630595,
-  "Tyrese Maxey":1630178,"Domantas Sabonis":1627734,"Anthony Davis":203076,
-  "Damian Lillard":203081,"Jimmy Butler":202710,"Ja Morant":1629630,
-  "Zion Williamson":1629627,"Paolo Banchero":1631094,"Austin Reaves":1630559,
-  "Rui Hachimura":1629060,"Karl-Anthony Towns":1626157,"Bam Adebayo":1628389,
-  "Jaylen Brown":1627759,"Kristaps Porzingis":204001,"Kyrie Irving":202681,
-  "Jamal Murray":1627750,"Desmond Bane":1630217,"Franz Wagner":1630532,
-  "Brandon Ingram":1627742,"Lauri Markkanen":1628374,"Scottie Barnes":1630567,
-  "Mikal Bridges":1628969,"RJ Barrett":1629628,"Alperen Sengun":1630578,
-  "Jalen Williams":1631114,"Chet Holmgren":1631096,"Victor Wembanyama":1641705,
-  "Jalen Green":1630224,"Evan Mobley":1630596,"Darius Garland":1629636,
-  "Kawhi Leonard":202695,"Pascal Siakam":1627783,
-};
 
 // ============================================================
 // ROUTE: GET /api/status — health check + API key validation
