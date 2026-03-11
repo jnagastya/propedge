@@ -121,6 +121,9 @@ body{background:var(--bg0);background-image:radial-gradient(ellipse at 20% 0%,rg
 .bdg-b{background:var(--bld);color:#818cf8;}
 .bdg-g{background:var(--gd);color:var(--g);}
 .bdg-game{background:var(--bld);color:#818cf8;cursor:pointer;display:flex;align-items:center;gap:3px;}
+.bdg-loading{background:rgba(251,191,36,.12);color:#fbbf24;animation:bdgPulse 1.4s ease-in-out infinite;}
+.bdg-real{background:var(--gd);color:var(--g);}
+@keyframes bdgPulse{0%,100%{opacity:1}50%{opacity:.45}}
 .bdg-game:hover{background:var(--bb);}
 .tsc{overflow-x:auto;}
 table{width:100%;border-collapse:collapse;font-size:12px;}
@@ -571,6 +574,7 @@ td{padding:9px 11px;white-space:nowrap;}
           <span id="mktLbl">Points</span>
           <span class="bdg bdg-b" id="pCnt">0 players</span>
           <span class="bdg bdg-g" id="dAge">Loading…</span>
+          <span class="bdg" id="statsBdg" style="display:none"></span>
           <span class="bdg bdg-game" id="gameFiltBdg" style="display:none" onclick="clearGameFilter()">✕ <span id="gameFiltLbl"></span></span>
         </div>
       </div>
@@ -1062,12 +1066,18 @@ async function loadData() {
   recalcScenario();renderTable();
   _lastRefreshAt=Date.now();
   document.getElementById('dAge').textContent='Just now';
+  // Reset stats badge — enrichment is about to start fresh
+  const _sb=document.getElementById('statsBdg');
+  if(_sb){_sb.className='bdg bdg-loading';_sb.textContent='⏳ Loading real stats…';_sb.style.display='';}
   // Enrich player stats, then pre-load all alert markets and render alerts once — stable snapshot
   enrichAllPlayers();
 }
 async function enrichAllPlayers(){
   const players=S.data||[];
   if(!players.length) return;
+  // Show loading badge
+  const bdg=document.getElementById('statsBdg');
+  if(bdg){bdg.className='bdg bdg-loading';bdg.textContent='⏳ Loading real stats…';bdg.style.display='';}
   const BATCH=3;
   for(let i=0;i<players.length;i+=BATCH){
     const chunk=players.slice(i,i+BATCH);
@@ -1075,6 +1085,7 @@ async function enrichAllPlayers(){
     if(i+BATCH<players.length) await new Promise(r=>setTimeout(r,600));
   }
   // Stats enrichment done — re-render table once with final stats
+  if(bdg){bdg.className='bdg bdg-real';bdg.textContent='✓ Real stats loaded';}
   renderTable();
   // Now pre-fetch all alert markets in parallel (served from server cache, cheap)
   // and render alerts exactly once with the final complete dataset
@@ -1846,16 +1857,20 @@ function renderAlerts(){
   if(S.data.length)alertMktCache[S.market]=S.data;
   renderAlertMktBar();
   const showMktTag=alertMkt==='all';
-  const thresholds=[{edge:8,conf:70,hr:60},{edge:5,conf:55,hr:50},{edge:3,conf:40,hr:40}];
-  const t=thresholds[(S.risk||2)-1];
+  // Risk levels control a minimum VALUE SCORE cutoff (single composite number that already
+  // blends edge + hit rate + confidence + EV). Using one number guarantees the #1 ranked
+  // pick in Balanced is also #1 in Conservative — Conservative just shows fewer total picks.
+  // A separate minimum edge gate (≥2%) keeps obvious noise out across all modes.
+  const riskCfg=[{minVS:52,label:'Conservative'},{minVS:36,label:'Balanced'},{minVS:20,label:'Aggressive'}];
+  const t=riskCfg[(S.risk||2)-1];
   let alerts=getAlertData()
     .map(p=>({...p,vs:valueScore(p),_dirEV:getDirectionalEV(p)}))
-    .filter(p=>Math.abs(p.edge||0)>=t.edge&&(p.confidence||0)>=t.conf&&p._dirEV>0)
+    .filter(p=>p.vs>=t.minVS&&Math.abs(p.edge||0)>=2&&p._dirEV>0)
     .sort((a,b)=>b.vs-a.vs);
 
   const grid=document.getElementById('vaGrid');
   if(!alerts.length){
-    grid.innerHTML=`<div style="padding:48px;text-align:center;color:var(--t3);font-size:13px;">No value alerts at this risk level.<br><br>Current thresholds: Edge ≥${t.edge}% · Confidence ≥${t.conf} · Hit Rate ≥${t.hr}%<br><br>Try the Aggressive setting or wait for more games to be posted.</div>`;
+    grid.innerHTML=`<div style="padding:48px;text-align:center;color:var(--t3);font-size:13px;">No value alerts at the <b>${t.label}</b> level.<br><br>Minimum value score required: ${t.minVS}/100<br><br>Try Aggressive mode or wait for real stats to finish loading.</div>`;
     return;
   }
   grid.innerHTML=alerts.map((p,rank)=>{
