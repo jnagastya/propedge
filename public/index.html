@@ -366,6 +366,42 @@ td{padding:9px 11px;white-space:nowrap;}
 .view-pane{opacity:0;transform:translateY(6px);transition:opacity .22s ease,transform .22s ease;}
 .view-pane.show{opacity:1;transform:translateY(0);}
 
+/* ── FAVORITES ── */
+.fav-view{display:none;}.fav-view.show{display:block;}
+.fav-btn{background:none;border:none;cursor:pointer;font-size:15px;line-height:1;padding:2px 4px;transition:transform .15s;color:var(--t3);}
+.fav-btn:hover{transform:scale(1.25);}
+.fav-btn.on{color:var(--gold);}
+.fav-empty{padding:56px 24px;text-align:center;color:var(--t3);font-size:13px;line-height:1.8;}
+.fav-empty-icon{font-size:36px;margin-bottom:12px;}
+.fav-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px;margin-bottom:20px;}
+.fav-card{background:var(--bg1);border:1px solid var(--bd);border-radius:var(--radius-lg);padding:16px;box-shadow:var(--shadow);animation:cardIn .2s ease both;transition:border-color .18s,box-shadow .18s;}
+.fav-card:hover{border-color:rgba(245,158,11,.3);box-shadow:var(--shadow-md);}
+.fav-card-top{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
+.fav-card-av{width:40px;height:40px;border-radius:50%;background:var(--bg3);overflow:hidden;border:2px solid var(--bd);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--t3);}
+.fav-card-av img{width:100%;height:100%;object-fit:cover;}
+.fav-card-info{flex:1;}
+.fav-card-name{font-size:14px;font-weight:700;display:flex;align-items:center;gap:6px;}
+.fav-card-meta{font-size:11px;color:var(--t3);margin-top:2px;}
+.fav-card-remove{background:none;border:none;color:var(--t3);cursor:pointer;font-size:18px;line-height:1;padding:2px;transition:color .12s;margin-left:auto;}
+.fav-card-remove:hover{color:var(--r);}
+.fav-props{display:flex;flex-direction:column;gap:5px;}
+.fav-prop-row{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg2);border-radius:8px;border:1px solid var(--bd);cursor:pointer;transition:border-color .12s;}
+.fav-prop-row:hover{border-color:rgba(99,102,241,.4);background:rgba(99,102,241,.05);}
+.fav-prop-mkt{font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.4px;min-width:32px;}
+.fav-prop-line{font-size:16px;font-weight:800;color:var(--t1);min-width:28px;}
+.fav-prop-odds{display:flex;gap:4px;flex:1;}
+.fav-prop-edge{font-size:11px;font-weight:700;margin-left:auto;padding:2px 7px;border-radius:5px;}
+.fav-prop-edge.pos{background:var(--gd);color:var(--g);}
+.fav-prop-edge.neg{background:var(--rd);color:var(--r);}
+.fav-prop-edge.flat{color:var(--t3);}
+.fav-not-playing{background:var(--bg1);border:1px solid var(--bd);border-radius:var(--radius);padding:11px 14px;display:flex;align-items:center;justify-content:space-between;opacity:.55;}
+.fav-not-playing-name{font-size:13px;font-weight:600;color:var(--t2);}
+.fav-not-playing-tag{font-size:11px;color:var(--t3);}
+.fav-not-playing-remove{background:none;border:none;color:var(--t3);cursor:pointer;font-size:16px;line-height:1;padding:2px;transition:color .12s;}
+.fav-not-playing-remove:hover{color:var(--r);}
+.fav-section-title{font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.6px;margin:16px 0 8px;display:flex;align-items:center;gap:6px;}
+.fav-section-title::after{content:'';flex:1;height:1px;background:var(--bd);}
+
 /* -- LOGIN OVERLAY -- */
 .login-overlay{display:none;position:fixed;inset:0;background:var(--bg0);background-image:radial-gradient(ellipse at 30% 20%,rgba(99,102,241,.15) 0%,transparent 50%),radial-gradient(ellipse at 70% 80%,rgba(167,139,250,.1) 0%,transparent 50%);z-index:2000;align-items:center;justify-content:center;}
 .login-overlay.show{display:flex;}
@@ -454,6 +490,7 @@ td{padding:9px 11px;white-space:nowrap;}
 <nav class="nav-tabs">
   <button class="nav-tab on" onclick="switchView('props',this)">Player Props</button>
   <button class="nav-tab alert-tab" onclick="switchView('alerts',this)">Value Alerts <span class="alert-dot" id="alertDot" style="display:none"></span></button>
+  <button class="nav-tab" onclick="switchView('favorites',this)">Watchlist ⭐ <span class="fav-count-badge" id="favCountBadge" style="display:none"></span></button>
   <button class="nav-tab" onclick="switchView('parlay',this)">Parlay Builder 🎯</button>
   <button class="nav-tab sim-tab" onclick="switchView('simulator',this)">Simulator 🎲</button>
   <button class="nav-tab" onclick="switchView('glossary',this)">Glossary 📖</button>
@@ -542,7 +579,7 @@ td{padding:9px 11px;white-space:nowrap;}
           <thead><tr>
             <th>Player</th><th>Matchup</th><th>Line</th><th>Odds</th>
             <th>Avg</th><th>Hit Rate</th><th>O/U</th><th>Trend</th>
-            <th>Edge</th><th>Lean</th><th>Confidence</th><th>¼ Kelly</th><th>Value</th><th>Bet</th>
+            <th>Edge</th><th>Lean</th><th>Confidence</th><th>¼ Kelly</th><th>Value</th><th>Bet</th><th>⭐</th>
             <th id="scnTh" style="display:none">Scenario ⚡</th>
           </tr></thead>
           <tbody id="tBody"></tbody>
@@ -660,6 +697,19 @@ Negative odds: |odds| / (|odds| + 100)</div>
       </div>
     </div>
   </div>
+
+  <!-- ======= WATCHLIST VIEW ======= -->
+  <div class="fav-view view-pane" id="favView">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
+      <div>
+        <div style="font-size:20px;font-weight:800;">Watchlist ⭐</div>
+        <div style="font-size:13px;color:var(--t3);margin-top:3px;">Star any player to track their lines whenever they have a game.</div>
+      </div>
+      <button class="cbtn" onclick="clearAllFavorites()" style="font-size:11px;color:var(--r);">Clear all</button>
+    </div>
+    <div id="favContent"><div class="fav-empty"><div class="fav-empty-icon">⭐</div>No players watched yet.<br>Hit the ☆ star icon on any player row or value alert card to add them here.</div></div>
+  </div>
+
 </div>
 
 <script>
@@ -703,6 +753,12 @@ async function afterLogin() {
   // Sync simulator from server profile
   localStorage.setItem('pe_sim_balance', (profile.balance ?? 1000).toFixed(2));
   localStorage.setItem('pe_sim_bets', JSON.stringify(profile.bets || []));
+  // Restore favorites from server profile
+  if (profile.preferences?.favorites?.length) {
+    favorites = new Set(profile.preferences.favorites);
+    localStorage.setItem('pe_favorites', JSON.stringify([...favorites]));
+  }
+  updateFavBadge();
   // Update topbar badge
   const initials = (profile.displayName||'?').slice(0,2).toUpperCase();
   document.getElementById('userAvatar').textContent = initials;
@@ -754,8 +810,138 @@ async function syncProfile() {
   fetch(`${API}/api/user/profile`, {
     method:'PUT',
     headers:{ 'Content-Type':'application/json', 'Authorization': `Bearer ${_authToken}` },
-    body: JSON.stringify({ balance: sim.balance, bets: sim.bets }),
+    body: JSON.stringify({ balance: sim.balance, bets: sim.bets, preferences: { favorites: [...favorites] } }),
   }).catch(() => {});
+}
+
+// ══════════════════════════════════════════════
+// WATCHLIST / FAVORITES
+// ══════════════════════════════════════════════
+let favorites = new Set(JSON.parse(localStorage.getItem('pe_favorites') || '[]'));
+
+function favSave() {
+  localStorage.setItem('pe_favorites', JSON.stringify([...favorites]));
+  scheduleProfileSync();
+  updateFavBadge();
+}
+
+function updateFavBadge() {
+  const badge = document.getElementById('favCountBadge');
+  if (!badge) return;
+  const n = favorites.size;
+  if (n > 0) {
+    badge.textContent = n;
+    badge.style.display = 'inline-block';
+    badge.style.cssText = 'display:inline-block;font-size:10px;background:rgba(245,158,11,.18);color:var(--gold);border-radius:20px;padding:1px 5px;font-weight:700;vertical-align:middle;margin-left:3px;';
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+function toggleFav(name, e) {
+  if (e) e.stopPropagation();
+  if (favorites.has(name)) {
+    favorites.delete(name);
+  } else {
+    favorites.add(name);
+  }
+  favSave();
+  // Re-render any visible star buttons for this player
+  document.querySelectorAll(`.fav-btn[data-name="${CSS.escape(name)}"]`).forEach(btn => {
+    btn.classList.toggle('on', favorites.has(name));
+    btn.title = favorites.has(name) ? 'Remove from watchlist' : 'Add to watchlist';
+    btn.textContent = favorites.has(name) ? '⭐' : '☆';
+  });
+}
+
+function clearAllFavorites() {
+  if (!confirm('Remove all players from your watchlist?')) return;
+  favorites.clear();
+  favSave();
+  renderFavorites();
+}
+
+function renderFavorites() {
+  updateFavBadge();
+  const el = document.getElementById('favContent');
+  if (!favorites.size) {
+    el.innerHTML = `<div class="fav-empty"><div class="fav-empty-icon">⭐</div>No players watched yet.<br>Hit the ☆ star on any player row or alert card to add them here.</div>`;
+    return;
+  }
+
+  // Gather all available prop data across all loaded markets
+  const allPlayers = {}; // name → [{ market, line, overOdds, underOdds, edge, avg, hitRate, confidence, matchup, team, gameTime, p }]
+  const MKT_SHORT_L = {player_points:'PTS',player_rebounds:'REB',player_assists:'AST',player_threes:'3PM',player_points_rebounds_assists:'PRA'};
+
+  // Pull from current market + all alert market caches
+  const dataSources = { [S.market]: S.data, ...alertMktCache };
+  Object.entries(dataSources).forEach(([mkt, players]) => {
+    (players || []).forEach(p => {
+      if (!favorites.has(p.name)) return;
+      if (!allPlayers[p.name]) allPlayers[p.name] = { info: p, markets: [] };
+      // Avoid duplicates
+      const already = allPlayers[p.name].markets.find(m => m.market === mkt);
+      if (!already) allPlayers[p.name].markets.push({ market: mkt, mktShort: MKT_SHORT_L[mkt] || mkt, line: p.line, overOdds: p.overOdds, underOdds: p.underOdds, edge: p.edge || 0, avg: p.avg, hitRate: p.hitRate || 50, confidence: p.confidence || 0, matchup: p.matchup, team: p.team, p });
+    });
+  });
+
+  const playing = [...favorites].filter(n => allPlayers[n]);
+  const notPlaying = [...favorites].filter(n => !allPlayers[n]);
+
+  let html = '';
+
+  if (playing.length) {
+    html += `<div class="fav-section-title">Playing Today (${playing.length})</div>`;
+    html += `<div class="fav-grid">`;
+    playing.forEach(name => {
+      const { info, markets } = allPlayers[name];
+      const hs = getHeadshot(name);
+      const initials = name.split(' ').map(n => n[0]).join('').substring(0, 2);
+      const avHTML = hs ? `<img src="${hs}" onerror="this.parentElement.innerHTML='${initials}'" alt="">` : initials;
+      const propsHTML = markets.sort((a,b)=>['PTS','REB','AST','3PM','PRA'].indexOf(a.mktShort)-['PTS','REB','AST','3PM','PRA'].indexOf(b.mktShort))
+        .map(m => {
+          const ec = m.edge > 3 ? 'pos' : m.edge < -3 ? 'neg' : 'flat';
+          const es = m.edge > 0 ? '+' : '';
+          const overFmt = m.overOdds ? (m.overOdds > 0 ? '+' : '') + m.overOdds : '—';
+          const underFmt = m.underOdds ? (m.underOdds > 0 ? '+' : '') + m.underOdds : '—';
+          return `<div class="fav-prop-row" onclick="event.stopPropagation();openBetModal(${JSON.stringify(m.p).replace(/"/g,'&quot;')})">
+            <span class="fav-prop-mkt">${m.mktShort}</span>
+            <span class="fav-prop-line">${m.line}</span>
+            <div class="fav-prop-odds"><span class="odd over">O ${overFmt}</span><span class="odd under">U ${underFmt}</span></div>
+            <span class="fav-prop-edge ${ec}">${es}${m.edge.toFixed(1)}%</span>
+          </div>`;
+        }).join('');
+      html += `<div class="fav-card">
+        <div class="fav-card-top">
+          <div class="fav-card-av">${avHTML}</div>
+          <div class="fav-card-info">
+            <div class="fav-card-name">${name}</div>
+            <div class="fav-card-meta">${info.team || ''} · ${(info.matchup || '').substring(0, 24)}</div>
+          </div>
+          <button class="fav-card-remove" onclick="toggleFav('${name.replace(/'/g,"\\'")}',event);renderFavorites();" title="Remove from watchlist">★</button>
+        </div>
+        <div class="fav-props">${propsHTML || '<div style="font-size:12px;color:var(--t3);padding:6px 0;">No props available yet for today\'s game.</div>'}</div>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  if (notPlaying.length) {
+    html += `<div class="fav-section-title">Not Playing / No Props (${notPlaying.length})</div>`;
+    html += `<div style="display:flex;flex-direction:column;gap:6px;">`;
+    notPlaying.forEach(name => {
+      html += `<div class="fav-not-playing">
+        <span class="fav-not-playing-name">☆ ${name}</span>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span class="fav-not-playing-tag">No props today</span>
+          <button class="fav-not-playing-remove" onclick="toggleFav('${name.replace(/'/g,"\\'")}',event);renderFavorites();" title="Remove">✕</button>
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  el.innerHTML = html;
 }
 
 // ── NBA Player → NBA ID map (for proxied headshots) ──
@@ -894,22 +1080,22 @@ async function doRefresh(){document.getElementById('rBtn').classList.add('sp');a
 
 // ── View switching ──
 function switchView(v, btn) {
+  window.scrollTo({top: 0, behavior: 'smooth'});
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('on'));
   if (btn) btn.classList.add('on');
-  const views = ['propsView','alertsView','simView','parlayView','glossView'];
+  const views = ['propsView','alertsView','simView','parlayView','glossView','favView'];
   views.forEach(id => {
     const el = document.getElementById(id);
     if (el) { el.classList.remove('show'); }
   });
-  const target = {props:'propsView',alerts:'alertsView',simulator:'simView',parlay:'parlayView',glossary:'glossView'}[v];
+  const target = {props:'propsView',alerts:'alertsView',simulator:'simView',parlay:'parlayView',glossary:'glossView',favorites:'favView'}[v];
   if (target) {
     const el = document.getElementById(target);
-    if (el) {
-      el.classList.add('show');
-    }
+    if (el) { el.classList.add('show'); }
   }
   if (v === 'simulator') renderSimulator();
   if (v === 'parlay') renderParlay();
+  if (v === 'favorites') renderFavorites();
   if (v === 'alerts') {
     renderAlerts();
     if (!Object.keys(alertMktCache).length) {
@@ -1169,11 +1355,12 @@ function renderTable(){
       <td><span style="font-size:11px;font-weight:700;color:${kellyColor}">${qKelly>0?qKellyPct+'%':'—'}</span></td>
       <td>${isValue?`<span class="val-badge" title="EV: ${evOver>0?'+':''}${evOver}%">⚡ VALUE</span>`:`<span style="color:var(--t3);font-size:11px;font-weight:600;">${evOver>0?'<span style=\'color:var(--g)\'>+'+evOver+'%</span>':'<span>'+evOver+'%</span>'}</span>`}</td>
       <td><button class="bet-btn" onclick="event.stopPropagation();openBetModal(${JSON.stringify(p).replace(/"/g,'&quot;')})">🎲 Bet</button></td>
+      <td><button class="fav-btn${favorites.has(p.name)?' on':''}" data-name="${p.name.replace(/"/g,'&quot;')}" onclick="toggleFav('${p.name.replace(/'/g,"\\'")}',event)" title="${favorites.has(p.name)?'Remove from watchlist':'Add to watchlist'}">${favorites.has(p.name)?'⭐':'☆'}</button></td>
       ${S.scnOn?`<td>${(p.scenarioBoost||0)>0?`<span class="scn-boost">+${p.scenarioBoost} pts</span>`:'<span style="color:var(--t3)">—</span>'}</td>`:''}
     `;
     tb.appendChild(tr);
     const dr=document.createElement('tr');dr.className='dr';dr.id=`d-${i}`;
-    dr.innerHTML=`<td colspan="${S.scnOn?15:14}"><div class="di" id="di-${i}"></div></td>`;
+    dr.innerHTML=`<td colspan="${S.scnOn?16:15}"><div class="di" id="di-${i}"></div></td>`;
     tb.appendChild(dr);
   });
   document.getElementById('pCnt').innerHTML=d.length+' players';
@@ -1660,7 +1847,9 @@ function renderAlerts(){
       <div class="va-top">
         <div class="va-av">${avHTML}</div>
         <div class="va-info">
-          <div class="va-name">${p.name} <span style="font-size:11px;font-weight:700;color:${rankColor};margin-left:4px;">${rankLabel}</span>${showMktTag&&p.market?`<span class="va-mkt-tag">${MKT_SHORT[p.market]||p.market}</span>`:''}</div>
+          <div class="va-name">${p.name} <span style="font-size:11px;font-weight:700;color:${rankColor};margin-left:4px;">${rankLabel}</span>${showMktTag&&p.market?`<span class="va-mkt-tag">${MKT_SHORT[p.market]||p.market}</span>`:''}
+            <button class="fav-btn${favorites.has(p.name)?' on':''}" data-name="${p.name.replace(/"/g,'&quot;')}" onclick="toggleFav('${p.name.replace(/'/g,"\\'")}',event)" title="${favorites.has(p.name)?'Remove from watchlist':'Add to watchlist'}" style="font-size:13px;margin-left:2px;">${favorites.has(p.name)?'⭐':'☆'}</button>
+          </div>
           <div class="va-meta">${p.team||''} · ${(p.matchup||'').substring(0,25)}</div>
         </div>
         <div class="va-right">
@@ -1748,6 +1937,11 @@ setInterval(()=>loadData(),7200000);
       _authUser = { displayName: profile.displayName };
       localStorage.setItem('pe_sim_balance', (profile.balance ?? 1000).toFixed(2));
       localStorage.setItem('pe_sim_bets', JSON.stringify(profile.bets || []));
+      if (profile.preferences?.favorites?.length) {
+        favorites = new Set(profile.preferences.favorites);
+        localStorage.setItem('pe_favorites', JSON.stringify([...favorites]));
+      }
+      updateFavBadge();
       const initials = (profile.displayName||'?').slice(0,2).toUpperCase();
       document.getElementById('userAvatar').textContent = initials;
       document.getElementById('userName').textContent = profile.displayName;
