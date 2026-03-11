@@ -944,6 +944,84 @@ app.get('/api/headshot/:id', async (req, res) => {
   }
 });
 
+// ============================================================
+// AUTH ROUTES
+// ============================================================
+
+// Helper: extract & validate Bearer token → returns user or null
+async function authUser(req) {
+  if (!supabase) return null;
+  const token = (req.headers.authorization || '').replace('Bearer ', '').trim();
+  if (!token) return null;
+  try {
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+    return error ? null : user;
+  } catch { return null; }
+}
+
+app.post('/api/auth/login', async (req, res) => {
+  if (!supabase) return res.status(503).json({ error: 'Auth not configured' });
+  const { email, password } = req.body || {};
+  if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
+  try {
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) return res.status(401).json({ error: error.message });
+    const { session, user } = data;
+    res.json({ token: session.access_token, userId: user.id, email: user.email });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/auth/logout', async (req, res) => {
+  res.json({ ok: true });
+});
+
+app.get('/api/user/profile', async (req, res) => {
+  if (!supabase) return res.status(503).json({ error: 'Not configured' });
+  const user = await authUser(req);
+  if (!user) return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    const { data: profile } = await supabase
+      .from('user_profiles')
+      .select('*')
+      .eq('id', user.id)
+      .single();
+    if (!profile) {
+      // First login — create default profile
+      const def = { id: user.id, balance: 1000, bets: [], preferences: {} };
+      await supabase.from('user_profiles').insert(def);
+      return res.json({ balance: 1000, bets: [], preferences: {}, displayName: user.email.split('@')[0] });
+    }
+    res.json({
+      balance: profile.balance ?? 1000,
+      bets: profile.bets || [],
+      preferences: profile.preferences || {},
+      displayName: profile.display_name || user.email.split('@')[0],
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/user/profile', async (req, res) => {
+  if (!supabase) return res.status(503).json({ error: 'Not configured' });
+  const user = await authUser(req);
+  if (!user) return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    const { balance, bets, preferences, displayName } = req.body || {};
+    const updates = { id: user.id, updated_at: new Date().toISOString() };
+    if (balance !== undefined) updates.balance = balance;
+    if (bets !== undefined) updates.bets = bets;
+    if (preferences !== undefined) updates.preferences = preferences;
+    if (displayName !== undefined) updates.display_name = displayName;
+    await supabase.from('user_profiles').upsert(updates, { onConflict: 'id' });
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ---- CATCH-ALL: Serve frontend ----
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
