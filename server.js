@@ -116,11 +116,12 @@ function bdlHeaders() {
 }
 
 // Fetch one season's game log rows from BDL (cursor-paginated)
-async function fetchBDLGameLogForSeason(playerId, season) {
+// Fetch full season game log from BDL (cursor-paginated)
+async function fetchBDLGameLog(playerId) {
   let allRows = [];
   let cursor = null;
   do {
-    let url = `${BDL_BASE}/stats?player_ids[]=${playerId}&seasons[]=${season}&per_page=100`;
+    let url = `${BDL_BASE}/stats?player_ids[]=${playerId}&seasons[]=${NBA_SEASON}&per_page=100`;
     if (cursor) url += `&cursor=${cursor}`;
     const resp = await fetch(url, { headers: bdlHeaders() });
     if (!resp.ok) throw new Error(`BDL ${resp.status}`);
@@ -128,17 +129,6 @@ async function fetchBDLGameLogForSeason(playerId, season) {
     allRows = allRows.concat(data.data || []);
     cursor = data.meta?.next_cursor || null;
   } while (cursor);
-  return allRows;
-}
-
-// Fetch full season game log from BDL — tries current season, falls back to previous
-async function fetchBDLGameLog(playerId) {
-  let allRows = await fetchBDLGameLogForSeason(playerId, NBA_SEASON);
-  // If current season returns nothing (API plan limit, early season, etc.) try previous
-  if (!allRows.length) {
-    console.warn(`BDL: no data for season ${NBA_SEASON}, trying ${NBA_SEASON - 1}`);
-    allRows = await fetchBDLGameLogForSeason(playerId, NBA_SEASON - 1);
-  }
 
   return allRows.map(g => {
     if (!g.game) return null;
@@ -918,12 +908,10 @@ app.get('/api/debug/player/:name', async (req, res) => {
   try {
     const { id, position } = await getBDLPlayerId(name);
     if (!id) return res.json({ name, found: false, error: 'Player not found in BDL' });
-    const currentGames = await fetchBDLGameLogForSeason(id, NBA_SEASON);
-    const prevGames    = await fetchBDLGameLogForSeason(id, NBA_SEASON - 1);
+    const games = await fetchBDLGameLog(id);
     res.json({
       name, found: true, bdlId: id, position,
-      currentSeason: { season: NBA_SEASON, rawRows: currentGames.length },
-      prevSeason:    { season: NBA_SEASON - 1, rawRows: prevGames.length },
+      season: NBA_SEASON, gamesFound: games.length,
     });
   } catch (err) {
     res.json({ name, error: err.message });
