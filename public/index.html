@@ -21,7 +21,7 @@
   --shadow-md:0 4px 16px rgba(0,0,0,.1),0 2px 4px rgba(0,0,0,.06);
 }
 *{margin:0;padding:0;box-sizing:border-box;}
-body{background:var(--bg0);color:var(--t1);font-family:var(--sans);min-height:100vh;font-size:14px;}
+body{background:linear-gradient(160deg,#eef2ff 0%,#f4f6fb 45%,#f5f3ff 100%);color:var(--t1);font-family:var(--sans);min-height:100vh;font-size:14px;}
 ::-webkit-scrollbar{width:5px;height:5px;}::-webkit-scrollbar-track{background:transparent;}::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:3px;}
 @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
@@ -29,7 +29,8 @@ body{background:var(--bg0);color:var(--t1);font-family:var(--sans);min-height:10
 @keyframes cardIn{from{opacity:0;transform:scale(.97)}to{opacity:1;transform:scale(1)}}
 
 /* ── TOPBAR ── */
-.topbar{display:flex;align-items:center;justify-content:space-between;padding:0 20px;height:52px;border-bottom:1px solid var(--bd);background:var(--bg1);position:sticky;top:0;z-index:300;box-shadow:var(--shadow);}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:0 20px;height:52px;border-bottom:1px solid var(--bd);background:var(--bg1);position:sticky;top:0;z-index:300;box-shadow:var(--shadow);position:relative;}
+.topbar::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--b),var(--p),var(--c));opacity:.7;}
 .logo-g{display:flex;align-items:center;gap:9px;}
 .logo-m{width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,var(--b),var(--p));display:flex;align-items:center;justify-content:center;font-weight:800;font-size:11px;color:#fff;box-shadow:0 2px 8px rgba(37,99,235,.3);}
 .logo-n{font-weight:700;font-size:16px;color:var(--t1);letter-spacing:-.3px;}
@@ -47,7 +48,7 @@ body{background:var(--bg0);color:var(--t1);font-family:var(--sans);min-height:10
 
 /* ── NAV TABS ── */
 .nav-tabs{display:flex;gap:1px;padding:0 20px;background:var(--bg1);border-bottom:1px solid var(--bd);}
-.nav-tab{padding:10px 16px;border:none;background:none;color:var(--t3);font-family:var(--sans);font-size:13px;font-weight:500;cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;margin-bottom:-1px;}
+.nav-tab{padding:12px 18px;border:none;background:none;color:var(--t3);font-family:var(--sans);font-size:13px;font-weight:500;cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;margin-bottom:-1px;}
 .nav-tab:hover{color:var(--t2);}
 .nav-tab.on{color:var(--b);border-bottom-color:var(--b);font-weight:600;}
 .nav-tab.alert-tab.on{color:var(--gold);border-bottom-color:var(--gold);}
@@ -146,7 +147,7 @@ td{padding:8px 10px;white-space:nowrap;}
 
 /* ── Player cell ── */
 .pc{display:flex;align-items:center;gap:9px;min-width:185px;}
-.av{width:38px;height:38px;border-radius:50%;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--t3);flex-shrink:0;border:2px solid var(--bd);overflow:hidden;}
+.av{width:40px;height:40px;border-radius:50%;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--t3);flex-shrink:0;border:2px solid var(--bd);overflow:hidden;}
 .av img{width:100%;height:100%;object-fit:cover;border-radius:50%;}
 .pi{display:flex;flex-direction:column;}
 .pn{font-weight:700;font-size:13px;display:flex;align-items:center;gap:5px;}
@@ -258,6 +259,16 @@ td{padding:8px 10px;white-space:nowrap;}
 
 /* ── VALUE ALERTS ── */
 .va-view{display:none;}.va-view.show{display:block;}
+.gls-view{display:none;}.gls-view.show{display:block;}
+.gls-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;margin-top:4px;}
+.gls-card{background:var(--bg1);border:1px solid var(--bd);border-radius:12px;padding:18px;box-shadow:var(--shadow);}
+.gls-card-hd{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+.gls-card-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.gls-card-name{font-size:15px;font-weight:700;color:var(--t1);}
+.gls-card-formula{background:var(--bg2);border:1px solid var(--bd);border-radius:7px;padding:9px 12px;font-size:11px;color:var(--b);font-family:monospace;margin-bottom:10px;line-height:1.6;}
+.gls-card-desc{font-size:12px;color:var(--t2);line-height:1.7;}
+.gls-card-desc b{color:var(--t1);}
+.gls-card-ex{margin-top:8px;font-size:11px;color:var(--t3);background:var(--bg2);border-radius:5px;padding:6px 10px;border-left:3px solid var(--bd2);}
 .risk-ctrl{display:flex;align-items:center;gap:16px;padding:14px 18px;background:var(--bg1);border:1px solid var(--bd);border-radius:10px;margin-bottom:5px;box-shadow:var(--shadow);}
 .risk-label{font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;}
 .risk-slider{flex:1;-webkit-appearance:none;height:6px;border-radius:3px;background:linear-gradient(90deg,var(--g),var(--a),var(--r));outline:none;cursor:pointer;}
@@ -391,6 +402,7 @@ td{padding:8px 10px;white-space:nowrap;}
   <button class="nav-tab on" onclick="switchView('props',this)">Player Props</button>
   <button class="nav-tab alert-tab" onclick="switchView('alerts',this)">Value Alerts <span class="alert-dot" id="alertDot" style="display:none"></span></button>
   <button class="nav-tab sim-tab" onclick="switchView('simulator',this)">Simulator 🎲</button>
+  <button class="nav-tab" onclick="switchView('glossary',this)">Glossary 📖</button>
 </nav>
 
 <div class="app">
@@ -410,37 +422,6 @@ td{padding:8px 10px;white-space:nowrap;}
       <div class="gp-teams" id="gpTeams"></div>
     </div>
 
-    <!-- GLOSSARY -->
-    <div class="glossary">
-      <div class="gls-pill"
-        data-tip="<strong>Edge %</strong> measures how much a player's recent average exceeds (or falls short of) the prop line.<br><br>Formula: <em>(Avg − Line) / Line × 100</em><br><br>+5% = player averages 5% above the line. Positive = lean Over, Negative = lean Under.">
-        <strong>Edge %</strong> <span style="color:var(--t3)">?</span>
-      </div>
-      <div class="gls-pill"
-        data-tip="<strong>Confidence (0–100)</strong> rates how trustworthy the edge signal is.<br><br>• Edge magnitude → up to +20<br>• Consistency (low variance) → up to +20<br>• Hit rate extremity → up to +3<br>• DvP matchup quality → −5 to +10<br>• Recent trend → ±5<br>• Base: 50">
-        <strong>Confidence</strong> <span style="color:var(--t3)">?</span>
-      </div>
-      <div class="gls-pill"
-        data-tip="<strong>Hit Rate</strong> = % of the last 10 games where the player cleared the prop line.<br><br>80% = cleared in 8 of 10 games<br>60%+ = encouraging consistency<br>50% = coin flip">
-        <strong>Hit Rate</strong> <span style="color:var(--t3)">?</span>
-      </div>
-      <div class="gls-pill"
-        data-tip="<strong>Defense vs Position (DvP)</strong> ranks how easy the opponent defense is to score against for that position.<br><br>#1 = easiest (allows most pts to that position)<br>#30 = hardest matchup<br><br>Easy = #1–10 · Mid = #11–20 · Hard = #21–30">
-        <strong>DvP</strong> <span style="color:var(--t3)">?</span>
-      </div>
-      <div class="gls-pill"
-        data-tip="<strong>Value Score</strong> combines edge, hit rate, and confidence into a single ranking number.<br><br>Formula: Edge×0.35 + HitRate×0.30 + Confidence×0.35<br><br>Score ≥ 30 with edge > 4% earns the ⚡ VALUE badge.">
-        <strong>Value Score</strong> <span style="color:var(--t3)">?</span>
-      </div>
-      <div class="gls-pill"
-        data-tip="<strong>Lean</strong> is your Over/Under recommendation based on edge and confidence combined.<br><br>OVER ▲ = player projects to exceed the line<br>UNDER ▼ = player projects below the line<br>EVEN = no strong signal either way">
-        <strong>Lean</strong> <span style="color:var(--t3)">?</span>
-      </div>
-      <div class="gls-pill"
-        data-tip="<strong>Scenario Mode</strong> estimates how a player's stats change when a key teammate is out.<br><br>Star teammate missing → +3–5 pt estimated boost<br>Role player missing → +1–2 pt estimated boost<br><br>⚡ icon appears on affected players.">
-        <strong>Scenario</strong> <span style="color:var(--t3)">?</span>
-      </div>
-    </div>
 
     <!-- CONTROLS -->
     <div class="ctrls">
@@ -474,10 +455,6 @@ td{padding:8px 10px;white-space:nowrap;}
         <button class="cbtn" id="scnBtn" onclick="togScn()">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
           Scenario Mode
-        </button>
-        <button class="rbtn" id="rBtn" onclick="doRefresh()">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M1 4v6h6"/><path d="M23 20v-6h-6"/><path d="M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15"/></svg>
-          Refresh
         </button>
       </div>
     </div>
@@ -549,6 +526,73 @@ td{padding:8px 10px;white-space:nowrap;}
         <button class="cbtn" onclick="clearHistory()" style="font-size:11px;padding:5px 10px;color:var(--r);">Clear History</button>
       </div>
       <div id="betHistory"></div>
+    </div>
+  </div>
+
+  <!-- ======= GLOSSARY VIEW ======= -->
+  <div class="gls-view" id="glossView">
+    <div class="gls-grid">
+      <div class="gls-card">
+        <div class="gls-card-hd"><div class="gls-card-dot" style="background:var(--g)"></div><span class="gls-card-name">Edge %</span></div>
+        <div class="gls-card-formula">Edge = (Season Avg − Prop Line) / Prop Line × 100</div>
+        <div class="gls-card-desc">Measures how much a player's season average exceeds (or falls short of) the prop line. A positive edge means the model average is above the line — lean <b>Over</b>. A negative edge means below the line — lean <b>Under</b>.</div>
+        <div class="gls-card-ex">Example: Avg 28.4, Line 26.5 → Edge = (28.4−26.5)/26.5×100 = <b>+7.2%</b></div>
+      </div>
+      <div class="gls-card">
+        <div class="gls-card-hd"><div class="gls-card-dot" style="background:var(--a)"></div><span class="gls-card-name">Hit Rate</span></div>
+        <div class="gls-card-formula">Hit Rate = Games cleared line / Total games × 100</div>
+        <div class="gls-card-desc">The percentage of recent games where the player actually went <b>Over</b> the prop line. This is the raw historical frequency — the platform's <b>Model Probability</b>.</div>
+        <div class="gls-card-ex">Example: Cleared 26.5 pts in 7 of last 10 games → Hit Rate = <b>70%</b></div>
+      </div>
+      <div class="gls-card">
+        <div class="gls-card-hd"><div class="gls-card-dot" style="background:var(--b)"></div><span class="gls-card-name">Model Probability</span></div>
+        <div class="gls-card-formula">Model Prob = Hit Rate / 100</div>
+        <div class="gls-card-desc">PropEdge's estimate of the probability the player goes Over, derived from historical hit rate. This is <b>our view</b> of the true probability based on real game data — independent of what the bookmaker thinks.</div>
+        <div class="gls-card-ex">70% hit rate → Model Prob = <b>0.70 (70%)</b></div>
+      </div>
+      <div class="gls-card">
+        <div class="gls-card-hd"><div class="gls-card-dot" style="background:var(--p)"></div><span class="gls-card-name">Implied Probability</span></div>
+        <div class="gls-card-formula">Positive odds: 100 / (odds + 100)
+Negative odds: |odds| / (|odds| + 100)</div>
+        <div class="gls-card-desc">The probability the bookmaker is pricing into the odds. This includes their <b>vig (margin)</b>, so implied prob for both sides adds up to more than 100%. It reflects market consensus — sharp money and public action combined.</div>
+        <div class="gls-card-ex">-130 odds → 130/(130+100) = <b>56.5% implied</b></div>
+      </div>
+      <div class="gls-card">
+        <div class="gls-card-hd"><div class="gls-card-dot" style="background:var(--g)"></div><span class="gls-card-name">Expected Value (EV)</span></div>
+        <div class="gls-card-formula">EV = (ModelProb × Payout) − (1 − ModelProb) × 100</div>
+        <div class="gls-card-desc">The theoretical profit or loss per $100 wagered, given our model probability vs the offered odds. <b>Positive EV</b> means the bet is mathematically profitable long-term. The bookmaker's vig means most standard bets have negative EV — a positive EV edge is rare and valuable.</div>
+        <div class="gls-card-ex">Model 70%, -130 odds → EV = (0.70×76.9) − (0.30×100) = <b>+23.8%</b></div>
+      </div>
+      <div class="gls-card">
+        <div class="gls-card-hd"><div class="gls-card-dot" style="background:var(--c)"></div><span class="gls-card-name">Confidence (0–100)</span></div>
+        <div class="gls-card-formula">Conf = EV Edge (0–40) + Hit Rate (−15–+30) + Consistency (0–20) + DvP (0–10)</div>
+        <div class="gls-card-desc">A composite score rating how trustworthy the edge signal is. Built from 4 independent components: <b>EV edge</b> (model vs implied prob gap), <b>hit rate signal</b> (deviation from 50%), <b>consistency</b> (inverse of coefficient of variation), and <b>matchup quality</b> (DvP rank).</div>
+        <div class="gls-card-ex">70+ = High confidence · 50–69 = Moderate · &lt;50 = Low</div>
+      </div>
+      <div class="gls-card">
+        <div class="gls-card-hd"><div class="gls-card-dot" style="background:var(--r)"></div><span class="gls-card-name">Defense vs Position (DvP)</span></div>
+        <div class="gls-card-formula">Rank 1–30 based on points allowed to that position</div>
+        <div class="gls-card-desc">Ranks how easy the opposing defense is for that player's position. <b>#1 = easiest</b> (allows the most points), <b>#30 = hardest</b>. Easy matchups boost confidence; hard matchups reduce it.</div>
+        <div class="gls-card-ex">#1–10 = Easy (green) · #11–20 = Mid (orange) · #21–30 = Hard (red)</div>
+      </div>
+      <div class="gls-card">
+        <div class="gls-card-hd"><div class="gls-card-dot" style="background:var(--gold)"></div><span class="gls-card-name">Value Score</span></div>
+        <div class="gls-card-formula">Value = |Edge|×0.25 + max(0,HitRate−50)×0.25 + Confidence×0.25 + EV×0.25</div>
+        <div class="gls-card-desc">A single composite ranking blending edge, hit rate, confidence, and EV equally. Players with Value Score ≥30, Edge &gt;4%, Confidence ≥55, and EV &gt;0 earn the <b>⚡ VALUE</b> badge and appear in the Value Alerts tab.</div>
+        <div class="gls-card-ex">Score ≥ 40 = Strong · 25–39 = Moderate · &lt;25 = Risky</div>
+      </div>
+      <div class="gls-card">
+        <div class="gls-card-hd"><div class="gls-card-dot" style="background:var(--t2)"></div><span class="gls-card-name">Lean</span></div>
+        <div class="gls-card-formula">OVER if Edge &gt; 4% or EV &gt; 5% · UNDER if Edge &lt; −4% or EV &lt; −5%</div>
+        <div class="gls-card-desc">The Over/Under recommendation based on edge and EV combined. The track position shows strength of the lean — further right = stronger Over signal, further left = stronger Under signal.</div>
+        <div class="gls-card-ex">+8% edge → <b>OVER ▲</b> · −6% edge → <b>UNDER ▼</b> · ±2% → <b>EVEN</b></div>
+      </div>
+      <div class="gls-card">
+        <div class="gls-card-hd"><div class="gls-card-dot" style="background:var(--p)"></div><span class="gls-card-name">Scenario Mode</span></div>
+        <div class="gls-card-formula">Boost = Star out → +3.2–5pt · Role player out → +1–2pt</div>
+        <div class="gls-card-desc">Estimates how a player's stats change when a key teammate is marked OUT. Add injured or resting players to see which teammates receive projected usage boosts. <b>⚡ icon</b> marks affected players in the table.</div>
+        <div class="gls-card-ex">LeBron OUT → AD gets +3.8pt projected boost</div>
+      </div>
     </div>
   </div>
 </div>
@@ -697,6 +741,7 @@ function switchView(view,btn){
   document.getElementById('propsView').style.display=view==='props'?'block':'none';
   document.getElementById('alertsView').classList.toggle('show',view==='alerts');
   document.getElementById('simView').classList.toggle('show',view==='simulator');
+  document.getElementById('glossView').classList.toggle('show',view==='glossary');
   if(view==='alerts')renderAlerts();
   if(view==='simulator'){renderSimulator();tryAutoResolve();}
 }
@@ -1238,6 +1283,7 @@ function renderAlerts(){
       </div>
       <div class="va-reason">${reasons.join(' · ')||'Moderate edge detected.'}</div>
       <div class="va-formula">EV = ModelProb (${modelP}%) × Payout − (1−ModelProb) × Stake = <span style="color:${evPct>0?'var(--g)':'var(--r)'}">${evPct>0?'+':''}${evPct}%</span></div>
+      <button class="bet-btn" style="width:100%;margin-top:10px;padding:9px;font-size:13px;border-radius:8px;" onclick="event.stopPropagation();openBetModal(${JSON.stringify(p).replace(/"/g,'&quot;')})">🎲 Place Bet — ${isOver?'OVER':'UNDER'} ${p.line}</button>
     </div>`;
   }).join('');
 }
