@@ -1111,13 +1111,13 @@ async function enrichAllPlayers(){
   if(!players.length) return;
   const bdg=document.getElementById('statsBdg');
   if(bdg){bdg.className='bdg bdg-loading';bdg.textContent='⏳ Loading real stats…';bdg.style.display='';}
-  const BATCH=3;
+  const BATCH=1;
 
-  // Pass 1: enrich current market players
+  // Pass 1: enrich current market players (sequential to avoid BDL 429 rate limit)
   for(let i=0;i<players.length;i+=BATCH){
     const chunk=players.slice(i,i+BATCH);
     await Promise.allSettled(chunk.map(p=>enrichPlayerStats(null,p)));
-    if(i+BATCH<players.length) await new Promise(r=>setTimeout(r,600));
+    if(i+BATCH<players.length) await new Promise(r=>setTimeout(r,300));
   }
   if(bdg){bdg.className='bdg bdg-real';bdg.textContent='✓ Real stats loaded';}
   renderTable();
@@ -1138,7 +1138,7 @@ async function enrichAllPlayers(){
   for(let i=0;i<alertPlayers.length;i+=BATCH){
     const chunk=alertPlayers.slice(i,i+BATCH);
     await Promise.allSettled(chunk.map(p=>enrichPlayerStats(null,p)));
-    if(i+BATCH<alertPlayers.length) await new Promise(r=>setTimeout(r,400));
+    if(i+BATCH<alertPlayers.length) await new Promise(r=>setTimeout(r,300));
   }
   if(bdg){bdg.className='bdg bdg-real';bdg.textContent='✓ All stats loaded';}
   renderAlerts();

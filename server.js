@@ -116,14 +116,22 @@ function bdlHeaders() {
 }
 
 // Fetch one season's game log rows from BDL (cursor-paginated)
-// Fetch full season game log from BDL (cursor-paginated)
+// Fetch full season game log from BDL (cursor-paginated, retries on 429)
 async function fetchBDLGameLog(playerId) {
   let allRows = [];
   let cursor = null;
   do {
     let url = `${BDL_BASE}/stats?player_ids[]=${playerId}&seasons[]=${NBA_SEASON}&per_page=100`;
     if (cursor) url += `&cursor=${cursor}`;
-    const resp = await fetch(url, { headers: bdlHeaders() });
+    let resp;
+    // Retry up to 3 times on rate limit with exponential backoff
+    for (let attempt = 0; attempt < 3; attempt++) {
+      resp = await fetch(url, { headers: bdlHeaders() });
+      if (resp.status !== 429) break;
+      const wait = (attempt + 1) * 2000; // 2s, 4s, 6s
+      console.warn(`BDL 429 for player ${playerId}, retrying in ${wait}ms (attempt ${attempt + 1})`);
+      await new Promise(r => setTimeout(r, wait));
+    }
     if (!resp.ok) throw new Error(`BDL ${resp.status}`);
     const data = await resp.json();
     allRows = allRows.concat(data.data || []);
