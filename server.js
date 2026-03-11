@@ -216,50 +216,56 @@ async function getBDLPlayerId(name) {
   // Search 1: full name
   let results = await trySearch(name);
 
-  // Search 2: normalized name (strip suffix) if different
+  // Helper: score a result set and update running best/score
+  const updateBest = (candidates, curBest, curScore) => {
+    let best = curBest, bestScore = curScore;
+    for (const p of candidates) {
+      const score = nameMatchScore(p, name);
+      if (score > bestScore) {
+        bestScore = score; best = p;
+      } else if (score === bestScore && best) {
+        const pActive = !!p.team, bestActive = !!best.team;
+        if (pActive && !bestActive) { best = p; }
+        else if (pActive === bestActive && p.id > best.id) { best = p; }
+      }
+    }
+    return { best, bestScore };
+  };
+
+  let best = null, bestScore = 0;
+  ({ best, bestScore } = updateBest(results, best, bestScore));
+
+  // Search 2: normalized name (strip suffix Jr/III/etc) — run if no good match yet
   const normed = normalizeName(name);
   const normedTitle = normed.replace(/\b\w/g, c => c.toUpperCase());
-  if (!results.length && normedTitle !== name) {
-    results = await trySearch(normedTitle);
+  if (bestScore < 40 && normedTitle !== name) {
+    ({ best, bestScore } = updateBest(await trySearch(normedTitle), best, bestScore));
   }
 
   // Search 3: expand common abbreviations (CJ → C.J., PJ → P.J., AJ → A.J.)
-  if (!results.length) {
+  if (bestScore < 40) {
     const expanded = name.replace(/\b([A-Z]{2,3})\b/g, m => m.split('').join('.') + '.');
-    if (expanded !== name) results = await trySearch(expanded);
+    if (expanded !== name) ({ best, bestScore } = updateBest(await trySearch(expanded), best, bestScore));
   }
 
-  // Search 4: just last name as fallback
-  if (!results.length) {
+  // Search 4: first name only (helps with apostrophe variants like Ja'Kobe)
+  if (bestScore < 40) {
+    const firstName = name.trim().split(' ')[0].replace(/['\u2018\u2019]/g, '');
+    ({ best, bestScore } = updateBest(await trySearch(firstName), best, bestScore));
+  }
+
+  // Search 5: last name fallback
+  if (bestScore < 40) {
     const lastName = name.trim().split(' ').pop();
-    results = await trySearch(lastName);
+    ({ best, bestScore } = updateBest(await trySearch(lastName), best, bestScore));
   }
 
-  // Pick best match by score; on ties prefer active-roster players, then higher ID
-  // (BDL assigns higher IDs to newer players, so higher ID = more likely current player)
-  let best = null;
-  let bestScore = 0;
-  for (const p of results) {
-    const score = nameMatchScore(p, name);
-    if (score > bestScore) {
-      bestScore = score; best = p;
-    } else if (score === bestScore && best) {
-      const pActive = !!p.team, bestActive = !!best.team;
-      if (pActive && !bestActive) { best = p; }                   // prefer active over inactive
-      else if (pActive === bestActive && p.id > best.id) { best = p; } // prefer higher ID (newer)
-    }
-  }
-
-  // Only accept single-result fallback if score is 0 and there's exactly 1 result
-  // (avoids picking a random wrong player when multiple results exist)
-  if (!best && results.length === 1) best = results[0];
-
-  const resolved = (best && bestScore >= 40) ? best : (results.length === 1 ? results[0] : null);
+  const resolved = (best && bestScore >= 40) ? best : null;
   const id = resolved?.id ?? null;
   const position = resolved ? normalizeBDLPosition(resolved.position) : null;
 
   if (resolved) console.log(`BDL name match: "${name}" → "${resolved.first_name} ${resolved.last_name}" pos=${resolved.position} (score=${bestScore})`);
-  else console.warn(`BDL name lookup failed: "${name}" (${results.length} results, best score=${bestScore})`);
+  else console.warn(`BDL name lookup failed: "${name}" (best score=${bestScore})`);
 
   const result = { id, position };
   // Cache successful lookups for 24h; failures only 30min so they auto-retry
@@ -882,17 +888,21 @@ app.get('/api/cron/refresh-stats', async (req, res) => {
     const now = new Date();
     const upcoming = events.filter(e => new Date(e.commence_time) > now);
 
-    // Collect player names from one bookmaker per game
+    // Collect player names from all prop markets across all bookmakers
+    const ALL_MARKETS = 'player_points,player_rebounds,player_assists,player_threes,player_points_rebounds_assists';
     const playerNames = new Set();
     for (const evt of upcoming.slice(0, 10)) {
       try {
-        const pUrl = `${ODDS_BASE}/sports/basketball_nba/events/${evt.id}/odds?apiKey=${ODDS_KEY}&regions=us&markets=player_points&oddsFormat=american`;
+        const pUrl = `${ODDS_BASE}/sports/basketball_nba/events/${evt.id}/odds?apiKey=${ODDS_KEY}&regions=us&markets=${ALL_MARKETS}&oddsFormat=american`;
         const pResp = await fetch(pUrl);
         if (!pResp.ok) continue;
         const pData = await pResp.json();
-        const bk = pData.bookmakers?.[0];
-        bk?.markets?.[0]?.outcomes?.forEach(o => {
-          if (o.description) playerNames.add(o.description);
+        pData.bookmakers?.forEach(bk => {
+          bk.markets?.forEach(mkt => {
+            mkt.outcomes?.forEach(o => {
+              if (o.description) playerNames.add(o.description);
+            });
+          });
         });
       } catch { /* skip */ }
     }
