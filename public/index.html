@@ -253,6 +253,11 @@ td{padding:8px 10px;white-space:nowrap;}
 
 /* ── VALUE ALERTS ── */
 .va-view{display:none;}.va-view.show{display:block;}
+.alert-mkt-bar{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;}
+.alert-mkt-btn{padding:6px 14px;border-radius:20px;border:1.5px solid var(--bd);background:var(--bg1);color:var(--t2);font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;white-space:nowrap;}
+.alert-mkt-btn.on{background:var(--b);color:#fff;border-color:var(--b);}
+.alert-mkt-btn.loading{opacity:.6;pointer-events:none;}
+.va-mkt-tag{display:inline-block;font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;background:var(--bd);color:var(--t3);margin-left:4px;vertical-align:middle;text-transform:uppercase;}
 .gls-view{display:none;}.gls-view.show{display:block;}
 /* ── Parlay Builder ── */
 .parlay-view{display:none;padding:20px 0;}.parlay-view.show{display:block;}
@@ -519,6 +524,7 @@ td{padding:8px 10px;white-space:nowrap;}
 
   <!-- ======= VALUE ALERTS VIEW ======= -->
   <div class="va-view" id="alertsView">
+    <div class="alert-mkt-bar" id="alertMktBar"></div>
     <div class="risk-ctrl">
       <span class="risk-label">Risk Profile:</span>
       <input type="range" min="1" max="3" step="1" value="2" class="risk-slider" id="riskSlider" oninput="updateRisk(this.value)"/>
@@ -742,7 +748,7 @@ async function loadData() {
   else{setApi('scores','err');renderScores([]);}
   const m = await apiGet(`/api/analytics/merged?market=${S.market}&book=${S.book}`);
   if (m.data&&!m.error){
-    S.data=m.data;parlayExcluded=new Set();setApi('odds','ok');setApi('stats','ok');
+    S.data=m.data;parlayExcluded=new Set();alertMktCache={};setApi('odds','ok');setApi('stats','ok');
     showSts(`Loaded ${S.data.length} players${m.cached?' (cached)':''}`,'suc');
   } else if(m.error){setApi('odds','err');showSts(`⚠️ Refresh failed: ${m.error}. ${S.data.length?'Showing last loaded data.':'Enter API keys above.'}`,'err');}
   recalcScenario();renderTable();renderAlerts();
@@ -773,7 +779,14 @@ function switchView(view,btn){
   document.getElementById('parlayView').classList.toggle('show',view==='parlay');
   document.getElementById('simView').classList.toggle('show',view==='simulator');
   document.getElementById('glossView').classList.toggle('show',view==='glossary');
-  if(view==='alerts')renderAlerts();
+  if(view==='alerts'){
+    renderAlerts();
+    // Background-load all markets so switching between them is instant
+    if(alertMkt==='all'){
+      const missing=ALERT_MARKETS.filter(m=>m.key!=='all'&&!alertMktCache[m.key]&&m.key!==S.market);
+      missing.forEach(m=>loadAlertMarket(m.key).then(()=>renderAlerts()));
+    }
+  }
   if(view==='parlay')renderParlay();
   if(view==='simulator'){renderSimulator();tryAutoResolve();}
 }
@@ -1321,6 +1334,63 @@ function updateRisk(v){
 }
 
 // ── Parlay Builder ──
+// ── Alert market switcher ──
+const ALERT_MARKETS=[
+  {key:'all',label:'All ⭐'},
+  {key:'player_points',label:'Points'},
+  {key:'player_rebounds',label:'Rebounds'},
+  {key:'player_assists',label:'Assists'},
+  {key:'player_threes',label:'3-Pointers'},
+  {key:'player_points_rebounds_assists',label:'PRA'},
+];
+const MKT_SHORT={player_points:'PTS',player_rebounds:'REB',player_assists:'AST',player_threes:'3PM',player_points_rebounds_assists:'PRA'};
+let alertMkt='all';
+let alertMktCache={}; // {market_key: enriched player array}
+
+function renderAlertMktBar(){
+  document.getElementById('alertMktBar').innerHTML=ALERT_MARKETS.map(m=>
+    `<button class="alert-mkt-btn${alertMkt===m.key?' on':''}" id="amb-${m.key}" onclick="switchAlertMarket('${m.key}')">${m.label}</button>`
+  ).join('');
+}
+async function switchAlertMarket(mkt){
+  alertMkt=mkt;
+  renderAlertMktBar();
+  if(mkt==='all'){
+    const missing=ALERT_MARKETS.filter(m=>m.key!=='all'&&!alertMktCache[m.key]);
+    if(missing.length){
+      missing.forEach(m=>{const b=document.getElementById(`amb-${m.key}`);if(b)b.classList.add('loading');});
+      document.getElementById('vaGrid').innerHTML='<div style="padding:24px;text-align:center;color:var(--t3);font-size:13px;">Loading all markets…</div>';
+      await Promise.all(missing.map(m=>loadAlertMarket(m.key)));
+      missing.forEach(m=>{const b=document.getElementById(`amb-${m.key}`);if(b)b.classList.remove('loading');});
+    }
+  } else if(mkt!=='current'&&!alertMktCache[mkt]){
+    document.getElementById('vaGrid').innerHTML='<div style="padding:24px;text-align:center;color:var(--t3);font-size:13px;">Loading…</div>';
+    await loadAlertMarket(mkt);
+  }
+  renderAlerts();
+}
+async function loadAlertMarket(mkt){
+  try{
+    const r=await apiGet(`/api/analytics/merged?market=${mkt}&book=${S.book}`);
+    if(r.data)alertMktCache[mkt]=r.data;
+  }catch(e){console.warn('Alert market load failed:',mkt,e.message);}
+}
+function getAlertData(){
+  if(alertMkt==='all'){
+    // Merge all cached markets; also include current S.data for the active market
+    const combined=[...S.data];
+    const currentMkt=S.market;
+    Object.entries(alertMktCache).forEach(([mkt,data])=>{
+      if(mkt!==currentMkt)combined.push(...data);
+    });
+    // Dedupe by name+market key
+    const seen=new Set();
+    return combined.filter(p=>{const k=`${p.name}|${p.market||S.market}`;if(seen.has(k))return false;seen.add(k);return true;});
+  }
+  if(alertMkt===S.market)return S.data;
+  return alertMktCache[alertMkt]||S.data;
+}
+
 let parlayLegs=3;
 let parlayExcluded=new Set();
 function setParlayLegs(n){
@@ -1422,9 +1492,13 @@ function parlayHeader(){
 }
 
 function renderAlerts(){
+  // Seed cache with current market's data so it's available for 'all' without a fetch
+  if(S.data.length)alertMktCache[S.market]=S.data;
+  renderAlertMktBar();
+  const showMktTag=alertMkt==='all';
   const thresholds=[{edge:8,conf:70,hr:60},{edge:5,conf:55,hr:50},{edge:3,conf:40,hr:40}];
   const t=thresholds[(S.risk||2)-1];
-  let alerts=S.data
+  let alerts=getAlertData()
     .filter(p=>Math.abs(p.edge||0)>=t.edge&&(p.confidence||0)>=t.conf&&(p.hitRate||0)>=t.hr&&(p.evOver??calcEV((p.hitRate||50)/100,p.overOdds))>0)
     .map(p=>({...p,vs:valueScore(p),evOver:p.evOver??calcEV((p.hitRate||50)/100,p.overOdds)}))
     .sort((a,b)=>b.vs-a.vs);
@@ -1459,7 +1533,7 @@ function renderAlerts(){
       <div class="va-top">
         <div class="va-av">${avHTML}</div>
         <div class="va-info">
-          <div class="va-name">${p.name} <span style="font-size:11px;font-weight:700;color:${rankColor};margin-left:4px;">${rankLabel}</span></div>
+          <div class="va-name">${p.name} <span style="font-size:11px;font-weight:700;color:${rankColor};margin-left:4px;">${rankLabel}</span>${showMktTag&&p.market?`<span class="va-mkt-tag">${MKT_SHORT[p.market]||p.market}</span>`:''}</div>
           <div class="va-meta">${p.team||''} · ${(p.matchup||'').substring(0,25)}</div>
         </div>
         <div class="va-right">
@@ -1467,7 +1541,7 @@ function renderAlerts(){
           <div class="va-direction ${isOver?'over':'under'}">▲ BET ${dir}</div>
         </div>
       </div>
-      <div style="font-size:12px;font-weight:700;color:var(--t3);margin-bottom:8px;">${dir} ${p.line} · ${p.overOdds>0?'+':''}${p.overOdds||'—'} odds · Line: ${p.avg > p.line ? p.avg+' avg vs '+p.line : p.line+' line vs '+p.avg+' avg'}</div>
+      <div style="font-size:12px;font-weight:700;color:var(--t3);margin-bottom:8px;">${dir} ${p.line} ${MKT_SHORT[p.market||S.market]||''} · ${p.overOdds>0?'+':''}${p.overOdds||'—'} odds · ${p.avg > p.line ? p.avg+' avg vs '+p.line+' line' : p.line+' line vs '+p.avg+' avg'}</div>
       <div class="va-stats">
         <div class="va-stat"><div class="va-stat-v">${p.avg}</div><div class="va-stat-l">L10 Avg</div></div>
         <div class="va-stat"><div class="va-stat-v">${p.hitRate||0}%</div><div class="va-stat-l">Model Prob</div></div>
