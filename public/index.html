@@ -1109,23 +1109,38 @@ async function loadData() {
 async function enrichAllPlayers(){
   const players=S.data||[];
   if(!players.length) return;
-  // Show loading badge
   const bdg=document.getElementById('statsBdg');
   if(bdg){bdg.className='bdg bdg-loading';bdg.textContent='⏳ Loading real stats…';bdg.style.display='';}
   const BATCH=3;
+
+  // Pass 1: enrich current market players
   for(let i=0;i<players.length;i+=BATCH){
     const chunk=players.slice(i,i+BATCH);
     await Promise.allSettled(chunk.map(p=>enrichPlayerStats(null,p)));
     if(i+BATCH<players.length) await new Promise(r=>setTimeout(r,600));
   }
-  // Stats enrichment done — re-render table once with final stats
   if(bdg){bdg.className='bdg bdg-real';bdg.textContent='✓ Real stats loaded';}
   renderTable();
-  // Now pre-fetch all alert markets in parallel (served from server cache, cheap)
-  // and render alerts exactly once with the final complete dataset
+
+  // Load all alert markets (server cache, cheap)
   const ALL_ALERT_MKTS = ['player_points','player_rebounds','player_assists','player_threes','player_points_rebounds_assists'];
   alertMktCache[S.market] = S.data;
   await Promise.all(ALL_ALERT_MKTS.filter(mk=>mk!==S.market).map(mk=>loadAlertMarket(mk)));
+
+  // Pass 2: enrich alert-market players (each uses p.market for the correct stat key)
+  // Game log fetches hit server cache so no extra BDL quota is used
+  const alertPlayers=[];
+  Object.entries(alertMktCache).forEach(([mkt,data])=>{
+    if(mkt===S.market)return; // already done in pass 1
+    (data||[]).forEach(p=>{if(!p.hasRealStats)alertPlayers.push(p);});
+  });
+  if(bdg){bdg.className='bdg bdg-loading';bdg.textContent=`⏳ Enriching ${alertPlayers.length} alert-market players…`;}
+  for(let i=0;i<alertPlayers.length;i+=BATCH){
+    const chunk=alertPlayers.slice(i,i+BATCH);
+    await Promise.allSettled(chunk.map(p=>enrichPlayerStats(null,p)));
+    if(i+BATCH<alertPlayers.length) await new Promise(r=>setTimeout(r,400));
+  }
+  if(bdg){bdg.className='bdg bdg-real';bdg.textContent='✓ All stats loaded';}
   renderAlerts();
 }
 async function doRefresh(){document.getElementById('rBtn').classList.add('sp');await apiGet('/api/cache/clear');await loadData();document.getElementById('rBtn').classList.remove('sp');}
@@ -1514,7 +1529,7 @@ async function enrichPlayerStats(i,p){
     }
     const statMap={'player_points':'pts','player_rebounds':'reb','player_assists':'ast',
       'player_threes':'fg3m','player_steals':'stl','player_blocks':'blk','player_turnovers':'turnover'};
-    const statKey=statMap[S.market]||'pts';
+    const statKey=statMap[p.market||S.market]||'pts';
     const sorted=r.data.sort((a,b)=>new Date(b.date||0)-new Date(a.date||0));
     // rawL10 = last 10 calendar games (may include DNPs) — used for the bar chart only
     const rawL10=sorted.slice(0,10);
@@ -1587,7 +1602,7 @@ async function loadAndRenderSplits(el,p){
   if(p.splits){renderSplits(el,p);return;}
   el.innerHTML='<div style="padding:20px;text-align:center;color:var(--t3);font-size:12px;">Loading splits…</div>';
   const statMap={'player_points':'pts','player_rebounds':'reb','player_assists':'ast','player_threes':'fg3m','player_steals':'stl','player_blocks':'blk','player_turnovers':'turnover'};
-  const stat=statMap[S.market]||'pts';
+  const stat=statMap[p.market||S.market]||'pts';
   const r=await apiGet(`/api/stats/player/name/${encodeURIComponent(p.name)}/splits?line=${p.line}&stat=${stat}`);
   if(r.data){p.splits=r.data;renderSplits(el,p);}
   else el.innerHTML=`<div style="padding:20px;text-align:center;color:var(--r);font-size:12px;">Error loading splits: ${r.error||'API error'}</div>`;
@@ -1607,7 +1622,7 @@ async function loadAndRenderGameLog(el,p){
 
 function renderOverview(el,p){
   const statMap={'player_points':'pts','player_rebounds':'reb','player_assists':'ast','player_threes':'fg3m','player_steals':'stl','player_blocks':'blk','player_turnovers':'turnover'};
-  const statKey=statMap[S.market]||'pts';
+  const statKey=statMap[p.market||S.market]||'pts';
   const l5=(p.l10||[]).slice(0,5);
   const l5a=l5.length?(l5.reduce((a,b)=>a+b,0)/5).toFixed(1):'—';
   const ceil=Math.max(...(p.l10||[0])),floor=Math.min(...(p.l10||[0]));
