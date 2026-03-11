@@ -438,10 +438,14 @@ td{padding:8px 10px;white-space:nowrap;}
           <option value="player_points_rebounds_assists">PRA</option>
         </select>
         <select class="sel" id="bk" onchange="S.book=this.value;loadData()">
+          <option value="combined">⚖ Combined (All Books)</option>
           <option value="draftkings">DraftKings</option>
           <option value="fanduel">FanDuel</option>
           <option value="betmgm">BetMGM</option>
           <option value="caesars">Caesars</option>
+          <option value="betrivers">BetRivers</option>
+          <option value="espnbet">ESPN Bet</option>
+          <option value="pointsbetus">Fanatics</option>
         </select>
       </div>
       <div class="cr">
@@ -637,7 +641,7 @@ function getHeadshot(name) {
 
 // ── State ──
 let S = {
-  data:[], scores:[], market:'player_points', book:'draftkings',
+  data:[], scores:[], market:'player_points', book:'combined',
   sort:'edge', scnOn:false, scnPlayers:[],
   api:{odds:'err',stats:'err',scores:'err'}, risk:2,
   gameFilter:null,
@@ -1041,11 +1045,12 @@ function togDet(i,p){
 function renderDet(i,p){
   const c=document.getElementById(`di-${i}`);window._dp=p;
   const scnTab=S.scnOn?`<button class="di-tab" onclick="showDTab(${i},'scenario',this)">Scenario</button>`:'';
+  const booksTab=p.bookLines&&Object.keys(p.bookLines).length>1?`<button class="di-tab" onclick="showDTab(${i},'books',this)">📊 Books</button>`:'';
   c.innerHTML=`<div class="di-tabs">
     <button class="di-tab on" onclick="showDTab(${i},'overview',this)">Overview</button>
     <button class="di-tab" onclick="showDTab(${i},'splits',this)">Splits</button>
     <button class="di-tab" onclick="showDTab(${i},'gamelog',this)">Game Log</button>
-    ${scnTab}
+    ${booksTab}${scnTab}
   </div><div id="dtc-${i}"></div>`;
   showDTab(i,'overview',c.querySelector('.di-tab'));
   // Fetch real stats from stats.nba.com in background; auto-refresh overview when ready
@@ -1103,6 +1108,7 @@ async function showDTab(i,tab,btn){
   if(tab==='overview')renderOverview(el,p);
   else if(tab==='splits')await loadAndRenderSplits(el,p);
   else if(tab==='gamelog')await loadAndRenderGameLog(el,p);
+  else if(tab==='books')renderBookComparison(el,p);
   else if(tab==='scenario')renderScenario(el,p);
 }
 async function loadAndRenderSplits(el,p){
@@ -1147,6 +1153,17 @@ function renderOverview(el,p){
     <div class="dc"><div class="dc-t"><span class="dt" style="background:var(--g)"></span>Last 10 Games</div>
       <div class="chb"><div class="lref" style="top:${lP}%"><span class="lref-l">LINE ${p.line}</span></div><div class="bars">${bars}</div></div>
     </div>
+    ${p.bookLines&&Object.keys(p.bookLines).length>1?`<div class="dc full">
+      <div class="dc-t"><span class="dt" style="background:var(--c)"></span>Book Comparison — Consensus Line: ${p.line}</div>
+      <table class="spt"><thead><tr><th>Sportsbook</th><th>Line</th><th>Over Odds</th><th>Under Odds</th></tr></thead>
+      <tbody>${Object.values(p.bookLines).sort((a,b)=>a.line-b.line).map(bl=>{
+        const diff=+(bl.line-p.line).toFixed(1);
+        const diffStr=diff>0?`<span style="color:var(--r);font-size:10px"> +${diff}</span>`:diff<0?`<span style="color:var(--g);font-size:10px"> ${diff}</span>`:'';
+        const ov=bl.overOdds?(bl.overOdds>0?'+':'')+bl.overOdds:'—';
+        const uv=bl.underOdds?(bl.underOdds>0?'+':'')+bl.underOdds:'—';
+        return`<tr><td style="font-weight:600">${bl.bookName}</td><td>${bl.line}${diffStr}</td><td style="color:${bl.overOdds>0?'var(--g)':'var(--r)'}">${ov}</td><td style="color:${bl.underOdds>0?'var(--g)':'var(--r)'}">${uv}</td></tr>`;
+      }).join('')}</tbody></table>
+    </div>`:''}
     <div class="dc full">
       <div class="dc-t"><span class="dt" style="background:var(--p)"></span>Recommendation</div>
       <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
@@ -1164,6 +1181,40 @@ function renderOverview(el,p){
         </div>
       </div>
     </div>
+  </div>`;
+}
+
+function renderBookComparison(el,p){
+  const bl=p.bookLines;
+  if(!bl||!Object.keys(bl).length){
+    el.innerHTML='<div style="padding:20px;text-align:center;color:var(--t3);font-size:12px;">Book data only available in Combined mode.</div>';return;
+  }
+  const lines=Object.values(bl);
+  const avgLine=p.line;
+  const lineVals=lines.map(b=>b.line);
+  const minLine=Math.min(...lineVals),maxLine=Math.max(...lineVals);
+  const spread=+(maxLine-minLine).toFixed(1);
+  const bestOver=lines.reduce((b,c)=>c.overOdds>b.overOdds?c:b);
+  const bestUnder=lines.filter(b=>b.underOdds!=null).reduce((b,c)=>c.underOdds>b.underOdds?c:b,{underOdds:-9999,bookName:'—'});
+  el.innerHTML=`<div class="dc full">
+    <div class="dc-t"><span class="dt" style="background:var(--c)"></span>Book Comparison — ${p.name}</div>
+    <div class="sr" style="margin-bottom:14px;">
+      <div class="sb2"><div class="sb2-l">Consensus Line</div><div class="sb2-v">${avgLine}</div><div class="sb2-s">${lines.length} books</div></div>
+      <div class="sb2"><div class="sb2-l">Line Spread</div><div class="sb2-v">${spread}</div><div class="sb2-s">${minLine} – ${maxLine}</div></div>
+      <div class="sb2"><div class="sb2-l">Best Over Odds</div><div class="sb2-v" style="color:var(--g)">${bestOver.overOdds>0?'+':''}${bestOver.overOdds}</div><div class="sb2-s">${bestOver.bookName}</div></div>
+      <div class="sb2"><div class="sb2-l">Best Under Odds</div><div class="sb2-v" style="color:var(--g)">${bestUnder.underOdds!=null&&bestUnder.underOdds>-9999?(bestUnder.underOdds>0?'+':'')+bestUnder.underOdds:'—'}</div><div class="sb2-s">${bestUnder.bookName}</div></div>
+    </div>
+    <table class="spt"><thead><tr><th>Sportsbook</th><th>Line</th><th>vs Avg</th><th>Over Odds</th><th>Under Odds</th></tr></thead>
+    <tbody>${lines.sort((a,b)=>a.line-b.line).map(b=>{
+      const diff=+(b.line-avgLine).toFixed(1);
+      const diffStr=diff>0?`<span style="color:var(--r)">+${diff}</span>`:diff<0?`<span style="color:var(--g)">${diff}</span>`:`<span style="color:var(--t3)">—</span>`;
+      const ov=b.overOdds?(b.overOdds>0?'+':'')+b.overOdds:'—';
+      const uv=b.underOdds!=null?(b.underOdds>0?'+':'')+b.underOdds:'—';
+      const isBestO=b===bestOver,isBestU=bestUnder.underOdds!=null&&b.underOdds===bestUnder.underOdds;
+      return`<tr><td style="font-weight:600">${b.bookName}</td><td style="font-weight:700">${b.line}</td><td>${diffStr}</td>
+        <td style="color:${b.overOdds>0?'var(--g)':'var(--r)'};font-weight:${isBestO?'700':'400'}">${ov}${isBestO?' ✓':''}</td>
+        <td style="color:${b.underOdds>0?'var(--g)':b.underOdds<0?'var(--r)':'var(--t3)'};font-weight:${isBestU?'700':'400'}">${uv}${isBestU?' ✓':''}</td></tr>`;
+    }).join('')}</tbody></table>
   </div>`;
 }
 

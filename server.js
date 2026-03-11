@@ -367,6 +367,79 @@ app.post('/api/config', (req, res) => {
 });
 
 // ============================================================
+// HELPER: Parse raw props array into flat player list
+// Supports single-book selection OR 'combined' (all books avg)
+// ============================================================
+function aggregatePlayers(rawProps, book) {
+  const players = [];
+  rawProps.forEach(evt => {
+    if (!evt.bookmakers || !evt.bookmakers.length) return;
+    const meta = {
+      matchup: `${teamAbbr(evt.away_team)} @ ${teamAbbr(evt.home_team)}`,
+      homeTeam: teamAbbr(evt.home_team),
+      awayTeam: teamAbbr(evt.away_team),
+      gameTime: evt.commence_time,
+    };
+
+    if (book === 'combined') {
+      // Aggregate all bookmakers for each player
+      const playerMap = {}; // key = playerName|market
+      evt.bookmakers.forEach(bk => {
+        bk.markets?.forEach(mkt => {
+          const byPlayer = {};
+          mkt.outcomes?.forEach(o => {
+            const pName = o.description || o.name;
+            if (!byPlayer[pName]) byPlayer[pName] = {};
+            byPlayer[pName][o.name] = { price: o.price, point: o.point };
+          });
+          Object.entries(byPlayer).forEach(([playerName, sides]) => {
+            const over = sides['Over'];
+            if (!over) return;
+            const mapKey = `${playerName}|${mkt.key}`;
+            if (!playerMap[mapKey]) {
+              playerMap[mapKey] = { name: playerName, market: mkt.key, ...meta, bookmaker: 'Combined', bookLines: {} };
+            }
+            playerMap[mapKey].bookLines[bk.key] = {
+              bookName: bk.title,
+              line: over.point,
+              overOdds: over.price,
+              underOdds: sides['Under']?.price ?? null,
+            };
+          });
+        });
+      });
+      Object.values(playerMap).forEach(p => {
+        const lines = Object.values(p.bookLines);
+        if (!lines.length) return;
+        const avgLine = +(lines.reduce((s, b) => s + b.line, 0) / lines.length).toFixed(1);
+        const bestOver = Math.max(...lines.map(b => b.overOdds));
+        const underLines = lines.filter(b => b.underOdds != null);
+        const bestUnder = underLines.length ? Math.max(...underLines.map(b => b.underOdds)) : null;
+        players.push({ ...p, line: avgLine, overOdds: bestOver, underOdds: bestUnder });
+      });
+    } else {
+      // Single-book mode
+      const bk = evt.bookmakers.find(b => b.key === book) || evt.bookmakers[0];
+      if (!bk) return;
+      bk.markets?.forEach(mkt => {
+        const byPlayer = {};
+        mkt.outcomes?.forEach(o => {
+          const pName = o.description || o.name;
+          if (!byPlayer[pName]) byPlayer[pName] = {};
+          byPlayer[pName][o.name] = { price: o.price, point: o.point };
+        });
+        Object.entries(byPlayer).forEach(([playerName, sides]) => {
+          const over = sides['Over'];
+          if (!over) return;
+          players.push({ name: playerName, line: over.point, overOdds: over.price, underOdds: sides['Under']?.price ?? null, market: mkt.key, ...meta, bookmaker: bk.title });
+        });
+      });
+    }
+  });
+  return players;
+}
+
+// ============================================================
 // ROUTE: GET /api/odds/events — today's NBA games
 // ============================================================
 app.get('/api/odds/events', async (req, res) => {
@@ -452,38 +525,7 @@ app.get('/api/odds/props-all', async (req, res) => {
     const rawProps = (await Promise.all(propPromises)).filter(Boolean);
 
     // 3. Parse into flat player array
-    const players = [];
-    rawProps.forEach(evt => {
-      if (!evt.bookmakers) return;
-      const bk = evt.bookmakers.find(b => b.key === book) || evt.bookmakers[0];
-      if (!bk) return;
-
-      bk.markets?.forEach(mkt => {
-        const byPlayer = {};
-        mkt.outcomes?.forEach(o => {
-          const pName = o.description || o.name;
-          if (!byPlayer[pName]) byPlayer[pName] = {};
-          byPlayer[pName][o.name] = { price: o.price, point: o.point };
-        });
-
-        Object.entries(byPlayer).forEach(([playerName, sides]) => {
-          const over = sides['Over'];
-          if (!over) return;
-          players.push({
-            name: playerName,
-            line: over.point,
-            overOdds: over.price,
-            underOdds: sides['Under']?.price,
-            market: mkt.key,
-            matchup: `${teamAbbr(evt.away_team)} @ ${teamAbbr(evt.home_team)}`,
-            homeTeam: teamAbbr(evt.home_team),
-            awayTeam: teamAbbr(evt.away_team),
-            gameTime: evt.commence_time,
-            bookmaker: bk.title,
-          });
-        });
-      });
-    });
+    const players = aggregatePlayers(rawProps, book);
 
     cacheSet(ck, players, parseInt(process.env.CACHE_TTL_ODDS) || 120);
     res.json({ data: players, cached: false, gamesScanned: events.length });
@@ -770,37 +812,7 @@ app.get('/api/analytics/merged', async (req, res) => {
         });
 
         const rawProps = (await Promise.all(propPromises)).filter(Boolean);
-
-        rawProps.forEach(evt => {
-          if (!evt.bookmakers) return;
-          const bk = evt.bookmakers.find(b => b.key === book) || evt.bookmakers[0];
-          if (!bk) return;
-
-          bk.markets?.forEach(mkt => {
-            const byPlayer = {};
-            mkt.outcomes?.forEach(o => {
-              const pName = o.description || o.name;
-              if (!byPlayer[pName]) byPlayer[pName] = {};
-              byPlayer[pName][o.name] = { price: o.price, point: o.point };
-            });
-
-            Object.entries(byPlayer).forEach(([playerName, sides]) => {
-              const over = sides['Over'];
-              if (!over) return;
-              players.push({
-                name: playerName,
-                line: over.point,
-                overOdds: over.price,
-                underOdds: sides['Under']?.price,
-                matchup: `${teamAbbr(evt.away_team)} @ ${teamAbbr(evt.home_team)}`,
-                homeTeam: teamAbbr(evt.home_team),
-                awayTeam: teamAbbr(evt.away_team),
-                gameTime: evt.commence_time,
-                bookmaker: bk.title,
-              });
-            });
-          });
-        });
+        players.push(...aggregatePlayers(rawProps, book));
       }
     }
 
