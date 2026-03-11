@@ -683,9 +683,10 @@ async function enrichAllPlayers(){
   for(let i=0;i<players.length;i+=BATCH){
     const chunk=players.slice(i,i+BATCH);
     await Promise.allSettled(chunk.map(p=>enrichPlayerStats(null,p)));
-    renderTable();renderAlerts();
     if(i+BATCH<players.length) await new Promise(r=>setTimeout(r,600));
   }
+  // Re-render once after all enrichment is done — avoids destroying open player cards mid-batch
+  renderTable();renderAlerts();
 }
 async function doRefresh(){document.getElementById('rBtn').classList.add('sp');await apiGet('/api/cache/clear');await loadData();document.getElementById('rBtn').classList.remove('sp');}
 
@@ -1009,6 +1010,7 @@ async function enrichPlayerStats(i,p){
   if(p.hasRealStats) return;
   try{
     const r=await apiGet(`/api/stats/player/name/${encodeURIComponent(p.name)}/games`);
+    console.log(`[stats] ${p.name}:`,r.error||`${r.data?.length??0} games`);
     if(r.error||!r.data||!r.data.length){
       p.statsError=r.error||'No data returned';
       if(i!=null){const el=document.getElementById(`dtc-${i}`);if(el&&window._dp===p)renderOverview(el,p);}
