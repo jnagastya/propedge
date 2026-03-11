@@ -115,12 +115,12 @@ function bdlHeaders() {
   return { 'Authorization': BDL_KEY };
 }
 
-// Fetch full season game log from BDL (cursor-paginated)
-async function fetchBDLGameLog(playerId) {
+// Fetch one season's game log rows from BDL (cursor-paginated)
+async function fetchBDLGameLogForSeason(playerId, season) {
   let allRows = [];
   let cursor = null;
   do {
-    let url = `${BDL_BASE}/stats?player_ids[]=${playerId}&seasons[]=${NBA_SEASON}&per_page=100`;
+    let url = `${BDL_BASE}/stats?player_ids[]=${playerId}&seasons[]=${season}&per_page=100`;
     if (cursor) url += `&cursor=${cursor}`;
     const resp = await fetch(url, { headers: bdlHeaders() });
     if (!resp.ok) throw new Error(`BDL ${resp.status}`);
@@ -128,6 +128,17 @@ async function fetchBDLGameLog(playerId) {
     allRows = allRows.concat(data.data || []);
     cursor = data.meta?.next_cursor || null;
   } while (cursor);
+  return allRows;
+}
+
+// Fetch full season game log from BDL — tries current season, falls back to previous
+async function fetchBDLGameLog(playerId) {
+  let allRows = await fetchBDLGameLogForSeason(playerId, NBA_SEASON);
+  // If current season returns nothing (API plan limit, early season, etc.) try previous
+  if (!allRows.length) {
+    console.warn(`BDL: no data for season ${NBA_SEASON}, trying ${NBA_SEASON - 1}`);
+    allRows = await fetchBDLGameLogForSeason(playerId, NBA_SEASON - 1);
+  }
 
   return allRows.map(g => {
     if (!g.game) return null;
@@ -532,7 +543,8 @@ app.get('/api/stats/player/name/:name/games', async (req, res) => {
     const { id: nbaId, position: bdlPos } = await getBDLPlayerId(name);
     if (!nbaId) return res.json({ data: [], cached: false, error: `Player not found: ${name}` });
     const games = await fetchBDLGameLog(nbaId);
-    cacheSet(ckMem, games, STATS_TTL);
+    // Only cache non-empty results; empty arrays should be retried on next request
+    if (games.length) cacheSet(ckMem, games, STATS_TTL);
     await sbSetGameLog(name, nbaId, games, bdlPos); // persist for future requests
     res.json({ data: games, cached: false, source: 'bdl' });
   } catch (err) {
@@ -560,7 +572,7 @@ app.get('/api/stats/player/name/:name/splits', async (req, res) => {
         games = await fetchBDLGameLog(nbaId);
         await sbSetGameLog(name, nbaId, games, bdlPos);
       }
-      cacheSet(ckMem, games, STATS_TTL);
+      if (games.length) cacheSet(ckMem, games, STATS_TTL);
     }
     res.json({ data: computeSplits(games, line, stat), cached: false, gamesAnalyzed: games.length });
   } catch (err) {
@@ -895,6 +907,26 @@ app.get('/api/cron/refresh-stats', async (req, res) => {
     res.json({ success: true, processed: names.length, ...results });
   } catch (err) {
     res.status(500).json({ error: err.message, ...results });
+  }
+});
+
+// ============================================================
+// ROUTE: GET /api/debug/player/:name — diagnose a specific player lookup
+// ============================================================
+app.get('/api/debug/player/:name', async (req, res) => {
+  const name = decodeURIComponent(req.params.name);
+  try {
+    const { id, position } = await getBDLPlayerId(name);
+    if (!id) return res.json({ name, found: false, error: 'Player not found in BDL' });
+    const currentGames = await fetchBDLGameLogForSeason(id, NBA_SEASON);
+    const prevGames    = await fetchBDLGameLogForSeason(id, NBA_SEASON - 1);
+    res.json({
+      name, found: true, bdlId: id, position,
+      currentSeason: { season: NBA_SEASON, rawRows: currentGames.length },
+      prevSeason:    { season: NBA_SEASON - 1, rawRows: prevGames.length },
+    });
+  } catch (err) {
+    res.json({ name, error: err.message });
   }
 });
 
