@@ -224,8 +224,14 @@ async function getBDLPlayerId(name) {
 app.get('/api/status', (req, res) => {
   res.json({
     server: 'ok',
-    oddsApi: ODDS_KEY ? 'configured' : 'missing',
-    nbaApi: BDL_KEY ? 'BDL configured' : 'BDL key missing',
+    envVars: {
+      ODDS_API_KEY: !!process.env.ODDS_API_KEY,
+      BDL_API_KEY: !!process.env.BDL_API_KEY,
+      SUPABASE_URL: !!process.env.SUPABASE_URL,
+      SUPABASE_SERVICE_KEY: !!process.env.SUPABASE_SERVICE_KEY,
+      CRON_SECRET: !!process.env.CRON_SECRET,
+    },
+    supabase: supabase ? 'configured' : 'missing',
     cacheKeys: cache.keys().length,
     uptime: process.uptime(),
   });
