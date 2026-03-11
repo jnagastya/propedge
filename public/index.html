@@ -471,6 +471,7 @@ td{padding:8px 10px;white-space:nowrap;}
       <div class="cr">
         <select class="sel" id="sortS" onchange="renderTable()">
           <option value="edge">Sort: Edge %</option>
+          <option value="kelly">Sort: ¼ Kelly %</option>
           <option value="conf">Sort: Confidence</option>
           <option value="val">Sort: Value Score</option>
           <option value="hr">Sort: Hit Rate</option>
@@ -507,7 +508,7 @@ td{padding:8px 10px;white-space:nowrap;}
           <thead><tr>
             <th>Player</th><th>Matchup</th><th>Line</th><th>Odds</th>
             <th>Avg</th><th>Hit Rate</th><th>O/U</th><th>Trend</th>
-            <th>Edge</th><th>Lean</th><th>Confidence</th><th>Value</th><th>Bet</th>
+            <th>Edge</th><th>Lean</th><th>Confidence</th><th>¼ Kelly</th><th>Value</th><th>Bet</th>
             <th id="scnTh" style="display:none">Scenario ⚡</th>
           </tr></thead>
           <tbody id="tBody"></tbody>
@@ -555,18 +556,6 @@ td{padding:8px 10px;white-space:nowrap;}
 
   <!-- ======= PARLAY BUILDER VIEW ======= -->
   <div class="parlay-view" id="parlayView">
-    <div class="parlay-hdr">
-      <div>
-        <h2 class="parlay-title">Parlay Builder</h2>
-        <p class="parlay-sub">Auto-selects the highest-value bets. Adjust legs to rebuild.</p>
-      </div>
-      <div class="parlay-legs-wrap">
-        <span style="font-size:12px;font-weight:600;color:var(--t3);margin-right:8px;">LEGS</span>
-        <div class="parlay-leg-btns" id="legBtns">
-          ${[2,3,4,5,6].map(n=>`<button class="leg-btn${n===3?' on':''}" onclick="setParlayLegs(${n},this)">${n}</button>`).join('')}
-        </div>
-      </div>
-    </div>
     <div id="parlayContent"><div style="padding:48px;text-align:center;color:var(--t3);font-size:13px;">Loading data…</div></div>
   </div>
 
@@ -962,6 +951,7 @@ function renderTable(){
   }
   const sf={
     edge:(a,b)=>Math.abs(b.edge||0)-Math.abs(a.edge||0),
+    kelly:(a,b)=>computeKelly((b.hitRate||50)/100,b.overOdds)-computeKelly((a.hitRate||50)/100,a.overOdds),
     conf:(a,b)=>(b.confidence||0)-(a.confidence||0),
     val:(a,b)=>valueScore(b)-valueScore(a),
     hr:(a,b)=>(b.hitRate||0)-(a.hitRate||0),
@@ -986,6 +976,9 @@ function renderTable(){
     const vs=valueScore(p);
     const evOver=p.evOver??calcEV((p.hitRate||50)/100,p.overOdds);
     const isValue=vs>=30&&Math.abs(edge)>4&&(p.confidence||0)>=55&&evOver>3;
+    const qKelly=computeKelly((p.hitRate||50)/100,p.overOdds)*0.25;
+    const qKellyPct=(qKelly*100).toFixed(1);
+    const kellyColor=qKelly>=0.03?'var(--g)':qKelly>=0.01?'var(--a)':'var(--t3)';
     const overFmt=p.overOdds?(p.overOdds>0?'+':'')+p.overOdds:'—';
     const underFmt=p.underOdds?(p.underOdds>0?'+':'')+p.underOdds:'—';
     const lean=leanInfo(edge,evOver);
@@ -1033,13 +1026,14 @@ function renderTable(){
         <div class="cb-bar"><div class="cb-fill" style="width:${p.confidence||0}%;background:${cc};"></div></div>
         <span class="cb-l" style="color:${cc}">${p.confidence||0}</span>
       </div></td>
+      <td><span style="font-size:11px;font-weight:700;color:${kellyColor}">${qKelly>0?qKellyPct+'%':'—'}</span></td>
       <td>${isValue?`<span class="val-badge" title="EV: ${evOver>0?'+':''}${evOver}%">⚡ VALUE</span>`:`<span style="color:var(--t3);font-size:11px;font-weight:600;">${evOver>0?'<span style=\'color:var(--g)\'>+'+evOver+'%</span>':'<span>'+evOver+'%</span>'}</span>`}</td>
       <td><button class="bet-btn" onclick="event.stopPropagation();openBetModal(${JSON.stringify(p).replace(/"/g,'&quot;')})">🎲 Bet</button></td>
       ${S.scnOn?`<td>${(p.scenarioBoost||0)>0?`<span class="scn-boost">+${p.scenarioBoost} pts</span>`:'<span style="color:var(--t3)">—</span>'}</td>`:''}
     `;
     tb.appendChild(tr);
     const dr=document.createElement('tr');dr.className='dr';dr.id=`d-${i}`;
-    dr.innerHTML=`<td colspan="${S.scnOn?14:13}"><div class="di" id="di-${i}"></div></td>`;
+    dr.innerHTML=`<td colspan="${S.scnOn?15:14}"><div class="di" id="di-${i}"></div></td>`;
     tb.appendChild(dr);
   });
   document.getElementById('pCnt').innerHTML=d.length+' players';
@@ -1329,11 +1323,9 @@ function updateRisk(v){
 // ── Parlay Builder ──
 let parlayLegs=3;
 let parlayExcluded=new Set();
-function setParlayLegs(n,btn){
+function setParlayLegs(n){
   parlayLegs=n;
   parlayExcluded=new Set();
-  document.querySelectorAll('.leg-btn').forEach(b=>b.classList.remove('on'));
-  btn.classList.add('on');
   renderParlay();
 }
 function toDecimal(american){
@@ -1344,16 +1336,24 @@ function toAmerican(decimal){
   if(decimal>=2)return '+'+(Math.round((decimal-1)*100));
   return Math.round(-100/(decimal-1)).toString();
 }
+function removeParlayLeg(playerName){
+  parlayExcluded.add(playerName);
+  renderParlay();
+}
 function renderParlay(){
   const el=document.getElementById('parlayContent');
-  if(!S.data||!S.data.length){el.innerHTML='<div class="parlay-empty">Load player data first.</div>';return;}
-  // Score every player for value
+  if(!S.data||!S.data.length){
+    el.innerHTML=`<div class="parlay-hdr">${parlayHeader()}</div><div class="parlay-empty">Load player data first.</div>`;
+    return;
+  }
   const scored=S.data
-    .map(p=>({...p,_vs:valueScore(p),_ev:p.evOver??calcEV((p.hitRate||50)/100,p.overOdds)}))
+    .map(p=>({...p,_vs:valueScore(p)}))
     .filter(p=>p.line&&p.overOdds&&Math.abs(p.edge||0)>1&&!parlayExcluded.has(p.name))
     .sort((a,b)=>b._vs-a._vs);
-  if(!scored.length){el.innerHTML='<div class="parlay-empty">No prop data available. Load a market first.</div>';return;}
-  // Pick top N unique players (dedupe by name in case of multi-market)
+  if(!scored.length){
+    el.innerHTML=`<div class="parlay-hdr">${parlayHeader()}</div><div class="parlay-empty">No prop data — try switching market or reducing filters.</div>`;
+    return;
+  }
   const seen=new Set();
   const legs=[];
   for(const p of scored){
@@ -1362,8 +1362,10 @@ function renderParlay(){
     legs.push(p);
     if(legs.length>=parlayLegs)break;
   }
-  if(legs.length<2){el.innerHTML='<div class="parlay-empty">Not enough players with odds data to build a parlay.</div>';return;}
-  // Combined stats
+  if(legs.length<2){
+    el.innerHTML=`<div class="parlay-hdr">${parlayHeader()}</div><div class="parlay-empty">Not enough players with odds data. Try increasing legs or switching market.</div>`;
+    return;
+  }
   const combDecimal=legs.reduce((prod,p)=>prod*toDecimal(p.overOdds),1);
   const combModelProb=legs.reduce((prod,p)=>prod*((p.hitRate||50)/100),1);
   const combImplied=legs.reduce((prod,p)=>prod*(p.impliedProbOver??impliedProb(p.overOdds)),1);
@@ -1372,56 +1374,51 @@ function renderParlay(){
   const combAmericanStr=toAmerican(combDecimal);
   const mktLabel={'player_points':'PTS','player_rebounds':'REB','player_assists':'AST','player_threes':'3PM','player_points_rebounds_assists':'PRA'}[S.market]||'PTS';
   el.innerHTML=`
+    <div class="parlay-hdr">${parlayHeader()}</div>
     <div class="parlay-stats">
-      <div class="p-stat">
-        <div class="p-stat-v" style="color:var(--b)">${combAmericanStr}</div>
-        <div class="p-stat-l">Combined Odds</div>
-      </div>
-      <div class="p-stat">
-        <div class="p-stat-v">$${payoutPer100.toFixed(0)}</div>
-        <div class="p-stat-l">Payout on $100</div>
-      </div>
-      <div class="p-stat">
-        <div class="p-stat-v">${(combModelProb*100).toFixed(1)}%</div>
-        <div class="p-stat-l">Model Probability</div>
-      </div>
-      <div class="p-stat">
-        <div class="p-stat-v">${(combImplied*100).toFixed(1)}%</div>
-        <div class="p-stat-l">Implied Probability</div>
-      </div>
-      <div class="p-stat">
-        <div class="p-stat-v" style="color:${evParlay>0?'var(--g)':'var(--r)'}">${evParlay>0?'+':''}${evParlay}%</div>
-        <div class="p-stat-l">Parlay EV</div>
-      </div>
-      <div class="p-stat">
-        <div class="p-stat-v">${combDecimal.toFixed(2)}×</div>
-        <div class="p-stat-l">Decimal Odds</div>
-      </div>
+      <div class="p-stat"><div class="p-stat-v" style="color:var(--b)">${combAmericanStr}</div><div class="p-stat-l">Combined Odds</div></div>
+      <div class="p-stat"><div class="p-stat-v">$${payoutPer100.toFixed(0)}</div><div class="p-stat-l">Payout on $100</div></div>
+      <div class="p-stat"><div class="p-stat-v">${(combModelProb*100).toFixed(1)}%</div><div class="p-stat-l">Model Probability</div></div>
+      <div class="p-stat"><div class="p-stat-v">${(combImplied*100).toFixed(1)}%</div><div class="p-stat-l">Implied Probability</div></div>
+      <div class="p-stat"><div class="p-stat-v" style="color:${evParlay>0?'var(--g)':'var(--r)'}">${evParlay>0?'+':''}${evParlay}%</div><div class="p-stat-l">Parlay EV</div></div>
+      <div class="p-stat"><div class="p-stat-v">${combDecimal.toFixed(2)}×</div><div class="p-stat-l">Decimal Odds</div></div>
     </div>
     <div class="parlay-legs">
       ${legs.map((p,i)=>{
-        const isOver=p.edge>0;
+        const isOver=(p.edge||0)>=0;
         const dir=isOver?'OVER':'UNDER';
-        const oddsStr=(p.overOdds>0?'+':'')+p.overOdds;
+        const oddsStr=p.overOdds?(p.overOdds>0?'+':'')+p.overOdds:'—';
         const edgeStr=(p.edge>0?'+':'')+p.edge.toFixed(1)+'%';
         const ec=p.edge>3?'var(--g)':p.edge<-3?'var(--r)':'var(--t2)';
-        return`<div class="p-leg" id="pl-${i}">
+        const qk=(computeKelly((p.hitRate||50)/100,p.overOdds)*0.25*100).toFixed(1);
+        const pName=p.name.replace(/'/g,"\\'");
+        return`<div class="p-leg">
           <div class="p-leg-num">${i+1}</div>
           <div class="p-leg-info">
             <div class="p-leg-name">${p.name} <span style="font-size:10px;font-weight:600;color:${isOver?'var(--g)':'var(--r)'}">▲ ${dir} ${p.line} ${mktLabel}</span></div>
-            <div class="p-leg-meta">${p.team||'—'} · ${p.matchup||'—'} · Hit Rate ${p.hitRate||0}% · Conf ${p.confidence||0} · Edge <span style="color:${ec}">${edgeStr}</span></div>
+            <div class="p-leg-meta">${p.team||'—'} · ${p.matchup||'—'} · Hit ${p.hitRate||0}% · Conf ${p.confidence||0} · Edge <span style="color:${ec}">${edgeStr}</span> · ¼Kelly ${qk}%</div>
           </div>
           <div class="p-leg-odds">${oddsStr}</div>
-          <button class="p-leg-remove" title="Remove leg" onclick="removeParlayLeg(${JSON.stringify(p.name)})">✕</button>
+          <button class="p-leg-remove" title="Remove — next best auto-fills" onclick="removeParlayLeg('${pName}')">✕</button>
         </div>`;
       }).join('')}
     </div>
-    <div class="parlay-disclaimer">⚠ Parlays are high-risk. Each additional leg multiplies the probability of losing. PropEdge recommends parlays only for entertainment — single-leg value bets offer better long-term EV. Model probability is based on historical hit rates; actual outcomes may differ significantly.</div>
+    <div class="parlay-disclaimer">⚠ Parlays are high-risk. Each leg multiplies the probability of losing. PropEdge recommends single-leg value bets for better long-term EV.</div>
   `;
 }
-function removeParlayLeg(playerName){
-  parlayExcluded.add(playerName);
-  renderParlay();
+function parlayHeader(){
+  return`
+    <div>
+      <h2 class="parlay-title">Parlay Builder 🎯</h2>
+      <p class="parlay-sub">Auto-selects highest-value bets. Hit ✕ to swap a leg for the next best.</p>
+    </div>
+    <div class="parlay-legs-wrap">
+      <span style="font-size:12px;font-weight:600;color:var(--t3);margin-right:8px;">LEGS</span>
+      <div class="parlay-leg-btns">
+        ${[2,3,4,5,6].map(n=>`<button class="leg-btn${n===parlayLegs?' on':''}" onclick="setParlayLegs(${n})">${n}</button>`).join('')}
+      </div>
+    </div>
+  `;
 }
 
 function renderAlerts(){
