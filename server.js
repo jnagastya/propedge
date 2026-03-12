@@ -212,12 +212,16 @@ function nameMatchScore(bdlPlayer, target) {
   const normTarget = normalizeName(target);
   if (normFull === normTarget) return 100;                    // exact normalized match
   if (normFull.includes(normTarget) || normTarget.includes(normFull)) return 80; // substring
-  // Check if last name matches and first initial matches
+  // Check if last name matches and first name matches to varying degrees
   const tParts = normTarget.split(' ');
   const bLast = bdlPlayer.last_name.toLowerCase();
   const bFirst = bdlPlayer.first_name.toLowerCase();
-  if (bLast === tParts[tParts.length - 1] && bFirst[0] === tParts[0][0]) return 60;
-  if (bLast === tParts[tParts.length - 1]) return 40;        // last name only
+  const tFirst = tParts[0];
+  const tLast = tParts[tParts.length - 1];
+  if (bLast === tLast && bFirst === tFirst) return 75;        // exact first+last (post-normalize)
+  if (bLast === tLast && (bFirst.startsWith(tFirst) || tFirst.startsWith(bFirst))) return 65; // first name prefix
+  if (bLast === tLast && bFirst[0] === tFirst[0]) return 55; // last name + first initial
+  if (bLast === tLast) return 40;                             // last name only
   return 0;
 }
 
@@ -305,10 +309,11 @@ async function getBDLPlayerId(name) {
   const position = resolved ? normalizeBDLPosition(resolved.position) : null;
   const team = resolved?.team?.abbreviation?.toUpperCase() ?? null;
 
-  if (resolved) console.log(`BDL name match: "${name}" → "${resolved.first_name} ${resolved.last_name}" team=${team} pos=${resolved.position} (score=${bestScore})`);
+  const matchedName = resolved ? `${resolved.first_name} ${resolved.last_name}` : null;
+  if (resolved) console.log(`BDL name match: "${name}" → "${matchedName}" team=${team} pos=${resolved.position} (score=${bestScore})`);
   else console.warn(`BDL name lookup failed: "${name}" (best score=${bestScore})`);
 
-  const result = { id, position, team };
+  const result = { id, position, team, matchedName };
   // Cache successful lookups for 24h; failures only 30min so they auto-retry
   cacheSet(ck, result, id ? 24 * 3600 : 1800);
   return result;
@@ -1090,11 +1095,11 @@ app.get('/api/debug/player/:name', async (req, res) => {
     // Bust cached player ID so re-lookup uses latest matching logic
     const ck = `bdl_pid_${name.toLowerCase().replace(/\s+/g, '_')}`;
     cache.del(ck);
-    const { id, position } = await getBDLPlayerId(name);
+    const { id, position, team, matchedName } = await getBDLPlayerId(name);
     if (!id) return res.json({ name, found: false, error: 'Player not found in BDL' });
     const games = await fetchBDLGameLog(id);
     res.json({
-      name, found: true, bdlId: id, position,
+      name, found: true, bdlId: id, matchedName, team, position,
       season: NBA_SEASON, gamesFound: games.length,
     });
   } catch (err) {
