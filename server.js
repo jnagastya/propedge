@@ -43,7 +43,7 @@ const supabase = SUPABASE_URL && SUPABASE_KEY
   : null;
 
 // Read game log from Supabase cache (returns null if not found or stale)
-async function sbGetGameLog(playerName, maxAgeHours = 24) {
+async function sbGetGameLog(playerName, maxAgeHours = 168) { // 7-day default
   if (!supabase) return null;
   try {
     const { data, error } = await supabase
@@ -52,12 +52,25 @@ async function sbGetGameLog(playerName, maxAgeHours = 24) {
       .eq('player_name', playerName)
       .single();
     if (error || !data) return null;
-    // Reject if from a different season (e.g. last year's data still in Supabase)
     if (data.season !== NBA_SEASON) return null;
-    // Treat as stale if older than maxAgeHours
     const age = Date.now() - new Date(data.last_fetched).getTime();
     if (age > maxAgeHours * 60 * 60 * 1000) return null;
     return data.game_log;
+  } catch { return null; }
+}
+
+// Returns full Supabase record for incremental merge in the cron (no TTL check)
+async function sbGetGameLogRecord(playerName) {
+  if (!supabase) return null;
+  try {
+    const { data, error } = await supabase
+      .from('player_stats')
+      .select('game_log, last_fetched, season')
+      .eq('player_name', playerName)
+      .single();
+    if (error || !data) return null;
+    if (data.season !== NBA_SEASON) return null;
+    return data;
   } catch { return null; }
 }
 
@@ -145,11 +158,12 @@ function bdlHeaders() {
 
 // Fetch one season's game log rows from BDL (cursor-paginated)
 // Fetch full season game log from BDL (cursor-paginated, retries on 429)
-async function fetchBDLGameLog(playerId) {
+async function fetchBDLGameLog(playerId, startDate = null) {
   let allRows = [];
   let cursor = null;
   do {
     let url = `${BDL_BASE}/stats?player_ids[]=${playerId}&seasons[]=${NBA_SEASON}&per_page=100`;
+    if (startDate) url += `&start_date=${startDate}`;
     if (cursor) url += `&cursor=${cursor}`;
     let resp;
     // Retry up to 3 times on rate limit with exponential backoff
@@ -923,20 +937,41 @@ app.get('/api/cron/refresh-stats', async (req, res) => {
     }
     const playerNames = new Set(oddsPlayers.map(p => p.name).filter(Boolean));
 
-    // Fetch BDL stats for each player with throttling
+    // Fetch/update BDL stats for each player with throttling
+    // Uses incremental mode when possible: only fetches games since last stored game date
+    // (with a 3-day lookback buffer to catch back-to-backs and late BDL reporting)
     const names = [...playerNames];
     for (let i = 0; i < names.length; i++) {
       const name = names[i];
       try {
-        // Skip if refreshed within last 20h — daily cron always re-fetches (runs every 24h)
-        const existing = await sbGetGameLog(name, 20);
-        if (existing) { results.skipped.push(name); continue; }
-
         const { id: bdlId, position: bdlPos } = await getBDLPlayerId(name);
         if (!bdlId) { results.failed.push(`${name} (not found in BDL)`); continue; }
-        const games = await fetchBDLGameLog(bdlId);
-        await sbSetGameLog(name, bdlId, games, bdlPos);
-        results.ok.push(name);
+
+        const record = await sbGetGameLogRecord(name);
+        const existingGames = record?.game_log;
+
+        if (existingGames?.length) {
+          // Incremental mode: find last game date, fetch 3 days back to catch
+          // back-to-backs and any games BDL reported late
+          const lastGameDate = existingGames
+            .map(g => g.date).filter(Boolean).sort().pop();
+          const fetchFrom = new Date(lastGameDate);
+          fetchFrom.setDate(fetchFrom.getDate() - 3);
+          const startDate = fetchFrom.toISOString().split('T')[0];
+
+          const newGames = await fetchBDLGameLog(bdlId, startDate);
+          // Merge: new games override existing on same date (fresher data wins)
+          const byDate = new Map(existingGames.map(g => [g.date, g]));
+          newGames.forEach(g => byDate.set(g.date, g));
+          const merged = [...byDate.values()].sort((a, b) => new Date(b.date) - new Date(a.date));
+          await sbSetGameLog(name, bdlId, merged, bdlPos);
+          results.ok.push(`${name} (+${newGames.length} new)`);
+        } else {
+          // First time: full season fetch
+          const games = await fetchBDLGameLog(bdlId);
+          await sbSetGameLog(name, bdlId, games, bdlPos);
+          results.ok.push(`${name} (full, ${games.length} games)`);
+        }
       } catch (e) {
         results.failed.push(`${name} (${e.message})`);
       }
