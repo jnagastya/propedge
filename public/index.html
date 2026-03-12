@@ -2309,13 +2309,21 @@ function renderAlerts(){
   // blends edge + hit rate + confidence + EV). Using one number guarantees the #1 ranked
   // pick in Balanced is also #1 in Conservative — Conservative just shows fewer total picks.
   // A separate minimum edge gate (≥2%) keeps obvious noise out across all modes.
-  const riskCfg=[{minVS:52,label:'Conservative'},{minVS:36,label:'Balanced'},{minVS:20,label:'Aggressive'}];
+  const riskCfg=[
+    {label:'Conservative',minEdge:8, minConf:70,minHR:60},
+    {label:'Balanced',    minEdge:5, minConf:55,minHR:50},
+    {label:'Aggressive',  minEdge:3, minConf:40,minHR:40},
+  ];
   const t=riskCfg[(S.risk||2)-1];
   const _now=new Date();
   let alerts=getAlertData()
     .filter(p=>!p.gameTime||new Date(p.gameTime)>_now)
-    .map(p=>({...p,vs:valueScore(p),_dirEV:getDirectionalEV(p)}))
-    .filter(p=>p.vs>=t.minVS&&Math.abs(p.edge||0)>=2&&p._dirEV>0)
+    .map(p=>{
+      const _isOv=(p.edge||0)>=0;
+      const _dirHR=_isOv?(p.hitRate||50):(100-(p.hitRate||50));
+      return{...p,vs:valueScore(p),_dirEV:getDirectionalEV(p),_dirHR};
+    })
+    .filter(p=>Math.abs(p.edge||0)>=t.minEdge&&(p.confidence||0)>=t.minConf&&p._dirHR>=t.minHR&&p._dirEV>0)
     .sort((a,b)=>b._dirEV-a._dirEV);
 
   const grid=document.getElementById('vaGrid');
