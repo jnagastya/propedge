@@ -300,6 +300,7 @@ td{padding:9px 11px;white-space:nowrap;}
 .va-card.strong::before{background:linear-gradient(90deg,var(--g),var(--c));}
 .va-card.moderate::before{background:linear-gradient(90deg,var(--a),var(--gold));}
 .va-card.risky::before{background:linear-gradient(90deg,var(--r),var(--a));}
+.va-card.fake-stats{box-shadow:0 0 0 1px rgba(239,68,68,.35),0 0 14px rgba(239,68,68,.18);}
 .va-top{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
 .va-av{width:44px;height:44px;border-radius:50%;background:var(--bg3);overflow:hidden;border:2px solid var(--bd);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:var(--t3);}
 .va-av img{width:100%;height:100%;object-fit:cover;}
@@ -641,7 +642,6 @@ td{padding:9px 11px;white-space:nowrap;}
       <span><span class="dot" style="background:var(--a)"></span>Balanced: Edge 5%+, Conf 55+, Hit 50%+</span>
       <span><span class="dot" style="background:var(--r)"></span>Aggressive: Edge 3%+, Conf 40+, Hit 40%+</span>
     </div>
-    <div id="vaStatsBanner" style="display:none;margin:0 0 12px;padding:10px 14px;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.3);border-radius:8px;font-size:12px;color:#fbbf24;line-height:1.5;"></div>
     <div class="va-grid" id="vaGrid"></div>
   </div>
 
@@ -1143,7 +1143,22 @@ async function enrichAllPlayers(){
     await Promise.allSettled(chunk.map(p=>enrichPlayerStats(null,p)));
     if(i+BATCH<alertPlayers.length) await new Promise(r=>setTimeout(r,300));
   }
-  if(bdg){bdg.className='bdg bdg-real';bdg.textContent='✓ All stats loaded';}
+  // Count fake-stats players across all markets
+  const allEnrichedPlayers=[...( S.data||[])];
+  Object.values(alertMktCache).forEach(d=>(d||[]).forEach(p=>allEnrichedPlayers.push(p)));
+  const fakeCount=allEnrichedPlayers.filter(p=>!p.hasRealStats).length;
+  const totalCount=new Set(allEnrichedPlayers.map(p=>p.name)).size;
+  if(bdg){
+    if(fakeCount>0){
+      bdg.className='bdg';
+      bdg.style.cssText='background:rgba(239,68,68,.12);color:#f87171;border:1px solid rgba(239,68,68,.3);';
+      bdg.textContent=`⚠ ${fakeCount} of ${totalCount} players — fake stats`;
+    } else {
+      bdg.className='bdg bdg-real';
+      bdg.style.cssText='';
+      bdg.textContent='✓ All real stats loaded';
+    }
+  }
   renderAlerts();
 }
 async function doRefresh(){document.getElementById('rBtn').classList.add('sp');await apiGet('/api/cache/clear');await loadData();document.getElementById('rBtn').classList.remove('sp');}
@@ -2147,22 +2162,6 @@ function renderAlerts(){
     return;
   }
   window._vaAlerts=alerts;
-  // Stats status banner
-  const totalAlerts=alerts.length;
-  const noStats=alerts.filter(p=>!p.hasRealStats).length;
-  const allPlayers=getAlertData();
-  const totalPlayers=new Set(allPlayers.map(p=>p.name)).size;
-  const noStatsTotal=allPlayers.filter(p=>!p.hasRealStats).length;
-  const statusEl=document.getElementById('vaStatsBanner');
-  if(statusEl){
-    if(noStatsTotal>0){
-      statusEl.style.display='';
-      statusEl.innerHTML=`⚠ <b>${noStatsTotal} of ${totalPlayers} players</b> are using fake stats — real stats not loaded yet. EV and model probability may be inaccurate for these players.`;
-    } else {
-      statusEl.style.display='none';
-      statusEl.innerHTML='';
-    }
-  }
   grid.innerHTML=alerts.map((p,rank)=>{
     const isOver=p.edge>0;
     const dir=isOver?'OVER':'UNDER';
@@ -2191,7 +2190,7 @@ function renderAlerts(){
     if(evPct>5)reasons.push(`EV <b>+${evPct}%</b> vs implied odds`);
     if((p.scenarioBoost||0)>0)reasons.push(`Scenario boost <b>+${p.scenarioBoost}</b>`);
 
-    return`<div class="va-card ${strength}" onclick="openAlertDetail(_vaAlerts[${rank}])" style="cursor:pointer;">
+    return`<div class="va-card ${strength}${!p.hasRealStats?' fake-stats':''}" onclick="openAlertDetail(_vaAlerts[${rank}])" style="cursor:pointer;">
       <div class="va-top">
         <div class="va-av">${avHTML}</div>
         <div class="va-info">
