@@ -958,7 +958,7 @@ app.get('/api/cron/refresh-stats', async (req, res) => {
         results.failed.push(`${name} (${e.message})`);
       }
       // Throttle to avoid BDL rate limits
-      if (i < names.length - 1) await new Promise(r => setTimeout(r, 800));
+      if (i < names.length - 1) await new Promise(r => setTimeout(r, 400));
     }
 
     res.json({ success: true, processed: names.length, ...results });
