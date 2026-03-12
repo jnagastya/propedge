@@ -1785,15 +1785,23 @@ function renderOverview(el,p){
       </div>
       ${p.hasRealStats?`<div style="margin-top:10px;padding:9px 11px;background:var(--bg1);border-radius:7px;border:1px solid var(--bd);font-size:11px;">
         <div style="font-weight:700;color:var(--t2);margin-bottom:6px;">Model Probability Breakdown</div>
-        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-          <span style="color:var(--t3);">L5 Hit Rate:</span><strong>${p.l5HitRate??'—'}%</strong>
-          <span style="color:var(--bd2)">×35%</span>
-          <span style="color:var(--t3);margin-left:6px;">L10 Hit Rate:</span><strong>${p.l10HitRate??'—'}%</strong>
-          <span style="color:var(--bd2)">×40%</span>
-          <span style="color:var(--t3);margin-left:6px;">Season HR:</span><strong>${p.hitRate??'—'}%</strong>
-          <span style="color:var(--bd2)">×25%</span>
-          <span style="margin-left:6px;padding:2px 8px;border-radius:8px;background:var(--bld);color:var(--b);font-weight:800;">= ${p.modelProb!=null?Math.round(((p.edge||0)>=0?p.modelProb:1-p.modelProb)*100):(p.hitRate??50)}% ${(p.edge||0)>=0?'over':'under'}</span>
-        </div>
+        ${(()=>{
+          const _isOv=(p.edge||0)>=0;
+          const dir=_isOv?'over':'under';
+          const dL5=p.l5HitRate!=null?(_isOv?p.l5HitRate:100-p.l5HitRate):'—';
+          const dL10=p.l10HitRate!=null?(_isOv?p.l10HitRate:100-p.l10HitRate):'—';
+          const dHr=p.hitRate!=null?(_isOv?p.hitRate:100-p.hitRate):'—';
+          const dMP=p.modelProb!=null?Math.round((_isOv?p.modelProb:1-p.modelProb)*100):dHr;
+          return`<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+            <span style="color:var(--t3);">L5 ${dir} rate:</span><strong>${dL5}%</strong>
+            <span style="color:var(--bd2)">×35%</span>
+            <span style="color:var(--t3);margin-left:6px;">L10 ${dir} rate:</span><strong>${dL10}%</strong>
+            <span style="color:var(--bd2)">×40%</span>
+            <span style="color:var(--t3);margin-left:6px;">Season ${dir} rate:</span><strong>${dHr}%</strong>
+            <span style="color:var(--bd2)">×25%</span>
+            <span style="margin-left:6px;padding:2px 8px;border-radius:8px;background:var(--bld);color:var(--b);font-weight:800;">= ${dMP}% ${dir}</span>
+          </div>`;
+        })()}
       </div>`:''}
     </div>
     ${p.hasRealStats?(()=>{const pg=(p.gameLog||[]).filter(g=>parseInt(g.min||'0')>0);const am=pg.length?Math.round(pg.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/pg.length):30;return`<div class="dc full"><div class="dc-t"><span class="dt" style="background:#8b5cf6"></span>Minutes Projection <span style="font-size:10px;color:var(--t3);font-weight:400;margin-left:4px;">Adjust model for expected playing time</span></div>
