@@ -1310,6 +1310,73 @@ function calcEV(modelProb,odds){
   const payout=o>0?o/100:100/Math.abs(o);
   return +((modelProb*payout-(1-modelProb))*100).toFixed(1);
 }
+// Standard normal CDF approximation (Abramowitz & Stegun)
+function normalCDF(z){
+  const s=z<0?-1:1; z=Math.abs(z);
+  const k=1/(1+0.2316419*z);
+  const poly=k*(0.319381530+k*(-0.356563782+k*(1.781477937+k*(-1.821255978+k*1.330274429))));
+  const cdf=1-(1/Math.sqrt(2*Math.PI))*Math.exp(-0.5*z*z)*poly;
+  return s===1?cdf:1-cdf;
+}
+// Compute model probability adjusted for a projected minutes value
+function computeMinutesAdjustedProb(p,projMin){
+  const games=(p.gameLog||[]).filter(g=>parseInt(g.min||'0')>0);
+  if(!games.length||!p.line) return p.modelProb||0.5;
+  const statMap={'player_points':'pts','player_rebounds':'reb','player_assists':'ast',
+    'player_threes':'fg3m','player_steals':'stl','player_blocks':'blk',
+    'player_turnovers':'turnover','player_points_rebounds_assists':'pra'};
+  const statKey=statMap[p.market||S.market]||'pts';
+  const getV=g=>statKey==='pra'?(+g.pts||0)+(+g.reb||0)+(+g.ast||0):+(g[statKey]||0);
+  const avgMin=games.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/games.length;
+  // Approach 1: similar minutes games — widen window until we have ≥4 samples
+  for(const win of [4,7,11]){
+    const sim=games.filter(g=>Math.abs((parseFloat(g.min)||0)-projMin)<=win);
+    if(sim.length>=4){
+      const simHR=sim.filter(g=>getV(g)>=p.line).length/sim.length;
+      const conf=Math.min(1,sim.length/10); // trust more with larger sample
+      return Math.min(0.97,Math.max(0.03,simHR*conf+(p.modelProb||0.5)*(1-conf)));
+    }
+  }
+  // Approach 2: ratio-scale avg + stddev, use normal distribution
+  const ratio=avgMin>0?projMin/avgMin:1;
+  const adjAvg=(p.avg||0)*ratio;
+  const adjStd=Math.max(0.5,(p.stdDev||2)*Math.sqrt(Math.max(0.1,ratio)));
+  return Math.min(0.97,Math.max(0.03,1-normalCDF((p.line-adjAvg)/adjStd)));
+}
+// Handle minutes slider input in player overview
+function updateMinutesProjection(projMin){
+  const p=window._dp;
+  if(!p||!p.hasRealStats) return;
+  projMin=parseInt(projMin);
+  const games=(p.gameLog||[]).filter(g=>parseInt(g.min||'0')>0);
+  const avgMin=games.length?Math.round(games.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/games.length):30;
+  const valEl=document.getElementById('minSliderVal');
+  if(valEl) valEl.textContent=projMin+' min';
+  const adjEl=document.getElementById('minAdjStats');
+  if(!adjEl) return;
+  if(Math.abs(projMin-avgMin)<1){
+    adjEl.innerHTML=`<div style="font-size:11px;color:var(--t3);text-align:center;padding:4px 0;">Season avg: ${avgMin} min/game — no adjustment applied</div>`;
+    return;
+  }
+  const adjProb=computeMinutesAdjustedProb(p,projMin);
+  const isOver=(p.edge||0)>=0;
+  const adjDirProb=isOver?adjProb:1-adjProb;
+  const adjEV=calcEV(adjDirProb,isOver?p.overOdds:p.underOdds);
+  const adjHR=Math.round(adjProb*100);
+  const ratio=avgMin>0?projMin/avgMin:1;
+  const adjAvg=+((p.avg||0)*ratio).toFixed(1);
+  const origHR=Math.round((p.modelProb||0.5)*100);
+  const evCol=adjEV>0?'var(--g)':'var(--r)';
+  const dir=projMin>avgMin?'↑':'↓';
+  adjEl.innerHTML=`<div style="background:var(--bg1);border:1px solid rgba(139,92,246,.35);border-radius:7px;padding:9px 11px;margin-top:6px;">
+    <div style="font-size:10px;color:#a78bfa;font-weight:700;margin-bottom:6px;letter-spacing:.4px;">⏱ ADJUSTED FOR ${projMin} MIN (${dir}${Math.abs(projMin-avgMin)} from avg)</div>
+    <div class="sr">
+      <div class="sb2"><div class="sb2-l">Adj Avg</div><div class="sb2-v">${adjAvg}</div><div class="sb2-s">was ${p.avg}</div></div>
+      <div class="sb2"><div class="sb2-l">Hit Rate</div><div class="sb2-v">${adjHR}%</div><div class="sb2-s">was ${origHR}%</div></div>
+      <div class="sb2"><div class="sb2-l">Adj EV</div><div class="sb2-v" style="color:${evCol}">${adjEV>0?'+':''}${adjEV}%</div><div class="sb2-s">${isOver?'Over':'Under'} ${p.line}</div></div>
+    </div>
+  </div>`;
+}
 // Kelly Criterion: f* = (b×p − q) / b
 // b = net profit per unit (decimal odds − 1), p = model prob, q = 1−p
 // Returns full Kelly fraction (0–1). Use quarter Kelly for conservative sizing.
@@ -1699,6 +1766,17 @@ function renderOverview(el,p){
         </div>
       </div>`:''}
     </div>
+    ${p.hasRealStats?(()=>{const pg=(p.gameLog||[]).filter(g=>parseInt(g.min||'0')>0);const am=pg.length?Math.round(pg.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/pg.length):30;return`<div class="dc full"><div class="dc-t"><span class="dt" style="background:#8b5cf6"></span>Minutes Projection <span style="font-size:10px;color:var(--t3);font-weight:400;margin-left:4px;">Adjust model for expected playing time</span></div>
+      <div style="padding:6px 0 2px;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+          <span style="font-size:11px;color:var(--t3);min-width:16px;">0</span>
+          <input type="range" min="0" max="48" value="${am}" step="1" style="flex:1;cursor:pointer;accent-color:#8b5cf6;" oninput="updateMinutesProjection(this.value)">
+          <span style="font-size:11px;color:var(--t3);min-width:20px;">48</span>
+          <span id="minSliderVal" style="font-size:13px;font-weight:700;color:#a78bfa;min-width:52px;text-align:right;">${am} min</span>
+        </div>
+        <div id="minAdjStats" style="font-size:11px;color:var(--t3);text-align:center;">Season avg: ${am} min/game — slide to adjust</div>
+      </div>
+    </div>`})():''}
     <div class="dc"><div class="dc-t"><span class="dt" style="background:var(--g)"></span>Last 10 Calendar Games <span style="font-size:10px;color:var(--t3);font-weight:400;margin-left:4px;">(DNPs shown but excluded from averages)</span></div>
       <div class="chb"><div class="lref" style="top:${lP}%"><span class="lref-l">LINE ${p.line}</span></div><div class="bars">${bars}</div></div>
     </div>
