@@ -240,7 +240,7 @@ function normalizeBDLPosition(pos) {
 const BDL_PLAYER_OVERRIDES = {
   'Tre Jones':      { id: 3547291,    position: 'G', team: null }, // BDL search returns 0 results
   'Tre Johnson':    { id: 1057262985, position: 'G', team: 'WAS' },
-  'Isaiah Stewart': { id: 17553998,   position: 'C', team: 'DET' },
+  'Isaiah Stewart': { id: 3547267,    position: 'C', team: 'DET' },
   'Isaiah Joe':     { id: 3547272,    position: 'G', team: 'OKC' },
 };
 
