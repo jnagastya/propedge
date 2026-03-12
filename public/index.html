@@ -322,7 +322,8 @@ td{padding:9px 11px;white-space:nowrap;}
 .risk-thresholds .dot{width:7px;height:7px;border-radius:50%;}
 .wt-panel{background:var(--bg1);border:1px solid rgba(99,102,241,.3);border-radius:var(--radius-lg);padding:16px 18px;margin-bottom:10px;display:none;box-shadow:0 4px 24px rgba(0,0,0,.25);}
 .wt-panel.open{display:block;}
-.wt-row{display:grid;grid-template-columns:90px 1fr 58px;align-items:center;gap:10px;margin-bottom:10px;}
+.wt-row{display:grid;grid-template-columns:90px 1fr 58px 44px;align-items:center;gap:10px;margin-bottom:10px;}
+.wt-prop{font-size:11px;font-weight:600;color:var(--t3);text-align:right;white-space:nowrap;}
 .wt-row:last-child{margin-bottom:0;}
 .wt-lbl{font-size:11px;font-weight:700;color:var(--t2);}
 .wt-num{width:54px;font-size:12px;font-weight:700;color:var(--b);text-align:center;background:var(--bg2);border:1px solid var(--bd);border-radius:6px;padding:3px 6px;outline:none;-moz-appearance:textfield;}
@@ -711,17 +712,17 @@ td{padding:9px 11px;white-space:nowrap;}
     </div>
     <div class="wt-panel" id="wtPanel">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-        <span style="font-size:12px;font-weight:700;color:var(--t1);">Value Score Weights <span style="font-weight:400;color:var(--t3);">— each factor is 0–100, independent</span></span>
+        <span style="font-size:12px;font-weight:700;color:var(--t1);">Value Score Weights <span style="font-weight:400;color:var(--t3);">— set the relative importance of each factor; higher = more influence on the score</span></span>
         <div class="wt-actions">
           <span class="wt-saved" id="wtSavedMsg">Saved!</span>
           <button class="wt-save" onclick="saveWeightProfile()">Save Profile</button>
           <button class="wt-reset" onclick="resetWeights()">Reset</button>
         </div>
       </div>
-      <div class="wt-row"><span class="wt-lbl">Edge %</span><input type="range" class="wt-slider" min="0" max="100" value="25" id="wEdge" oninput="syncWeightFromSlider('wEdge','wEdgeNum')"><input type="number" class="wt-num" min="0" max="100" value="25" id="wEdgeNum" oninput="syncWeightFromNum('wEdge','wEdgeNum')"></div>
-      <div class="wt-row"><span class="wt-lbl">Hit Rate</span><input type="range" class="wt-slider" min="0" max="100" value="25" id="wHr" oninput="syncWeightFromSlider('wHr','wHrNum')"><input type="number" class="wt-num" min="0" max="100" value="25" id="wHrNum" oninput="syncWeightFromNum('wHr','wHrNum')"></div>
-      <div class="wt-row"><span class="wt-lbl">Confidence</span><input type="range" class="wt-slider" min="0" max="100" value="25" id="wConf" oninput="syncWeightFromSlider('wConf','wConfNum')"><input type="number" class="wt-num" min="0" max="100" value="25" id="wConfNum" oninput="syncWeightFromNum('wConf','wConfNum')"></div>
-      <div class="wt-row"><span class="wt-lbl">EV</span><input type="range" class="wt-slider" min="0" max="100" value="25" id="wEv" oninput="syncWeightFromSlider('wEv','wEvNum')"><input type="number" class="wt-num" min="0" max="100" value="25" id="wEvNum" oninput="syncWeightFromNum('wEv','wEvNum')"></div>
+      <div class="wt-row"><span class="wt-lbl">Edge %</span><input type="range" class="wt-slider" min="0" max="100" value="25" id="wEdge" oninput="syncWeightFromSlider('wEdge','wEdgeNum')"><input type="number" class="wt-num" min="0" max="100" value="25" id="wEdgeNum" oninput="syncWeightFromNum('wEdge','wEdgeNum')"><span class="wt-prop" id="wEdgeProp">25%</span></div>
+      <div class="wt-row"><span class="wt-lbl">Hit Rate</span><input type="range" class="wt-slider" min="0" max="100" value="25" id="wHr" oninput="syncWeightFromSlider('wHr','wHrNum')"><input type="number" class="wt-num" min="0" max="100" value="25" id="wHrNum" oninput="syncWeightFromNum('wHr','wHrNum')"><span class="wt-prop" id="wHrProp">25%</span></div>
+      <div class="wt-row"><span class="wt-lbl">Confidence</span><input type="range" class="wt-slider" min="0" max="100" value="25" id="wConf" oninput="syncWeightFromSlider('wConf','wConfNum')"><input type="number" class="wt-num" min="0" max="100" value="25" id="wConfNum" oninput="syncWeightFromNum('wConf','wConfNum')"><span class="wt-prop" id="wConfProp">25%</span></div>
+      <div class="wt-row"><span class="wt-lbl">EV</span><input type="range" class="wt-slider" min="0" max="100" value="25" id="wEv" oninput="syncWeightFromSlider('wEv','wEvNum')"><input type="number" class="wt-num" min="0" max="100" value="25" id="wEvNum" oninput="syncWeightFromNum('wEv','wEvNum')"><span class="wt-prop" id="wEvProp">25%</span></div>
     </div>
     <div class="va-grid" id="vaGrid"></div>
   </div>
@@ -2080,6 +2081,12 @@ function _readWeights(){
     conf:Math.min(100,Math.max(0,+document.getElementById('wConf').value||0)),
     ev:Math.min(100,Math.max(0,+document.getElementById('wEv').value||0)),
   };
+  const tot=vsWeights.edge+vsWeights.hr+vsWeights.conf+vsWeights.ev||1;
+  const pct=k=>Math.round(vsWeights[k]/tot*100)+'%';
+  document.getElementById('wEdgeProp').textContent=pct('edge');
+  document.getElementById('wHrProp').textContent=pct('hr');
+  document.getElementById('wConfProp').textContent=pct('conf');
+  document.getElementById('wEvProp').textContent=pct('ev');
   renderAlerts();
 }
 function syncWeightFromSlider(sliderId,numId){
