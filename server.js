@@ -1116,7 +1116,7 @@ app.get('/api/cron/grade-bets', async (req, res) => {
   if (!supabase) return res.status(503).json({ error: 'Supabase not configured' });
 
   const now = Date.now();
-  const GRADE_AFTER_MS = 4 * 60 * 60 * 1000; // grade bets whose gameTime is >4h ago
+  const GRADE_AFTER_MS = 10 * 60 * 60 * 1000; // grade bets whose gameTime is >10h ago
   const summary = { usersProcessed: 0, betsGraded: 0, betsSkipped: 0, errors: [] };
 
   try {
