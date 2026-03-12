@@ -279,27 +279,27 @@ async function getBDLPlayerId(name) {
   let best = null, bestScore = 0;
   ({ best, bestScore } = updateBest(results, best, bestScore));
 
-  // Search 2: normalized name (strip suffix Jr/III/etc) — run if no good match yet
+  // Search 2: normalized name (strip suffix Jr/III/etc) — run if no confident match yet
   const normed = normalizeName(name);
   const normedTitle = normed.replace(/\b\w/g, c => c.toUpperCase());
-  if (bestScore < 40 && normedTitle !== name) {
+  if (bestScore < 65 && normedTitle !== name) {
     ({ best, bestScore } = updateBest(await trySearch(normedTitle), best, bestScore));
   }
 
   // Search 3: expand common abbreviations (CJ → C.J., PJ → P.J., AJ → A.J.)
-  if (bestScore < 40) {
+  if (bestScore < 65) {
     const expanded = name.replace(/\b([A-Z]{2,3})\b/g, m => m.split('').join('.') + '.');
     if (expanded !== name) ({ best, bestScore } = updateBest(await trySearch(expanded), best, bestScore));
   }
 
-  // Search 4: first name only (helps with apostrophe variants like Ja'Kobe)
-  if (bestScore < 40) {
+  // Search 4: first name only (helps with apostrophe variants like Ja'Kobe, and sibling conflicts like Tre/Tyus)
+  if (bestScore < 65) {
     const firstName = name.trim().split(' ')[0].replace(/['\u2018\u2019]/g, '');
     ({ best, bestScore } = updateBest(await trySearch(firstName), best, bestScore));
   }
 
   // Search 5: last name fallback
-  if (bestScore < 40) {
+  if (bestScore < 65) {
     const lastName = name.trim().split(' ').pop();
     ({ best, bestScore } = updateBest(await trySearch(lastName), best, bestScore));
   }
