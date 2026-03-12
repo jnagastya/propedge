@@ -1114,34 +1114,57 @@ async function enrichAllPlayers(){
   if(!players.length) return;
   const bdg=document.getElementById('statsBdg');
   if(bdg){bdg.className='bdg bdg-loading';bdg.textContent='⏳ Loading real stats…';bdg.style.display='';}
-  const BATCH=1;
 
-  // Pass 1: enrich current market players (sequential to avoid BDL 429 rate limit)
-  for(let i=0;i<players.length;i+=BATCH){
-    const chunk=players.slice(i,i+BATCH);
-    await Promise.allSettled(chunk.map(p=>enrichPlayerStats(null,p)));
-    if(i+BATCH<players.length) await new Promise(r=>setTimeout(r,300));
-  }
-  if(bdg){bdg.className='bdg bdg-real';bdg.textContent='✓ Real stats loaded';}
-  renderTable();
-
-  // Load all alert markets (server cache, cheap)
-  const ALL_ALERT_MKTS = ['player_points','player_rebounds','player_assists','player_threes','player_points_rebounds_assists'];
-  alertMktCache[S.market] = S.data;
+  // Load all alert markets first so we have the full player list for bulk fetch
+  const ALL_ALERT_MKTS=['player_points','player_rebounds','player_assists','player_threes','player_points_rebounds_assists'];
+  alertMktCache[S.market]=S.data;
   await Promise.all(ALL_ALERT_MKTS.filter(mk=>mk!==S.market).map(mk=>loadAlertMarket(mk)));
 
-  // Pass 2: enrich alert-market players (each uses p.market for the correct stat key)
-  // Game log fetches hit server cache so no extra BDL quota is used
-  const alertPlayers=[];
-  Object.entries(alertMktCache).forEach(([mkt,data])=>{
-    if(mkt===S.market)return; // already done in pass 1
-    (data||[]).forEach(p=>{if(!p.hasRealStats)alertPlayers.push(p);});
+  // Collect all unique players across every market
+  const allPlayerMap={};
+  Object.values(alertMktCache).forEach(data=>(data||[]).forEach(p=>{
+    if(!allPlayerMap[p.name])allPlayerMap[p.name]=[];
+    allPlayerMap[p.name].push(p);
+  }));
+  const uniqueNames=Object.keys(allPlayerMap);
+
+  // BULK FETCH: get all cached stats in 1-2 server calls instead of 100+ individual requests
+  if(bdg)bdg.textContent=`⏳ Fetching stats for ${uniqueNames.length} players…`;
+  const CHUNK=50; // stay under URL length limits
+  const bulkData={};
+  for(let i=0;i<uniqueNames.length;i+=CHUNK){
+    const chunk=uniqueNames.slice(i,i+CHUNK);
+    try{
+      const r=await apiGet(`/api/stats/bulk?names=${chunk.map(encodeURIComponent).join(',')}`);
+      if(r.data)Object.assign(bulkData,r.data);
+    }catch(e){console.warn('Bulk fetch error:',e);}
+  }
+
+  // Apply bulk results immediately — enriches all cached players at once
+  let bulkHits=0;
+  uniqueNames.forEach(name=>{
+    const entry=bulkData[name];
+    if(!entry?.data?.length) return;
+    allPlayerMap[name].forEach(p=>{if(!p.hasRealStats){applyPlayerStats(p,entry.data);bulkHits++;}});
   });
-  if(bdg){bdg.className='bdg bdg-loading';bdg.textContent=`⏳ Enriching ${alertPlayers.length} alert-market players…`;}
-  for(let i=0;i<alertPlayers.length;i+=BATCH){
-    const chunk=alertPlayers.slice(i,i+BATCH);
-    await Promise.allSettled(chunk.map(p=>enrichPlayerStats(null,p)));
-    if(i+BATCH<alertPlayers.length) await new Promise(r=>setTimeout(r,300));
+  console.log(`[bulk] ${bulkHits} players enriched from cache`);
+  renderTable();
+  renderAlerts();
+
+  // FALLBACK: sequential individual fetches for any players still missing stats
+  const stillMissing=uniqueNames.filter(name=>allPlayerMap[name].some(p=>!p.hasRealStats));
+  if(stillMissing.length){
+    if(bdg)bdg.textContent=`⏳ Fetching ${stillMissing.length} uncached players…`;
+    for(let i=0;i<stillMissing.length;i++){
+      const name=stillMissing[i];
+      const playerInstances=allPlayerMap[name];
+      await enrichPlayerStats(null,playerInstances[0]); // fetch once
+      // Apply to all instances of this player across markets
+      if(playerInstances[0].hasRealStats){
+        playerInstances.slice(1).forEach(p=>{if(!p.hasRealStats)applyPlayerStats(p,playerInstances[0].gameLog);});
+      }
+      if(i<stillMissing.length-1) await new Promise(r=>setTimeout(r,300));
+    }
   }
   // Count fake-stats players across all markets
   const allEnrichedPlayers=[...( S.data||[])];
@@ -1535,12 +1558,60 @@ function renderDet(i,p){
   // Fetch real stats from stats.nba.com in background; auto-refresh overview when ready
   if(!p.hasRealStats) enrichPlayerStats(i,p);
 }
+// Apply pre-fetched game data to a player object — shared by bulk and individual paths
+function applyPlayerStats(p, games){
+  if(!games||!games.length){p.statsError='No data returned';return false;}
+  const statMap={'player_points':'pts','player_rebounds':'reb','player_assists':'ast',
+    'player_threes':'fg3m','player_steals':'stl','player_blocks':'blk','player_turnovers':'turnover',
+    'player_points_rebounds_assists':'pra'};
+  const statKey=statMap[p.market||S.market]||'pts';
+  const getStatVal=g=>statKey==='pra'?(+g.pts||0)+(+g.reb||0)+(+g.ast||0):+(g[statKey]||0);
+  const sorted=[...games].sort((a,b)=>new Date(b.date||0)-new Date(a.date||0));
+  const rawL10=sorted.slice(0,10);
+  const played=sorted.filter(g=>parseInt(g.min||'0')>0);
+  if(!played.length){p.statsError='No games with minutes played found';return false;}
+  const vals=played.map(g=>getStatVal(g));
+  const l10=vals.slice(0,10);
+  const firstPlayedIdx=sorted.findIndex(g=>parseInt(g.min||'0')>0);
+  const returnFromInjury=firstPlayedIdx>=2?firstPlayedIdx:0;
+  const minVals=played.map(g=>parseFloat(g.min)||0).filter(m=>m>0);
+  let minutesFlag=0;
+  if(minVals.length>=5){
+    const seasonAvgMin=minVals.reduce((a,b)=>a+b,0)/minVals.length;
+    const recent5Min=minVals.slice(0,5).reduce((a,b)=>a+b,0)/5;
+    const minDiff=(recent5Min-seasonAvgMin)/seasonAvgMin;
+    if(Math.abs(minDiff)>=0.20)minutesFlag=+minDiff.toFixed(2);
+  }
+  const avg=+(vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(1);
+  const hitRate=p.line?Math.round(vals.filter(v=>v>=p.line).length/vals.length*100):50;
+  const edge=p.line?+((avg-p.line)/p.line*100).toFixed(1):0;
+  const l10avg=l10.reduce((a,b)=>a+b,0)/l10.length;
+  const stdDev=+(Math.sqrt(l10.reduce((s,v)=>s+Math.pow(v-l10avg,2),0)/l10.length)).toFixed(1);
+  const cv=avg?stdDev/avg:0.4;
+  const l10HitRate=p.line&&l10.length?Math.round(l10.filter(v=>v>=p.line).length/l10.length*100):hitRate;
+  const l5=vals.slice(0,5);
+  const l5HitRate=(l5.length>=3&&p.line)?Math.round(l5.filter(v=>v>=p.line).length/l5.length*100):l10HitRate;
+  const modelProb=Math.min(0.97,Math.max(0.03,(l5HitRate*0.35+l10HitRate*0.40+hitRate*0.25)/100));
+  const evOver=calcEV(modelProb,p.overOdds);
+  const evUnder=calcEV(1-modelProb,p.underOdds);
+  const isOverBet=edge>=0;
+  const dirModelProb=isOverBet?modelProb:1-modelProb;
+  const dirHR=Math.round(dirModelProb*100);
+  const dirImpliedProb=isOverBet?(p.impliedProbOver||0.5):(p.impliedProbUnder||0.5);
+  const evEdge=dirModelProb-dirImpliedProb;
+  const evPts=Math.min(Math.max(evEdge*220+22,0),44);
+  const hrPts=Math.min(Math.max((dirHR-50)*0.67,-17),33);
+  const cvPts=Math.max(0,Math.round((0.5-Math.min(cv,0.5))/0.5*23));
+  const conf=Math.max(0,Math.min(100,Math.round(evPts+hrPts+cvPts)));
+  const dnpCount=rawL10.filter(g=>parseInt(g.min||'0')===0).length;
+  Object.assign(p,{avg,l10,rawL10,hitRate,l10HitRate,l5HitRate,modelProb,edge,stdDev,evOver,evUnder,confidence:conf,hasRealStats:true,statsError:null,gamesPlayed:vals.length,gameLog:sorted,returnFromInjury,minutesFlag,dnpCount});
+  return true;
+}
 async function enrichPlayerStats(i,p){
   if(p.hasRealStats) return;
   try{
     const r=await apiGet(`/api/stats/player/name/${encodeURIComponent(p.name)}/games`);
     console.log(`[stats] ${p.name}:`,r.error||`${r.data?.length??0} games, team=${r.team}`);
-    // Update team/position from BDL if currently missing
     if(r.team&&(!p.team||p.team==='???'))p.team=r.team;
     if(r.position&&!p.position)p.position=r.position;
     if(r.error||!r.data||!r.data.length){
@@ -1548,62 +1619,7 @@ async function enrichPlayerStats(i,p){
       if(i!=null){const el=document.getElementById(`dtc-${i}`);if(el&&window._dp===p)renderOverview(el,p);}
       return;
     }
-    const statMap={'player_points':'pts','player_rebounds':'reb','player_assists':'ast',
-      'player_threes':'fg3m','player_steals':'stl','player_blocks':'blk','player_turnovers':'turnover',
-      'player_points_rebounds_assists':'pra'};
-    const statKey=statMap[p.market||S.market]||'pts';
-    const getStatVal=g=>statKey==='pra'?(+g.pts||0)+(+g.reb||0)+(+g.ast||0):+(g[statKey]||0);
-    const sorted=r.data.sort((a,b)=>new Date(b.date||0)-new Date(a.date||0));
-    // rawL10 = last 10 calendar games (may include DNPs) — used for the bar chart only
-    const rawL10=sorted.slice(0,10);
-    // Filter out DNP/inactive games (0 minutes played) for stats calculations
-    const played=sorted.filter(g=>parseInt(g.min||'0')>0);
-    if(!played.length){p.statsError='No games with minutes played found';return;}
-    const vals=played.map(g=>getStatVal(g));
-    const l10=vals.slice(0,10);
-    // Return-from-injury flag: count consecutive DNPs right before the first played game
-    const firstPlayedIdx=sorted.findIndex(g=>parseInt(g.min||'0')>0);
-    const returnFromInjury=firstPlayedIdx>=2?firstPlayedIdx:0;
-    // Minutes deviation flag: compare recent 5 games avg vs season avg (20%+ threshold)
-    const minVals=played.map(g=>parseFloat(g.min)||0).filter(m=>m>0);
-    let minutesFlag=0;
-    if(minVals.length>=5){
-      const seasonAvgMin=minVals.reduce((a,b)=>a+b,0)/minVals.length;
-      const recent5Min=minVals.slice(0,5).reduce((a,b)=>a+b,0)/5;
-      const minDiff=(recent5Min-seasonAvgMin)/seasonAvgMin;
-      if(Math.abs(minDiff)>=0.20)minutesFlag=+minDiff.toFixed(2);
-    }
-    const avg=+(vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(1);
-    // hitRate = raw season hit rate (all played games) — kept for display in the table
-    const hitRate=p.line?Math.round(vals.filter(v=>v>=p.line).length/vals.length*100):50;
-    const edge=p.line?+((avg-p.line)/p.line*100).toFixed(1):0;
-    const l10avg=l10.reduce((a,b)=>a+b,0)/l10.length;
-    const stdDev=+(Math.sqrt(l10.reduce((s,v)=>s+Math.pow(v-l10avg,2),0)/l10.length)).toFixed(1);
-    const cv=avg?stdDev/avg:0.4;
-    // --- Weighted Model Probability ---
-    // Season HR is the full baseline, but recent games are weighted heavier
-    // because NBA form, role changes, and matchups shift mid-season.
-    // Weights: L5 (35%) + L10 (40%) + Season (25%)
-    const l10HitRate=p.line&&l10.length?Math.round(l10.filter(v=>v>=p.line).length/l10.length*100):hitRate;
-    const l5=vals.slice(0,5);
-    const l5HitRate=(l5.length>=3&&p.line)?Math.round(l5.filter(v=>v>=p.line).length/l5.length*100):l10HitRate;
-    const modelProb=Math.min(0.97,Math.max(0.03,(l5HitRate*0.35+l10HitRate*0.40+hitRate*0.25)/100));
-    // Always recompute EV from real weighted model prob
-    const evOver=calcEV(modelProb,p.overOdds);
-    const evUnder=calcEV(1-modelProb,p.underOdds);
-    // Directional confidence: assess for the direction the model favours
-    const isOverBet=edge>=0;
-    // Directional hit rate also uses weighted prob for consistency
-    const dirModelProb=isOverBet?modelProb:1-modelProb;
-    const dirHR=Math.round(dirModelProb*100);
-    const dirImpliedProb=isOverBet?(p.impliedProbOver||0.5):(p.impliedProbUnder||0.5);
-    const evEdge=dirModelProb-dirImpliedProb;
-    const evPts=Math.min(Math.max(evEdge*220+22,0),44);
-    const hrPts=Math.min(Math.max((dirHR-50)*0.67,-17),33);
-    const cvPts=Math.max(0,Math.round((0.5-Math.min(cv,0.5))/0.5*23));
-    const conf=Math.max(0,Math.min(100,Math.round(evPts+hrPts+cvPts)));
-    const dnpCount=rawL10.filter(g=>parseInt(g.min||'0')===0).length;
-    Object.assign(p,{avg,l10,rawL10,hitRate,l10HitRate,l5HitRate,modelProb,edge,stdDev,evOver,evUnder,confidence:conf,hasRealStats:true,statsError:null,gamesPlayed:vals.length,gameLog:sorted,returnFromInjury,minutesFlag,dnpCount});
+    applyPlayerStats(p, r.data);
     if(i!=null){
       const activeTab=document.querySelector(`#di-${i} .di-tab.on`);
       if(activeTab&&activeTab.textContent.trim()==='Overview')renderOverview(document.getElementById(`dtc-${i}`),p);

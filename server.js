@@ -567,6 +567,50 @@ app.get('/api/odds/scores', async (req, res) => {
 });
 
 // ============================================================
+// ROUTE: GET /api/stats/bulk — bulk fetch cached stats for multiple players
+// Returns all players found in memory/Supabase cache in one shot.
+// Client falls back to individual requests only for missing players.
+// ============================================================
+app.get('/api/stats/bulk', async (req, res) => {
+  const names = (req.query.names || '').split(',').map(n => n.trim()).filter(Boolean);
+  if (!names.length) return res.json({ data: {} });
+
+  const result = {};
+
+  // Layer 1: in-memory cache (instant)
+  names.forEach(name => {
+    const ck = `gl_name_${NBA_SEASON}_${name.toLowerCase().replace(/\s+/g, '_')}`;
+    const hit = cacheGet(ck);
+    if (hit) result[name] = { data: hit, source: 'memory' };
+  });
+
+  // Layer 2: bulk Supabase query for all remaining players in one DB call
+  const missing = names.filter(n => !result[n]);
+  if (supabase && missing.length) {
+    try {
+      const { data } = await supabase
+        .from('player_stats')
+        .select('player_name, game_log, season, last_fetched')
+        .in('player_name', missing)
+        .eq('season', NBA_SEASON);
+
+      if (data) {
+        data.forEach(row => {
+          const age = Date.now() - new Date(row.last_fetched).getTime();
+          if (age <= 7 * 24 * 60 * 60 * 1000 && row.game_log?.length) {
+            const ck = `gl_name_${NBA_SEASON}_${row.player_name.toLowerCase().replace(/\s+/g, '_')}`;
+            cacheSet(ck, row.game_log, STATS_TTL);
+            result[row.player_name] = { data: row.game_log, source: 'supabase' };
+          }
+        });
+      }
+    } catch (e) { console.warn('Bulk Supabase fetch error:', e.message); }
+  }
+
+  res.json({ data: result });
+});
+
+// ============================================================
 // ROUTE: GET /api/stats/player/search — search players via NBA.com
 // NOTE: Specific string routes MUST come before param routes (:id)
 // ============================================================
