@@ -1111,6 +1111,7 @@ async function loadData() {
 async function enrichAllPlayers(){
   const players=S.data||[];
   if(!players.length) return;
+  const bdg=document.getElementById('statsBdg');
   // Load all alert markets first so we have the full player list for bulk fetch
   const ALL_ALERT_MKTS=['player_points','player_rebounds','player_assists','player_threes','player_points_rebounds_assists'];
   alertMktCache[S.market]=S.data;
@@ -1162,7 +1163,6 @@ async function enrichAllPlayers(){
       if(i<stillMissing.length-1) await new Promise(r=>setTimeout(r,300));
     }
   }
-  const bdg=document.getElementById('statsBdg');
   if(bdg){bdg.className='bdg bdg-real';bdg.style.cssText='';bdg.textContent='✓ Stats loaded';}
   renderAlerts();
 }
