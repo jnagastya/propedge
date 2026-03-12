@@ -1524,7 +1524,10 @@ async function enrichPlayerStats(i,p){
   if(p.hasRealStats) return;
   try{
     const r=await apiGet(`/api/stats/player/name/${encodeURIComponent(p.name)}/games`);
-    console.log(`[stats] ${p.name}:`,r.error||`${r.data?.length??0} games`);
+    console.log(`[stats] ${p.name}:`,r.error||`${r.data?.length??0} games, team=${r.team}`);
+    // Update team/position from BDL if currently missing
+    if(r.team&&(!p.team||p.team==='???'))p.team=r.team;
+    if(r.position&&!p.position)p.position=r.position;
     if(r.error||!r.data||!r.data.length){
       p.statsError=r.error||'No data returned';
       if(i!=null){const el=document.getElementById(`dtc-${i}`);if(el&&window._dp===p)renderOverview(el,p);}
