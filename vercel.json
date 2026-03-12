@@ -17,9 +17,7 @@
       "schedule": "30 18 * * *"
     },
     { "path": "/api/cron/refresh-odds", "schedule": "0 18 * * *" },
-    { "path": "/api/cron/refresh-odds", "schedule": "0 21 * * *" },
     { "path": "/api/cron/refresh-odds", "schedule": "0 23 * * *" },
-    { "path": "/api/cron/refresh-odds", "schedule": "0 1 * * *" },
     { "path": "/api/cron/refresh-odds", "schedule": "30 2 * * *" }
   ]
 }
