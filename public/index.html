@@ -611,7 +611,7 @@ td{padding:9px 11px;white-space:nowrap;}
           <span id="mktLbl">Points</span>
           <span class="bdg bdg-b" id="pCnt">0 players</span>
           <span class="bdg bdg-g" id="dAge">Loading…</span>
-          <span class="bdg" id="statsBdg" style="display:none"></span>
+
           <span class="bdg bdg-game" id="gameFiltBdg" style="display:none" onclick="clearGameFilter()">✕ <span id="gameFiltLbl"></span></span>
         </div>
       </div>
@@ -1103,18 +1103,13 @@ async function loadData() {
   recalcScenario();renderTable();
   _lastRefreshAt=Date.now();
   document.getElementById('dAge').textContent='Just now';
-  // Reset stats badge — enrichment is about to start fresh
-  const _sb=document.getElementById('statsBdg');
-  if(_sb){_sb.className='bdg bdg-loading';_sb.textContent='⏳ Loading real stats…';_sb.style.display='';}
+
   // Enrich player stats, then pre-load all alert markets and render alerts once — stable snapshot
   enrichAllPlayers();
 }
 async function enrichAllPlayers(){
   const players=S.data||[];
   if(!players.length) return;
-  const bdg=document.getElementById('statsBdg');
-  if(bdg){bdg.className='bdg bdg-loading';bdg.textContent='⏳ Loading real stats…';bdg.style.display='';}
-
   // Load all alert markets first so we have the full player list for bulk fetch
   const ALL_ALERT_MKTS=['player_points','player_rebounds','player_assists','player_threes','player_points_rebounds_assists'];
   alertMktCache[S.market]=S.data;
@@ -1164,22 +1159,6 @@ async function enrichAllPlayers(){
         playerInstances.slice(1).forEach(p=>{if(!p.hasRealStats)applyPlayerStats(p,playerInstances[0].gameLog);});
       }
       if(i<stillMissing.length-1) await new Promise(r=>setTimeout(r,300));
-    }
-  }
-  // Count fake-stats players across all markets
-  const allEnrichedPlayers=[...( S.data||[])];
-  Object.values(alertMktCache).forEach(d=>(d||[]).forEach(p=>allEnrichedPlayers.push(p)));
-  const fakeCount=allEnrichedPlayers.filter(p=>!p.hasRealStats).length;
-  const totalCount=new Set(allEnrichedPlayers.map(p=>p.name)).size;
-  if(bdg){
-    if(fakeCount>0){
-      bdg.className='bdg';
-      bdg.style.cssText='background:rgba(239,68,68,.12);color:#f87171;border:1px solid rgba(239,68,68,.3);';
-      bdg.textContent=`⚠ ${fakeCount} of ${totalCount} players — fake stats`;
-    } else {
-      bdg.className='bdg bdg-real';
-      bdg.style.cssText='';
-      bdg.textContent='✓ All real stats loaded';
     }
   }
   renderAlerts();
