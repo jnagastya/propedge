@@ -1328,16 +1328,21 @@ function computeMinutesAdjustedProb(p,projMin){
   const statKey=statMap[p.market||S.market]||'pts';
   const getV=g=>statKey==='pra'?(+g.pts||0)+(+g.reb||0)+(+g.ast||0):+(g[statKey]||0);
   const avgMin=games.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/games.length;
-  // Approach 1: similar minutes games — widen window until we have ≥4 samples
-  for(const win of [4,7,11]){
-    const sim=games.filter(g=>Math.abs((parseFloat(g.min)||0)-projMin)<=win);
-    if(sim.length>=4){
-      const simHR=sim.filter(g=>getV(g)>=p.line).length/sim.length;
-      const conf=Math.min(1,sim.length/10); // trust more with larger sample
-      return Math.min(0.97,Math.max(0.03,simHR*conf+(p.modelProb||0.5)*(1-conf)));
+  // Approach 1: similar minutes games — only when projection is within 40% of avg
+  // (extreme deviations like 9 min vs 26 avg need ratio scaling, not sparse game lookup)
+  if(Math.abs(projMin-avgMin)<=avgMin*0.4){
+    for(const win of [4,7,11]){
+      const sim=games.filter(g=>Math.abs((parseFloat(g.min)||0)-projMin)<=win);
+      if(sim.length>=5){
+        const simHR=sim.filter(g=>getV(g)>=p.line).length/sim.length;
+        const conf=Math.min(1,sim.length/12);
+        // Blend toward neutral 0.5, not original model prob, to avoid anchoring bias
+        return Math.min(0.97,Math.max(0.03,simHR*conf+0.5*(1-conf)));
+      }
     }
   }
   // Approach 2: ratio-scale avg + stddev, use normal distribution
+  // This is mathematically correct for any projection far from the player's average
   const ratio=avgMin>0?projMin/avgMin:1;
   const adjAvg=(p.avg||0)*ratio;
   const adjStd=Math.max(0.5,(p.stdDev||2)*Math.sqrt(Math.max(0.1,ratio)));
