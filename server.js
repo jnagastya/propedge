@@ -43,7 +43,7 @@ const supabase = SUPABASE_URL && SUPABASE_KEY
   : null;
 
 // Read game log from Supabase cache (returns null if not found or stale)
-async function sbGetGameLog(playerName) {
+async function sbGetGameLog(playerName, maxAgeHours = 24) {
   if (!supabase) return null;
   try {
     const { data, error } = await supabase
@@ -54,9 +54,9 @@ async function sbGetGameLog(playerName) {
     if (error || !data) return null;
     // Reject if from a different season (e.g. last year's data still in Supabase)
     if (data.season !== NBA_SEASON) return null;
-    // Treat as stale if older than 12 hours
+    // Treat as stale if older than maxAgeHours
     const age = Date.now() - new Date(data.last_fetched).getTime();
-    if (age > 12 * 60 * 60 * 1000) return null;
+    if (age > maxAgeHours * 60 * 60 * 1000) return null;
     return data.game_log;
   } catch { return null; }
 }
@@ -911,46 +911,24 @@ app.get('/api/cron/refresh-stats', async (req, res) => {
   if (!supabase) return res.status(503).json({ error: 'Supabase not configured' });
   if (!BDL_KEY) return res.status(503).json({ error: 'BDL key not configured' });
 
-  const force = req.query.force === 'true';
   const results = { ok: [], failed: [], skipped: [] };
   try {
-    // Get current player list from the odds feed
-    const evtUrl = `${ODDS_BASE}/sports/basketball_nba/events?apiKey=${ODDS_KEY}&regions=us&oddsFormat=american`;
-    const evtResp = await fetch(evtUrl);
-    if (!evtResp.ok) return res.status(502).json({ error: 'Could not fetch events from Odds API' });
-    const events = await evtResp.json();
-    const now = new Date();
-    const upcoming = events.filter(e => new Date(e.commence_time) > now);
-
-    // Collect player names from all prop markets across all bookmakers
-    const ALL_MARKETS = 'player_points,player_rebounds,player_assists,player_threes,player_points_rebounds_assists';
-    const playerNames = new Set();
-    for (const evt of upcoming.slice(0, 10)) {
-      try {
-        const pUrl = `${ODDS_BASE}/sports/basketball_nba/events/${evt.id}/odds?apiKey=${ODDS_KEY}&regions=us&markets=${ALL_MARKETS}&oddsFormat=american`;
-        const pResp = await fetch(pUrl);
-        if (!pResp.ok) continue;
-        const pData = await pResp.json();
-        pData.bookmakers?.forEach(bk => {
-          bk.markets?.forEach(mkt => {
-            mkt.outcomes?.forEach(o => {
-              if (o.description) playerNames.add(o.description);
-            });
-          });
-        });
-      } catch { /* skip */ }
+    // Get player names from Supabase odds_cache (populated by refresh-odds cron)
+    // This avoids extra Odds API calls and ensures we use the same player list users see
+    const oddsPlayers = await sbGetOdds('combined');
+    if (!oddsPlayers || !oddsPlayers.length) {
+      return res.status(503).json({ error: 'No odds data in Supabase — run refresh-odds first' });
     }
+    const playerNames = new Set(oddsPlayers.map(p => p.name).filter(Boolean));
 
     // Fetch BDL stats for each player with throttling
     const names = [...playerNames];
     for (let i = 0; i < names.length; i++) {
       const name = names[i];
       try {
-        // Skip if Supabase already has fresh data (< 20h old), unless force=true
-        if (!force) {
-          const existing = await sbGetGameLog(name);
-          if (existing) { results.skipped.push(name); continue; }
-        }
+        // Skip if refreshed within last 20h — daily cron always re-fetches (runs every 24h)
+        const existing = await sbGetGameLog(name, 20);
+        if (existing) { results.skipped.push(name); continue; }
 
         const { id: bdlId, position: bdlPos } = await getBDLPlayerId(name);
         if (!bdlId) { results.failed.push(`${name} (not found in BDL)`); continue; }
