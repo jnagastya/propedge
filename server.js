@@ -1108,6 +1108,28 @@ app.get('/api/debug/player/:name', async (req, res) => {
 });
 
 // ============================================================
+// ROUTE: GET /api/debug/bdl-search/:query — show raw BDL search results + scores
+// ============================================================
+app.get('/api/debug/bdl-search/:query', async (req, res) => {
+  const query = decodeURIComponent(req.params.query);
+  try {
+    const resp = await fetch(`${BDL_BASE}/players?search=${encodeURIComponent(query)}&per_page=10`, { headers: bdlHeaders() });
+    if (!resp.ok) return res.json({ query, error: `BDL returned ${resp.status}` });
+    const data = await resp.json();
+    const players = (data.data || []).map(p => ({
+      id: p.id,
+      name: `${p.first_name} ${p.last_name}`,
+      team: p.team?.abbreviation ?? null,
+      position: p.position,
+      score: nameMatchScore(p, query),
+    }));
+    res.json({ query, results: players });
+  } catch (err) {
+    res.json({ query, error: err.message });
+  }
+});
+
+// ============================================================
 // ROUTE: GET /api/debug/clear-player/:name — wipe cached data so next fetch re-resolves
 // ============================================================
 app.get('/api/debug/clear-player/:name', async (req, res) => {
