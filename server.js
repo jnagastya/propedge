@@ -193,7 +193,7 @@ async function fetchBDLGameLog(playerId, startDate = null) {
       turnover: +g.turnover || 0, min: String(g.min || '0'),
       home, wl: '', opp_team_id: opp || null,
     };
-  }).filter(g => g && g.date && parseInt(g.min || '0') > 0); // exclude DNP/inactive games
+  }).filter(g => g && g.date); // keep DNP rows (min=0) so client can show missed games + injury flags
 }
 
 // Strip common name suffixes so "Jaren Jackson Jr." matches "Jaren Jackson"
