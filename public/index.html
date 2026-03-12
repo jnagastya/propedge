@@ -1510,15 +1510,18 @@ function renderTable(){
     const lean=leanInfo(edge);
     const hasBoost=S.scnOn&&(p.scenarioBoost||0)>0;
 
+    const isOver=edge>=0;
     const edgeTip=`Edge = (Avg − Line) / Line × 100\n= (${p.avg} − ${p.line}) / ${p.line} × 100\n= ${es}${edge.toFixed(1)}%\n\nPositive edge → model avg exceeds the line\nNegative edge → model avg below the line`;
-    const implP=p.impliedProbOver??impliedProb(p.overOdds);
-    const mProb=p.modelProb??(p.hitRate||50)/100;
+    const baseMP=p.modelProb??(p.hitRate||50)/100;
+    const mProb=isOver?baseMP:1-baseMP; // directional model prob
+    const implP=isOver?(p.impliedProbOver??impliedProb(p.overOdds)):(p.impliedProbUnder??impliedProb(p.underOdds));
+    const dirHitRate=isOver?(p.hitRate||50):(100-(p.hitRate||50));
     const evEdge=mProb-implP;
     const tipEdgePts=Math.min(40,Math.max(0,evEdge/0.15*20+20));
     const cv=p.avg>0&&p.stdDev!=null?p.stdDev/p.avg:0.5;
     const tipCvPts=Math.min(20,Math.max(0,(0.6-Math.min(cv,0.6))/0.4*20));
-    const tipHrPts=Math.min(40,Math.max(0,((p.hitRate||50)-25)*0.8));
-    const confTip=`Confidence: ${p.confidence||0}/100\n\n1. Market Edge (0–40): ${tipEdgePts.toFixed(0)} pts\n   Model ${(mProb*100).toFixed(1)}% vs Implied ${(implP*100).toFixed(1)}% → ${evEdge>=0?'+':''}${(evEdge*100).toFixed(1)}% gap\n\n2. Hit Rate (0–40):    ${tipHrPts.toFixed(0)} pts\n   ${p.hitRate||50}% hit rate (25%=0, 50%=20, 75%=40)\n\n3. Consistency (0–20): ${tipCvPts.toFixed(0)} pts\n   CV = ${cv.toFixed(2)} (stdDev ${p.stdDev??'—'} / avg ${p.avg})`;
+    const tipHrPts=Math.min(40,Math.max(0,(dirHitRate-25)*0.8));
+    const confTip=`Confidence: ${p.confidence||0}/100\n\n1. Market Edge (0–40): ${tipEdgePts.toFixed(0)} pts\n   Model ${(mProb*100).toFixed(1)}% vs Implied ${(implP*100).toFixed(1)}% → ${evEdge>=0?'+':''}${(evEdge*100).toFixed(1)}% gap\n\n2. Hit Rate (0–40):    ${tipHrPts.toFixed(0)} pts\n   ${dirHitRate}% ${isOver?'over':'under'} hit rate (25%=0, 50%=20, 75%=40)\n\n3. Consistency (0–20): ${tipCvPts.toFixed(0)} pts\n   CV = ${cv.toFixed(2)} (stdDev ${p.stdDev??'—'} / avg ${p.avg})`;
 
     // Row classes
     let rowClass='';
@@ -1789,7 +1792,7 @@ function renderOverview(el,p){
           <span style="color:var(--bd2)">×40%</span>
           <span style="color:var(--t3);margin-left:6px;">Season HR:</span><strong>${p.hitRate??'—'}%</strong>
           <span style="color:var(--bd2)">×25%</span>
-          <span style="margin-left:6px;padding:2px 8px;border-radius:8px;background:var(--bld);color:var(--b);font-weight:800;">= ${p.modelProb!=null?Math.round(p.modelProb*100):(p.hitRate??50)}%</span>
+          <span style="margin-left:6px;padding:2px 8px;border-radius:8px;background:var(--bld);color:var(--b);font-weight:800;">= ${p.modelProb!=null?Math.round(((p.edge||0)>=0?p.modelProb:1-p.modelProb)*100):(p.hitRate??50)}% ${(p.edge||0)>=0?'over':'under'}</span>
         </div>
       </div>`:''}
     </div>
@@ -1825,7 +1828,7 @@ function renderOverview(el,p){
           <div style="font-size:22px;font-weight:800;color:${lean.cls==='over'?'var(--g)':lean.cls==='under'?'var(--r)':'var(--t3)'}">
             ${lean.label === 'OVER ▲' ? '▲ BET OVER' : lean.label === 'UNDER ▼' ? '▼ BET UNDER' : '— NO STRONG LEAN'}
           </div>
-          <div style="font-size:12px;color:var(--t2);margin-top:4px;">Based on ${(p.edge||0).toFixed(1)}% edge · ${p.hitRate||0}% hit rate · ${p.confidence||0}/100 confidence</div>
+          <div style="font-size:12px;color:var(--t2);margin-top:4px;">Based on ${(p.edge||0).toFixed(1)}% edge · ${(p.edge||0)>=0?(p.hitRate||0):(100-(p.hitRate||0))}% ${(p.edge||0)>=0?'over':'under'} hit rate · ${p.confidence||0}/100 confidence</div>
         </div>
         <div style="font-size:11px;color:var(--t2);line-height:1.7;flex:2;background:var(--bg2);padding:10px 12px;border-radius:8px;border:1px solid var(--bd);">
           ${(()=>{
