@@ -2173,6 +2173,7 @@ function removeParlayLeg(playerName){
 function renderParlay(){
   if(parlayMode==='custom'){renderCustomParlay();return;}
   const el=document.getElementById('parlayContent');
+  try{
   if(!S.data||!S.data.length){
     el.innerHTML=`<div class="parlay-hdr">${parlayHeader()}</div><div class="parlay-empty">Load player data first.</div>`;
     return;
@@ -2180,7 +2181,7 @@ function renderParlay(){
   const MKT_LABEL_MAP={'player_points':'PTS','player_rebounds':'REB','player_assists':'AST','player_threes':'3PM','player_points_rebounds_assists':'PRA'};
   // Merge all cached markets so parlay legs can come from any market category
   const _parlayPool=[...S.data];
-  Object.entries(alertMktCache).forEach(([mkt,data])=>{if(mkt!==S.market)_parlayPool.push(...data);});
+  Object.entries(alertMktCache).forEach(([mkt,data])=>{if(mkt!==S.market&&Array.isArray(data))_parlayPool.push(...data);});
   const _seen=new Set();
   const allParlayData=_parlayPool.filter(p=>{const k=`${p.name}|${p.market||S.market}`;if(_seen.has(k))return false;_seen.add(k);return true;});
   // Score each player/market combo by best-direction EV: EV = modelProb*(decimal-1) - (1-modelProb)
@@ -2253,7 +2254,7 @@ function renderParlay(){
         return`<div class="p-leg">
           <div class="p-leg-num">${i+1}</div>
           <div class="p-leg-info">
-            <div class="p-leg-name">${p.name} <span style="font-size:10px;font-weight:600;color:${isOver?'var(--g)':'var(--r)'}">${isOver?'▲':'▼'} ${p._dir.toUpperCase()} ${p.line} ${mktLabel}</span></div>
+            <div class="p-leg-name">${p.name} <span style="font-size:10px;font-weight:600;color:${isOver?'var(--g)':'var(--r)'}">${isOver?'▲':'▼'} ${p._dir.toUpperCase()} ${p.line} ${MKT_LABEL_MAP[p.market||S.market]||'PTS'}</span></div>
             <div class="p-leg-meta">${p.team||'—'} · ${p.matchup||'—'} · Model ${(p._dirMP*100).toFixed(0)}% · Conf ${p.confidence||0} · Leg EV <span style="color:${ec}">${p._legEV>=0?'+':''}${evPct}%</span></div>
           </div>
           <div class="p-leg-odds">${oddsStr}</div>
@@ -2264,6 +2265,10 @@ function renderParlay(){
     <button class="parlay-bet-btn" onclick='openParlayBetModal(JSON.parse(this.dataset.legs))' data-legs="${betLegsJSON}">🎲 Bet This Parlay · ${combAmericanStr}</button>
     <div class="parlay-disclaimer">⚠ Parlays are high-risk. Each leg multiplies the probability of losing. PropEdge recommends single-leg value bets for better long-term EV.</div>
   `;
+  }catch(e){
+    console.error('renderParlay error:',e);
+    el.innerHTML=`<div class="parlay-hdr">${parlayHeader()}</div><div class="parlay-empty">Error building parlay: ${e.message}</div>`;
+  }
 }
 function parlayHeader(){
   return`<div>
