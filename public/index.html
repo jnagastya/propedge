@@ -813,13 +813,18 @@ async function afterLogin() {
   else showSts('Odds API key not configured on server. Check your environment variables.','err');
 }
 
-function doLogout() {
+async function doLogout() {
+  // Flush any pending sync before clearing auth so no data is lost
+  clearTimeout(_syncTimer);
+  await syncProfile();
   _authToken = null;
   _authUser = null;
   localStorage.removeItem('pe_auth_token');
-  // Reset simulator to defaults
+  // Reset simulator and favorites to defaults
   localStorage.setItem('pe_sim_balance', '1000');
   localStorage.setItem('pe_sim_bets', '[]');
+  localStorage.removeItem('pe_favorites');
+  favorites = new Set();
   document.getElementById('userBadge').style.display = 'none';
   document.getElementById('loginOverlay').classList.add('show');
   document.getElementById('loginEmail').value = '';
@@ -848,11 +853,13 @@ function scheduleProfileSync() {
 async function syncProfile() {
   if (!_authToken) return;
   const sim = simLoad();
-  fetch(`${API}/api/user/profile`, {
-    method:'PUT',
-    headers:{ 'Content-Type':'application/json', 'Authorization': `Bearer ${_authToken}` },
-    body: JSON.stringify({ balance: sim.balance, bets: sim.bets, preferences: { favorites: [...favorites] } }),
-  }).catch(() => {});
+  try {
+    await fetch(`${API}/api/user/profile`, {
+      method:'PUT',
+      headers:{ 'Content-Type':'application/json', 'Authorization': `Bearer ${_authToken}` },
+      body: JSON.stringify({ balance: sim.balance, bets: sim.bets, preferences: { favorites: [...favorites] } }),
+    });
+  } catch(e) {}
 }
 
 // ══════════════════════════════════════════════
