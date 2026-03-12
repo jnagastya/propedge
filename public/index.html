@@ -1373,6 +1373,8 @@ function renderScores(data){
 function renderTable(){
   let d=[...S.data];
   const now=new Date();
+  // Hide players whose game has already started (data can go stale during a session)
+  d=d.filter(p=>!p.gameTime||new Date(p.gameTime)>now);
   const q=(document.getElementById('searchIn').value||'').toLowerCase();
   if(q)d=d.filter(p=>p.name.toLowerCase().includes(q)||(p.team||'').toLowerCase().includes(q)||(p.matchup||'').toLowerCase().includes(q));
   if(S.gameFilter){
@@ -2159,7 +2161,9 @@ function renderAlerts(){
   // A separate minimum edge gate (≥2%) keeps obvious noise out across all modes.
   const riskCfg=[{minVS:52,label:'Conservative'},{minVS:36,label:'Balanced'},{minVS:20,label:'Aggressive'}];
   const t=riskCfg[(S.risk||2)-1];
+  const _now=new Date();
   let alerts=getAlertData()
+    .filter(p=>!p.gameTime||new Date(p.gameTime)>_now)
     .map(p=>({...p,vs:valueScore(p),_dirEV:getDirectionalEV(p)}))
     .filter(p=>p.vs>=t.minVS&&Math.abs(p.edge||0)>=2&&p._dirEV>0)
     .sort((a,b)=>b._dirEV-a._dirEV);
