@@ -242,7 +242,8 @@ function normalizeBDLPosition(pos) {
 const BDL_PLAYER_OVERRIDES = {
   'Tre Jones':        { id: 3547274,    position: 'G', team: 'CHI' },
   'Tre Johnson':      { id: 1057262985, position: 'G', team: 'WAS' },
-  'Isaiah Stewart':   { id: 3547267,    position: 'C', team: 'DET' },
+  'Isaiah Stewart':    { id: 3547267,    position: 'C', team: 'DET' },
+  'Isaiah Stewart II': { id: 3547267,    position: 'C', team: 'DET' }, // same player, Odds API uses II suffix
   'Isaiah Joe':       { id: 3547272,    position: 'G', team: 'OKC' },
   'Ron Holland':      { id: 1028026508, position: 'F', team: 'DET' }, // listed as "Ronald Holland II"
   'Kevin Porter Jr.': { id: 666849,     position: 'G', team: 'MIL' },
