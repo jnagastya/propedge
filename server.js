@@ -240,10 +240,17 @@ function normalizeBDLPosition(pos) {
 // Format: 'Odds API Name' -> { id, position, team }
 // Find a player's BDL ID via: /api/debug/bdl-search/<name>
 const BDL_PLAYER_OVERRIDES = {
-  'Tre Jones':      { id: 3547291,    position: 'G', team: null }, // BDL search returns 0 results
-  'Tre Johnson':    { id: 1057262985, position: 'G', team: 'WAS' },
-  'Isaiah Stewart': { id: 3547267,    position: 'C', team: 'DET' },
-  'Isaiah Joe':     { id: 3547272,    position: 'G', team: 'OKC' },
+  'Tre Jones':        { id: 3547291,    position: 'G', team: null }, // BDL search returns 0 results
+  'Tre Johnson':      { id: 1057262985, position: 'G', team: 'WAS' },
+  'Isaiah Stewart':   { id: 3547267,    position: 'C', team: 'DET' },
+  'Isaiah Joe':       { id: 3547272,    position: 'G', team: 'OKC' },
+  'Ron Holland':      { id: 1028026508, position: 'F', team: 'DET' }, // listed as "Ronald Holland II"
+  'Kevin Porter Jr.': { id: 666849,     position: 'G', team: 'MIL' },
+  'Jalen Johnson':    { id: 17896040,   position: 'F', team: 'ATL' },
+  'Cam Thomas':       { id: 17896048,   position: 'G', team: 'MIL' },
+  'G.G. Jackson':     { id: 56677830,   position: 'F', team: 'MEM' }, // listed as "GG Jackson"
+  'Brandon Williams': { id: 24489167,   position: 'G', team: 'DAL' },
+  'Moe Wagner':       { id: 462,        position: 'C', team: 'ORL' }, // listed as "Moritz Wagner"
 };
 
 // Search BDL for player ID + position by name, cached 24h
