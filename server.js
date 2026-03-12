@@ -881,16 +881,17 @@ function generateFakeL10(line) {
 }
 
 function computeConfidence({ hitRate, modelProb, impliedProbOver, avg, stdDev }) {
-  // 1. EV Edge (0–44 pts)
+  // 1. Market Edge (0–40 pts): model prob vs market implied prob
+  //    neutral (0% edge) = 20pts, +15% edge = 40pts, -15% edge = 0pts
   const evEdge = (modelProb || 0.5) - (impliedProbOver || 0.5);
-  const evPts = Math.min(Math.max(evEdge * 220 + 22, 0), 44);
-  // 2. Hit Rate Signal (−17 to +33 pts)
-  const hrPts = Math.min(Math.max((hitRate - 50) * 0.67, -17), 33);
-  // 3. Consistency (0–23 pts): inverse CV
-  const cv = avg > 0 && stdDev != null ? stdDev / avg : 0.4;
-  const cvPts = Math.max(0, Math.round((0.5 - Math.min(cv, 0.5)) / 0.5 * 23));
-  // Scale to 0–100 (max raw = 44+33+23 = 100)
-  return Math.max(0, Math.min(100, Math.round(evPts + hrPts + cvPts)));
+  const edgePts = Math.min(40, Math.max(0, evEdge / 0.15 * 20 + 20));
+  // 2. Hit Rate (0–40 pts): 25% HR = 0pts, 50% = 20pts, 75% = 40pts
+  const hrPts = Math.min(40, Math.max(0, (hitRate - 25) * 0.8));
+  // 3. Consistency (0–20 pts): inverse CV
+  //    CV ≤ 0.20 = 20pts, CV ≥ 0.60 = 0pts
+  const cv = (avg > 0 && stdDev != null) ? stdDev / avg : 0.5;
+  const cvPts = Math.min(20, Math.max(0, (0.6 - Math.min(cv, 0.6)) / 0.4 * 20));
+  return Math.max(0, Math.min(100, Math.round(edgePts + hrPts + cvPts)));
 }
 
 function guessPosition(name) {

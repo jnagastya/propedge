@@ -713,7 +713,7 @@ Negative odds: |odds| / (|odds| + 100)</div>
       </div>
       <div class="gls-card">
         <div class="gls-card-hd"><div class="gls-card-dot" style="background:var(--c)"></div><span class="gls-card-name">Confidence (0–100)</span></div>
-        <div class="gls-card-formula">Conf = EV Edge (0–44) + Hit Rate (−17–+33) + Consistency (0–23)</div>
+        <div class="gls-card-formula">Conf = Market Edge (0–40) + Hit Rate (0–40) + Consistency (0–20)</div>
         <div class="gls-card-desc">A composite score rating how trustworthy the edge signal is. Built from 3 independent components: <b>EV edge</b> (model vs implied prob gap), <b>hit rate signal</b> (deviation from 50%), and <b>consistency</b> (inverse of coefficient of variation).</div>
         <div class="gls-card-ex">70+ = High confidence · 50–69 = Moderate · &lt;50 = Low</div>
       </div>
@@ -1512,13 +1512,13 @@ function renderTable(){
 
     const edgeTip=`Edge = (Avg − Line) / Line × 100\n= (${p.avg} − ${p.line}) / ${p.line} × 100\n= ${es}${edge.toFixed(1)}%\n\nPositive edge → model avg exceeds the line\nNegative edge → model avg below the line`;
     const implP=p.impliedProbOver??impliedProb(p.overOdds);
-    const mProb=(p.hitRate||50)/100;
+    const mProb=p.modelProb??(p.hitRate||50)/100;
     const evEdge=mProb-implP;
-    const evPts=Math.min(Math.max(evEdge*220+22,0),44);
-    const cv=p.avg>0&&p.stdDev!=null?p.stdDev/p.avg:0.4;
-    const cvPts=Math.max(0,Math.round((0.5-Math.min(cv,0.5))/0.5*23));
-    const hrPts=Math.min(Math.max(((p.hitRate||50)-50)*0.67,-17),33);
-    const confTip=`Confidence: ${p.confidence||0}/100\n\n1. EV Edge (0–44):    ${evPts.toFixed(0)} pts\n   Model ${(mProb*100).toFixed(1)}% vs Implied ${(implP*100).toFixed(1)}% → ${evEdge>=0?'+':''}${(evEdge*100).toFixed(1)}% gap\n\n2. Hit Rate (−17–+33): ${hrPts.toFixed(0)} pts\n   ${p.hitRate||50}% hit rate vs 50% baseline\n\n3. Consistency (0–23): ${cvPts} pts\n   CV = ${cv.toFixed(2)} (stdDev ${p.stdDev??'—'} / avg ${p.avg})`;
+    const tipEdgePts=Math.min(40,Math.max(0,evEdge/0.15*20+20));
+    const cv=p.avg>0&&p.stdDev!=null?p.stdDev/p.avg:0.5;
+    const tipCvPts=Math.min(20,Math.max(0,(0.6-Math.min(cv,0.6))/0.4*20));
+    const tipHrPts=Math.min(40,Math.max(0,((p.hitRate||50)-25)*0.8));
+    const confTip=`Confidence: ${p.confidence||0}/100\n\n1. Market Edge (0–40): ${tipEdgePts.toFixed(0)} pts\n   Model ${(mProb*100).toFixed(1)}% vs Implied ${(implP*100).toFixed(1)}% → ${evEdge>=0?'+':''}${(evEdge*100).toFixed(1)}% gap\n\n2. Hit Rate (0–40):    ${tipHrPts.toFixed(0)} pts\n   ${p.hitRate||50}% hit rate (25%=0, 50%=20, 75%=40)\n\n3. Consistency (0–20): ${tipCvPts.toFixed(0)} pts\n   CV = ${cv.toFixed(2)} (stdDev ${p.stdDev??'—'} / avg ${p.avg})`;
 
     // Row classes
     let rowClass='';
@@ -1670,7 +1670,10 @@ function applyPlayerStats(p, games){
   const l10HitRate=p.line&&l10.length?Math.round(l10.filter(v=>v>=p.line).length/l10.length*100):hitRate;
   const l5=vals.slice(0,5);
   const l5HitRate=(l5.length>=3&&p.line)?Math.round(l5.filter(v=>v>=p.line).length/l5.length*100):l10HitRate;
-  const modelProb=Math.min(0.97,Math.max(0.03,(l5HitRate*0.35+l10HitRate*0.40+hitRate*0.25)/100));
+  // Weighted blend of L5/L10/season hit rates, then Bayesian shrinkage toward 0.5
+  // Prior = 10 games at 50% — prevents small samples from producing extreme probabilities
+  const rawProb=(l5HitRate*0.35+l10HitRate*0.40+hitRate*0.25)/100;
+  const modelProb=Math.min(0.97,Math.max(0.03,(rawProb*vals.length+5)/(vals.length+10)));
   const evOver=calcEV(modelProb,p.overOdds);
   const evUnder=calcEV(1-modelProb,p.underOdds);
   const isOverBet=edge>=0;
@@ -1678,10 +1681,13 @@ function applyPlayerStats(p, games){
   const dirHR=Math.round(dirModelProb*100);
   const dirImpliedProb=isOverBet?(p.impliedProbOver||0.5):(p.impliedProbUnder||0.5);
   const evEdge=dirModelProb-dirImpliedProb;
-  const evPts=Math.min(Math.max(evEdge*220+22,0),44);
-  const hrPts=Math.min(Math.max((dirHR-50)*0.67,-17),33);
-  const cvPts=Math.max(0,Math.round((0.5-Math.min(cv,0.5))/0.5*23));
-  const conf=Math.max(0,Math.min(100,Math.round(evPts+hrPts+cvPts)));
+  // Market Edge (0–40): neutral at 0% edge = 20pts, +15% = 40pts, -15% = 0pts
+  const edgePts=Math.min(40,Math.max(0,evEdge/0.15*20+20));
+  // Hit Rate (0–40): 25%=0pts, 50%=20pts, 75%=40pts
+  const hrPts=Math.min(40,Math.max(0,(dirHR-25)*0.8));
+  // Consistency (0–20): CV≤0.20=20pts, CV≥0.60=0pts
+  const cvPts=Math.min(20,Math.max(0,(0.6-Math.min(cv,0.6))/0.4*20));
+  const conf=Math.max(0,Math.min(100,Math.round(edgePts+hrPts+cvPts)));
   const dnpCount=rawL10.filter(g=>parseInt(g.min||'0')===0).length;
   Object.assign(p,{avg,l10,rawL10,hitRate,l10HitRate,l5HitRate,modelProb,edge,stdDev,evOver,evUnder,confidence:conf,hasRealStats:true,statsError:null,gamesPlayed:vals.length,gameLog:sorted,returnFromInjury,minutesFlag,dnpCount});
   return true;
@@ -2171,9 +2177,14 @@ function renderParlay(){
     el.innerHTML=`<div class="parlay-hdr">${parlayHeader()}</div><div class="parlay-empty">Load player data first.</div>`;
     return;
   }
-  const mktLabel={'player_points':'PTS','player_rebounds':'REB','player_assists':'AST','player_threes':'3PM','player_points_rebounds_assists':'PRA'}[S.market]||'PTS';
-  // Score each player by best-direction EV: EV = modelProb*(decimal-1) - (1-modelProb)
-  const scored=S.data
+  const MKT_LABEL_MAP={'player_points':'PTS','player_rebounds':'REB','player_assists':'AST','player_threes':'3PM','player_points_rebounds_assists':'PRA'};
+  // Merge all cached markets so parlay legs can come from any market category
+  const _parlayPool=[...S.data];
+  Object.entries(alertMktCache).forEach(([mkt,data])=>{if(mkt!==S.market)_parlayPool.push(...data);});
+  const _seen=new Set();
+  const allParlayData=_parlayPool.filter(p=>{const k=`${p.name}|${p.market||S.market}`;if(_seen.has(k))return false;_seen.add(k);return true;});
+  // Score each player/market combo by best-direction EV: EV = modelProb*(decimal-1) - (1-modelProb)
+  const scored=allParlayData
     .filter(p=>p.line&&(p.overOdds||p.underOdds)&&!parlayExcluded.has(p.name))
     .map(p=>{
       const mp=p.modelProb!=null?p.modelProb:(p.hitRate||50)/100;
@@ -2191,19 +2202,20 @@ function renderParlay(){
     .filter(p=>p._legEV>-0.02) // only positive or near-flat EV legs
     .sort((a,b)=>b._legEV-a._legEV);
   if(!scored.length){
-    el.innerHTML=`<div class="parlay-hdr">${parlayHeader()}</div><div class="parlay-empty">No prop data — try switching market or reducing filters.</div>`;
+    el.innerHTML=`<div class="parlay-hdr">${parlayHeader()}</div><div class="parlay-empty">No prop data — load data first or wait for stats to populate.</div>`;
     return;
   }
-  const seen=new Set();
+  // Dedupe by player name only — one leg per player across all markets
+  const legSeen=new Set();
   const legs=[];
   for(const p of scored){
-    if(seen.has(p.name))continue;
-    seen.add(p.name);
+    if(legSeen.has(p.name))continue;
+    legSeen.add(p.name);
     legs.push(p);
     if(legs.length>=parlayLegs)break;
   }
   if(legs.length<2){
-    el.innerHTML=`<div class="parlay-hdr">${parlayHeader()}</div><div class="parlay-empty">Not enough players with positive EV. Try increasing legs or switching market.</div>`;
+    el.innerHTML=`<div class="parlay-hdr">${parlayHeader()}</div><div class="parlay-empty">Not enough players with positive EV. Try increasing legs or loading more market data.</div>`;
     return;
   }
   const combDecimal=legs.reduce((prod,p)=>prod*p._dec,1);
@@ -2213,12 +2225,13 @@ function renderParlay(){
   const evParlay=+(combModelProb*payoutPer100-(1-combModelProb)*100).toFixed(1);
   const combAmericanStr=toAmerican(combDecimal);
   // Build modal-compatible legs for betting
-  const betLegs=legs.map(p=>({
-    name:p.name,team:p.team||'—',matchup:p.matchup||'—',
-    market:S.market,marketLabel:mktLabel,line:p.line,
-    direction:p._dir,odds:p._odds,hitRate:p.hitRate||50,
-    modelProb:p.modelProb,edge:p.edge||0,confidence:p.confidence||0,avg:p.avg||0,
-  }));
+  const betLegs=legs.map(p=>{
+    const legMkt=p.market||S.market;
+    return{name:p.name,team:p.team||'—',matchup:p.matchup||'—',
+      market:legMkt,marketLabel:MKT_LABEL_MAP[legMkt]||legMkt,line:p.line,
+      direction:p._dir,odds:p._odds,hitRate:p.hitRate||50,
+      modelProb:p.modelProb,edge:p.edge||0,confidence:p.confidence||0,avg:p.avg||0};
+  });
   const betLegsJSON=JSON.stringify(betLegs).replace(/"/g,'&quot;');
   el.innerHTML=`
     <div class="parlay-hdr">${parlayHeader()}</div>
