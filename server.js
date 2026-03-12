@@ -911,6 +911,7 @@ app.get('/api/cron/refresh-stats', async (req, res) => {
   if (!supabase) return res.status(503).json({ error: 'Supabase not configured' });
   if (!BDL_KEY) return res.status(503).json({ error: 'BDL key not configured' });
 
+  const force = req.query.force === 'true';
   const results = { ok: [], failed: [], skipped: [] };
   try {
     // Get current player list from the odds feed
@@ -945,9 +946,11 @@ app.get('/api/cron/refresh-stats', async (req, res) => {
     for (let i = 0; i < names.length; i++) {
       const name = names[i];
       try {
-        // Skip if Supabase already has fresh data (< 20h old)
-        const existing = await sbGetGameLog(name);
-        if (existing) { results.skipped.push(name); continue; }
+        // Skip if Supabase already has fresh data (< 20h old), unless force=true
+        if (!force) {
+          const existing = await sbGetGameLog(name);
+          if (existing) { results.skipped.push(name); continue; }
+        }
 
         const { id: bdlId, position: bdlPos } = await getBDLPlayerId(name);
         if (!bdlId) { results.failed.push(`${name} (not found in BDL)`); continue; }
