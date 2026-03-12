@@ -52,8 +52,8 @@ body{background:var(--bg0);background-image:radial-gradient(ellipse at 20% 0%,rg
 .nav-tabs{display:flex;gap:2px;padding:0 24px;background:rgba(22,25,32,.95);backdrop-filter:blur(12px);border-bottom:1px solid var(--bd);position:sticky;top:56px;z-index:299;}
 .nav-tab{padding:11px 16px;border:none;background:none;color:var(--t2);font-family:var(--sans);font-size:13px;font-weight:500;cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;margin-bottom:-1px;letter-spacing:.1px;}
 .nav-tab:hover{color:var(--t1);background:rgba(255,255,255,.03);border-radius:6px 6px 0 0;}
-.nav-tab.on{color:var(--b);border-bottom-color:var(--b);font-weight:700;}
-.nav-tab.alert-tab.on{color:var(--gold);border-bottom-color:var(--gold);}
+.nav-tab.on{color:var(--b);background:rgba(99,102,241,.12);border-bottom-color:var(--b);font-weight:700;border-radius:6px 6px 0 0;}
+.nav-tab.alert-tab.on{color:var(--gold);background:rgba(251,191,36,.08);border-bottom-color:var(--gold);border-radius:6px 6px 0 0;}
 .alert-dot{display:inline-block;width:6px;height:6px;background:var(--gold);border-radius:50%;animation:pulse 1.5s infinite;margin-left:4px;vertical-align:middle;}
 
 /* -- LAYOUT -- */
@@ -126,10 +126,36 @@ body{background:var(--bg0);background-image:radial-gradient(ellipse at 20% 0%,rg
 .bdg-real{background:var(--gd);color:var(--g);}
 @keyframes bdgPulse{0%,100%{opacity:1}50%{opacity:.45}}
 .bdg-game:hover{background:var(--bb);}
-.tsc{overflow-x:auto;}
+.tsc{overflow-x:auto;-webkit-overflow-scrolling:touch;}
 table{width:100%;border-collapse:collapse;font-size:12px;}
-thead th{padding:9px 11px;text-align:left;font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--t2);border-bottom:1px solid var(--bd);white-space:nowrap;background:var(--bg2);}
-tbody tr{border-bottom:1px solid var(--bd);transition:background .1s;cursor:pointer;}
+/* -- Row animation -- */
+@keyframes rowIn{from{opacity:0;transform:translateX(-3px)}to{opacity:1;transform:translateX(0)}}
+/* -- Skeleton loader -- */
+@keyframes shimmer{from{background-position:-800px 0}to{background-position:800px 0}}
+.skel-cell{height:11px;border-radius:4px;background:linear-gradient(90deg,var(--bg2) 25%,var(--bg3) 50%,var(--bg2) 75%);background-size:1600px 100%;animation:shimmer 1.6s infinite;}
+.skel-row td{padding:10px 11px;}
+/* -- EV gradient pill -- */
+.ev-pill{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap;}
+.ev-strong{background:rgba(34,197,94,.18);color:#22c55e;}
+.ev-good{background:rgba(34,197,94,.10);color:#4ade80;}
+.ev-weak{background:rgba(148,163,184,.08);color:var(--t2);}
+.ev-neg{background:rgba(239,68,68,.08);color:var(--r);}
+/* -- Mobile -- */
+@media(max-width:768px){
+  .nav-tabs{overflow-x:auto;gap:0;scrollbar-width:none;}
+  .nav-tabs::-webkit-scrollbar{display:none;}
+  .nav-tab{padding:10px 11px;font-size:12px;white-space:nowrap;}
+  .app{padding:12px;}
+  .col-mob-hide{display:none;}
+  .topbar{padding:0 12px;}
+  .logo-v{display:none;}
+}
+thead th{padding:9px 11px;text-align:left;font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--t2);border-bottom:1px solid var(--bd);white-space:nowrap;background:var(--bg2);position:sticky;top:112px;z-index:4;cursor:pointer;user-select:none;transition:color .12s,background .12s;}
+thead th:hover{color:var(--t1);background:var(--bg3);}
+thead th.sort-active{color:var(--b);}
+thead th.sort-asc::after{content:' ▲';font-size:8px;color:var(--b);}
+thead th.sort-desc::after{content:' ▼';font-size:8px;color:var(--b);}
+tbody tr{border-bottom:1px solid var(--bd);transition:background .1s;cursor:pointer;animation:rowIn .14s ease both;}
 tbody tr:hover{background:rgba(99,102,241,.05);}
 tbody tr.exp{background:rgba(99,102,241,.04);}
 tbody tr.value-row{border-left:3px solid var(--gold);}
@@ -163,7 +189,7 @@ td{padding:9px 11px;white-space:nowrap;}
 .lean-dot{width:9px;height:9px;border-radius:50%;background:var(--t1);border:2px solid var(--bg1);position:absolute;top:-2px;transform:translateX(-50%);box-shadow:0 1px 4px rgba(0,0,0,.4);}
 .cb-wrap{position:relative;cursor:help;display:flex;align-items:center;gap:5px;}
 .cb-bar{width:44px;height:5px;background:var(--bg4);border-radius:3px;overflow:hidden;}
-.cb-fill{height:100%;border-radius:3px;}
+.cb-fill{height:100%;border-radius:3px;transition:width .5s ease;}
 .cb-l{font-size:12px;font-weight:700;}
 .ouv{display:flex;align-items:center;gap:5px;}
 .oub{display:flex;width:52px;height:5px;border-radius:3px;overflow:hidden;}
@@ -651,9 +677,9 @@ td{padding:9px 11px;white-space:nowrap;}
       <div class="tsc">
         <table>
           <thead><tr>
-            <th>Player</th><th>Matchup</th><th>Line</th><th>Odds</th>
-            <th>Avg</th><th>Hit Rate</th><th>O/U</th><th>Trend</th>
-            <th>Edge</th><th>Lean</th><th>Confidence</th><th>¼ Kelly</th><th>Value</th><th>Bet</th><th>⭐</th>
+            <th>Player</th><th class="col-mob-hide">Matchup</th><th data-sort="line" onclick="sortByCol('line')">Line</th><th>Odds</th>
+            <th data-sort="edge" onclick="sortByCol('edge')">Avg</th><th data-sort="hr" onclick="sortByCol('hr')">Hit Rate</th><th class="col-mob-hide">O/U</th><th class="col-mob-hide">Trend</th>
+            <th data-sort="edge" onclick="sortByCol('edge')">Edge</th><th class="col-mob-hide">Lean</th><th data-sort="conf" onclick="sortByCol('conf')">Confidence</th><th data-sort="kelly" onclick="sortByCol('kelly')">¼ Kelly</th><th data-sort="val" onclick="sortByCol('val')">Value</th><th>Bet</th><th>⭐</th>
             <th id="scnTh" style="display:none">Scenario ⚡</th>
           </tr></thead>
           <tbody id="tBody"></tbody>
@@ -1499,6 +1525,7 @@ function renderScores(data){
 
 // ── Render: Table ──
 function renderTable(){
+  if(!S.data||!S.data.length){renderSkeletons();return;}
   let d=[...S.data];
   const now=new Date();
   // Hide players whose game has already started (data can go stale during a session)
@@ -1580,15 +1607,15 @@ function renderTable(){
           ${(p.returnFromInjury>=2||p.minutesFlag||(p.dnpCount>=5))?`<span class="pm" style="margin-top:2px;display:flex;gap:3px;flex-wrap:wrap;">${p.returnFromInjury>=2?`<span class="player-flag flag-injury" style="font-size:9px;padding:1px 5px;">⚠ Back (${p.returnFromInjury}G)</span>`:''}${p.minutesFlag?`<span class="player-flag ${p.minutesFlag>0?'flag-minutes-up':'flag-minutes-down'}" style="font-size:9px;padding:1px 5px;">⏱ ${Math.abs(Math.round(p.minutesFlag*100))}% ${p.minutesFlag>0?'↑':'↓'} min</span>`:''}${p.dnpCount>=5?`<span class="player-flag flag-dnp" style="font-size:9px;padding:1px 5px;">✗ ${p.dnpCount} DNPs</span>`:''}</span>`:''}
         </div>
       </div></td>
-      <td style="color:var(--t2);font-size:11px;">${(p.matchup||'—').substring(0,28)}</td>
+      <td class="col-mob-hide" style="color:var(--t2);font-size:11px;">${(p.matchup||'—').replace(/^\?\?\?[·\s·]*/,'').substring(0,26)||'—'}</td>
       <td style="font-weight:700;font-size:14px;">${p.line}</td>
       <td><div class="odds-cell"><span class="odd over">O ${overFmt}</span><span class="odd under">U ${underFmt}</span></div></td>
       <td style="font-weight:600;">${p.avg}</td>
       <td style="font-weight:600;">${oP}%</td>
-      <td><div class="ouv"><div class="oub"><div class="ouo" style="width:${oP}%"></div><div class="ouu" style="width:${uP}%"></div></div><span class="oul">${oP}/${uP}</span></div></td>
-      <td><div class="spk">${mkSpk(p.l10,p.line)}</div></td>
+      <td class="col-mob-hide"><div class="ouv"><div class="oub"><div class="ouo" style="width:${oP}%"></div><div class="ouu" style="width:${uP}%"></div></div><span class="oul">${oP}/${uP}</span></div></td>
+      <td class="col-mob-hide"><div class="spk">${mkSpk(p.l10,p.line)}</div></td>
       <td><span class="et ${ec}" data-edge="${edge.toFixed(1)}" data-tip="${edgeTip.replace(/"/g,'&quot;')}">${es}${edge.toFixed(1)}%</span></td>
-      <td><div class="lean-wrap">
+      <td class="col-mob-hide"><div class="lean-wrap">
         <span class="lean-lbl ${lean.cls}">${lean.label}</span>
         <div class="lean-track"><div class="lean-dot" style="left:${lean.pct}%"></div></div>
       </div></td>
@@ -1597,7 +1624,7 @@ function renderTable(){
         <span class="cb-l" style="color:${cc}">${p.confidence||0}</span>
       </div></td>
       <td><span style="font-size:11px;font-weight:700;color:${kellyColor}">${qKelly>0?qKellyPct+'%':'—'}</span></td>
-      <td>${isValue?`<span class="val-badge" title="${edge>=0?'Over':'Under'} EV: ${dirEV>0?'+':''}${dirEV}%">⚡ VALUE</span>`:`<span style="color:var(--t3);font-size:11px;font-weight:600;">${dirEV>0?`<span style='color:var(--g)'>+${dirEV}%</span>`:`<span>${dirEV}%</span>`}</span>`}</td>
+      <td>${(()=>{if(isValue)return`<span class="val-badge">⚡ VALUE</span>`;const cls=dirEV>=15?'ev-strong':dirEV>=5?'ev-good':dirEV>=0?'ev-weak':'ev-neg';return`<span class="ev-pill ${cls}">${dirEV>=0?'+':''}${dirEV.toFixed(1)}%</span>`;})()}</td>
       <td><button class="bet-btn" onclick="event.stopPropagation();openBetModal(${JSON.stringify(p).replace(/"/g,'&quot;')})">🎲 Bet</button></td>
       <td><button class="fav-btn${favorites.has(p.name)?' on':''}" data-name="${p.name.replace(/"/g,'&quot;')}" onclick="toggleFav('${p.name.replace(/'/g,"\\'")}',event)" title="${favorites.has(p.name)?'Remove from watchlist':'Add to watchlist'}">${favorites.has(p.name)?'⭐':'☆'}</button></td>
       ${S.scnOn?`<td>${(p.scenarioBoost||0)>0?`<span class="scn-boost">+${p.scenarioBoost} pts</span>`:'<span style="color:var(--t3)">—</span>'}</td>`:''}
@@ -1620,7 +1647,7 @@ function attachTipListeners(){
   document.querySelectorAll('[data-tip]').forEach(el=>{
     el.addEventListener('mouseenter',e=>{
       const tip=document.createElement('div');
-      tip.style.cssText='position:fixed;background:#0f172a;color:#fff;border-radius:8px;padding:10px 13px;font-size:11px;line-height:1.65;white-space:pre;z-index:999;min-width:230px;box-shadow:0 4px 16px rgba(0,0,0,.15);pointer-events:none;';
+      tip.style.cssText='position:fixed;background:#1e293b;color:#f1f5f9;border:1px solid rgba(99,102,241,.25);border-top:2px solid var(--b);border-radius:10px;padding:13px 16px;font-size:11px;line-height:1.8;white-space:pre;z-index:999;min-width:260px;max-width:340px;box-shadow:0 12px 36px rgba(0,0,0,.55);pointer-events:none;font-family:inherit;';
       tip.textContent=el.dataset.tip.replace(/&quot;/g,'"');
       tip.id='_ftip';
       document.body.appendChild(tip);
@@ -1990,6 +2017,45 @@ function renderScenario(el,p){
 }
 
 // ── Render: Value Alerts ──
+function sortByCol(key){
+  const sel=document.getElementById('sortS');
+  sel.value=key;
+  renderTable();
+  document.querySelectorAll('thead th[data-sort]').forEach(th=>{
+    th.classList.toggle('sort-active',th.dataset.sort===key);
+    th.classList.toggle('sort-asc',th.dataset.sort===key);
+    th.classList.remove('sort-desc');
+  });
+}
+function renderSkeletons(){
+  const tb=document.getElementById('tBody');
+  tb.innerHTML='';
+  for(let i=0;i<10;i++){
+    const tr=document.createElement('tr');
+    tr.className='skel-row';
+    const w=(min,max)=>Math.round(min+Math.random()*(max-min));
+    tr.innerHTML=`
+      <td><div style="display:flex;gap:10px;align-items:center">
+        <div class="skel-cell" style="width:36px;height:36px;border-radius:50%;flex-shrink:0"></div>
+        <div><div class="skel-cell" style="width:${w(90,140)}px;margin-bottom:5px"></div><div class="skel-cell" style="width:${w(50,80)}px;height:9px"></div></div>
+      </div></td>
+      <td class="col-mob-hide"><div class="skel-cell" style="width:${w(60,100)}px"></div></td>
+      <td><div class="skel-cell" style="width:28px"></div></td>
+      <td><div class="skel-cell" style="width:${w(80,110)}px"></div></td>
+      <td><div class="skel-cell" style="width:28px"></div></td>
+      <td><div class="skel-cell" style="width:36px"></div></td>
+      <td class="col-mob-hide"><div class="skel-cell" style="width:64px"></div></td>
+      <td class="col-mob-hide"><div class="skel-cell" style="width:70px"></div></td>
+      <td><div class="skel-cell" style="width:36px"></div></td>
+      <td class="col-mob-hide"><div class="skel-cell" style="width:80px"></div></td>
+      <td><div class="skel-cell" style="width:44px"></div></td>
+      <td><div class="skel-cell" style="width:32px"></div></td>
+      <td><div class="skel-cell" style="width:52px"></div></td>
+      <td><div class="skel-cell" style="width:48px"></div></td>
+      <td><div class="skel-cell" style="width:16px"></div></td>`;
+    tb.appendChild(tr);
+  }
+}
 function toggleWeightPanel(){
   const p=document.getElementById('wtPanel');
   p.classList.toggle('open');
