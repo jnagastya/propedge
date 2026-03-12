@@ -1065,6 +1065,133 @@ app.get('/api/cron/refresh-stats', async (req, res) => {
 });
 
 // ============================================================
+// ROUTE: GET /api/cron/grade-bets — auto-grade open bets using stored game logs
+// Runs nightly after games finish. For each user with open bets whose
+// gameTime is >4h in the past, looks up the actual stat in player_stats
+// and marks the bet won/lost/void, updating balance accordingly.
+// ============================================================
+function getEtDate(isoString) {
+  // Returns YYYY-MM-DD in Eastern Time (matches BDL game_log date format)
+  return new Date(isoString).toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+}
+
+function getStatValue(game, market) {
+  switch (market) {
+    case 'player_points':                    return game.pts  ?? null;
+    case 'player_rebounds':                  return game.reb  ?? null;
+    case 'player_assists':                   return game.ast  ?? null;
+    case 'player_threes':                    return game.fg3m ?? null;
+    case 'player_steals':                    return game.stl  ?? null;
+    case 'player_blocks':                    return game.blk  ?? null;
+    case 'player_turnovers':                 return game.turnover ?? null;
+    case 'player_points_rebounds_assists':   return (game.pts||0)+(game.reb||0)+(game.ast||0);
+    default: return null;
+  }
+}
+
+function gradeSingleOutcome(actual, line, direction) {
+  if (direction === 'over')  return actual >= line ? 'won' : 'lost';
+  if (direction === 'under') return actual <  line ? 'won' : 'lost';
+  return 'void';
+}
+
+// Looks up a player's actual stat for a given ET game date from Supabase
+async function getActualStat(playerName, gameDate, market) {
+  const record = await sbGetGameLogRecord(playerName);
+  if (!record?.game_log?.length) return { status: 'missing' };
+  const game = record.game_log.find(g => g.date === gameDate);
+  if (!game) return { status: 'missing' }; // stats not in yet
+  const minPlayed = parseInt(game.min || '0', 10);
+  if (minPlayed === 0) return { status: 'dnp' };
+  const val = getStatValue(game, market);
+  if (val === null) return { status: 'missing' };
+  return { status: 'ok', value: val };
+}
+
+app.get('/api/cron/grade-bets', async (req, res) => {
+  const secret = req.headers['x-cron-secret'] || req.query.secret;
+  if (process.env.CRON_SECRET && secret !== process.env.CRON_SECRET) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  if (!supabase) return res.status(503).json({ error: 'Supabase not configured' });
+
+  const now = Date.now();
+  const GRADE_AFTER_MS = 4 * 60 * 60 * 1000; // grade bets whose gameTime is >4h ago
+  const summary = { usersProcessed: 0, betsGraded: 0, betsSkipped: 0, errors: [] };
+
+  try {
+    // Fetch all user profiles that have at least one bet
+    const { data: profiles, error: fetchErr } = await supabase
+      .from('user_profiles')
+      .select('id, balance, bets');
+    if (fetchErr) return res.status(500).json({ error: fetchErr.message });
+
+    for (const profile of profiles || []) {
+      const bets = profile.bets || [];
+      const openBets = bets.filter(b => b.status === 'open' && b.gameTime &&
+        (now - new Date(b.gameTime).getTime()) > GRADE_AFTER_MS);
+      if (!openBets.length) continue;
+
+      let balance = profile.balance ?? 1000;
+      let changed = false;
+
+      for (const bet of openBets) {
+        const gameDate = getEtDate(bet.gameTime);
+        try {
+          if (bet.type === 'parlay') {
+            // Grade parlay: all legs must win; any DNP voids the parlay
+            let parlayResult = 'won';
+            let anyMissing = false;
+            for (const leg of (bet.legs || [])) {
+              const { status, value } = await getActualStat(leg.name, gameDate, leg.market);
+              if (status === 'missing') { anyMissing = true; break; }
+              if (status === 'dnp')    { parlayResult = 'void'; break; }
+              const legResult = gradeSingleOutcome(value, leg.line, leg.direction);
+              if (legResult === 'lost') { parlayResult = 'lost'; break; }
+            }
+            if (anyMissing) { summary.betsSkipped++; continue; }
+            bet.status    = parlayResult;
+            bet.settledAt = new Date().toISOString();
+            if (parlayResult === 'won')  { bet.pnl = +bet.toWin;   balance += bet.stake + bet.toWin; }
+            else if (parlayResult === 'lost') { bet.pnl = -bet.stake; }
+            else                         { bet.pnl = 0; balance += bet.stake; } // void refund
+          } else {
+            // Grade single bet
+            const { status, value } = await getActualStat(bet.player, gameDate, bet.market);
+            if (status === 'missing') { summary.betsSkipped++; continue; }
+            const outcome = status === 'dnp' ? 'void' : gradeSingleOutcome(value, bet.line, bet.direction);
+            bet.status       = outcome;
+            bet.settledAt    = new Date().toISOString();
+            bet.actualResult = status === 'dnp' ? 'DNP' : value;
+            if (outcome === 'won')  { bet.pnl = +bet.toWin;   balance += bet.stake + bet.toWin; }
+            else if (outcome === 'lost') { bet.pnl = -bet.stake; }
+            else                    { bet.pnl = 0; balance += bet.stake; } // void refund
+          }
+          changed = true;
+          summary.betsGraded++;
+        } catch (e) {
+          summary.errors.push(`${bet.player || 'parlay'}: ${e.message}`);
+          summary.betsSkipped++;
+        }
+      }
+
+      if (changed) {
+        summary.usersProcessed++;
+        const { error: writeErr } = await supabase
+          .from('user_profiles')
+          .update({ bets, balance, updated_at: new Date().toISOString() })
+          .eq('id', profile.id);
+        if (writeErr) summary.errors.push(`profile ${profile.id}: ${writeErr.message}`);
+      }
+    }
+
+    res.json({ success: true, ...summary });
+  } catch (err) {
+    res.status(500).json({ error: err.message, ...summary });
+  }
+});
+
+// ============================================================
 // ROUTE: GET /api/cron/refresh-odds — store Odds API data in Supabase
 // Runs on schedule so users never hit the Odds API directly
 // ============================================================
