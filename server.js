@@ -238,7 +238,7 @@ function normalizeBDLPosition(pos) {
 // Format: 'Odds API Name' -> { id, position, team }
 // Find a player's BDL ID via: /api/debug/bdl-search/<name>
 const BDL_PLAYER_OVERRIDES = {
-  // 'Tre Jones': { id: ???, position: 'G', team: 'SAS' },  // BDL search returns 0 results
+  'Tre Jones': { id: 3547291, position: 'G', team: null }, // BDL search returns 0 results; team resolved from stats
 };
 
 // Search BDL for player ID + position by name, cached 24h
