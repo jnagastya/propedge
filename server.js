@@ -250,7 +250,8 @@ const BDL_PLAYER_OVERRIDES = {
   'Cam Thomas':       { id: 17896048,   position: 'G', team: 'MIL' },
   'G.G. Jackson':     { id: 56677830,   position: 'F', team: 'MEM' }, // listed as "GG Jackson"
   'Brandon Williams': { id: 24489167,   position: 'G', team: 'DAL' },
-  'Moe Wagner':       { id: 462,        position: 'C', team: 'ORL' }, // listed as "Moritz Wagner"
+  'Moe Wagner':             { id: 462,          position: 'C', team: 'ORL' }, // listed as "Moritz Wagner"
+  'Kasparas Jakucionis':    { id: 1057272939,   position: 'G', team: 'MIA' }, // BDL has special char: Jakučionis
 };
 
 // Search BDL for player ID + position by name, cached 24h
