@@ -78,7 +78,7 @@ async function sbGetGameLogRecord(playerName) {
 async function sbSetGameLog(playerName, bdlId, gameLog, position) {
   if (!supabase || !gameLog?.length) return;
   try {
-    await supabase.from('player_stats').upsert({
+    const { error } = await supabase.from('player_stats').upsert({
       player_name: playerName,
       bdl_id: bdlId,
       game_log: gameLog,
@@ -86,6 +86,7 @@ async function sbSetGameLog(playerName, bdlId, gameLog, position) {
       season: NBA_SEASON,
       last_fetched: new Date().toISOString(),
     }, { onConflict: 'player_name' });
+    if (error) console.warn(`Supabase write failed for ${playerName}:`, error.message);
   } catch (e) { console.warn('Supabase write failed:', e.message); }
 }
 
@@ -107,11 +108,12 @@ async function sbGetOdds(book) {
 async function sbSetOdds(book, players) {
   if (!supabase || !players?.length) return;
   try {
-    await supabase.from('odds_cache').upsert({
+    const { error } = await supabase.from('odds_cache').upsert({
       book,
       players,
       last_fetched: new Date().toISOString(),
     }, { onConflict: 'book' });
+    if (error) console.warn(`Supabase odds write failed for ${book}:`, error.message);
   } catch (e) { console.warn('Supabase odds write failed:', e.message); }
 }
 
