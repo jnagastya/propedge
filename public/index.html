@@ -641,6 +641,7 @@ td{padding:9px 11px;white-space:nowrap;}
       <span><span class="dot" style="background:var(--a)"></span>Balanced: Edge 5%+, Conf 55+, Hit 50%+</span>
       <span><span class="dot" style="background:var(--r)"></span>Aggressive: Edge 3%+, Conf 40+, Hit 40%+</span>
     </div>
+    <div id="vaStatsBanner" style="display:none;margin:0 0 12px;padding:10px 14px;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.3);border-radius:8px;font-size:12px;color:#fbbf24;line-height:1.5;"></div>
     <div class="va-grid" id="vaGrid"></div>
   </div>
 
@@ -1415,7 +1416,7 @@ function renderTable(){
         <div class="av">${avInner}</div>
         <div class="pi">
           <span class="pn">${p.name}${hasBoost?'<span class="scn-icon">⚡+'+p.scenarioBoost+'</span>':''}</span>
-          <span class="pm"><span class="ptb">${p.team||'—'}</span><span>${p.position||''}</span>${!p.hasRealStats?`<span class="player-flag flag-est" style="font-size:9px;padding:1px 5px;margin-left:4px;">~ Est.</span>`:''}</span>
+          <span class="pm"><span class="ptb">${p.team||'—'}</span><span>${p.position||''}</span>${!p.hasRealStats?`<span class="player-flag flag-est" style="font-size:9px;padding:1px 5px;margin-left:4px;">⚠ Fake Stats</span>`:''}</span>
           ${(p.returnFromInjury>=2||p.minutesFlag||(p.dnpCount>=5))?`<span class="pm" style="margin-top:2px;display:flex;gap:3px;flex-wrap:wrap;">${p.returnFromInjury>=2?`<span class="player-flag flag-injury" style="font-size:9px;padding:1px 5px;">⚠ Back (${p.returnFromInjury}G)</span>`:''}${p.minutesFlag?`<span class="player-flag ${p.minutesFlag>0?'flag-minutes-up':'flag-minutes-down'}" style="font-size:9px;padding:1px 5px;">⏱ ${Math.abs(Math.round(p.minutesFlag*100))}% ${p.minutesFlag>0?'↑':'↓'} min</span>`:''}${p.dnpCount>=5?`<span class="player-flag flag-dnp" style="font-size:9px;padding:1px 5px;">✗ ${p.dnpCount} DNPs</span>`:''}</span>`:''}
         </div>
       </div></td>
@@ -2143,6 +2144,22 @@ function renderAlerts(){
     return;
   }
   window._vaAlerts=alerts;
+  // Stats status banner
+  const totalAlerts=alerts.length;
+  const noStats=alerts.filter(p=>!p.hasRealStats).length;
+  const allPlayers=getAlertData();
+  const totalPlayers=new Set(allPlayers.map(p=>p.name)).size;
+  const noStatsTotal=allPlayers.filter(p=>!p.hasRealStats).length;
+  const statusEl=document.getElementById('vaStatsBanner');
+  if(statusEl){
+    if(noStatsTotal>0){
+      statusEl.style.display='';
+      statusEl.innerHTML=`⚠ <b>${noStatsTotal} of ${totalPlayers} players</b> are using fake stats — real stats not loaded yet. EV and model probability may be inaccurate for these players.`;
+    } else {
+      statusEl.style.display='none';
+      statusEl.innerHTML='';
+    }
+  }
   grid.innerHTML=alerts.map((p,rank)=>{
     const isOver=p.edge>0;
     const dir=isOver?'OVER':'UNDER';
@@ -2179,6 +2196,7 @@ function renderAlerts(){
             <button class="fav-btn${favorites.has(p.name)?' on':''}" data-name="${p.name.replace(/"/g,'&quot;')}" onclick="event.stopPropagation();toggleFav('${p.name.replace(/'/g,"\\'")}',event)" title="${favorites.has(p.name)?'Remove from watchlist':'Add to watchlist'}" style="font-size:13px;margin-left:2px;">${favorites.has(p.name)?'⭐':'☆'}</button>
           </div>
           <div class="va-meta">${p.team||''} · ${(p.matchup||'').substring(0,25)}</div>
+          ${!p.hasRealStats?`<div style="margin-top:3px;"><span class="player-flag flag-est" style="font-size:9px;">⚠ Fake Stats — EV may be inaccurate</span></div>`:''}
           ${(p.returnFromInjury>=2||p.minutesFlag||(p.dnpCount>=5))?`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;">${p.returnFromInjury>=2?`<span class="player-flag flag-injury">⚠ Back after ${p.returnFromInjury} games missed</span>`:''}${p.minutesFlag?`<span class="player-flag ${p.minutesFlag>0?'flag-minutes-up':'flag-minutes-down'}">⏱ ${Math.abs(Math.round(p.minutesFlag*100))}% ${p.minutesFlag>0?'↑ more':'↓ fewer'} minutes</span>`:''}${p.dnpCount>=5?`<span class="player-flag flag-dnp">✗ ${p.dnpCount} DNPs/10</span>`:''}</div>`:''}</div>
         <div class="va-right">
           <div class="va-edge-big ${evPct>0?'pos':'neg'}">${evPct>0?'+':''}${evPct}%</div>
