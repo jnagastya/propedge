@@ -234,12 +234,28 @@ function normalizeBDLPosition(pos) {
   return 'F';                           // F, SF, PF, F-G, F-C (non-center)
 }
 
+// Manual overrides for players BDL search can't find by name.
+// Format: 'Odds API Name' -> { id, position, team }
+// Find a player's BDL ID via: /api/debug/bdl-search/<name>
+const BDL_PLAYER_OVERRIDES = {
+  // 'Tre Jones': { id: ???, position: 'G', team: 'SAS' },  // BDL search returns 0 results
+};
+
 // Search BDL for player ID + position by name, cached 24h
 // Returns { id, position } or { id: null, position: null }
 async function getBDLPlayerId(name) {
   const ck = `bdl_pid_${name.toLowerCase().replace(/\s+/g, '_')}`;
   const cached = cacheGet(ck);
   if (cached !== undefined) return cached;
+
+  // Check manual overrides first
+  const override = BDL_PLAYER_OVERRIDES[name];
+  if (override) {
+    console.log(`BDL override used: "${name}" → id=${override.id} team=${override.team}`);
+    const result = { id: override.id, position: override.position ?? null, team: override.team ?? null, matchedName: name };
+    cacheSet(ck, result, 24 * 3600);
+    return result;
+  }
 
   const trySearch = async (query) => {
     try {
