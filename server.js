@@ -1113,7 +1113,8 @@ app.get('/api/debug/player/:name', async (req, res) => {
 app.get('/api/debug/bdl-search/:query', async (req, res) => {
   const query = decodeURIComponent(req.params.query);
   try {
-    const resp = await fetch(`${BDL_BASE}/players?search=${encodeURIComponent(query)}&per_page=10`, { headers: bdlHeaders() });
+    const perPage = parseInt(req.query.per_page) || 25;
+    const resp = await fetch(`${BDL_BASE}/players?search=${encodeURIComponent(query)}&per_page=${perPage}`, { headers: bdlHeaders() });
     if (!resp.ok) return res.json({ query, error: `BDL returned ${resp.status}` });
     const data = await resp.json();
     const players = (data.data || []).map(p => ({
