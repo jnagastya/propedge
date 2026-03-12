@@ -611,7 +611,7 @@ td{padding:9px 11px;white-space:nowrap;}
           <span id="mktLbl">Points</span>
           <span class="bdg bdg-b" id="pCnt">0 players</span>
           <span class="bdg bdg-g" id="dAge">Loading…</span>
-
+          <span class="bdg" id="statsBdg" style="display:none"></span>
           <span class="bdg bdg-game" id="gameFiltBdg" style="display:none" onclick="clearGameFilter()">✕ <span id="gameFiltLbl"></span></span>
         </div>
       </div>
@@ -1103,7 +1103,8 @@ async function loadData() {
   recalcScenario();renderTable();
   _lastRefreshAt=Date.now();
   document.getElementById('dAge').textContent='Just now';
-
+  const _sb=document.getElementById('statsBdg');
+  if(_sb){_sb.className='bdg bdg-loading';_sb.textContent='⏳ Loading stats…';_sb.style.display='';}
   // Enrich player stats, then pre-load all alert markets and render alerts once — stable snapshot
   enrichAllPlayers();
 }
@@ -1161,6 +1162,8 @@ async function enrichAllPlayers(){
       if(i<stillMissing.length-1) await new Promise(r=>setTimeout(r,300));
     }
   }
+  const bdg=document.getElementById('statsBdg');
+  if(bdg){bdg.className='bdg bdg-real';bdg.style.cssText='';bdg.textContent='✓ Stats loaded';}
   renderAlerts();
 }
 async function doRefresh(){document.getElementById('rBtn').classList.add('sp');await apiGet('/api/cache/clear');await loadData();document.getElementById('rBtn').classList.remove('sp');}
