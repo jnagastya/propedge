@@ -1315,51 +1315,52 @@ app.get('/api/cron/refresh-odds', async (req, res) => {
 
     if (!upcoming.length) return res.json({ success: true, message: 'No upcoming games', stored: [] });
 
-    // Fetch all markets for all upcoming games sequentially to avoid hammering the API
-    const rawProps = [];
-    for (const evt of upcoming) {
-      try {
-        const pUrl = `${ODDS_BASE}/sports/basketball_nba/events/${evt.id}/odds?apiKey=${ODDS_KEY}&regions=us&markets=${ALL_PROP_MARKETS}&oddsFormat=american`;
-        const pResp = await fetch(pUrl);
-        if (pResp.ok) rawProps.push(await pResp.json());
-      } catch { /* skip */ }
-    }
+    // Fetch all games in parallel (fast — fits within 10s Hobby timeout)
+    const rawProps = (await Promise.allSettled(upcoming.map(async evt => {
+      const pUrl = `${ODDS_BASE}/sports/basketball_nba/events/${evt.id}/odds?apiKey=${ODDS_KEY}&regions=us&markets=${ALL_PROP_MARKETS}&oddsFormat=american`;
+      const pResp = await fetch(pUrl);
+      return pResp.ok ? pResp.json() : null;
+    }))).filter(r => r.status === 'fulfilled' && r.value).map(r => r.value);
 
-    // Aggregate and store for each book mode we support
+    // Aggregate for all book modes, fetch previous data in parallel
     const books = ['combined', 'draftkings', 'fanduel', 'betmgm', 'caesars', 'pointsbet'];
+    const prevData = await Promise.all(books.map(b => sbGetOdds(b)));
+    const prevByBook = {};
+    books.forEach((b, i) => { prevByBook[b] = prevData[i]; });
+
     const stored = [];
+    const writePromises = [];
     for (const book of books) {
       const players = aggregatePlayers(rawProps, book);
-      if (players.length) {
-        // Preserve previous lines for movement tracking
-        const prevPlayers = await sbGetOdds(book);
-        if (prevPlayers && prevPlayers.length) {
-          const prevMap = {};
-          for (const pp of prevPlayers) {
-            prevMap[`${pp.name}|${pp.market}`] = pp;
-          }
-          for (const p of players) {
-            const prev = prevMap[`${p.name}|${p.market}`];
-            if (prev) {
-              // Use the previous snapshot's own prev data if line hasn't changed since then
-              // Otherwise record the previous line as the movement reference
-              if (prev.line !== p.line || prev.overOdds !== p.overOdds || prev.underOdds !== p.underOdds) {
-                p.prev_line = prev.line;
-                p.prev_overOdds = prev.overOdds;
-                p.prev_underOdds = prev.underOdds;
-              } else if (prev.prev_line != null) {
-                // Line didn't change this refresh — carry forward the previous movement data
-                p.prev_line = prev.prev_line;
-                p.prev_overOdds = prev.prev_overOdds;
-                p.prev_underOdds = prev.prev_underOdds;
-              }
+      if (!players.length) continue;
+      // Preserve previous lines for movement tracking
+      const prevPlayers = prevByBook[book];
+      if (prevPlayers && prevPlayers.length) {
+        const prevMap = {};
+        for (const pp of prevPlayers) {
+          prevMap[`${pp.name}|${pp.market}`] = pp;
+        }
+        for (const p of players) {
+          const prev = prevMap[`${p.name}|${p.market}`];
+          if (prev) {
+            if (prev.line !== p.line || prev.overOdds !== p.overOdds || prev.underOdds !== p.underOdds) {
+              p.prev_line = prev.line;
+              p.prev_overOdds = prev.overOdds;
+              p.prev_underOdds = prev.underOdds;
+            } else if (prev.prev_line != null) {
+              p.prev_line = prev.prev_line;
+              p.prev_overOdds = prev.prev_overOdds;
+              p.prev_underOdds = prev.prev_underOdds;
             }
           }
         }
-        await sbSetOdds(book, players);
-        stored.push({ book, players: players.length });
       }
+      writePromises.push(sbSetOdds(book, players));
+      stored.push({ book, players: players.length });
     }
+
+    // Write all books in parallel
+    await Promise.all(writePromises);
 
     // Bust in-memory cache so next request pulls fresh Supabase data
     books.forEach(b => cache.del(`allMarkets_${b}`));
