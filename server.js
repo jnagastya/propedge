@@ -316,6 +316,8 @@ const BDL_PLAYER_OVERRIDES = {
   'Anthony Edwards':        { id: 3547238,       position: 'G', team: 'MIN' },
   'Ty Jerome':              { id: 666676,        position: 'G', team: 'MEM' },
   'Scoot Henderson':        { id: 56677747,      position: 'G', team: 'POR' },
+  'Brandon Miller':          { id: 56677823,      position: 'F', team: 'CHA' },
+  'Coby White':              { id: 666956,        position: 'G', team: 'CHI' },
 };
 
 // Search BDL for player ID + position by name, cached 24h
