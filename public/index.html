@@ -2727,14 +2727,20 @@ function renderOverview(el,p){
           const dL5=p.l5HitRate!=null?(_isOv?p.l5HitRate:100-p.l5HitRate):'—';
           const dL10=p.l10HitRate!=null?(_isOv?p.l10HitRate:100-p.l10HitRate):'—';
           const dHr=p.hitRate!=null?(_isOv?p.hitRate:100-p.hitRate):'—';
+          const sP=p.avg!=null&&(p.stdDev||0)>0?normalCDF((p.avg-p.line)/(p.stdDev)):0.5;
+          const dSP=Math.round((_isOv?sP:1-sP)*100);
           const dMP=p.modelProb!=null?Math.round((_isOv?p.modelProb:1-p.modelProb)*100):dHr;
           return`<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
             <span style="color:var(--b-text);">L5 ${dir} rate:</span><strong>${dL5}%</strong>
-            <span style="color:var(--t2)">×35%</span>
-            <span style="color:var(--b-text);margin-left:6px;">L10 ${dir} rate:</span><strong>${dL10}%</strong>
-            <span style="color:var(--t2)">×40%</span>
-            <span style="color:var(--b-text);margin-left:6px;">Season ${dir} rate:</span><strong>${dHr}%</strong>
             <span style="color:var(--t2)">×25%</span>
+            <span style="color:var(--b-text);margin-left:6px;">L10 ${dir} rate:</span><strong>${dL10}%</strong>
+            <span style="color:var(--t2)">×30%</span>
+          </div>
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:4px;">
+            <span style="color:var(--b-text);">Season ${dir} rate:</span><strong>${dHr}%</strong>
+            <span style="color:var(--t2)">×25%</span>
+            <span style="color:var(--b-text);margin-left:6px;">Stat Prob:</span><strong>${dSP}%</strong>
+            <span style="color:var(--t2)">×20%</span>
             <span style="margin-left:6px;padding:2px 8px;border-radius:8px;background:var(--bld);color:var(--b);font-weight:800;">= ${dMP}% ${dir}</span>
           </div>`;
         })()}
@@ -3888,6 +3894,14 @@ function renderAlerts(){
         <div class="va-stat"><div class="va-stat-v" style="color:${evPct>0?'var(--g)':'var(--r)'}">${evPct>0?'+':''}${evPct}%</div><div class="va-stat-l">Exp. Value</div></div>
         <div class="va-stat"><div class="va-stat-v" style="color:${cc}">${p.confidence||0}</div><div class="va-stat-l">Conf.</div></div>
       </div>
+      ${(()=>{
+        const _dL5=isOver?(p.l5HitRate??'—'):(p.l5HitRate!=null?100-p.l5HitRate:'—');
+        const _dL10=isOver?(p.l10HitRate??'—'):(p.l10HitRate!=null?100-p.l10HitRate:'—');
+        const _dSeason=isOver?(p.hitRate??'—'):(p.hitRate!=null?100-p.hitRate:'—');
+        const _sP=p.avg!=null&&(p.stdDev||0)>0?normalCDF((p.avg-p.line)/(p.stdDev)):0.5;
+        const _dSP=Math.round((isOver?_sP:1-_sP)*100);
+        return`<div class="va-formula" style="margin-top:6px;">MP = L5 ${_dL5}%×25% + L10 ${_dL10}%×30% + Season ${_dSeason}%×25% + StatProb ${_dSP}%×20% = <span style="color:var(--b);font-weight:800;">${dirModelProbPct}%</span></div>`;
+      })()}
       <div style="display:flex;gap:8px;margin-top:10px;">
         <button class="bet-btn" style="flex:1;padding:9px;font-size:13px;border-radius:8px;" onclick="event.stopPropagation();openBetModal(${JSON.stringify(p).replace(/"/g,'&quot;')})">🎲 Place Bet — ${isOver?'OVER':'UNDER'} ${p.line}</button>
         <button class="share-btn" style="padding:9px 14px;font-size:13px;border-radius:8px;" onclick="event.stopPropagation();shareAlert(_vaAlerts[${rank}])" title="Share">📤</button>
