@@ -668,8 +668,7 @@ td{padding:13px 14px;white-space:nowrap;}
 .save-status.syncing{color:var(--t3);}
 
 /* ── SOCIAL ── */
-.soc-view{display:none;}.soc-view.show{display:block;}
-.soc-layout{display:grid;grid-template-columns:272px 1fr;height:calc(100vh - 130px);min-height:400px;background:var(--bg1);border:1px solid var(--bd);border-radius:var(--radius-lg);overflow:hidden;}
+.soc-layout{display:grid;grid-template-columns:272px 1fr;min-height:500px;height:calc(100vh - 160px);background:var(--bg1);border:1px solid var(--bd);border-radius:var(--radius-lg);overflow:hidden;}
 .soc-sidebar{border-right:1px solid var(--bd);display:flex;flex-direction:column;overflow:hidden;}
 .soc-sidebar-scroll{flex:1;overflow-y:auto;display:flex;flex-direction:column;}
 .soc-section{border-bottom:1px solid var(--bd);}
@@ -1218,7 +1217,10 @@ Negative odds: |odds| / (|odds| + 100)</div>
   </div>
 
   <!-- ======= SOCIAL VIEW ======= -->
-  <div class="soc-view view-pane" id="socialView">
+  <div class="view-pane" id="socialView">
+    <div id="socSetupBanner" style="display:none;background:var(--bg2);border:1px solid var(--bd);border-radius:10px;padding:14px 18px;margin-bottom:14px;font-size:13px;color:var(--t2);">
+      ⚠️ <strong>Setup required:</strong> Run the SQL schema in your Supabase SQL Editor to enable social features. See <code style="background:var(--bg3);padding:1px 5px;border-radius:4px;">server.js</code> for the schema comments at the top of the social routes section.
+    </div>
     <div class="soc-layout">
       <!-- Sidebar -->
       <div class="soc-sidebar">
@@ -4525,6 +4527,12 @@ async function updateSocNotifBadge() {
 async function showSocialView() {
   if (!_authToken) return;
   if (!_socInited) await initSocial();
+  const banner = document.getElementById('socSetupBanner');
+  if (!_socInited) {
+    if (banner) banner.style.display = '';
+    return;
+  }
+  if (banner) banner.style.display = 'none';
   await loadSocialSidebar();
 }
 
