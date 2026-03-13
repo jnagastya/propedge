@@ -130,15 +130,13 @@ body.light .theme-toggle::after{transform:translateX(20px);background:var(--b);}
 .scs{display:flex;gap:8px;overflow-x:auto;margin-bottom:16px;scrollbar-width:none;padding:2px 0;}
 .scs::-webkit-scrollbar{display:none;}
 /* -- VALUE ALERTS RIBBON -- */
-.var-outer{position:relative;margin-bottom:14px;height:72px;overflow:hidden;}
-.var-outer::before,.var-outer::after{content:'';position:absolute;top:0;bottom:0;width:100px;z-index:2;pointer-events:none;}
-.var-outer::before{left:0;background:linear-gradient(90deg,var(--bg0) 60%,transparent);}
-.var-outer::after{right:0;background:linear-gradient(-90deg,var(--bg0) 40%,transparent);}
-.var-label{position:absolute;left:0;top:0;bottom:0;z-index:3;display:flex;align-items:center;padding:0 10px 0 0;pointer-events:none;}
+.var-outer{position:relative;margin-bottom:14px;height:72px;overflow:hidden;display:flex;align-items:center;}
+.var-outer::after{content:'';position:absolute;top:0;bottom:0;right:0;width:80px;z-index:2;pointer-events:none;background:linear-gradient(-90deg,var(--bg0) 30%,transparent);}
+.var-label{flex-shrink:0;width:52px;z-index:3;display:flex;align-items:center;justify-content:center;pointer-events:none;}
 .var-label-inner{display:flex;flex-direction:column;align-items:center;gap:2px;white-space:nowrap;}
 .var-label-icon{font-size:16px;line-height:1;animation:alert-tab-pulse 2.4s ease-in-out infinite;}
 .var-label-text{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--gold);}
-.var-scroll-area{height:72px;display:flex;align-items:center;padding-left:52px;}
+.var-scroll-area{flex:1;height:72px;display:flex;align-items:center;overflow:hidden;mask-image:linear-gradient(90deg,transparent 0%,#000 3%,#000 92%,transparent 100%);-webkit-mask-image:linear-gradient(90deg,transparent 0%,#000 3%,#000 92%,transparent 100%);}
 .var-track{display:flex;gap:8px;width:max-content;animation:var-scroll 45s linear infinite;}
 .var-track:hover{animation-play-state:paused;}
 @keyframes var-scroll{0%{transform:translateX(0);}100%{transform:translateX(-50%);}}
@@ -3296,7 +3294,8 @@ function renderVARibbon(){
     .filter(p=>!p.gameTime||new Date(p.gameTime)>now)
     .map(p=>({...p,vs:valueScore(p),_dirEV:getDirectionalEV(p)}))
     .filter(p=>p.vs>=30&&Math.abs(p.edge||0)>4&&(p.confidence||0)>=55&&p._dirEV>3)
-    .sort((a,b)=>b.vs-a.vs);
+    .sort((a,b)=>b.vs-a.vs)
+    .slice(0,50);
   if(!alerts.length){outer.style.display='none';return;}
   outer.style.display='';
   window._vaRibbonAlerts=alerts;
