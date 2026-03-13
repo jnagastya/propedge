@@ -4861,25 +4861,31 @@ function renderSocLineCard(ld) {
   const MKT_S = { player_points: 'PTS', player_rebounds: 'REB', player_assists: 'AST', player_threes: '3PM', player_steals: 'STL', player_blocks: 'BLK', player_turnovers: 'TO', player_points_rebounds_assists: 'PRA' };
   const mktLabel = MKT_S[ld.market] || ld.market || '';
   const edge = ld.edge ?? 0;
-  const edgeStr = (edge >= 0 ? '+' : '') + edge.toFixed(1) + '%';
-  const edgeColor = edge >= 0 ? 'var(--g)' : 'var(--r)';
+  const isOver = edge >= 0;
+  const evVal = ld.dirEV != null ? ld.dirEV : 0;
+  const evStr = (evVal >= 0 ? '+' : '') + evVal.toFixed(1) + '%';
+  const evColor = evVal >= 0 ? 'var(--g)' : 'var(--r)';
+  const probVal = ld.modelProb != null ? Math.round(ld.modelProb * 100) : null;
+  const probStr = probVal != null ? probVal + '%' : '—';
   // Check for live data from currently loaded S.data
   let liveHtml = '';
   if (typeof S !== 'undefined' && S.data?.length) {
     const live = S.data.find(p => p.name === ld.name && (p.market === ld.market || !ld.market));
     if (live && live.line !== ld.line) {
-      liveHtml = `<div class="soc-line-live"><span class="soc-line-live-tag">LIVE</span> Line now: <strong>${live.line}</strong> · Edge: <strong style="color:${(live.edge||0)>=0?'var(--g)':'var(--r)'}">${(live.edge||0)>=0?'+':''}${(live.edge||0).toFixed(1)}%</strong></div>`;
+      const liveEV = getDirectionalEV(live);
+      liveHtml = `<div class="soc-line-live"><span class="soc-line-live-tag">LIVE</span> Line now: <strong>${live.line}</strong> · EV: <strong style="color:${liveEV>=0?'var(--g)':'var(--r)'}">${liveEV>=0?'+':''}${liveEV.toFixed(1)}%</strong></div>`;
     }
   }
-  const overFmt = ld.overOdds ? (ld.overOdds > 0 ? '+' : '') + ld.overOdds : '—';
-  const underFmt = ld.underOdds ? (ld.underOdds > 0 ? '+' : '') + ld.underOdds : '—';
+  const dir = isOver ? '▲ OVER' : '▼ UNDER';
+  const betOdds = isOver ? ld.overOdds : ld.underOdds;
+  const oddsFmt = betOdds ? (betOdds > 0 ? '+' : '') + betOdds : '—';
   return `<div class="soc-line-name">${ld.name || '?'} <span class="soc-line-mkt">${mktLabel}</span></div>
     <div class="soc-line-grid">
       <div><div class="soc-line-cell">Line</div><div class="soc-line-val">${ld.line ?? '—'}</div></div>
       <div><div class="soc-line-cell">Avg</div><div class="soc-line-val">${ld.avg ?? '—'}</div></div>
-      <div><div class="soc-line-cell">Edge</div><div class="soc-line-val" style="color:${edgeColor}">${edgeStr}</div></div>
-      <div><div class="soc-line-cell">Over</div><div class="soc-line-val">${overFmt}</div></div>
-      <div><div class="soc-line-cell">Under</div><div class="soc-line-val">${underFmt}</div></div>
+      <div><div class="soc-line-cell">EV</div><div class="soc-line-val" style="color:${evColor}">${evStr}</div></div>
+      <div><div class="soc-line-cell">Model</div><div class="soc-line-val">${probStr}</div></div>
+      <div><div class="soc-line-cell">Odds</div><div class="soc-line-val">${oddsFmt}</div></div>
       <div><div class="soc-line-cell">Team</div><div class="soc-line-val">${ld.team || '—'}</div></div>
     </div>${liveHtml}`;
 }
@@ -5187,11 +5193,13 @@ function openShareModal(p) {
   document.querySelector('#shareModal .modal-title').textContent = 'Share Line';
   const mktLabels = { player_points: 'Points', player_rebounds: 'Rebounds', player_assists: 'Assists', player_threes: '3-Pointers', player_steals: 'Steals', player_blocks: 'Blocks', player_turnovers: 'Turnovers', player_points_rebounds_assists: 'PRA' };
   const mkt = mktLabels[p.market] || p.market || '';
-  const edge = p.edge ?? 0;
-  const edgeStr = (edge >= 0 ? '+' : '') + edge.toFixed(1) + '%';
+  const _isO = (p.edge || 0) > 0;
+  const _ev = p._dirEV != null ? p._dirEV : getDirectionalEV(p);
+  const _evStr = (_ev >= 0 ? '+' : '') + _ev.toFixed(1) + '%';
+  const _prob = p.modelProb != null ? Math.round((_isO ? p.modelProb : 1 - p.modelProb) * 100) + '%' : '—';
   document.getElementById('sharePreview').innerHTML = `
     <div class="share-preview-name">${p.name} <span style="font-size:11px;color:var(--t3);">· ${mkt}</span></div>
-    <div class="share-preview-detail">Line: ${p.line ?? '—'} · Avg: ${p.avg ?? '—'} · Edge: <span style="color:${edge>=0?'var(--g)':'var(--r)'};font-weight:700">${edgeStr}</span></div>`;
+    <div class="share-preview-detail">Line: ${p.line ?? '—'} · Avg: ${p.avg ?? '—'} · EV: <span style="color:${_ev>=0?'var(--g)':'var(--r)'};font-weight:700">${_evStr}</span> · Model: <span style="font-weight:700">${_prob}</span></div>`;
 
   document.getElementById('shareFriendList').innerHTML = buildShareSendList() || '<div style="font-size:12px;color:var(--t3);">Add friends first to share lines.</div>';
   document.getElementById('shareModal').classList.add('show');
@@ -5382,7 +5390,10 @@ async function shareTo(mode, id, label, btn) {
   } else {
     const p = _socSharePlayer;
     msgType = 'line';
-    msgPayload = { lineData: { name: p.name, team: p.team, market: p.market, line: p.line, avg: p.avg, edge: p.edge, overOdds: p.overOdds, underOdds: p.underOdds, snapshotAt: new Date().toISOString() } };
+    const _isOver = (p.edge || 0) > 0;
+    const _dirEV = p._dirEV != null ? p._dirEV : getDirectionalEV(p);
+    const _dirProb = p.modelProb != null ? (_isOver ? p.modelProb : 1 - p.modelProb) : null;
+    msgPayload = { lineData: { name: p.name, team: p.team, market: p.market, line: p.line, avg: p.avg, edge: p.edge, overOdds: p.overOdds, underOdds: p.underOdds, modelProb: _dirProb, dirEV: _dirEV, snapshotAt: new Date().toISOString() } };
   }
   const r2 = await fetch(`${API}/api/social/conversations/${convId}/messages`, {
     method: 'POST',
