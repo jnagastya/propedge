@@ -44,7 +44,25 @@ let ODDS_KEY = process.env.ODDS_API_KEY || '';
 let BDL_KEY = process.env.BDL_API_KEY || '';
 
 // Player → team cache (populated by refresh-stats, cold-start load, and stats fetches)
-const _playerTeamCache = {};
+const _playerTeamCache = {
+  'Derik Queen':'HOU','Jeremiah Fears':'OKC','Mohamed Diawara':'ATL',
+  'Ivica Zubac':'IND','Gui Santos':'GSW','Marcus Sasser':'DET',
+  'Cody Williams':'UTA','Mitchell Robinson':'NYK','Brice Sensabaugh':'TOR',
+  'Ace Bailey':'BKN','Sandro Mamukelashvili':'SAS','Matas Buzelis':'CHI',
+  'Keon Ellis':'SAC','Olivier-Maxence Prosper':'DAL','Isaiah Collier':'UTA',
+  'Kyle Filipowski':'UTA','Jaylon Tyson':'CLE','Dennis Schroder':'BKN',
+  'Taylor Hendricks':'UTA','G.G. Jackson':'MEM','Royce O\'Neale':'PHX',
+  'Ty Jerome':'MEM','Jarace Walker':'IND','Landry Shamet':'NYK',
+  'Brandin Podziemski':'GSW','De\'Anthony Melton':'BKN','Cedric Coward':'LAC',
+  'Duncan Robinson':'MIA','Kristaps Porzingis':'GSW','Reed Sheppard':'HOU',
+  'Julius Randle':'MIN','Derrick Jones':'LAC','Kobe Sanders':'LAC',
+  'R.J. Barrett':'TOR','Collin Gillespie':'DEN','Sam Merrill':'CLE',
+  'Aaron Nesmith':'IND','Oso Ighodaro':'PHX','Will Richard':'GSW',
+  'Toumani Camara':'POR','Bennedict Mathurin':'IND','Jaylen Wells':'MEM',
+  'Dean Wade':'CLE','Robert Williams':'POR','Isaiah Stewart II':'DET',
+  'Donovan Clingan':'POR','Cooper Flagg':'LAL','Saddiq Bey':'ATL',
+  'Kris Dunn':'LAC','Kevin Huerter':'IND','Jabari Smith Jr':'HOU',
+};
 const ODDS_BASE = 'https://api.the-odds-api.com/v4';
 const BDL_BASE = 'https://api.balldontlie.io/nba/v1';
 const NBA_BASE = 'https://stats.nba.com/stats';
@@ -208,6 +226,7 @@ async function fetchBDLGameLog(playerId, startDate = null) {
       pts: +g.pts || 0, reb: +g.reb || 0, ast: +g.ast || 0,
       fg3m: +g.fg3m || 0, stl: +g.stl || 0, blk: +g.blk || 0,
       turnover: +g.turnover || 0, min: String(g.min || '0'),
+      team: g.team?.abbreviation || null,
       home, wl: '', opp_team_id: opp || null,
     };
   }).filter(g => g && g.date); // keep DNP rows (min=0) so client can show missed games + injury flags
@@ -947,7 +966,7 @@ function guessTeam(name) {
     // ATL
     'trae young':'ATL','bogdan bogdanovic':'ATL','dejounte murray':'ATL',"de'andre hunter":'ATL','onyeka okongwu':'ATL','clint capela':'ATL','dyson daniels':'ATL','larry nance jr.':'ATL',
     // BOS
-    'jayson tatum':'BOS','jaylen brown':'BOS','jrue holiday':'BOS','al horford':'BOS','kristaps porzingis':'BOS','payton pritchard':'BOS','sam hauser':'BOS','derrick white':'BOS',
+    'jayson tatum':'BOS','jaylen brown':'BOS','jrue holiday':'BOS','al horford':'BOS','kristaps porzingis':'GSW','payton pritchard':'BOS','sam hauser':'BOS','derrick white':'BOS',
     // BKN
     'cam thomas':'BKN','nic claxton':'BKN',"day'ron sharpe":'BKN','ben simmons':'BKN','ziaire williams':'BKN',
     // CHA
@@ -969,7 +988,7 @@ function guessTeam(name) {
     // IND
     'tyrese haliburton':'IND','pascal siakam':'IND','myles turner':'IND','benedict mathurin':'IND','andrew nembhard':'IND','t.j. mcconnell':'IND',
     // LAC
-    'kawhi leonard':'LAC','james harden':'LAC','ivica zubac':'LAC','norman powell':'LAC','terance mann':'LAC','bones hyland':'LAC',
+    'kawhi leonard':'LAC','james harden':'LAC','ivica zubac':'IND','norman powell':'LAC','terance mann':'LAC','bones hyland':'LAC',
     // LAL
     'lebron james':'LAL','anthony davis':'LAL','austin reaves':'LAL',"d'angelo russell":'LAL','rui hachimura':'LAL','max christie':'LAL','gabe vincent':'LAL',
     // MEM
