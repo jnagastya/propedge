@@ -2533,13 +2533,14 @@ function placeParlayBet(){
           const hs=getHeadshot(l.name);
           const init=(l.name||'?').split(' ').map(n=>n[0]).join('').substring(0,2);
           const isOv=l.direction==='over';
-          return`<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--bd);">
-            <div data-av="${l.name.replace(/"/g,'&quot;')}" style="width:34px;height:34px;border-radius:50%;background:var(--bg3);overflow:hidden;border:1px solid var(--bd);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--t3);flex-shrink:0;">${hs?`<img src="${hs}" onerror="headshotError(this,'${init}')" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" alt="">`:`<span>${init}</span>`}</div>
+          const lCol=isOv?'var(--g)':'var(--r)';const lBg=isOv?'rgba(34,197,94,.06)':'rgba(239,68,68,.06)';const lBd=isOv?'rgba(34,197,94,.25)':'rgba(239,68,68,.25)';
+          return`<div style="display:flex;align-items:center;gap:10px;padding:7px 8px;border-radius:7px;margin-bottom:4px;background:${lBg};border:1px solid ${lBd};">
+            <div data-av="${l.name.replace(/"/g,'&quot;')}" style="width:34px;height:34px;border-radius:50%;background:var(--bg3);overflow:hidden;border:2px solid ${lCol};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--t3);flex-shrink:0;">${hs?`<img src="${hs}" onerror="headshotError(this,'${init}')" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" alt="">`:`<span>${init}</span>`}</div>
             <div style="flex:1;min-width:0;">
               <div style="font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${l.name}</div>
-              <div style="font-size:11px;color:var(--t3);">${isOv?'▲':'▼'} ${l.direction.toUpperCase()} ${l.line} ${l.marketLabel}</div>
+              <div style="font-size:11px;color:${lCol};font-weight:600;">${isOv?'▲':'▼'} ${l.direction.toUpperCase()} ${l.line} ${l.marketLabel}</div>
             </div>
-            <div style="font-size:13px;font-weight:700;color:var(--b);flex-shrink:0;">${(l.odds>0?'+':'')+l.odds}</div>
+            <div style="font-size:13px;font-weight:700;color:${lCol};flex-shrink:0;">${(l.odds>0?'+':'')+l.odds}</div>
           </div>`;
         }).join('')}
       </div>
@@ -3057,35 +3058,38 @@ function placeBet() {
   const oddsStr = (odds > 0 ? '+' : '') + odds;
   const mktName = mktFull[_betPlayer.market || S.market] || 'Stats';
   const _bcHs=getHeadshot(_betPlayer.name);const _bcInit=(_betPlayer.name||'?').split(' ').map(n=>n[0]).join('').substring(0,2);
+  const _col = isOver ? 'var(--g)' : 'var(--r)';
+  const _colBg = isOver ? 'rgba(34,197,94,.08)' : 'rgba(239,68,68,.08)';
+  const _colBd = isOver ? 'rgba(34,197,94,.35)' : 'rgba(239,68,68,.35)';
   document.getElementById('betModal').querySelector('.modal-title').textContent = 'Bet Confirmed';
   document.getElementById('modalBody').innerHTML = `
     <div class="bet-confirm">
-      <div class="bet-confirm-check">✓</div>
-      <div class="bet-confirm-hero">
+      <div class="bet-confirm-check" style="background:${_colBg};border-color:${_col};color:${_col};">✓</div>
+      <div class="bet-confirm-hero" style="background:${_colBg};border-color:${_colBd};">
         <div style="display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:6px;">
-          <div data-av="${_betPlayer.name.replace(/"/g,'&quot;')}" style="width:52px;height:52px;border-radius:50%;background:var(--bg3);overflow:hidden;border:2px solid var(--bd);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:var(--t3);flex-shrink:0;">${_bcHs?`<img src="${_bcHs}" onerror="headshotError(this,'${_bcInit}')" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" alt="">`:`<span>${_bcInit}</span>`}</div>
+          <div data-av="${_betPlayer.name.replace(/"/g,'&quot;')}" style="width:52px;height:52px;border-radius:50%;background:var(--bg3);overflow:hidden;border:2px solid ${_col};display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:var(--t3);flex-shrink:0;">${_bcHs?`<img src="${_bcHs}" onerror="headshotError(this,'${_bcInit}')" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" alt="">`:`<span>${_bcInit}</span>`}</div>
           <div>
             <div class="bet-confirm-player" style="margin-top:0;">${_betPlayer.name}${_betPlayer.team?' · '+_betPlayer.team:''}</div>
-            <div class="bet-confirm-dir" style="color:${isOver?'var(--g)':'var(--r)'};margin-top:2px;">${isOver?'▲ OVER':'▼ UNDER'} · ${oddsStr}</div>
+            <div class="bet-confirm-dir" style="color:${_col};margin-top:2px;">${isOver?'▲ OVER':'▼ UNDER'} · ${oddsStr}</div>
           </div>
         </div>
-        <div class="bet-confirm-line">${_betPlayer.line} ${mktName}</div>
+        <div class="bet-confirm-line" style="color:${_col};">${_betPlayer.line} ${mktName}</div>
       </div>
       <div class="bet-confirm-payout">
         <div class="bet-confirm-payout-cell">
           <div class="bet-confirm-payout-lbl">Stake</div>
           <div class="bet-confirm-payout-val">$${stake.toFixed(2)}</div>
         </div>
-        <div class="bet-confirm-payout-cell" style="border-color:rgba(34,197,94,.3);background:rgba(34,197,94,.06);">
-          <div class="bet-confirm-payout-lbl" style="color:var(--g);">To Win</div>
-          <div class="bet-confirm-payout-val" style="color:var(--g);">$${toWin.toFixed(2)}</div>
+        <div class="bet-confirm-payout-cell" style="border-color:${_colBd};background:${_colBg};">
+          <div class="bet-confirm-payout-lbl" style="color:${_col};">To Win</div>
+          <div class="bet-confirm-payout-val" style="color:${_col};">$${toWin.toFixed(2)}</div>
         </div>
       </div>
       <div style="text-align:center;font-size:12px;color:var(--t3);margin-bottom:16px;">
         Total return if won: <strong style="color:var(--t1);">$${(stake+toWin).toFixed(2)}</strong>
         &nbsp;·&nbsp; New balance: <strong style="color:var(--t1);">$${sim.balance.toFixed(2)}</strong>
       </div>
-      <button class="bet-confirm-done" onclick="closeBetModal()">Done</button>
+      <button class="bet-confirm-done" style="background:${_col};" onclick="closeBetModal()">Done</button>
     </div>`;
 }
 
