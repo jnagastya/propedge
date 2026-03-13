@@ -5107,19 +5107,22 @@ function openBetShareModal(betId) {
 }
 
 function formatBetAsText(bet) {
+  const fmtOdds = o => o != null ? (o > 0 ? '+' : '') + o : '—';
+  const fmtEdge = e => e != null ? (e >= 0 ? '+' : '') + e.toFixed(1) + '%' : '—';
+  const status = (bet.status || 'open').toUpperCase();
   if (bet.type === 'parlay') {
     const legs = (bet.legs || []).map(l => {
       const dir = l.direction === 'over' ? '▲ OVER' : '▼ UNDER';
-      return `• ${l.name} ${dir} ${l.line} ${l.marketLabel || ''}`;
+      const parts = [`• ${l.name} ${dir} ${l.line} ${l.marketLabel || ''}`.trim()];
+      if (l.odds != null) parts.push(fmtOdds(l.odds));
+      if (l.edge != null) parts.push(`Edge ${fmtEdge(l.edge)}`);
+      return parts.join(' · ');
     }).join('\n');
-    const status = (bet.status || 'open').toUpperCase();
     return `🎯 ${(bet.legs||[]).length}-Leg Parlay · ${bet.combinedOdds}\n${legs}\n$${(bet.stake||0).toFixed(2)} stake → Win $${(bet.toWin||0).toFixed(2)} · ${status}`;
   }
   const dir = bet.direction === 'over' ? '▲ OVER' : '▼ UNDER';
-  const odds = (bet.odds > 0 ? '+' : '') + bet.odds;
-  const edge = (bet.edge || 0) >= 0 ? `+${(bet.edge||0).toFixed(1)}%` : `${(bet.edge||0).toFixed(1)}%`;
-  const status = (bet.status || 'open').toUpperCase();
-  return `📊 ${bet.player} ${dir} ${bet.line} ${bet.marketLabel || ''} · ${odds} · Edge ${edge}\n$${(bet.stake||0).toFixed(2)} stake → Win $${(bet.toWin||0).toFixed(2)} · ${status}`;
+  const matchup = bet.matchup ? `\n${bet.matchup}` : '';
+  return `📊 ${bet.player} ${dir} ${bet.line} ${bet.marketLabel || ''} · ${fmtOdds(bet.odds)} · Edge ${fmtEdge(bet.edge)}${matchup}\n$${(bet.stake||0).toFixed(2)} stake → Win $${(bet.toWin||0).toFixed(2)} · ${status}`;
 }
 
 function renderSocBetCard(bd) {
