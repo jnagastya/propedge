@@ -3900,7 +3900,8 @@ function rgbStrToHex(rgb) {
 }
 
 function updateBgImage() {
-  const color = _bgGradMatchTint ? _bgTintRgb : _bgGradientColor;
+  // When match=true, _bgGradientColor is synced to accent by applyAccent/toggleGradMatchTint
+  const color = _bgGradientColor;
   const a1 = _bgTintOpacity, a2 = (_bgTintOpacity * 0.7).toFixed(3);
   let img;
   if (_bgMode === 'linear') {
