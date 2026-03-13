@@ -528,7 +528,7 @@ td{padding:13px 14px;white-space:nowrap;}
 .bet-confirm-stat-lbl{color:var(--t3);font-weight:600;}
 .bet-confirm-done{width:100%;padding:11px;background:var(--g);border:none;border-radius:var(--radius);color:#fff;font-family:var(--sans);font-size:14px;font-weight:700;cursor:pointer;transition:opacity .12s;}
 .bet-confirm-done:hover{opacity:.88;}
-.bal-edit{display:flex;align-items:center;gap:8px;}
+.bal-edit{display:flex;align-items:center;gap:8px;flex-wrap:nowrap;}
 .bal-inp{width:120px;padding:6px 10px;background:var(--bg2);border:1.5px solid var(--bd);border-radius:8px;font-family:var(--sans);font-size:14px;font-weight:700;outline:none;color:var(--t1);}
 .bal-inp:focus{border-color:var(--b);}
 
@@ -3577,9 +3577,9 @@ function renderSimulator() {
   document.getElementById('simHdr').innerHTML = `
     <div class="sim-stat">
       <div class="sim-stat-l">Balance</div>
-      <div class="sim-stat-v">$${sim.balance.toFixed(2)}</div>
-      <div class="bal-edit" style="margin-top:6px;">
-        <input class="bal-inp" id="balInp" type="number" value="${sim.balance.toFixed(0)}" min="0" step="100" style="font-size:12px;padding:4px 8px;"/>
+      <div class="bal-edit" style="margin-top:4px;align-items:center;">
+        <span class="sim-stat-v" style="flex:1;">$${sim.balance.toFixed(2)}</span>
+        <input class="bal-inp" id="balInp" type="number" value="${sim.balance.toFixed(0)}" min="0" step="100" style="width:72px;font-size:12px;padding:4px 8px;"/>
         <button class="cbtn" onclick="setBalance()" style="padding:4px 10px;font-size:11px;">Set</button>
       </div>
     </div>
@@ -3764,8 +3764,12 @@ function applyAccent(hex, save = false) {
   root.style.setProperty('--bld', `rgba(${rgb},.12)`);
   root.style.setProperty('--bb', `rgba(${rgb},.22)`);
   // Update logo SVG gradients
-  document.querySelectorAll('#hg stop, #lg stop').forEach((stop, i) => {
-    stop.setAttribute('stop-color', i % 2 === 0 ? hex : dark);
+  ['#hg', '#lg'].forEach(id => {
+    const grad = document.getElementById(id.slice(1));
+    if (!grad) return;
+    const stops = grad.querySelectorAll('stop');
+    if (stops[0]) stops[0].setAttribute('stop-color', hex);
+    if (stops[1]) stops[1].setAttribute('stop-color', dark);
   });
   // Update logo drop-shadow filter color
   document.querySelectorAll('svg[style*="drop-shadow"]').forEach(svg => {
