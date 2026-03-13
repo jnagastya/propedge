@@ -2472,7 +2472,16 @@ app.get('/api/cron/agent-bet', async (req, res) => {
     const now = new Date();
     const upcoming = allPlayers.filter(p => !p.gameTime || new Date(p.gameTime) > now);
 
-    // 3. For each player/market combo, compute stats and value score
+    // 3. Batch-fetch all game logs in one query (avoids per-player Supabase calls)
+    const uniqueNames = [...new Set(upcoming.map(p => p.name))];
+    const gameLogMap = new Map();
+    for (let i = 0; i < uniqueNames.length; i += 50) {
+      const batch = uniqueNames.slice(i, i + 50);
+      const { data } = await supabase.from('player_stats').select('player_name, game_log, season').eq('season', NBA_SEASON).in('player_name', batch);
+      if (data) data.forEach(r => gameLogMap.set(r.player_name, r.game_log));
+    }
+
+    // 4. For each player/market combo, compute stats and value score
     const betsToInsert = [];
     const processedKeys = new Set();
 
@@ -2482,11 +2491,10 @@ app.get('/api/cron/agent-bet', async (req, res) => {
       processedKeys.add(key);
 
       try {
-        // Get real game logs from Supabase
-        const record = await sbGetGameLogRecord(p.name);
-        if (!record?.game_log?.length) { summary.skipped++; continue; }
+        const gameLog = gameLogMap.get(p.name);
+        if (!gameLog?.length) { summary.skipped++; continue; }
 
-        const stats = serverComputeStats(record.game_log, p.line, p.market, p.overOdds, p.underOdds);
+        const stats = serverComputeStats(gameLog, p.line, p.market, p.overOdds, p.underOdds);
         if (!stats || stats.gamesPlayed < 5) { summary.skipped++; continue; }
 
         const isValue = stats.vs >= 30 && Math.abs(stats.edge) > 4 && stats.confidence >= 55 && stats.dirEV > 3;
