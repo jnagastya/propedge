@@ -858,7 +858,7 @@ function computeSplits(games, line, statKey) {
 // ROUTE: GET /api/analytics/merged — THE BIG ONE
 // Full merged dataset: odds + stats + analytics
 // All markets fetched in a single per-game request to minimise Odds API quota usage
-const ALL_PROP_MARKETS = 'player_points,player_rebounds,player_assists,player_threes,player_points_rebounds_assists';
+const ALL_PROP_MARKETS = 'player_points,player_rebounds,player_assists,player_threes,player_points_rebounds_assists,player_rebounds_assists';
 
 // ============================================================
 app.get('/api/analytics/merged', async (req, res) => {
@@ -1187,6 +1187,7 @@ function getStatValue(game, market) {
     case 'player_blocks':                    return game.blk  ?? null;
     case 'player_turnovers':                 return game.turnover ?? null;
     case 'player_points_rebounds_assists':   return (game.pts||0)+(game.reb||0)+(game.ast||0);
+    case 'player_rebounds_assists':          return (game.reb||0)+(game.ast||0);
     default: return null;
   }
 }
@@ -1838,7 +1839,7 @@ app.post('/api/social/conversations/:id/messages', async (req, res) => {
         const { data: members } = await supabase.from('conversation_members').select('user_id').eq('conversation_id', req.params.id).neq('user_id', user.id);
         if (!members?.length) return;
         const senderName = pm[user.id]?.displayName || pm[user.id]?.username || 'Someone';
-        const MKT_SHORT = { player_points:'Pts', player_rebounds:'Reb', player_assists:'Ast', player_threes:'3PM', player_steals:'Stl', player_blocks:'Blk', player_turnovers:'TO', player_points_rebounds_assists:'PRA' };
+        const MKT_SHORT = { player_points:'Pts', player_rebounds:'Reb', player_assists:'Ast', player_threes:'3PM', player_steals:'Stl', player_blocks:'Blk', player_turnovers:'TO', player_points_rebounds_assists:'PRA', player_rebounds_assists:'R+A' };
         const fmtOdds = o => o != null ? (o > 0 ? '+' : '') + o : null;
         const fmtEV = v => v != null ? (v >= 0 ? '+' : '') + Number(v).toFixed(1) + '%' : null;
         const fmtProb = v => v != null ? Math.round(v * 100) + '%' : null;
@@ -2370,8 +2371,8 @@ async function sendDiscordResults(allBets, latestDate) {
   });
 }
 
-const MKT_LABELS = { player_points: 'PTS', player_rebounds: 'REB', player_assists: 'AST', player_threes: '3PM', player_points_rebounds_assists: 'PRA' };
-const STAT_KEYS  = { player_points: 'pts', player_rebounds: 'reb', player_assists: 'ast', player_threes: 'fg3m', player_points_rebounds_assists: 'pra' };
+const MKT_LABELS = { player_points: 'PTS', player_rebounds: 'REB', player_assists: 'AST', player_threes: '3PM', player_points_rebounds_assists: 'PRA', player_rebounds_assists: 'R+A' };
+const STAT_KEYS  = { player_points: 'pts', player_rebounds: 'reb', player_assists: 'ast', player_threes: 'fg3m', player_points_rebounds_assists: 'pra', player_rebounds_assists: 'ra' };
 
 // Server-side value scoring (mirrors client logic exactly)
 function serverValueScore(edge, hitRate, confidence, dirEV) {

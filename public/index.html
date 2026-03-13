@@ -1250,6 +1250,7 @@ td{padding:13px 14px;white-space:nowrap;}
           <option value="player_assists">Assists</option>
           <option value="player_threes">3-Pointers</option>
           <option value="player_points_rebounds_assists">PRA</option>
+          <option value="player_rebounds_assists">R+A</option>
         </select>
         <select class="sel" id="bk" onchange="S.book=this.value;loadData()">
           <option value="combined">⚖ Combined (All Books)</option>
@@ -1760,7 +1761,7 @@ function renderFavorites() {
 
   // Gather all available prop data across all loaded markets
   const allPlayers = {}; // name → [{ market, line, overOdds, underOdds, edge, avg, hitRate, confidence, matchup, team, gameTime, p }]
-  const MKT_SHORT_L = {player_points:'PTS',player_rebounds:'REB',player_assists:'AST',player_threes:'3PM',player_points_rebounds_assists:'PRA'};
+  const MKT_SHORT_L = {player_points:'PTS',player_rebounds:'REB',player_assists:'AST',player_threes:'3PM',player_points_rebounds_assists:'PRA',player_rebounds_assists:'R+A'};
 
   // Pull from current market + all alert market caches
   const dataSources = { [S.market]: S.data, ...alertMktCache };
@@ -1964,7 +1965,7 @@ async function enrichAllPlayers(){
   if(!players.length) return;
   const bdg=document.getElementById('statsBdg');
   // Load all alert markets first so we have the full player list for bulk fetch
-  const ALL_ALERT_MKTS=['player_points','player_rebounds','player_assists','player_threes','player_points_rebounds_assists'];
+  const ALL_ALERT_MKTS=['player_points','player_rebounds','player_assists','player_threes','player_points_rebounds_assists','player_rebounds_assists'];
   alertMktCache[S.market]=S.data;
   await Promise.all(ALL_ALERT_MKTS.filter(mk=>mk!==S.market).map(mk=>loadAlertMarket(mk)));
 
@@ -2175,9 +2176,9 @@ function computeMinutesAdjustedProb(p,projMin){
   if(!games.length||!p.line) return p.modelProb||0.5;
   const statMap={'player_points':'pts','player_rebounds':'reb','player_assists':'ast',
     'player_threes':'fg3m','player_steals':'stl','player_blocks':'blk',
-    'player_turnovers':'turnover','player_points_rebounds_assists':'pra'};
+    'player_turnovers':'turnover','player_points_rebounds_assists':'pra','player_rebounds_assists':'ra'};
   const statKey=statMap[p.market||S.market]||'pts';
-  const getV=g=>statKey==='pra'?(+g.pts||0)+(+g.reb||0)+(+g.ast||0):+(g[statKey]||0);
+  const getV=g=>statKey==='pra'?(+g.pts||0)+(+g.reb||0)+(+g.ast||0):statKey==='ra'?(+g.reb||0)+(+g.ast||0):+(g[statKey]||0);
   const avgMin=games.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/games.length;
   // Approach 1: similar minutes games — only when projection is within 40% of avg
   // (extreme deviations like 9 min vs 26 avg need ratio scaling, not sparse game lookup)
@@ -2341,7 +2342,7 @@ function renderTable(){
   S.sort=document.getElementById('sortS').value;
   d.sort(sf[S.sort]||sf.edge);
 
-  const mktLabels={player_points:'Points',player_rebounds:'Rebounds',player_assists:'Assists',player_threes:'3-Pointers',player_points_rebounds_assists:'PRA'};
+  const mktLabels={player_points:'Points',player_rebounds:'Rebounds',player_assists:'Assists',player_threes:'3-Pointers',player_points_rebounds_assists:'PRA',player_rebounds_assists:'R+A'};
   document.getElementById('mktLbl').textContent=mktLabels[S.market]||'Props';
 
   const tb=document.getElementById('tBody');tb.innerHTML='';
@@ -2488,7 +2489,7 @@ function renderDet(i,p){
   const scnTab=S.scnOn?`<button class="di-tab" onclick="showDTab('${i}','scenario',this)">Scenario</button>`:'';
   const booksTab=p.bookLines&&Object.keys(p.bookLines).length>1?`<button class="di-tab" onclick="showDTab('${i}','books',this)">📊 Books</button>`:'';
   const _dhs=getHeadshot(p.name);const _dinit=(p.name||'?').split(' ').map(n=>n[0]).join('').substring(0,2);
-  const mktLabel=({'player_points':'Points','player_rebounds':'Rebounds','player_assists':'Assists','player_threes':'3-Pointers','player_steals':'Steals','player_blocks':'Blocks','player_turnovers':'Turnovers','player_points_rebounds_assists':'PRA'})[p.market||S.market]||'Stats';
+  const mktLabel=({'player_points':'Points','player_rebounds':'Rebounds','player_assists':'Assists','player_threes':'3-Pointers','player_steals':'Steals','player_blocks':'Blocks','player_turnovers':'Turnovers','player_points_rebounds_assists':'PRA','player_rebounds_assists':'Reb+Ast'})[p.market||S.market]||'Stats';
   c.innerHTML=`<div class="di-player-hdr">
     <div class="di-player-hdr-av" data-av="${p.name.replace(/"/g,'&quot;')}">${_dhs?`<img src="${_dhs}" onerror="headshotError(this,'${_dinit}')" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" alt="">`:`<span>${_dinit}</span>`}</div>
     <div>
@@ -2512,9 +2513,9 @@ function applyPlayerStats(p, games){
   if(!games||!games.length){p.statsError='No data returned';return false;}
   const statMap={'player_points':'pts','player_rebounds':'reb','player_assists':'ast',
     'player_threes':'fg3m','player_steals':'stl','player_blocks':'blk','player_turnovers':'turnover',
-    'player_points_rebounds_assists':'pra'};
+    'player_points_rebounds_assists':'pra','player_rebounds_assists':'ra'};
   const statKey=statMap[p.market||S.market]||'pts';
-  const getStatVal=g=>statKey==='pra'?(+g.pts||0)+(+g.reb||0)+(+g.ast||0):+(g[statKey]||0);
+  const getStatVal=g=>statKey==='pra'?(+g.pts||0)+(+g.reb||0)+(+g.ast||0):statKey==='ra'?(+g.reb||0)+(+g.ast||0):+(g[statKey]||0);
   const sorted=[...games].sort((a,b)=>new Date(b.date||0)-new Date(a.date||0));
   const rawL10=sorted.slice(0,10);
   const played=sorted.filter(g=>parseInt(g.min||'0')>0);
@@ -2605,7 +2606,7 @@ async function showDTab(i,tab,btn){
 async function loadAndRenderSplits(el,p){
   if(p.splits){renderSplits(el,p);return;}
   el.innerHTML='<div style="padding:20px;text-align:center;color:var(--t3);font-size:12px;">Loading splits…</div>';
-  const statMap={'player_points':'pts','player_rebounds':'reb','player_assists':'ast','player_threes':'fg3m','player_steals':'stl','player_blocks':'blk','player_turnovers':'turnover','player_points_rebounds_assists':'pra'};
+  const statMap={'player_points':'pts','player_rebounds':'reb','player_assists':'ast','player_threes':'fg3m','player_steals':'stl','player_blocks':'blk','player_turnovers':'turnover','player_points_rebounds_assists':'pra','player_rebounds_assists':'ra'};
   const stat=statMap[p.market||S.market]||'pts';
   const r=await apiGet(`/api/stats/player/name/${encodeURIComponent(p.name)}/splits?line=${p.line}&stat=${stat}`);
   if(r.data){p.splits=r.data;renderSplits(el,p);}
@@ -2625,9 +2626,9 @@ async function loadAndRenderGameLog(el,p){
 }
 
 function renderOverview(el,p){
-  const statMap={'player_points':'pts','player_rebounds':'reb','player_assists':'ast','player_threes':'fg3m','player_steals':'stl','player_blocks':'blk','player_turnovers':'turnover','player_points_rebounds_assists':'pra'};
+  const statMap={'player_points':'pts','player_rebounds':'reb','player_assists':'ast','player_threes':'fg3m','player_steals':'stl','player_blocks':'blk','player_turnovers':'turnover','player_points_rebounds_assists':'pra','player_rebounds_assists':'ra'};
   const statKey=statMap[p.market||S.market]||'pts';
-  const getStatVal=g=>statKey==='pra'?(+g.pts||0)+(+g.reb||0)+(+g.ast||0):+(g[statKey]||0);
+  const getStatVal=g=>statKey==='pra'?(+g.pts||0)+(+g.reb||0)+(+g.ast||0):statKey==='ra'?(+g.reb||0)+(+g.ast||0):+(g[statKey]||0);
   const l5=(p.l10||[]).slice(0,5);
   const l5a=l5.length?(l5.reduce((a,b)=>a+b,0)/5).toFixed(1):'—';
   const ceil=Math.max(...(p.l10||[0])),floor=Math.min(...(p.l10||[0]));
@@ -2780,10 +2781,10 @@ function renderLineSimulator(el,p){
   }
   // Extract actual per-game stat values (same logic as applyPlayerStats)
   const statMap={'player_points':'pts','player_rebounds':'reb','player_assists':'ast','player_threes':'fg3m',
-    'player_steals':'stl','player_blocks':'blk','player_turnovers':'turnover','player_points_rebounds_assists':'pra'};
+    'player_steals':'stl','player_blocks':'blk','player_turnovers':'turnover','player_points_rebounds_assists':'pra','player_rebounds_assists':'ra'};
   const mkt=p.market||S.market;
   const statKey=statMap[mkt]||'pts';
-  const getV=g=>statKey==='pra'?(+g.pts||0)+(+g.reb||0)+(+g.ast||0):+(g[statKey]||0);
+  const getV=g=>statKey==='pra'?(+g.pts||0)+(+g.reb||0)+(+g.ast||0):statKey==='ra'?(+g.reb||0)+(+g.ast||0):+(g[statKey]||0);
   const played=p.gameLog.filter(g=>parseInt(g.min||'0')>0);
   const vals=played.map(g=>getV(g)).filter(v=>!isNaN(v));
   // Fall back to stored l10 values if game log extraction yields nothing
@@ -3141,8 +3142,9 @@ const ALERT_MARKETS=[
   {key:'player_assists',label:'Assists'},
   {key:'player_threes',label:'3-Pointers'},
   {key:'player_points_rebounds_assists',label:'PRA'},
+  {key:'player_rebounds_assists',label:'R+A'},
 ];
-const MKT_SHORT={player_points:'PTS',player_rebounds:'REB',player_assists:'AST',player_threes:'3PM',player_points_rebounds_assists:'PRA'};
+const MKT_SHORT={player_points:'PTS',player_rebounds:'REB',player_assists:'AST',player_threes:'3PM',player_points_rebounds_assists:'PRA',player_rebounds_assists:'R+A'};
 let alertMkt='all';
 let alertMktCache={}; // {market_key: enriched player array}
 
@@ -3202,7 +3204,7 @@ function updateParlayNavBadge(){
   bdg.style.display=customParlayLegs.length>0?'':'none';
 }
 function addToCustomParlay(p,dir){
-  const mktLbls={player_points:'PTS',player_rebounds:'REB',player_assists:'AST',player_threes:'3PM',player_points_rebounds_assists:'PRA'};
+  const mktLbls={player_points:'PTS',player_rebounds:'REB',player_assists:'AST',player_threes:'3PM',player_points_rebounds_assists:'PRA',player_rebounds_assists:'R+A'};
   const market=p.market||S.market;
   const direction=dir||_betDir||((p.edge||0)>=0?'over':'under');
   const odds=direction==='over'?(p.overOdds||-110):(p.underOdds||-110);
@@ -3400,7 +3402,7 @@ function renderParlay(){
     el.innerHTML=`<div class="parlay-hdr">${parlayHeader()}</div><div class="parlay-empty">Load player data first.</div>`;
     return;
   }
-  const MKT_LABEL_MAP={'player_points':'PTS','player_rebounds':'REB','player_assists':'AST','player_threes':'3PM','player_points_rebounds_assists':'PRA'};
+  const MKT_LABEL_MAP={'player_points':'PTS','player_rebounds':'REB','player_assists':'AST','player_threes':'3PM','player_points_rebounds_assists':'PRA','player_rebounds_assists':'R+A'};
   // Merge all cached markets so parlay legs can come from any market category
   const _now=new Date();
   const _parlayPool=[...S.data];
@@ -3598,7 +3600,7 @@ function renderAlerts(){
         const cls = m._lineDiff>0?'up':'dn';
         const bg = m._lineDiff>0?'var(--rd)':'var(--gd)';
         const col = m._lineDiff>0?'var(--r)':'var(--g)';
-        const mktS = ({'player_points':'PTS','player_rebounds':'REB','player_assists':'AST','player_threes':'3PM','player_points_rebounds_assists':'PRA'})[m.market||S.market]||'';
+        const mktS = ({'player_points':'PTS','player_rebounds':'REB','player_assists':'AST','player_threes':'3PM','player_points_rebounds_assists':'PRA','player_rebounds_assists':'R+A'})[m.market||S.market]||'';
         const hs = getHeadshot(m.name);
         const init = m.name.split(' ').map(n=>n[0]).join('').substring(0,2);
         return `<div style="flex-shrink:0;min-width:130px;padding:10px 12px;background:var(--bg2);border:1px solid var(--bd);border-radius:10px;cursor:pointer;transition:border-color .12s;" onmouseover="this.style.borderColor='var(--b)'" onmouseout="this.style.borderColor='var(--bd)'" onclick="switchView('props');document.getElementById('searchIn').value='${m.name.replace(/'/g,"\\'")}';renderTable();">
@@ -3855,7 +3857,7 @@ function openBetModal(p) {
   const lean = (p.edge || 0) >= 0 ? 'over' : 'under';
   _betDir = lean;
   const sim = simLoad();
-  const mktLabels = {player_points:'Points',player_rebounds:'Rebounds',player_assists:'Assists',player_threes:'3-Pointers',player_points_rebounds_assists:'PRA'};
+  const mktLabels = {player_points:'Points',player_rebounds:'Rebounds',player_assists:'Assists',player_threes:'3-Pointers',player_points_rebounds_assists:'PRA',player_rebounds_assists:'R+A'};
   const mktLabel = mktLabels[p.market || S.market] || 'Stats';
   const edge = p.edge || 0;
   const isValue = (p.confidence||0) >= 55 && Math.abs(edge) > 4;
@@ -3930,8 +3932,8 @@ function placeBet() {
   if (stake <= 0 || stake > sim.balance) { alert('Invalid stake amount.'); return; }
   const odds = _betDir === 'over' ? (_betPlayer.overOdds || -110) : (_betPlayer.underOdds || -110);
   const toWin = calcPayout(stake, odds);
-  const mktLabels = {player_points:'PTS',player_rebounds:'REB',player_assists:'AST',player_threes:'3PM',player_points_rebounds_assists:'PRA'};
-  const mktFull = {player_points:'Points',player_rebounds:'Rebounds',player_assists:'Assists',player_threes:'3-Pointers',player_points_rebounds_assists:'Pts+Reb+Ast'};
+  const mktLabels = {player_points:'PTS',player_rebounds:'REB',player_assists:'AST',player_threes:'3PM',player_points_rebounds_assists:'PRA',player_rebounds_assists:'R+A'};
+  const mktFull = {player_points:'Points',player_rebounds:'Rebounds',player_assists:'Assists',player_threes:'3-Pointers',player_points_rebounds_assists:'Pts+Reb+Ast',player_rebounds_assists:'Reb+Ast'};
   const edge = _betPlayer.edge || 0;
   const isValue = (_betPlayer.confidence||0) >= 55 && Math.abs(edge) > 4;
   const bet = {
@@ -5377,7 +5379,7 @@ function renderSocMessages() {
 }
 
 function renderSocLineCard(ld) {
-  const MKT_S = { player_points: 'PTS', player_rebounds: 'REB', player_assists: 'AST', player_threes: '3PM', player_steals: 'STL', player_blocks: 'BLK', player_turnovers: 'TO', player_points_rebounds_assists: 'PRA' };
+  const MKT_S = { player_points: 'PTS', player_rebounds: 'REB', player_assists: 'AST', player_threes: '3PM', player_steals: 'STL', player_blocks: 'BLK', player_turnovers: 'TO', player_points_rebounds_assists: 'PRA', player_rebounds_assists: 'R+A' };
   const mktLabel = MKT_S[ld.market] || ld.market || '';
   const edge = ld.edge ?? 0;
   const isOver = edge >= 0;
@@ -5457,7 +5459,7 @@ function renderSharedBetTab(p) {
   const lean = (p.edge || 0) >= 0 ? 'over' : 'under';
   _betDir = lean;
   const sim = simLoad();
-  const mktLabels = {player_points:'Points',player_rebounds:'Rebounds',player_assists:'Assists',player_threes:'3-Pointers',player_points_rebounds_assists:'PRA'};
+  const mktLabels = {player_points:'Points',player_rebounds:'Rebounds',player_assists:'Assists',player_threes:'3-Pointers',player_points_rebounds_assists:'PRA',player_rebounds_assists:'R+A'};
   const mktLabel = mktLabels[p.market || S.market] || 'Stats';
   const edge = p.edge || 0;
   const isValue = (p.confidence||0) >= 55 && Math.abs(edge) > 4;
@@ -5507,7 +5509,7 @@ function renderSharedStatsTab(p, el) {
   // Build player header + stat tabs
   const _dhs = getHeadshot(p.name);
   const _dinit = (p.name||'?').split(' ').map(n=>n[0]).join('').substring(0,2);
-  const mktLabel = ({'player_points':'Points','player_rebounds':'Rebounds','player_assists':'Assists','player_threes':'3-Pointers','player_steals':'Steals','player_blocks':'Blocks','player_turnovers':'Turnovers','player_points_rebounds_assists':'PRA'})[p.market||S.market]||'Stats';
+  const mktLabel = ({'player_points':'Points','player_rebounds':'Rebounds','player_assists':'Assists','player_threes':'3-Pointers','player_steals':'Steals','player_blocks':'Blocks','player_turnovers':'Turnovers','player_points_rebounds_assists':'PRA','player_rebounds_assists':'Reb+Ast'})[p.market||S.market]||'Stats';
   const booksTab = p.bookLines && Object.keys(p.bookLines).length > 1 ? `<button class="di-tab" onclick="showSharedDTab('books',this)">📊 Books</button>` : '';
   el.innerHTML = `<div class="di-player-hdr">
     <div class="di-player-hdr-av" data-av="${p.name.replace(/"/g,'&quot;')}">${_dhs?`<img src="${_dhs}" onerror="headshotError(this,'${_dinit}')" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" alt="">`:`<span>${_dinit}</span>`}</div>
@@ -5843,7 +5845,7 @@ function openShareModal(p) {
   _socSharePlayer = p; _socShareBet = null;
   _shareConvSentSet = new Set();
   document.querySelector('#shareModal .modal-title').textContent = 'Share Line';
-  const mktLabels = { player_points: 'Points', player_rebounds: 'Rebounds', player_assists: 'Assists', player_threes: '3-Pointers', player_steals: 'Steals', player_blocks: 'Blocks', player_turnovers: 'Turnovers', player_points_rebounds_assists: 'PRA' };
+  const mktLabels = { player_points: 'Points', player_rebounds: 'Rebounds', player_assists: 'Assists', player_threes: '3-Pointers', player_steals: 'Steals', player_blocks: 'Blocks', player_turnovers: 'Turnovers', player_points_rebounds_assists: 'PRA', player_rebounds_assists: 'R+A' };
   const mkt = mktLabels[p.market] || p.market || '';
   const _isO = (p.edge || 0) > 0;
   const _ev = p._dirEV != null ? p._dirEV : getDirectionalEV(p);
