@@ -5108,21 +5108,22 @@ function openBetShareModal(betId) {
 
 function formatBetAsText(bet) {
   const fmtOdds = o => o != null ? (o > 0 ? '+' : '') + o : '—';
-  const fmtEdge = e => e != null ? (e >= 0 ? '+' : '') + e.toFixed(1) + '%' : '—';
+  const fmtEV = e => e != null ? (e >= 0 ? '+' : '') + e.toFixed(1) + '%' : '—';
   const status = (bet.status || 'open').toUpperCase();
   if (bet.type === 'parlay') {
     const legs = (bet.legs || []).map(l => {
       const dir = l.direction === 'over' ? '▲ OVER' : '▼ UNDER';
-      const parts = [`• ${l.name} ${dir} ${l.line} ${l.marketLabel || ''}`.trim()];
-      if (l.odds != null) parts.push(fmtOdds(l.odds));
-      if (l.edge != null) parts.push(`Edge ${fmtEdge(l.edge)}`);
-      return parts.join(' · ');
+      return `• ${l.name} ${dir} ${l.line} ${l.marketLabel || ''} · ${fmtOdds(l.odds)}`.trim();
     }).join('\n');
-    return `🎯 ${(bet.legs||[]).length}-Leg Parlay · ${bet.combinedOdds}\n${legs}\n$${(bet.stake||0).toFixed(2)} stake → Win $${(bet.toWin||0).toFixed(2)} · ${status}`;
+    const mp = bet.modelProb != null ? (bet.modelProb * 100).toFixed(1) + '%' : '—';
+    const ev = fmtEV(bet.evParlay);
+    return `🎯 ${(bet.legs||[]).length}-Leg Parlay · ${bet.combinedOdds}\n${legs}\nModel Prob ${mp} · EV ${ev}\n$${(bet.stake||0).toFixed(2)} stake → Win $${(bet.toWin||0).toFixed(2)} · ${status}`;
   }
   const dir = bet.direction === 'over' ? '▲ OVER' : '▼ UNDER';
-  const matchup = bet.matchup ? `\n${bet.matchup}` : '';
-  return `📊 ${bet.player} ${dir} ${bet.line} ${bet.marketLabel || ''} · ${fmtOdds(bet.odds)} · Edge ${fmtEdge(bet.edge)}${matchup}\n$${(bet.stake||0).toFixed(2)} stake → Win $${(bet.toWin||0).toFixed(2)} · ${status}`;
+  const mp = bet.confidence != null ? bet.confidence.toFixed(0) + '%' : '—';
+  const ev = fmtEV(calcEV((bet.confidence || 0) / 100, bet.odds));
+  const matchup = bet.matchup ? ` · ${bet.matchup}` : '';
+  return `📊 ${bet.player} ${dir} ${bet.line} ${bet.marketLabel || ''} · ${fmtOdds(bet.odds)}${matchup}\nModel Prob ${mp} · EV ${ev}\n$${(bet.stake||0).toFixed(2)} stake → Win $${(bet.toWin||0).toFixed(2)} · ${status}`;
 }
 
 function renderSocBetCard(bd) {
