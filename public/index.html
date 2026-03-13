@@ -57,6 +57,9 @@ body{background:var(--bg0);background-image:radial-gradient(ellipse at 20% 0%,rg
 /* ── Settings ── */
 .settings-btn{width:34px;height:34px;border-radius:50%;background:var(--bg2);border:1px solid var(--bd);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;transition:all .15s;flex-shrink:0;color:var(--t2);}
 .settings-btn:hover{background:var(--bg3);color:var(--t1);}
+.top-notif-btn{position:relative;width:34px;height:34px;border-radius:50%;background:var(--bg2);border:1px solid var(--bd);cursor:pointer;display:none;align-items:center;justify-content:center;font-size:16px;transition:all .15s;flex-shrink:0;color:var(--t2);}
+.top-notif-btn:hover{background:var(--bg3);color:var(--t1);}
+.top-notif-count{position:absolute;top:-4px;right:-4px;min-width:16px;height:16px;padding:0 4px;background:var(--b);color:#fff;border-radius:8px;font-size:10px;font-weight:700;display:none;align-items:center;justify-content:center;line-height:1;box-shadow:0 0 0 2px var(--bg0);}
 .settings-panel{position:fixed;top:60px;right:16px;width:280px;background:var(--bg1);border:1px solid var(--bd);border-radius:16px;box-shadow:var(--shadow-md);z-index:400;padding:0;overflow:hidden;display:none;}
 .settings-panel.open{display:block;animation:fadeUp .15s ease both;}
 .settings-hdr{padding:14px 16px;border-bottom:1px solid var(--bd);font-size:13px;font-weight:800;color:var(--t1);display:flex;align-items:center;justify-content:space-between;}
@@ -915,6 +918,7 @@ td{padding:13px 14px;white-space:nowrap;}
       </div>
       <button class="logout-btn" onclick="doLogout()" title="Sign out">Sign out</button>
     </div>
+    <button class="top-notif-btn" id="topNotifBtn" onclick="goToSocial()" title="Social notifications">💬<span class="top-notif-count" id="topNotifCount"></span></button>
     <button class="settings-btn" onclick="toggleSettings()" title="Appearance settings">⚙️</button>
   </div>
 </header>
@@ -1369,6 +1373,7 @@ async function doLogout() {
   localStorage.removeItem('pe_favorites');
   favorites = new Set();
   document.getElementById('userBadge').style.display = 'none';
+  const _tnb = document.getElementById('topNotifBtn'); if (_tnb) _tnb.style.display = 'none';
   document.getElementById('loginOverlay').classList.add('show');
   document.getElementById('loginEmail').value = '';
   document.getElementById('loginPass').value = '';
@@ -4544,7 +4549,16 @@ async function updateSocNotifBadge() {
     const total = (data.count || 0) + (data.pendingRequests || 0);
     const badge = document.getElementById('socNotifBadge');
     if (badge) { badge.textContent = total > 0 ? total : ''; badge.style.display = total > 0 ? 'inline-flex' : 'none'; }
+    const topBtn = document.getElementById('topNotifBtn');
+    const topCount = document.getElementById('topNotifCount');
+    if (topBtn) topBtn.style.display = 'flex';
+    if (topCount) { topCount.textContent = total > 0 ? total : ''; topCount.style.display = total > 0 ? 'inline-flex' : 'none'; }
   } catch {}
+}
+
+function goToSocial() {
+  const tab = [...document.querySelectorAll('.nav-tab')].find(t => t.textContent.includes('Social'));
+  switchView('social', tab);
 }
 
 async function showSocialView() {
@@ -4985,6 +4999,37 @@ async function createNewConv() {
 // ── Share modal (lines + bets) ──
 let _shareConvSentSet = new Set();
 let _socShareBet = null;
+
+function buildShareSendList() {
+  const friends = [...(_socFriends.sent||[]).filter(f=>f.status==='accepted'), ...(_socFriends.received||[]).filter(f=>f.status==='accepted')];
+  const friendUserIds = new Set(friends.map(f => f.userId));
+  let html = '';
+  if (friends.length) {
+    html += friends.map(f => `
+      <div class="soc-result-row">
+        <div><div class="soc-result-name">${f.displayName || f.username}</div><div class="soc-result-dn">@${f.username}</div></div>
+        <button class="share-to-btn" id="sto-f-${f.userId}" onclick="shareTo('friend','${f.userId}','${(f.displayName||f.username).replace(/'/g,"\\'")}',this)">Send</button>
+      </div>`).join('');
+  }
+  // Only show group convs — DMs with a friend are already covered above
+  const extraConvs = _socConversations.filter(c => {
+    if (c.type === 'group') return true;
+    const others = c.members.filter(m => m.userId !== _socUserId);
+    return !others.every(m => friendUserIds.has(m.userId));
+  });
+  if (extraConvs.length) {
+    html += extraConvs.map(c => {
+      const others = c.members.filter(m => m.userId !== _socUserId);
+      const name = c.name || others.map(m => m.displayName||m.username).join(', ') || 'Chat';
+      const safeName = name.replace(/'/g,"\\'");
+      return `<div class="soc-result-row">
+        <div><div class="soc-result-name">${name}</div><div class="soc-result-dn">${c.type==='group'?`Group · ${c.members.length} members`:'DM'}</div></div>
+        <button class="share-to-btn" id="sto-c-${c.id}" onclick="shareTo('conv','${c.id}','${safeName}',this)">Send</button>
+      </div>`;
+    }).join('');
+  }
+  return html;
+}
 function openShareModal(p) {
   if (!_authToken) return;
   if (!_socUsername) { showUsernameModal(); return; }
@@ -4999,27 +5044,7 @@ function openShareModal(p) {
     <div class="share-preview-name">${p.name} <span style="font-size:11px;color:var(--t3);">· ${mkt}</span></div>
     <div class="share-preview-detail">Line: ${p.line ?? '—'} · Avg: ${p.avg ?? '—'} · Edge: <span style="color:${edge>=0?'var(--g)':'var(--r)'};font-weight:700">${edgeStr}</span></div>`;
 
-  // Build send-to list from friends and recent convs
-  const friends = [..._socFriends.sent.filter(f=>f.status==='accepted'), ..._socFriends.received.filter(f=>f.status==='accepted')];
-  let listHtml = '';
-  if (friends.length) {
-    listHtml += friends.map(f => `
-      <div class="soc-result-row">
-        <div><div class="soc-result-name">${f.displayName || f.username}</div><div class="soc-result-dn">@${f.username}</div></div>
-        <button class="share-to-btn" id="sto-f-${f.userId}" onclick="shareTo('friend','${f.userId}','${(f.displayName||f.username).replace(/'/g,"\\'")}',this)">Send</button>
-      </div>`).join('');
-  }
-  if (_socConversations.length) {
-    listHtml += _socConversations.map(c => {
-      const othersInConv = c.members.filter(m => m.userId !== _socUserId);
-      const name = c.name || othersInConv.map(m => m.displayName||m.username).join(', ') || 'Chat';
-      return `<div class="soc-result-row">
-        <div><div class="soc-result-name">${name}</div><div class="soc-result-dn">${c.type === 'group' ? `Group · ${c.members.length} members` : 'DM'}</div></div>
-        <button class="share-to-btn" id="sto-c-${c.id}" onclick="shareTo('conv','${c.id}','${name.replace(/'/g,"\\'")}',this)">Send</button>
-      </div>`;
-    }).join('');
-  }
-  document.getElementById('shareFriendList').innerHTML = listHtml || '<div style="font-size:12px;color:var(--t3);">Add friends first to share lines.</div>';
+  document.getElementById('shareFriendList').innerHTML = buildShareSendList() || '<div style="font-size:12px;color:var(--t3);">Add friends first to share lines.</div>';
   document.getElementById('shareModal').classList.add('show');
 }
 
@@ -5045,27 +5070,7 @@ function openBetShareModal(betId) {
       <div class="share-preview-detail">${bet.direction === 'over' ? '▲ OVER' : '▼ UNDER'} ${bet.line} · ${oddsStr} · Edge: <span style="color:${bet.edge>=0?'var(--g)':'var(--r)'};font-weight:700;">${bet.edge>=0?'+':''}${bet.edge?.toFixed(1)}%</span> · <span style="color:${sc};font-weight:700;">${bet.status?.toUpperCase()}</span></div>`;
   }
   document.getElementById('sharePreview').innerHTML = previewHtml;
-  // Same friend/conv list as line share
-  const friends = [...(_socFriends.sent||[]).filter(f=>f.status==='accepted'), ...(_socFriends.received||[]).filter(f=>f.status==='accepted')];
-  let listHtml = '';
-  if (friends.length) {
-    listHtml += friends.map(f => `
-      <div class="soc-result-row">
-        <div><div class="soc-result-name">${f.displayName || f.username}</div><div class="soc-result-dn">@${f.username}</div></div>
-        <button class="share-to-btn" id="sto-f-${f.userId}" onclick="shareTo('friend','${f.userId}','${(f.displayName||f.username).replace(/'/g,"\\'")}',this)">Send</button>
-      </div>`).join('');
-  }
-  if (_socConversations.length) {
-    listHtml += _socConversations.map(c => {
-      const othersInConv = c.members.filter(m => m.userId !== _socUserId);
-      const name = c.name || othersInConv.map(m => m.displayName||m.username).join(', ') || 'Chat';
-      return `<div class="soc-result-row">
-        <div><div class="soc-result-name">${name}</div><div class="soc-result-dn">${c.type === 'group' ? `Group · ${c.members.length} members` : 'DM'}</div></div>
-        <button class="share-to-btn" id="sto-c-${c.id}" onclick="shareTo('conv','${c.id}','${name.replace(/'/g,"\\'")}',this)">Send</button>
-      </div>`;
-    }).join('');
-  }
-  document.getElementById('shareFriendList').innerHTML = listHtml || '<div style="font-size:12px;color:var(--t3);">Add friends first to share bets.</div>';
+  document.getElementById('shareFriendList').innerHTML = buildShareSendList() || '<div style="font-size:12px;color:var(--t3);">Add friends first to share bets.</div>';
   document.getElementById('shareModal').classList.add('show');
 }
 
