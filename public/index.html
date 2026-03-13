@@ -363,8 +363,8 @@ table{width:100%;border-collapse:collapse;font-size:13px;}
   .var-card{width:150px;padding:6px 8px;gap:6px;border-radius:8px;}
   .var-label-text{font-size:9px;}
   .var-label-icon{font-size:13px;}
-  .lmr-outer{height:60px;margin-bottom:10px;}
-  .lmr-card{width:170px;padding:6px 8px;gap:6px;border-radius:8px;}
+  .lmr-outer{height:80px;margin-bottom:10px;}
+  .lmr-card{width:190px;padding:8px 10px;gap:6px;border-radius:8px;}
   .lmr-label-text{font-size:7px;}
   .lmr-av{width:28px;height:28px;}
   .parlay-stats{gap:8px;}
@@ -625,25 +625,34 @@ td{padding:13px 14px;white-space:nowrap;}
 .flag-dnp{background:rgba(156,163,175,.15);color:#9ca3af;border:1px solid rgba(156,163,175,.3);}
 .flag-est{background:var(--bld);color:var(--b-text);border:1px solid var(--bb);font-style:italic;}
 .flag-mover{background:rgba(168,85,247,.15);color:#c084fc;border:1px solid rgba(168,85,247,.3);}
-.lmr-outer{position:relative;margin-bottom:14px;height:72px;overflow:hidden;display:flex;align-items:center;}
+.lmr-outer{position:relative;margin-bottom:14px;height:96px;overflow:hidden;display:flex;align-items:center;}
 .lmr-outer::after{content:'';position:absolute;top:0;bottom:0;right:0;width:80px;z-index:2;pointer-events:none;background:linear-gradient(-90deg,var(--bg0) 30%,transparent);}
 .lmr-label{flex-shrink:0;width:52px;z-index:3;display:flex;align-items:center;justify-content:center;pointer-events:none;}
 .lmr-label-inner{display:flex;flex-direction:column;align-items:center;gap:2px;white-space:nowrap;}
 .lmr-label-icon{font-size:16px;line-height:1;}
 .lmr-label-text{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:#c084fc;}
-.lmr-scroll{flex:1;height:72px;display:flex;align-items:center;overflow:hidden;mask-image:linear-gradient(90deg,transparent 0%,#000 3%,#000 92%,transparent 100%);-webkit-mask-image:linear-gradient(90deg,transparent 0%,#000 3%,#000 92%,transparent 100%);}
+.lmr-scroll{flex:1;height:96px;display:flex;align-items:center;overflow:hidden;mask-image:linear-gradient(90deg,transparent 0%,#000 3%,#000 92%,transparent 100%);-webkit-mask-image:linear-gradient(90deg,transparent 0%,#000 3%,#000 92%,transparent 100%);}
 .lmr-track{display:flex;gap:8px;width:max-content;animation:var-scroll 50s linear infinite;}
 .lmr-track:hover{animation-play-state:paused;}
-.lmr-card{flex-shrink:0;width:200px;background:var(--bg1);border:1px solid rgba(168,85,247,.15);border-radius:10px;padding:8px 10px;cursor:pointer;display:flex;gap:8px;align-items:center;user-select:none;transition:border-color .15s,box-shadow .15s,transform .15s;}
+.lmr-card{flex-shrink:0;width:220px;background:var(--bg1);border:1px solid rgba(168,85,247,.15);border-radius:10px;padding:10px 12px;cursor:pointer;display:flex;gap:9px;align-items:flex-start;user-select:none;transition:border-color .15s,box-shadow .15s,transform .15s;}
 .lmr-card:hover{border-color:rgba(168,85,247,.45);box-shadow:0 0 14px rgba(168,85,247,.13),0 2px 8px rgba(0,0,0,.3);transform:translateY(-1px);}
-.lmr-av{width:36px;height:36px;border-radius:50%;overflow:hidden;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--t3);flex-shrink:0;}
-.lmr-body{flex:1;min-width:0;line-height:1.35;}
+.lmr-av{width:36px;height:36px;border-radius:50%;overflow:hidden;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--t3);flex-shrink:0;margin-top:2px;}
+.lmr-body{flex:1;min-width:0;line-height:1.5;}
 .lmr-top{display:flex;align-items:center;gap:4px;font-size:11px;}
-.lmr-nm{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.lmr-ln{font-size:10px;color:var(--t2);white-space:nowrap;}
-.lmr-st{font-size:9px;color:var(--t3);white-space:nowrap;display:flex;gap:3px;align-items:center;}
+.lmr-nm{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--t1);}
+.lmr-ln{font-size:10px;color:var(--t2);white-space:nowrap;font-weight:600;}
+.lmr-st{font-size:9px;color:var(--t3);white-space:nowrap;}
+.lmr-st2{font-size:9px;color:var(--t3);white-space:nowrap;margin-top:1px;}
 .lmr-sep{opacity:.4;}
-.lmr-ev{color:var(--g);font-weight:600;}
+.lmr-ev{font-weight:600;}
+.lmr-delta{font-size:8px;font-weight:700;padding:0 3px;border-radius:3px;}
+.lmr-delta.up{color:var(--g);background:var(--gd);}
+.lmr-delta.dn{color:var(--r);background:var(--rd);}
+.lm-impact{margin-top:10px;padding:10px 12px;background:rgba(168,85,247,.06);border:1px solid rgba(168,85,247,.2);border-radius:8px;font-size:11px;}
+.lm-impact-hdr{font-weight:700;color:#c084fc;margin-bottom:6px;font-size:11px;}
+.lm-impact-row{display:flex;gap:12px;flex-wrap:wrap;align-items:center;line-height:1.8;}
+.lm-impact-item{display:flex;align-items:center;gap:4px;}
+.lm-impact-arrow{font-weight:800;font-size:12px;}
 .vs-slider-wrap{display:flex;align-items:center;gap:8px;margin-top:4px;padding:0 18px 6px;}
 .vs-slider-wrap input[type=range]{flex:1;max-width:200px;}
 .va-formula{margin-top:8px;font-size:10px;color:var(--t3);padding:8px 10px;background:var(--bg2);border-radius:6px;line-height:1.7;border:1px solid var(--bd);}
@@ -2724,6 +2733,45 @@ function renderOverview(el,p){
           </div>`;
         })()}
       </div>`:''}
+      ${(()=>{
+        if(p.prev_line==null||(p.prev_line===p.line&&p.prev_overOdds===p.overOdds&&p.prev_underOdds===p.underOdds))return'';
+        const _isOv=(p.edge||0)>=0;
+        // Compute previous metrics
+        const prevP={...p,line:p.prev_line,overOdds:p.prev_overOdds||p.overOdds,underOdds:p.prev_underOdds||p.underOdds};
+        const prevEdge=prevP.avg!=null?+(((prevP.avg-prevP.line)/prevP.line)*100).toFixed(1):0;
+        prevP.edge=prevEdge;
+        const curVS=valueScore(p);const prevVS=valueScore(prevP);const vsDelta=curVS-prevVS;
+        const curEV=getDirectionalEV(p);const prevEV=getDirectionalEV(prevP);const evDelta=curEV-prevEV;
+        const rawMP=p.modelProb??(p.hitRate||50)/100;
+        const curMP=Math.round((_isOv?rawMP:1-rawMP)*100);
+        const prevImplO=p.prev_overOdds?impliedProb(p.prev_overOdds):null;
+        const prevImplU=p.prev_underOdds?impliedProb(p.prev_underOdds):null;
+        const curImpl=_isOv?(p.impliedProbOver??impliedProb(p.overOdds)):(p.impliedProbUnder??impliedProb(p.underOdds));
+        const prevImpl=_isOv?(prevImplO??curImpl):(prevImplU??curImpl);
+        const implDelta=((curImpl-prevImpl)*100);
+        const curRec=curVS>=40?(_isOv?'BET OVER':'BET UNDER'):'MONITOR';
+        const prevRec=prevVS>=40?(prevEdge>0?'BET OVER':'BET UNDER'):'MONITOR';
+        const recChanged=curRec!==prevRec;
+        const arr=v=>v>0?'↑':'↓';
+        const col=v=>v>=0?'var(--g)':'var(--r)';
+        const fD=v=>v>0?`+${v.toFixed(1)}`:v.toFixed(1);
+        const lineDiff=+(p.line-p.prev_line).toFixed(1);
+        return`<div class="lm-impact">
+          <div class="lm-impact-hdr">↕ Line Change Impact</div>
+          <div class="lm-impact-row">
+            <div class="lm-impact-item"><span style="color:var(--t3);">Line:</span> <strong>${p.prev_line}</strong> <span class="lm-impact-arrow" style="color:var(--t3);">→</span> <strong>${p.line}</strong> <span style="font-size:10px;color:${col(-lineDiff)};">(${fD(lineDiff)})</span></div>
+          </div>
+          <div class="lm-impact-row" style="margin-top:4px;">
+            <div class="lm-impact-item"><span style="color:var(--t3);">EV:</span> <strong style="color:${col(prevEV)}">${fD(prevEV)}%</strong> <span class="lm-impact-arrow" style="color:${col(evDelta)};">${arr(evDelta)}</span> <strong style="color:${col(curEV)}">${fD(curEV)}%</strong></div>
+            <div class="lm-impact-item"><span style="color:var(--t3);">MP:</span> <strong>${curMP}%</strong></div>
+            <div class="lm-impact-item"><span style="color:var(--t3);">Implied:</span> <strong>${(prevImpl*100).toFixed(1)}%</strong> <span class="lm-impact-arrow" style="color:${col(-implDelta)};">${arr(implDelta)}</span> <strong>${(curImpl*100).toFixed(1)}%</strong></div>
+          </div>
+          <div class="lm-impact-row" style="margin-top:4px;">
+            <div class="lm-impact-item"><span style="color:var(--t3);">VS:</span> <strong>${prevVS}</strong> <span class="lm-impact-arrow" style="color:${col(vsDelta)};">${arr(vsDelta)}</span> <strong style="color:${col(vsDelta)}">${curVS}</strong></div>
+            <div class="lm-impact-item"><span style="color:var(--t3);">Rec:</span> <strong>${recChanged?`<span style="text-decoration:line-through;color:var(--t3);">${prevRec}</span> → <span style="color:#c084fc;">${curRec}</span>`:curRec}</strong></div>
+          </div>
+        </div>`;
+      })()}
       <div style="margin-top:10px;padding:9px 11px;background:var(--bg1);border-radius:7px;border:1px solid var(--bd);font-size:11px;">
         <div style="font-weight:700;color:var(--t2);margin-bottom:6px;">Value Score Breakdown</div>
         ${(()=>{
@@ -3685,18 +3733,20 @@ function renderAlerts(){
         const hs=getHeadshot(m.name);
         const init=m.name.split(' ').map(n=>n[0]).join('').substring(0,2);
         const av=hs?`<img src="${hs}" onerror="headshotError(this,'${init}')" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" alt="">`:init;
-        const lastName=m.name.split(' ').slice(1).join(' ')||m.name;
         const vsDelta=m._vs-m._prevVS;
         const evDelta=m._dirEV-m._prevDirEV;
         const recChanged=m._rec!==m._prevRec;
         const dirLabel=m._isOver?'OVER':'UNDER';
-        const lineStr=m._lineDiff!==0?`${m.prev_line}→${m.line} ${dir}${Math.abs(m._lineDiff).toFixed(1)}`:`${m.line} (odds moved)`;
+        const lineStr=m._lineDiff!==0?`${m.prev_line} → ${m.line} ${dir}${Math.abs(m._lineDiff).toFixed(1)}`:`${m.line} (odds moved)`;
+        const evCls=evDelta>=0?'up':'dn';const evArr=evDelta>=0?'↑':'↓';
+        const vsCls=vsDelta>=0?'up':'dn';const vsArr=vsDelta>=0?'↑':'↓';
         return `<div class="lmr-card" onclick="openAlertDetail(_lmMovers[${i}])">
           <div class="lmr-av" data-av="${m.name.replace(/"/g,'&quot;')}">${av}</div>
           <div class="lmr-body">
-            <div class="lmr-top"><span class="lmr-nm">${lastName}</span></div>
+            <div class="lmr-top"><span class="lmr-nm">${m.name}</span></div>
             <div class="lmr-ln">${dirLabel} ${lineStr} ${mktS}</div>
-            <div class="lmr-st"><span class="lmr-ev">${fmtD(m._dirEV)}% EV</span><span class="lmr-sep">·</span><span>${m._probPct}%</span><span class="lmr-sep">·</span><span>VS ${m._vs}${vsDelta!==0?` (${fmtD(vsDelta)})`:''}</span>${recChanged?`<span class="lmr-sep">·</span><span style="color:#c084fc;">NEW: ${m._rec}</span>`:''}</div>
+            <div class="lmr-st">EV: <span class="lmr-ev" style="color:${m._dirEV>=0?'var(--g)':'var(--r)'}">${fmtD(m._dirEV)}%</span> <span class="lmr-delta ${evCls}">${evArr}${Math.abs(evDelta).toFixed(1)}</span> · MP: ${m._probPct}%</div>
+            <div class="lmr-st2">VS: ${m._vs} <span class="lmr-delta ${vsCls}">${vsArr}${Math.abs(vsDelta)}</span>${recChanged?` · <span style="color:#c084fc;font-weight:700;">→ ${m._rec}</span>`:''}</div>
           </div>
         </div>`;
       };
