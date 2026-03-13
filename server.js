@@ -1781,6 +1781,255 @@ const { Resend } = require('resend');
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 const NEWSLETTER_TO = process.env.NEWSLETTER_EMAIL || '';
 const NEWSLETTER_FROM = process.env.NEWSLETTER_FROM || 'PropEdge Agent <agent@propedge.app>';
+const DISCORD_PICKS_WEBHOOK = process.env.DISCORD_PICKS_WEBHOOK || '';
+const DISCORD_RESULTS_WEBHOOK = process.env.DISCORD_RESULTS_WEBHOOK || '';
+
+// ---- Discord webhook helpers ----
+async function postDiscord(webhookUrl, payload) {
+  if (!webhookUrl) return;
+  try {
+    await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+  } catch (e) { console.error('Discord webhook error:', e.message); }
+}
+
+async function sendDiscordPicks(betsInserted, date) {
+  if (!DISCORD_PICKS_WEBHOOK || !betsInserted.length) return;
+
+  const valueBets = betsInserted.filter(b => !b.is_control).sort((a, b) => b.value_score - a.value_score);
+  const controlBets = betsInserted.filter(b => b.is_control);
+  const fmtOdds = o => o > 0 ? `+${o}` : `${o}`;
+  const dateStr = new Date(date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+
+  // Main summary embed
+  const embeds = [{
+    title: `🏀 PropEdge Agent — ${dateStr}`,
+    description: `Placed **${valueBets.length} value picks** and **${controlBets.length} control picks** for today's slate.`,
+    color: 0x6366f1,
+    fields: [
+      { name: 'Total Picks', value: `${betsInserted.length}`, inline: true },
+      { name: 'Value Alerts', value: `${valueBets.length}`, inline: true },
+      { name: 'Control Group', value: `${controlBets.length}`, inline: true },
+    ],
+    timestamp: new Date().toISOString(),
+  }];
+
+  // Top picks by value score (favorites)
+  if (valueBets.length) {
+    const topPicks = valueBets.slice(0, 5);
+    const favLines = topPicks.map((b, i) => {
+      const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '▸';
+      return `${medal} **${b.player_name}** — ${b.direction.toUpperCase()} ${b.line} ${b.market_label}\n` +
+        `　Odds: \`${fmtOdds(b.odds)}\` · Model: \`${(b.model_prob * 100).toFixed(0)}%\` · EV: \`+${b.ev}%\` · VS: \`${b.value_score}\``;
+    }).join('\n\n');
+
+    embeds.push({
+      title: '⭐ Favorite Picks (by Value Score)',
+      description: favLines,
+      color: 0xf59e0b,
+    });
+  }
+
+  // Best EV picks
+  if (valueBets.length) {
+    const bestEV = [...valueBets].sort((a, b) => b.ev - a.ev).slice(0, 3);
+    const evLines = bestEV.map(b =>
+      `💎 **${b.player_name}** — ${b.direction.toUpperCase()} ${b.line} ${b.market_label}\n` +
+      `　EV: \`+${b.ev}%\` · Odds: \`${fmtOdds(b.odds)}\` · Edge: \`${b.edge > 0 ? '+' : ''}${b.edge.toFixed(1)}%\``
+    ).join('\n\n');
+
+    embeds.push({
+      title: '💰 Best Value (by Expected Value)',
+      description: evLines,
+      color: 0x10b981,
+    });
+  }
+
+  // Full pick list (compact)
+  if (valueBets.length > 5) {
+    const remaining = valueBets.slice(5);
+    const listLines = remaining.map(b =>
+      `▸ ${b.player_name} — ${b.direction.toUpperCase()} ${b.line} ${b.market_label} (${fmtOdds(b.odds)}, EV +${b.ev}%)`
+    ).join('\n');
+
+    embeds.push({
+      title: '📋 All Other Value Picks',
+      description: listLines,
+      color: 0x64748b,
+    });
+  }
+
+  await postDiscord(DISCORD_PICKS_WEBHOOK, {
+    content: '@everyone 🚨 **New picks are in!** The PropEdge agent has locked in today\'s bets.',
+    embeds,
+  });
+}
+
+async function sendDiscordResults(allBets, latestDate) {
+  if (!DISCORD_RESULTS_WEBHOOK || !allBets?.length) return;
+
+  const fmtOdds = o => o > 0 ? `+${o}` : `${o}`;
+  const pnlFmt = v => `${v >= 0 ? '+' : '-'}$${Math.abs(v).toFixed(2)}`;
+  const dateStr = new Date(latestDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+
+  const yesterdayBets = allBets.filter(b => b.bet_date === latestDate);
+  const yesterdayValue = yesterdayBets.filter(b => !b.is_control);
+  const allValue = allBets.filter(b => !b.is_control);
+  const allControl = allBets.filter(b => b.is_control);
+
+  const calcStats = (bets) => {
+    const settled = bets.filter(b => b.status === 'won' || b.status === 'lost');
+    const won = settled.filter(b => b.status === 'won');
+    const pnl = settled.reduce((s, b) => s + (b.pnl || 0), 0);
+    const staked = settled.reduce((s, b) => s + b.stake, 0);
+    return { total: settled.length, won: won.length, lost: settled.length - won.length,
+      winRate: settled.length ? (won.length / settled.length * 100).toFixed(1) : '0.0',
+      pnl, roi: staked ? (pnl / staked * 100).toFixed(1) : '0.0' };
+  };
+
+  const yStats = calcStats(yesterdayValue);
+  const aValStats = calcStats(allValue);
+  const aCtlStats = calcStats(allControl);
+
+  // Headline embed
+  const pnlEmoji = yStats.pnl >= 0 ? '📈' : '📉';
+  const embeds = [{
+    title: `${pnlEmoji} Daily Results — ${dateStr}`,
+    description: `**${yStats.won}-${yStats.lost}** (${yStats.winRate}%) · P&L: **${pnlFmt(yStats.pnl)}**`,
+    color: yStats.pnl >= 0 ? 0x10b981 : 0xf43f5e,
+    fields: [
+      { name: 'All-Time Value', value: `${aValStats.won}-${aValStats.lost} (${aValStats.winRate}%)\n${pnlFmt(aValStats.pnl)} · ROI ${aValStats.roi}%`, inline: true },
+      { name: 'All-Time Control', value: `${aCtlStats.won}-${aCtlStats.lost} (${aCtlStats.winRate}%)\n${pnlFmt(aCtlStats.pnl)} · ROI ${aCtlStats.roi}%`, inline: true },
+    ],
+  }];
+
+  // Pick-by-pick results
+  const settled = yesterdayValue.filter(b => b.status === 'won' || b.status === 'lost');
+  if (settled.length) {
+    const pickLines = settled.sort((a, b) => (b.pnl || 0) - (a.pnl || 0)).map(b => {
+      const icon = b.status === 'won' ? '✅' : '❌';
+      const actual = b.actual_result != null ? b.actual_result : '—';
+      const margin = b.actual_result != null && b.line ? ((b.actual_result - b.line) / b.line * 100).toFixed(1) : '—';
+      const marginDir = b.direction === 'under' ? (b.actual_result != null ? (-(b.actual_result - b.line) / b.line * 100).toFixed(1) : '—') : margin;
+      return `${icon} **${b.player_name}** ${b.direction.toUpperCase()} ${b.line} ${b.market_label}\n` +
+        `　Actual: \`${actual}\` · Margin: \`${marginDir}%\` · ${fmtOdds(b.odds)} → **${pnlFmt(b.pnl || 0)}**`;
+    }).join('\n\n');
+
+    embeds.push({
+      title: '📊 Pick-by-Pick Breakdown',
+      description: pickLines.slice(0, 4000),
+      color: 0x6366f1,
+    });
+  }
+
+  // Model insights — calibration analysis
+  const settledValue = allValue.filter(b => b.status === 'won' || b.status === 'lost');
+  if (settledValue.length >= 10) {
+    const buckets = {};
+    for (const b of settledValue) {
+      const mp = Math.round((b.model_prob || 0.5) * 100);
+      const bk = `${Math.floor(mp / 10) * 10}-${Math.floor(mp / 10) * 10 + 10}%`;
+      if (!buckets[bk]) buckets[bk] = { total: 0, won: 0 };
+      buckets[bk].total++;
+      if (b.status === 'won') buckets[bk].won++;
+    }
+    const calLines = Object.entries(buckets).sort().map(([range, d]) => {
+      const actualRate = (d.won / d.total * 100).toFixed(0);
+      const midpoint = parseInt(range);
+      const diff = parseInt(actualRate) - midpoint - 5;
+      const status = Math.abs(diff) <= 5 ? '✅' : diff > 5 ? '🔥' : '⚠️';
+      return `${status} **${range}**: ${actualRate}% actual (${d.won}/${d.total})`;
+    }).join('\n');
+
+    embeds.push({
+      title: '🎯 Model Calibration',
+      description: calLines + '\n\n' +
+        (Object.values(buckets).some(d => d.won / d.total > 0.65) ? '🔥 Model is outperforming in some brackets — edge is real!' : '') +
+        (Object.values(buckets).some(d => d.total >= 5 && d.won / d.total < 0.4) ? '\n⚠️ Some brackets are underperforming — may need recalibration.' : ''),
+      color: 0xa78bfa,
+    });
+  }
+
+  // Market performance insights
+  const mktMap = {};
+  for (const b of settledValue) {
+    const mk = b.market_label || 'PTS';
+    if (!mktMap[mk]) mktMap[mk] = { total: 0, won: 0, pnl: 0 };
+    mktMap[mk].total++;
+    if (b.status === 'won') mktMap[mk].won++;
+    mktMap[mk].pnl += b.pnl || 0;
+  }
+  if (Object.keys(mktMap).length) {
+    const mktLines = Object.entries(mktMap).sort((a, b) => b[1].pnl - a[1].pnl).map(([mk, d]) => {
+      const wr = (d.won / d.total * 100).toFixed(0);
+      const icon = d.pnl >= 0 ? '🟢' : '🔴';
+      return `${icon} **${mk}**: ${d.won}-${d.total - d.won} (${wr}%) · ${pnlFmt(d.pnl)}`;
+    }).join('\n');
+
+    embeds.push({
+      title: '📈 Market Performance',
+      description: mktLines,
+      color: 0x3b82f6,
+    });
+  }
+
+  // Recommendations based on data
+  if (settledValue.length >= 20) {
+    const recs = [];
+    // Check which markets are best/worst
+    const mktEntries = Object.entries(mktMap).filter(([, d]) => d.total >= 5);
+    const bestMkt = mktEntries.sort((a, b) => (b[1].won / b[1].total) - (a[1].won / a[1].total))[0];
+    const worstMkt = mktEntries.sort((a, b) => (a[1].won / a[1].total) - (b[1].won / b[1].total))[0];
+    if (bestMkt) recs.push(`📊 **Best market**: ${bestMkt[0]} at ${(bestMkt[1].won / bestMkt[1].total * 100).toFixed(0)}% win rate — consider increasing exposure`);
+    if (worstMkt && worstMkt[0] !== bestMkt?.[0] && worstMkt[1].won / worstMkt[1].total < 0.45)
+      recs.push(`⚠️ **Weakest market**: ${worstMkt[0]} at ${(worstMkt[1].won / worstMkt[1].total * 100).toFixed(0)}% — consider raising threshold`);
+
+    // Check high-confidence performance
+    const highConf = settledValue.filter(b => b.confidence >= 75);
+    if (highConf.length >= 5) {
+      const hcWr = highConf.filter(b => b.status === 'won').length / highConf.length * 100;
+      if (hcWr >= 60) recs.push(`🔥 **Elite confidence (75+)**: ${hcWr.toFixed(0)}% hit rate — model excels at high conviction`);
+      else recs.push(`🔍 **Elite confidence (75+)**: only ${hcWr.toFixed(0)}% — confidence scoring may need tuning`);
+    }
+
+    // Trend: last 7 days vs prior
+    const dates = [...new Set(settledValue.map(b => b.bet_date))].sort().reverse();
+    if (dates.length >= 7) {
+      const recent = settledValue.filter(b => dates.slice(0, 7).includes(b.bet_date));
+      const prior = settledValue.filter(b => !dates.slice(0, 7).includes(b.bet_date));
+      if (prior.length >= 10) {
+        const recentWr = recent.filter(b => b.status === 'won').length / recent.length * 100;
+        const priorWr = prior.filter(b => b.status === 'won').length / prior.length * 100;
+        const trend = recentWr - priorWr;
+        if (Math.abs(trend) > 5)
+          recs.push(`${trend > 0 ? '📈' : '📉'} **7-day trend**: ${recentWr.toFixed(0)}% vs ${priorWr.toFixed(0)}% prior — ${trend > 0 ? 'model improving' : 'possible cold streak, stay the course'}`);
+      }
+    }
+
+    // Overall ROI assessment
+    if (aValStats.pnl > 0 && parseFloat(aValStats.roi) > 5)
+      recs.push(`💰 **ROI at ${aValStats.roi}%** — edge is holding up across ${aValStats.total} bets`);
+    else if (parseFloat(aValStats.roi) < -5)
+      recs.push(`🔬 **ROI at ${aValStats.roi}%** — consider tightening value score threshold from 30 to 35`);
+
+    if (recs.length) {
+      embeds.push({
+        title: '💡 Recommendations & Insights',
+        description: recs.join('\n\n'),
+        color: 0xf59e0b,
+        footer: { text: `Based on ${settledValue.length} settled value bets` },
+      });
+    }
+  }
+
+  await postDiscord(DISCORD_RESULTS_WEBHOOK, {
+    content: `@everyone ${yStats.pnl >= 0 ? '🟢' : '🔴'} **Results are in!** ${yStats.won}-${yStats.lost} today (${pnlFmt(yStats.pnl)})`,
+    embeds: embeds.slice(0, 10), // Discord max 10 embeds
+  });
+}
 
 const MKT_LABELS = { player_points: 'PTS', player_rebounds: 'REB', player_assists: 'AST', player_threes: '3PM', player_points_rebounds_assists: 'PRA' };
 const STAT_KEYS  = { player_points: 'pts', player_rebounds: 'reb', player_assists: 'ast', player_threes: 'fg3m', player_points_rebounds_assists: 'pra' };
@@ -1924,6 +2173,9 @@ app.get('/api/cron/agent-bet', async (req, res) => {
       const { error: insertErr } = await supabase.from('agent_bets').insert(betsToInsert);
       if (insertErr) return res.status(500).json({ error: insertErr.message, summary });
     }
+
+    // 5. Send Discord notification
+    await sendDiscordPicks(betsToInsert, today);
 
     res.json({ success: true, date: today, ...summary, total: betsToInsert.length });
   } catch (err) {
@@ -2222,10 +2474,96 @@ app.get('/api/cron/newsletter', async (req, res) => {
     });
 
     if (emailErr) return res.status(500).json({ error: emailErr.message });
+
+    // Send Discord results notification
+    await sendDiscordResults(allBets, latestDate);
+
     res.json({ success: true, sent_to: NEWSLETTER_TO, date: latestDate });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+// ---- TEST: Send sample Discord messages ----
+app.get('/api/test-discord', async (req, res) => {
+  const secret = req.headers['x-cron-secret'] || req.query.secret;
+  if (process.env.CRON_SECRET && secret !== process.env.CRON_SECRET) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const results = { picks: false, results: false };
+
+  // Test #picks channel
+  if (DISCORD_PICKS_WEBHOOK) {
+    try {
+      await postDiscord(DISCORD_PICKS_WEBHOOK, {
+        content: '🧪 **Test message from PropEdge Agent**',
+        embeds: [{
+          title: '🏀 PropEdge Agent — Test',
+          description: 'Placed **4 value picks** and **2 control picks** for today\'s slate.',
+          color: 0x6366f1,
+          fields: [
+            { name: 'Total Picks', value: '6', inline: true },
+            { name: 'Value Alerts', value: '4', inline: true },
+            { name: 'Control Group', value: '2', inline: true },
+          ],
+          timestamp: new Date().toISOString(),
+        }, {
+          title: '⭐ Favorite Picks (by Value Score)',
+          description:
+            '🥇 **LeBron James** — OVER 25.5 PTS\n　Odds: `-110` · Model: `68%` · EV: `+8.2%` · VS: `74`\n\n' +
+            '🥈 **Nikola Jokic** — OVER 9.5 AST\n　Odds: `+105` · Model: `62%` · EV: `+11.5%` · VS: `68`\n\n' +
+            '🥉 **Jayson Tatum** — UNDER 4.5 3PM\n　Odds: `-125` · Model: `71%` · EV: `+6.1%` · VS: `61`',
+          color: 0xf59e0b,
+        }, {
+          title: '💰 Best Value (by Expected Value)',
+          description:
+            '💎 **Nikola Jokic** — OVER 9.5 AST\n　EV: `+11.5%` · Odds: `+105` · Edge: `+7.2%`\n\n' +
+            '💎 **LeBron James** — OVER 25.5 PTS\n　EV: `+8.2%` · Odds: `-110` · Edge: `+5.8%`',
+          color: 0x10b981,
+        }],
+      });
+      results.picks = true;
+    } catch (e) { results.picks = e.message; }
+  }
+
+  // Test #results channel
+  if (DISCORD_RESULTS_WEBHOOK) {
+    try {
+      await postDiscord(DISCORD_RESULTS_WEBHOOK, {
+        content: '🧪 🟢 **Test results from PropEdge Agent** — 3-1 today (+$18.50)',
+        embeds: [{
+          title: '📈 Daily Results — Test',
+          description: '**3-1** (75.0%) · P&L: **+$18.50**',
+          color: 0x10b981,
+          fields: [
+            { name: 'All-Time Value', value: '28-17 (62.2%)\n+$94.30 · ROI 12.1%', inline: true },
+            { name: 'All-Time Control', value: '19-22 (46.3%)\n-$31.20 · ROI -4.8%', inline: true },
+          ],
+        }, {
+          title: '📊 Pick-by-Pick Breakdown',
+          description:
+            '✅ **LeBron James** OVER 25.5 PTS\n　Actual: `31` · Margin: `+21.6%` · -110 → **+$9.09**\n\n' +
+            '✅ **Nikola Jokic** OVER 9.5 AST\n　Actual: `12` · Margin: `+26.3%` · +105 → **+$10.50**\n\n' +
+            '✅ **Jayson Tatum** UNDER 4.5 3PM\n　Actual: `3` · Margin: `+33.3%` · -125 → **+$8.00**\n\n' +
+            '❌ **Anthony Davis** OVER 11.5 REB\n　Actual: `9` · Margin: `-21.7%` · -115 → **-$10.00**',
+          color: 0x6366f1,
+        }, {
+          title: '💡 Recommendations & Insights',
+          description:
+            '📊 **Best market**: PTS at 68% win rate — consider increasing exposure\n\n' +
+            '🔥 **Elite confidence (75+)**: 72% hit rate — model excels at high conviction\n\n' +
+            '📈 **7-day trend**: 65% vs 58% prior — model improving\n\n' +
+            '💰 **ROI at 12.1%** — edge is holding up across 45 bets',
+          color: 0xf59e0b,
+          footer: { text: 'Based on 45 settled value bets' },
+        }],
+      });
+      results.results = true;
+    } catch (e) { results.results = e.message; }
+  }
+
+  res.json({ success: true, ...results, configured: { picks: !!DISCORD_PICKS_WEBHOOK, results: !!DISCORD_RESULTS_WEBHOOK } });
 });
 
 // ---- CATCH-ALL: Serve frontend ----
