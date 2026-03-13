@@ -641,12 +641,12 @@ td{padding:13px 14px;white-space:nowrap;}
 .lmr-top{display:flex;align-items:center;gap:4px;font-size:12px;}
 .lmr-nm{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--t1);}
 .lmr-ln{font-size:11px;color:var(--t2);white-space:nowrap;font-weight:600;}
-.lmr-st{font-size:10px;color:var(--t3);white-space:nowrap;margin-top:2px;}
-.lmr-st2{font-size:10px;color:var(--t3);white-space:nowrap;margin-top:2px;}
+.lmr-st{font-size:11px;color:var(--t2);white-space:nowrap;margin-top:3px;font-weight:600;}
+.lmr-st2{font-size:11px;color:var(--t2);white-space:nowrap;margin-top:2px;font-weight:600;}
 .lmr-odds-tag{display:inline-block;font-size:8px;font-weight:700;padding:1px 5px;border-radius:4px;background:rgba(168,85,247,.15);color:#c084fc;border:1px solid rgba(168,85,247,.3);vertical-align:middle;margin-left:4px;letter-spacing:.3px;}
 .lmr-sep{opacity:.4;}
 .lmr-ev{font-weight:600;}
-.lmr-delta{font-size:8px;font-weight:700;padding:0 3px;border-radius:3px;}
+.lmr-delta{font-size:9px;font-weight:700;padding:1px 4px;border-radius:3px;}
 .lmr-delta.up{color:var(--g);background:var(--gd);}
 .lmr-delta.dn{color:var(--r);background:var(--rd);}
 .lm-impact{margin-top:10px;padding:10px 12px;background:rgba(168,85,247,.06);border:1px solid rgba(168,85,247,.2);border-radius:8px;font-size:11px;}
@@ -3847,9 +3847,6 @@ function renderAlerts(){
     const rankColor=rank===0?'#f59e0b':rank===1?'#94a3b8':rank===2?'#b45309':'var(--t3)';
     const rankLabel=rank===0?'🥇':rank===1?'🥈':rank===2?'🥉':`#${rank+1}`;
     const cc=(p.confidence||0)>=70?'var(--g)':(p.confidence||0)>=50?'var(--a)':'var(--r)';
-    const reasons=[];
-    // Use directional stats: for UNDER bets flip the hit rate perspective
-    const dirHR=isOver?(p.hitRate||50):(100-(p.hitRate||50));
     // Weighted model probability (L5×25% + L10×30% + Season×25% + StatProb×20%), directional
     const rawModelProb=p.modelProb!=null?p.modelProb:(p.hitRate||50)/100;
     const dirModelProb=isOver?rawModelProb:1-rawModelProb;
@@ -3858,12 +3855,8 @@ function renderAlerts(){
     const evPct=p._dirEV??0;
     const betOdds=isOver?p.overOdds:p.underOdds;
     const betOddsFmt=betOdds?(betOdds>0?'+':'')+betOdds:'—';
-    if(Math.abs(p.edge||0)>=8)reasons.push(`<b>${Math.abs(p.edge).toFixed(1)}% edge</b> — very strong`);
-    else if(Math.abs(p.edge||0)>=5)reasons.push(`<b>${Math.abs(p.edge).toFixed(1)}% edge</b> above threshold`);
-    if(dirModelProbPct>=70)reasons.push(`Model prob <b>${dirModelProbPct}%</b> (weighted L5/L10/Season)`);
-    else if(dirModelProbPct>=60)reasons.push(`Model prob <b>${dirModelProbPct}%</b>`);
-    if(evPct>5)reasons.push(`EV <b>+${evPct}%</b> vs implied odds`);
-    if((p.scenarioBoost||0)>0)reasons.push(`Scenario boost <b>+${p.scenarioBoost}</b>`);
+    const edgeAbs=Math.abs(p.edge||0).toFixed(1);
+    const edgeCol=Math.abs(p.edge||0)>=8?'var(--g)':Math.abs(p.edge||0)>=5?'var(--a)':'var(--r)';
 
     return`<div class="va-card ${strength}${!p.hasRealStats?' fake-stats':''}" onclick="openAlertDetail(_vaAlerts[${rank}])" style="cursor:pointer;">
       <div class="va-top">
@@ -3884,15 +3877,13 @@ function renderAlerts(){
       <div style="font-size:12px;font-weight:700;color:var(--t3);margin-bottom:8px;">${dir} ${p.line}${(()=>{if(p.prev_line==null||p.prev_line===p.line)return'';const diff=+(p.line-p.prev_line).toFixed(1);return` <span class="line-move ${diff>0?'up':'dn'} ${Math.abs(diff)>=1.5?'line-move-big':''}" style="font-size:10px;">was ${p.prev_line} (${diff>0?'+':''}${diff})</span>`;})()} ${MKT_SHORT[p.market||S.market]||''} · ${betOddsFmt} odds · ${(p.edge||0).toFixed(1)}% edge · ${isOver?p.avg+' avg vs '+p.line+' line':p.line+' line vs '+p.avg+' avg'}</div>
       <div class="va-stats">
         <div class="va-stat"><div class="va-stat-v" style="color:${p.vs>=40?'var(--g)':p.vs>=25?'var(--a)':'var(--r)'}"><b>${p.vs}</b></div><div class="va-stat-l">Value Score</div></div>
+        <div class="va-stat"><div class="va-stat-v" style="color:${edgeCol}"><b>${edgeAbs}%</b></div><div class="va-stat-l">Edge</div></div>
         <div class="va-stat"><div class="va-stat-v">${p.avg}</div><div class="va-stat-l">L10 Avg</div></div>
         <div class="va-stat"><div class="va-stat-v">${dirModelProbPct}%</div><div class="va-stat-l">Model Prob</div></div>
         <div class="va-stat"><div class="va-stat-v">${implP}%</div><div class="va-stat-l">Implied Prob</div></div>
         <div class="va-stat"><div class="va-stat-v" style="color:${evPct>0?'var(--g)':'var(--r)'}">${evPct>0?'+':''}${evPct}%</div><div class="va-stat-l">Exp. Value</div></div>
         <div class="va-stat"><div class="va-stat-v" style="color:${cc}">${p.confidence||0}</div><div class="va-stat-l">Conf.</div></div>
       </div>
-      <div class="va-reason">${reasons.join(' · ')||'Moderate edge detected.'}</div>
-      <div class="va-formula">EV = ModelProb (<span>${dirModelProbPct}%</span>) × Payout − (1−ModelProb) × Stake = <span style="color:${evPct>0?'var(--g)':'var(--r)'}">${evPct>0?'+':''}${evPct}%</span></div>
-      ${(()=>{const _t=vsWeights.edge+vsWeights.hr+vsWeights.conf+vsWeights.ev||1;const _we=vsWeights.edge/_t,_wh=vsWeights.hr/_t,_wc=vsWeights.conf/_t,_wv=vsWeights.ev/_t;const _evS=Math.min(Math.max(evPct,-20),20);const _dHR=isOver?(p.hitRate||50):(100-(p.hitRate||50));return`<div class="va-formula" style="margin-top:4px;">Value = Edge ${Math.abs(p.edge||0).toFixed(1)}×${Math.round(_we*100)}% + HR ${Math.max(0,_dHR-50)}×${Math.round(_wh*100)}% + Conf ${p.confidence||0}×${Math.round(_wc*100)}% + EV ${(_evS+20).toFixed(0)}×${Math.round(_wv*100)}% = <span style="color:${p.vs>=40?'var(--g)':p.vs>=25?'var(--a)':'var(--r)'}"><b>${p.vs}</b></span></div>`;})()}
       <div style="display:flex;gap:8px;margin-top:10px;">
         <button class="bet-btn" style="flex:1;padding:9px;font-size:13px;border-radius:8px;" onclick="event.stopPropagation();openBetModal(${JSON.stringify(p).replace(/"/g,'&quot;')})">🎲 Place Bet — ${isOver?'OVER':'UNDER'} ${p.line}</button>
         <button class="share-btn" style="padding:9px 14px;font-size:13px;border-radius:8px;" onclick="event.stopPropagation();shareAlert(_vaAlerts[${rank}])" title="Share">📤</button>
