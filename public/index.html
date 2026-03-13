@@ -1960,77 +1960,67 @@ function renderOverview(el,p){
   </div>`;
 }
 
-// ── Normal CDF (Abramowitz & Stegun) ──
-function normalCDF(z){
-  const a1=0.254829592,a2=-0.284496736,a3=1.421413741,a4=-1.453152027,a5=1.061405429,pp=0.3275911;
-  const sign=z<0?-1:1; z=Math.abs(z);
-  const t=1/(1+pp*z);
-  const y=1-(((((a5*t+a4)*t)+a3)*t+a2)*t+a1)*t*Math.exp(-z*z);
-  return 0.5*(1+sign*y);
-}
-function estHitRate(line,avg,stdDev){
-  if(!stdDev||stdDev===0)return avg>=line?99:1;
-  return Math.min(99,Math.max(1,Math.round((1-normalCDF((line-avg)/stdDev))*100)));
-}
-
 function renderLineSimulator(el,p){
-  if(!p.hasRealStats){
+  if(!p.hasRealStats||!p.gameLog){
     el.innerHTML=`<div style="padding:24px;text-align:center;color:var(--t3);font-size:12px;">
       Real stats are required for the simulator.<br>Click <strong>Overview</strong> first — stats load automatically from NBA.com.</div>`;
     return;
   }
-  const orig=p.line, avg=p.avg, sd=p.stdDev||1, n=p.gamesPlayed||10;
-  const half=Math.max(4,+(sd*2).toFixed(1));
-  const sMin=+(Math.max(0.5,orig-half).toFixed(1)), sMax=+(orig+half).toFixed(1);
+  // Extract actual per-game stat values from game log (same logic as applyPlayerStats)
+  const statMap={'player_points':'pts','player_rebounds':'reb','player_assists':'ast','player_threes':'fg3m',
+    'player_steals':'stl','player_blocks':'blk','player_turnovers':'turnover','player_points_rebounds_assists':'pra'};
+  const statKey=statMap[p.market||S.market]||'pts';
+  const getV=g=>statKey==='pra'?(+g.pts||0)+(+g.reb||0)+(+g.ast||0):+(g[statKey]||0);
+  const played=p.gameLog.filter(g=>parseInt(g.min||'0')>0);
+  const vals=played.map(g=>getV(g));
+  // Slider range: actual floor/ceil of season data
+  const lo=Math.max(0.5,Math.floor(Math.min(...vals)*2)/2);
+  const hi=Math.ceil(Math.max(...vals)*2)/2;
+  const orig=p.line, n=vals.length, avg=p.avg;
+  window._simP=p; window._simVals=vals;
   el.innerHTML=`<div class="sim-panel">
     <div style="font-size:13px;font-weight:700;color:var(--t1);margin-bottom:3px;">⚡ Alternate Line Simulator</div>
-    <div style="font-size:11px;color:var(--t3);margin-bottom:14px;">Drag the line to see how each stat changes. Hit rates are estimated using a normal distribution (avg <strong>${avg}</strong>, σ <strong>${sd}</strong>, <strong>${n}</strong>-game sample).</div>
+    <div style="font-size:11px;color:var(--t3);margin-bottom:14px;">Hit rates are calculated from <strong>${n} actual games</strong> this season — no estimates or approximations.</div>
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
       <span style="font-size:11px;color:var(--t3);min-width:40px;">Line</span>
-      <input type="range" min="${sMin}" max="${sMax}" step="0.5" value="${orig}" style="flex:1;cursor:pointer;accent-color:#6366f1;" id="simLineSlider" oninput="updateLineSim()">
-      <input type="number" min="${sMin}" max="${sMax}" step="0.5" value="${orig}" class="sim-line-num" id="simLineNum" oninput="updateLineSimNum()">
+      <input type="range" min="${lo}" max="${hi}" step="0.5" value="${orig}" style="flex:1;cursor:pointer;accent-color:#6366f1;" id="simLineSlider" oninput="updateLineSim()">
+      <input type="number" min="${lo}" max="${hi}" step="0.5" value="${orig}" class="sim-line-num" id="simLineNum" oninput="updateLineSimNum()">
     </div>
-    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:11px;color:var(--t2);margin-bottom:6px;">
-      <span style="font-weight:600;">Alternate odds <span style="color:var(--t3);font-weight:400;">(optional — leave blank to use current)</span></span>
-    </div>
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;font-size:11px;flex-wrap:wrap;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;font-size:11px;flex-wrap:wrap;">
+      <span style="color:var(--t2);font-weight:600;">Alternate odds <span style="color:var(--t3);font-weight:400;">(optional — leave blank to use current book)</span></span>
       <span style="color:var(--t3);">Over</span>
       <input type="number" placeholder="${p.overOdds||'-110'}" class="sim-inp" id="simOverOdds" oninput="updateLineSim()">
       <span style="color:var(--t3);">Under</span>
       <input type="number" placeholder="${p.underOdds||'-110'}" class="sim-inp" id="simUnderOdds" oninput="updateLineSim()">
     </div>
     <div class="sim-compare" id="simCompare"></div>
-    <div style="margin-top:12px;font-size:10px;color:var(--t3);font-style:italic;">Estimates assume player output follows a normal distribution. Actual alternate-line hit rates depend on game-by-game data not available in the frontend.</div>
   </div>`;
-  window._simP=p;
   updateLineSim();
 }
 
 function updateLineSim(){
-  const p=window._simP; if(!p) return;
+  const p=window._simP, vals=window._simVals;
+  if(!p||!vals) return;
   const slider=document.getElementById('simLineSlider');
   const numEl=document.getElementById('simLineNum');
   if(!slider||!numEl) return;
   const newLine=parseFloat(slider.value);
   numEl.value=newLine;
 
-  const avg=p.avg, sd=p.stdDev||1, n=p.gamesPlayed||10;
-  // Estimate hit rates at new line via normal distribution
-  const l10=p.l10||[];
-  const l10avg=l10.length?l10.reduce((a,b)=>a+b,0)/l10.length:avg;
-  const l5=l10.slice(0,5);
-  const l5avg=l5.length?l5.reduce((a,b)=>a+b,0)/l5.length:l10avg;
-  const eSeason=estHitRate(newLine,avg,sd);
-  const eL10=estHitRate(newLine,l10avg,sd);
-  const eL5=estHitRate(newLine,l5avg,sd);
-  // Bayesian shrinkage
-  const rawProb=(eL5*0.35+eL10*0.40+eSeason*0.25)/100;
+  const n=vals.length, avg=p.avg, sd=p.stdDev||1;
+  const l10vals=vals.slice(0,10), l5vals=vals.slice(0,5);
+  // Exact hit rates from actual game log
+  const hitSeason=n?Math.round(vals.filter(v=>v>=newLine).length/n*100):50;
+  const hitL10=l10vals.length?Math.round(l10vals.filter(v=>v>=newLine).length/l10vals.length*100):hitSeason;
+  const hitL5=l5vals.length>=3?Math.round(l5vals.filter(v=>v>=newLine).length/l5vals.length*100):hitL10;
+  // Bayesian shrinkage (same formula as applyPlayerStats)
+  const rawProb=(hitL5*0.35+hitL10*0.40+hitSeason*0.25)/100;
   const simMP=Math.min(0.97,Math.max(0.03,(rawProb*n+5)/(n+10)));
   const simEdge=newLine>0?+((avg-newLine)/newLine*100).toFixed(1):0;
   const isOver=simEdge>=0;
   const dirMP=isOver?simMP:1-simMP;
-  const dirHR=Math.round(dirMP*100);
-  // Odds — use typed values or fall back to originals
+  const dirHR=isOver?hitSeason:100-hitSeason;
+  // Odds
   const rawOv=parseInt(document.getElementById('simOverOdds')?.value);
   const rawUv=parseInt(document.getElementById('simUnderOdds')?.value);
   const simOvOdds=isNaN(rawOv)?(p.overOdds||-110):rawOv;
@@ -2060,21 +2050,23 @@ function updateLineSim(){
   const dir=isOver?'Over':'Under';
   const oc=simEdge>=0?'var(--g)':'var(--r)';
   const origOc=(p.edge||0)>=0?'var(--g)':'var(--r)';
+  const lineDiff=+(newLine-p.line).toFixed(1);
+  const lineDiffHtml=lineDiff!==0?` <span style="font-weight:600;color:${lineDiff<0?'var(--g)':'var(--r)'}">(${lineDiff>0?'+':''}${lineDiff})</span>`:'';
 
   document.getElementById('simCompare').innerHTML=`
     <div class="sim-col">
       <div style="font-size:10px;font-weight:800;letter-spacing:.5px;color:var(--t3);text-transform:uppercase;margin-bottom:8px;">Original · Line ${p.line}</div>
       <div class="sim-stat"><span class="sim-stat-lbl">Direction</span><span class="sim-stat-val">${origIsOver?'Over':'Under'}</span></div>
-      <div class="sim-stat"><span class="sim-stat-lbl">Hit Rate</span><span class="sim-stat-val">${origDirHR}%</span></div>
+      <div class="sim-stat"><span class="sim-stat-lbl">Season Hit Rate</span><span class="sim-stat-val">${origDirHR}%</span></div>
       <div class="sim-stat"><span class="sim-stat-lbl">Model Prob</span><span class="sim-stat-val">${Math.round(origDirMP*100)}%</span></div>
       <div class="sim-stat"><span class="sim-stat-lbl">Edge</span><span class="sim-stat-val" style="color:${origOc}">${(p.edge||0)>0?'+':''}${(p.edge||0).toFixed(1)}%</span></div>
       <div class="sim-stat"><span class="sim-stat-lbl">EV</span><span class="sim-stat-val" style="color:${origDirEV>=0?'var(--g)':'var(--r)'}">${origDirEV>0?'+':''}${origDirEV}%</span></div>
       <div class="sim-stat"><span class="sim-stat-lbl">Confidence</span><span class="sim-stat-val">${p.confidence||0}/100</span></div>
     </div>
     <div class="sim-col sim-new">
-      <div style="font-size:10px;font-weight:800;letter-spacing:.5px;color:#818cf8;text-transform:uppercase;margin-bottom:8px;">Simulated · Line ${newLine}${newLine!==p.line?` <span style="font-weight:600;color:${newLine<p.line?'var(--g)':'var(--r)'}">(${newLine<p.line?'−':'+'}${Math.abs(+(newLine-p.line).toFixed(1))})</span>`:''}</div>
+      <div style="font-size:10px;font-weight:800;letter-spacing:.5px;color:#818cf8;text-transform:uppercase;margin-bottom:8px;">Simulated · Line ${newLine}${lineDiffHtml}</div>
       <div class="sim-stat"><span class="sim-stat-lbl">Direction</span><span class="sim-stat-val">${dir}</span></div>
-      <div class="sim-stat"><span class="sim-stat-lbl">Hit Rate (est)</span><span class="sim-stat-val">${dirHR}%${delta(dirHR,origDirHR)}</span></div>
+      <div class="sim-stat"><span class="sim-stat-lbl">Season Hit Rate</span><span class="sim-stat-val">${dirHR}% <span style="font-size:10px;color:var(--t3);">(${isOver?vals.filter(v=>v>=newLine).length:vals.filter(v=>v<newLine).length}/${n}g)</span>${delta(dirHR,origDirHR)}</span></div>
       <div class="sim-stat"><span class="sim-stat-lbl">Model Prob</span><span class="sim-stat-val">${Math.round(dirMP*100)}%${delta(Math.round(dirMP*100),Math.round(origDirMP*100))}</span></div>
       <div class="sim-stat"><span class="sim-stat-lbl">Edge</span><span class="sim-stat-val" style="color:${oc}">${simEdge>0?'+':''}${simEdge}%${delta(simEdge,p.edge||0)}</span></div>
       <div class="sim-stat"><span class="sim-stat-lbl">EV (${simDirOdds>0?'+':''}${simDirOdds})</span><span class="sim-stat-val" style="color:${simEV>=0?'var(--g)':'var(--r)'}">${simEV>0?'+':''}${simEV}%${delta(simEV,origDirEV)}</span></div>
