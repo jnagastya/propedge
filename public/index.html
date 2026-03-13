@@ -696,7 +696,7 @@ td{padding:13px 14px;white-space:nowrap;}
 .soc-messages{flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:6px;}
 .soc-msg{display:flex;flex-direction:column;max-width:76%;}.soc-msg.mine{align-self:flex-end;align-items:flex-end;}.soc-msg.them{align-self:flex-start;align-items:flex-start;}
 .soc-msg-sender{font-size:10px;color:var(--t2);margin-bottom:2px;font-weight:600;}
-.soc-bubble{padding:8px 12px;border-radius:14px;font-size:13px;line-height:1.45;word-break:break-word;}
+.soc-bubble{padding:8px 12px;border-radius:14px;font-size:13px;line-height:1.45;word-break:break-word;white-space:pre-wrap;}
 .soc-msg.mine .soc-bubble{background:var(--b);color:var(--b-on);border-bottom-right-radius:4px;}.soc-msg.them .soc-bubble{background:var(--bg3);color:var(--t1);border-bottom-left-radius:4px;}
 .soc-msg-time{font-size:10px;color:var(--t2);margin-top:2px;opacity:.7;}
 .soc-line-card{background:var(--bg2);border:1px solid var(--bd2);border-radius:10px;padding:10px 12px;cursor:pointer;transition:border-color .12s,background .12s;min-width:190px;max-width:260px;}
@@ -5106,6 +5106,22 @@ function openBetShareModal(betId) {
   document.getElementById('shareModal').classList.add('show');
 }
 
+function formatBetAsText(bet) {
+  if (bet.type === 'parlay') {
+    const legs = (bet.legs || []).map(l => {
+      const dir = l.direction === 'over' ? '▲ OVER' : '▼ UNDER';
+      return `• ${l.name} ${dir} ${l.line} ${l.marketLabel || ''}`;
+    }).join('\n');
+    const status = (bet.status || 'open').toUpperCase();
+    return `🎯 ${(bet.legs||[]).length}-Leg Parlay · ${bet.combinedOdds}\n${legs}\n$${(bet.stake||0).toFixed(2)} stake → Win $${(bet.toWin||0).toFixed(2)} · ${status}`;
+  }
+  const dir = bet.direction === 'over' ? '▲ OVER' : '▼ UNDER';
+  const odds = (bet.odds > 0 ? '+' : '') + bet.odds;
+  const edge = (bet.edge || 0) >= 0 ? `+${(bet.edge||0).toFixed(1)}%` : `${(bet.edge||0).toFixed(1)}%`;
+  const status = (bet.status || 'open').toUpperCase();
+  return `📊 ${bet.player} ${dir} ${bet.line} ${bet.marketLabel || ''} · ${odds} · Edge ${edge}\n$${(bet.stake||0).toFixed(2)} stake → Win $${(bet.toWin||0).toFixed(2)} · ${status}`;
+}
+
 function renderSocBetCard(bd) {
   const statusColors = { open: 'var(--b)', won: 'var(--g)', lost: 'var(--r)', void: 'var(--t3)' };
   const sc = statusColors[bd.status] || 'var(--t2)';
@@ -5198,7 +5214,7 @@ async function sharePickedBet(betId, btn) {
   const r = await fetch(`${API}/api/social/conversations/${_activeConvId}/messages`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_authToken}` },
-    body: JSON.stringify({ type: 'bet', betData: bet }),
+    body: JSON.stringify({ type: 'text', content: formatBetAsText(bet) }),
   });
   if (r.ok) {
     const msg = await r.json();
@@ -5227,8 +5243,8 @@ async function shareTo(mode, id, label, btn) {
   }
   let msgType, msgPayload;
   if (_socShareBet) {
-    msgType = 'bet';
-    msgPayload = { betData: _socShareBet };
+    msgType = 'text';
+    msgPayload = { content: formatBetAsText(_socShareBet) };
   } else {
     const p = _socSharePlayer;
     msgType = 'line';
