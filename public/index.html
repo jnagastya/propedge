@@ -3367,10 +3367,23 @@ setInterval(()=>loadData(),7200000);
         localStorage.setItem('pe_favorites', JSON.stringify([...favorites]));
       }
       updateFavBadge();
+      // Restore UI preferences (roams across devices)
+      const ui = profile.preferences?.ui;
+      if (ui) {
+        if (ui.pe_theme) { localStorage.setItem('pe_theme', ui.pe_theme); const isLight = ui.pe_theme === 'light'; document.body.classList.toggle('light', isLight); const lbl = document.getElementById('themeLabel'); if (lbl) lbl.textContent = isLight ? 'Light Mode' : 'Dark Mode'; }
+        if (ui.pe_accent) { localStorage.setItem('pe_accent', ui.pe_accent); applyAccent(ui.pe_accent); }
+        if (ui.pe_bg_tint) { localStorage.setItem('pe_bg_tint', ui.pe_bg_tint); applyBgTint(ui.pe_bg_tint); }
+        if (ui.pe_bg_tint_opacity != null) { localStorage.setItem('pe_bg_tint_opacity', ui.pe_bg_tint_opacity); setBgTintOpacity(parseFloat(ui.pe_bg_tint_opacity)); const s=document.getElementById('bgTintSlider'); if(s) s.value=Math.round(parseFloat(ui.pe_bg_tint_opacity)*100); }
+        if (ui.pe_bg_mode) { localStorage.setItem('pe_bg_mode', ui.pe_bg_mode); setBgMode(ui.pe_bg_mode); }
+        if (ui.pe_bg_gradient_intensity != null) { localStorage.setItem('pe_bg_gradient_intensity', ui.pe_bg_gradient_intensity); setBgGradientIntensity(parseFloat(ui.pe_bg_gradient_intensity)); const s=document.getElementById('bgGradSlider'); if(s) s.value=Math.round(parseFloat(ui.pe_bg_gradient_intensity)*100); }
+        if (ui.pe_bg_grad_color) { localStorage.setItem('pe_bg_grad_color', ui.pe_bg_grad_color); setBgGradientColor(ui.pe_bg_grad_color); }
+        if (ui.pe_bg_grad_match != null) { localStorage.setItem('pe_bg_grad_match', ui.pe_bg_grad_match); _bgGradMatchTint = ui.pe_bg_grad_match === '1'; const cb=document.getElementById('bgGradMatchTint'); if(cb) cb.checked=_bgGradMatchTint; toggleGradMatchTint(); }
+      }
       const initials = (profile.displayName||'?').slice(0,2).toUpperCase();
       document.getElementById('userAvatar').textContent = initials;
       document.getElementById('userName').textContent = profile.displayName;
       document.getElementById('userBadge').style.display = 'flex';
+      initSocial(); // non-blocking
     } else {
       // Token invalid or expired
       _authToken = null;
