@@ -1313,6 +1313,7 @@ async function afterLogin() {
   // Load profile from server
   const profile = await authGet('/api/user/profile');
   if (!profile) { doLogout(); return; }
+  _profileLoaded = true;
   _authUser = { displayName: profile.displayName };
   // Sync simulator from server profile
   localStorage.setItem('pe_sim_balance', (profile.balance ?? 1000).toFixed(2));
@@ -1358,6 +1359,7 @@ async function doLogout() {
   _authToken = null;
   _authUser = null;
   _socUserId = null; _socUsername = null; _socInited = false; _activeConvId = null;
+  _profileLoaded = false;
   localStorage.removeItem('pe_auth_token');
   // Reset simulator and favorites to defaults
   localStorage.setItem('pe_sim_balance', '1000');
@@ -1386,6 +1388,7 @@ async function authGet(path) {
 // Debounced profile sync — saves balance+bets to server after 1.5s idle
 let _syncTimer = null;
 let _lastSyncTime = null;
+let _profileLoaded = false; // guard: don't sync until we've confirmed a real profile loaded
 
 function updateLastSaved() {
   const el = document.getElementById('saveStatus');
@@ -1413,7 +1416,7 @@ function collectUiPrefs() {
 }
 
 async function syncProfile() {
-  if (!_authToken) return;
+  if (!_authToken || !_profileLoaded) return;
   const sim = simLoad();
   const el = document.getElementById('saveStatus');
   if (el && _lastSyncTime) { el.textContent = 'Syncing…'; el.className = 'save-status syncing'; }
@@ -3366,6 +3369,7 @@ setInterval(()=>loadData(),7200000);
         favorites = new Set(profile.preferences.favorites);
         localStorage.setItem('pe_favorites', JSON.stringify([...favorites]));
       }
+      _profileLoaded = true;
       updateFavBadge();
       // Restore UI preferences (roams across devices)
       const ui = profile.preferences?.ui;

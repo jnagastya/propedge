@@ -1422,16 +1422,22 @@ app.get('/api/user/profile', async (req, res) => {
   const user = await authUser(req);
   if (!user) return res.status(401).json({ error: 'Unauthorized' });
   try {
-    const { data: profile } = await supabase
+    const { data: profile, error: profileErr } = await supabase
       .from('user_profiles')
       .select('*')
       .eq('id', user.id)
       .single();
+    // PGRST116 = no rows found (genuine first login). Any other error = DB/schema issue.
+    // Return 500 on real errors so the client never overwrites good data with defaults.
+    if (profileErr && profileErr.code !== 'PGRST116') {
+      console.error('Profile fetch error:', profileErr);
+      return res.status(500).json({ error: 'Profile temporarily unavailable, please retry' });
+    }
     if (!profile) {
-      // First login — create default profile
+      // Genuine first login — create default profile
       const def = { id: user.id, balance: 1000, bets: [], preferences: {} };
       await supabase.from('user_profiles').insert(def);
-      return res.json({ balance: 1000, bets: [], preferences: {}, displayName: user.email.split('@')[0] });
+      return res.json({ balance: 1000, bets: [], preferences: {}, displayName: user.email.split('@')[0], isNew: true });
     }
     res.json({
       balance: profile.balance ?? 1000,
