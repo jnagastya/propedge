@@ -1073,6 +1073,22 @@ app.get('/api/cron/refresh-stats', async (req, res) => {
   if (!supabase) return res.status(503).json({ error: 'Supabase not configured' });
   if (!BDL_KEY) return res.status(503).json({ error: 'BDL key not configured' });
 
+  // Single-player refresh: ?player=Brandon%20Miller
+  const singlePlayer = req.query.player;
+  if (singlePlayer) {
+    try {
+      const { id: bdlId, position: bdlPos } = await getBDLPlayerId(singlePlayer);
+      if (!bdlId) return res.status(404).json({ error: `${singlePlayer} not found in BDL` });
+      const games = await fetchBDLGameLog(bdlId);
+      await sbSetGameLog(singlePlayer, bdlId, games, bdlPos);
+      const latestTeam = games.sort((a, b) => new Date(b.date) - new Date(a.date))[0]?.team;
+      if (latestTeam) _playerTeamCache[singlePlayer] = latestTeam;
+      return res.json({ success: true, player: singlePlayer, bdlId, position: bdlPos, games: games.length });
+    } catch (e) {
+      return res.status(500).json({ error: e.message, player: singlePlayer });
+    }
+  }
+
   const results = { ok: [], failed: [], skipped: [], newPlayers: [] };
   try {
     // Get player names from Supabase odds_cache (populated by refresh-odds cron)
