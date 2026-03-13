@@ -1131,38 +1131,10 @@ function renderFavorites() {
 const _nbaIdCache = {};
 
 // ── NBA Player → NBA ID map (hardcoded fallback for instant display before stats load) ──
-const NBA_IDS = {
-  "LeBron James":2544,"Stephen Curry":201939,"Kevin Durant":201142,
-  "Giannis Antetokounmpo":203507,"Nikola Jokic":203999,"Luka Doncic":1629029,
-  "Joel Embiid":203954,"Jayson Tatum":1628369,"Shai Gilgeous-Alexander":1628983,
-  "Anthony Edwards":1630162,"Donovan Mitchell":1628378,"Tyrese Haliburton":1630169,
-  "LaMelo Ball":1630163,"Devin Booker":1626164,"Trae Young":1629027,
-  "Jalen Brunson":1628973,"De'Aaron Fox":1628368,"Cade Cunningham":1630595,
-  "Tyrese Maxey":1630178,"Domantas Sabonis":1627734,"Anthony Davis":203076,
-  "Damian Lillard":203081,"Jimmy Butler":202710,"Kawhi Leonard":202695,
-  "Ja Morant":1629630,"Zion Williamson":1629627,"Paolo Banchero":1631094,
-  "Austin Reaves":1630559,"Rui Hachimura":1629060,"Karl-Anthony Towns":1626157,
-  "Bam Adebayo":1628389,"Jaylen Brown":1627759,"Kristaps Porzingis":204001,
-  "Kyrie Irving":202681,"Jamal Murray":1627750,"Pascal Siakam":1627783,
-  "Desmond Bane":1630217,"Draymond Green":203110,"Julius Randle":203944,
-  "Franz Wagner":1630532,"Brandon Ingram":1627742,"Dejounte Murray":1627749,
-  "Lauri Markkanen":1628374,"Scottie Barnes":1630567,"Mikal Bridges":1628969,
-  "RJ Barrett":1629628,"Alperen Sengun":1630578,"Jalen Williams":1631114,
-  "Chet Holmgren":1631096,"Victor Wembanyama":1641705,
-  "Jalen Green":1630224,"Evan Mobley":1630596,"Darius Garland":1629636,
-  "Jarrett Allen":1628386,"Josh Giddey":1630581,"OG Anunoby":1628384,
-  "Immanuel Quickley":1630193,"Brook Lopez":201572,"Khris Middleton":203114,
-  "Rudy Gobert":203497,"Naz Reid":1629675,"Walker Kessler":1631117,
-  "Collin Sexton":1629012,"Jordan Clarkson":203903,"Bradley Beal":203078,
-  "Kyle Kuzma":1628398,"Deni Avdija":1630166,"Coby White":1629632,
-  "Zach LaVine":203897,"Nikola Vucevic":202696,"DeMar DeRozan":201942,
-  "Andrew Wiggins":203952,"Jonathan Kuminga":1630552,"Al Horford":201143,
-  "Marcus Smart":203935,"Bobby Portis":1626171,"Mike Conley":201144,
-};
-// Proxied through server to bypass CORS. Dynamic cache takes priority over hardcoded map.
-// Returns URL for known IDs instantly; null for unknowns (shows initials until prefetch resolves)
+// All headshots resolved dynamically via ESPN player map on the server.
+// Returns URL for known IDs (from prefetch cache); null for unknowns (shows initials).
 function getHeadshot(name) {
-  const id = _nbaIdCache[name] || NBA_IDS[name];
+  const id = _nbaIdCache[name];
   return id ? `/api/headshot/${id}` : null;
 }
 // Global onerror handler — replaces broken img with styled initials
@@ -1173,7 +1145,7 @@ function headshotError(img, initials) {
 // Throttled background prefetch: resolves NBA IDs for players not in the hardcoded map,
 // updates _nbaIdCache and swaps initials → headshots in-place via data-av
 async function prefetchHeadshots(names) {
-  const unknown = [...new Set(names)].filter(n => !_nbaIdCache[n] && !NBA_IDS[n]);
+  const unknown = [...new Set(names)].filter(n => !_nbaIdCache[n]);
   for (const name of unknown) {
     try {
       const r = await fetch(`/api/player/nba-id/${encodeURIComponent(name)}`);

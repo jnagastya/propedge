@@ -255,51 +255,38 @@ const BDL_PLAYER_OVERRIDES = {
   'Kasparas Jakucionis':    { id: 1057272939,   position: 'G', team: 'MIA' }, // BDL has special char: Jakučionis
 };
 
-// ── NBA Stats player map (name → NBA CDN person ID) ──────────────────────────
-// stats.nba.com/commonallplayers returns all players with their PERSON_ID,
-// which is the ID used by the NBA CDN headshot URL. BDL v1 free tier does
-// NOT return nba_player_id, so we use this as the primary headshot ID source.
-let _nbaStatsMap = null;
-let _nbaStatsMapExpiry = 0;
+// ── ESPN player map (name → ESPN athlete ID) ─────────────────────────────────
+// ESPN's public athletes API works from any server (no IP blocking, no auth).
+// Headshot URL: https://a.espncdn.com/i/headshots/nba/players/full/{id}.png
+// BDL v1 free tier does NOT return nba_player_id, and stats.nba.com blocks
+// Vercel/AWS datacenter IPs, so ESPN is the most reliable server-side source.
+let _espnPlayerMap = null;
+let _espnPlayerMapExpiry = 0;
 
-async function getNBAStatsPlayerMap() {
-  if (_nbaStatsMap && Date.now() < _nbaStatsMapExpiry) return _nbaStatsMap;
+async function getESPNPlayerMap() {
+  if (_espnPlayerMap && Date.now() < _espnPlayerMapExpiry) return _espnPlayerMap;
   try {
-    const url = 'https://stats.nba.com/stats/commonallplayers?IsOnlyCurrentSeason=0&LeagueID=00&Season=2024-25';
-    const resp = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Referer': 'https://www.nba.com/',
-        'Origin': 'https://www.nba.com',
-        'Accept': 'application/json, text/plain, */*',
-        'x-nba-stats-origin': 'stats',
-        'x-nba-stats-token': 'true',
-      }
-    });
-    if (!resp.ok) throw new Error(`NBA Stats ${resp.status}`);
+    const url = 'https://site.api.espn.com/apis/site/v2/sports/basketball/nba/athletes?limit=1000';
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error(`ESPN athletes API ${resp.status}`);
     const data = await resp.json();
-    const headers = data.resultSets[0].headers;
-    const rows = data.resultSets[0].rowSet;
-    const idIdx = headers.indexOf('PERSON_ID');
-    const nameIdx = headers.indexOf('DISPLAY_FIRST_LAST');
     const map = {};
-    for (const row of rows) {
-      const id = row[idIdx];
-      const name = row[nameIdx];
-      if (id && name) map[name.toLowerCase()] = id;
+    for (const athlete of (data.items || [])) {
+      const name = athlete.displayName || `${athlete.firstName} ${athlete.lastName}`;
+      if (athlete.id && name) map[name.toLowerCase()] = athlete.id;
     }
-    _nbaStatsMap = map;
-    _nbaStatsMapExpiry = Date.now() + 24 * 3600 * 1000;
-    console.log(`NBA Stats player map loaded: ${Object.keys(map).length} players`);
+    _espnPlayerMap = map;
+    _espnPlayerMapExpiry = Date.now() + 24 * 3600 * 1000;
+    console.log(`ESPN player map loaded: ${Object.keys(map).length} players`);
     return map;
   } catch (e) {
-    console.warn('NBA Stats commonallplayers failed:', e.message);
-    return _nbaStatsMap || {};
+    console.warn('ESPN athletes API failed:', e.message);
+    return _espnPlayerMap || {};
   }
 }
 
 // Warm up the map on startup (non-blocking)
-getNBAStatsPlayerMap().catch(() => {});
+getESPNPlayerMap().catch(() => {});
 
 // Search BDL for player ID + position by name, cached 24h
 // Returns { id, position } or { id: null, position: null }
@@ -1390,37 +1377,27 @@ app.get('/api/debug/bdl', async (req, res) => {
 app.get('/api/player/nba-id/:name', async (req, res) => {
   const name = decodeURIComponent(req.params.name);
   try {
-    // Primary: NBA Stats commonallplayers map (accurate CDN IDs)
-    const nbaMap = await getNBAStatsPlayerMap();
-    const nbaId = nbaMap[name.toLowerCase()];
-    if (nbaId) return res.json({ nbaPlayerId: nbaId });
-    // Fallback: BDL nba_player_id (often null on free tier, but try anyway)
-    const { nbaPlayerId } = await getBDLPlayerId(name);
-    res.json({ nbaPlayerId: nbaPlayerId || null });
+    const espnMap = await getESPNPlayerMap();
+    const espnId = espnMap[name.toLowerCase()];
+    if (espnId) return res.json({ nbaPlayerId: espnId });
+    res.json({ nbaPlayerId: null });
   } catch {
     res.json({ nbaPlayerId: null });
   }
 });
 
 // ============================================================
-// ROUTE: GET /api/headshot/name/:name — resolve player name → NBA CDN headshot
+// ROUTE: GET /api/headshot/name/:name — resolve player name → ESPN headshot
 // Must be registered BEFORE /api/headshot/:id so "name" isn't treated as an ID
 // ============================================================
 app.get('/api/headshot/name/:name', async (req, res) => {
   const name = decodeURIComponent(req.params.name);
   try {
-    const nbaMap = await getNBAStatsPlayerMap();
-    let nbaPlayerId = nbaMap[name.toLowerCase()] || null;
-    if (!nbaPlayerId) ({ nbaPlayerId } = await getBDLPlayerId(name));
-    if (!nbaPlayerId) return res.status(404).end();
-    const url = `https://cdn.nba.com/headshots/nba/latest/1040x760/${nbaPlayerId}.png`;
-    const resp = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-        'Referer': 'https://www.nba.com/',
-        'Accept': 'image/png,image/*,*/*',
-      },
-    });
+    const espnMap = await getESPNPlayerMap();
+    const espnId = espnMap[name.toLowerCase()];
+    if (!espnId) return res.status(404).end();
+    const url = `https://a.espncdn.com/i/headshots/nba/players/full/${espnId}.png`;
+    const resp = await fetch(url);
     if (!resp.ok) return res.status(404).end();
     const buf = await resp.buffer();
     res.set('Content-Type', 'image/png');
@@ -1432,18 +1409,12 @@ app.get('/api/headshot/name/:name', async (req, res) => {
 });
 
 // ============================================================
-// ROUTE: GET /api/headshot/:id — proxy NBA CDN to avoid CORS
+// ROUTE: GET /api/headshot/:id — proxy ESPN CDN to avoid CORS
 // ============================================================
 app.get('/api/headshot/:id', async (req, res) => {
   try {
-    const url = `https://cdn.nba.com/headshots/nba/latest/1040x760/${req.params.id}.png`;
-    const resp = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-        'Referer': 'https://www.nba.com/',
-        'Accept': 'image/png,image/*,*/*',
-      },
-    });
+    const url = `https://a.espncdn.com/i/headshots/nba/players/full/${req.params.id}.png`;
+    const resp = await fetch(url);
     if (!resp.ok) return res.status(404).end();
     const buf = await resp.buffer();
     res.set('Content-Type', 'image/png');
