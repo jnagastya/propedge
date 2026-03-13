@@ -480,8 +480,47 @@ td{padding:13px 14px;white-space:nowrap;}
 .bal-inp{width:120px;padding:6px 10px;background:var(--bg2);border:1.5px solid var(--bd);border-radius:8px;font-family:var(--sans);font-size:14px;font-weight:700;outline:none;color:var(--t1);}
 .bal-inp:focus{border-color:var(--b);}
 
+/* -- ANALYTICS VIEW -- */
+.an-view{padding:20px;max-width:1100px;margin:0 auto;}
+.an-summary{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:24px;}
+.an-sum-card{background:var(--bg2);border:1px solid var(--bd);border-radius:12px;padding:14px 12px;text-align:center;}
+.an-sum-lbl{font-size:11px;color:var(--t3);font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;}
+.an-sum-val{font-size:22px;font-weight:800;color:var(--t1);line-height:1.1;}
+.an-sum-sub{font-size:11px;color:var(--t3);margin-top:3px;}
+.an-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.an-grid-full{grid-column:1/-1;}
+.an-card{background:var(--bg2);border:1px solid var(--bd);border-radius:14px;overflow:hidden;}
+.an-card-hdr{padding:13px 16px;border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:8px;}
+.an-card-title{font-size:14px;font-weight:800;color:var(--t1);}
+.an-card-sub{font-size:11px;color:var(--t3);margin-left:auto;}
+.an-row{display:flex;align-items:center;gap:11px;padding:10px 16px;border-bottom:1px solid var(--bd);}
+.an-row:last-child{border-bottom:none;}
+.an-rank{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;flex-shrink:0;}
+.an-rank.r1{background:rgba(250,204,21,.2);color:#ca8a04;}
+.an-rank.r2{background:rgba(148,163,184,.15);color:#64748b;}
+.an-rank.r3{background:rgba(180,120,60,.15);color:#92400e;}
+.an-rank.rn{background:var(--bg3);color:var(--t3);}
+.an-av{width:36px;height:36px;border-radius:50%;background:var(--bg3);overflow:hidden;border:2px solid var(--bd);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--t3);}
+.an-av img{width:100%;height:100%;object-fit:cover;border-radius:50%;}
+.an-info{flex:1;min-width:0;}
+.an-name{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.an-meta{font-size:11px;color:var(--t3);margin-top:1px;}
+.an-val{font-size:15px;font-weight:800;flex-shrink:0;text-align:right;}
+.an-badge{font-size:10px;font-weight:700;padding:2px 6px;border-radius:5px;flex-shrink:0;}
+.an-empty{padding:28px;text-align:center;color:var(--t3);font-size:13px;}
+.an-split{display:grid;grid-template-columns:1fr 1fr;gap:0;}
+.an-split-col{padding:16px;}
+.an-split-col:first-child{border-right:1px solid var(--bd);}
+.an-split-lbl{font-size:12px;font-weight:700;color:var(--t2);margin-bottom:10px;text-transform:uppercase;letter-spacing:.4px;}
+.an-split-row{display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid var(--bd);}
+.an-split-row:last-child{border-bottom:none;}
+.an-streak-box{padding:16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;}
+.an-streak-item{flex:1;min-width:120px;background:var(--bg3);border-radius:10px;padding:12px 14px;text-align:center;}
+.an-streak-num{font-size:28px;font-weight:800;line-height:1;}
+.an-streak-lbl{font-size:11px;color:var(--t3);margin-top:4px;}
+
 /* -- RESPONSIVE -- */
-@media(max-width:900px){.sr{grid-template-columns:repeat(2,1fr);}.di-grid{grid-template-columns:1fr;}.va-grid{grid-template-columns:1fr;}}
+@media(max-width:900px){.sr{grid-template-columns:repeat(2,1fr);}.di-grid{grid-template-columns:1fr;}.va-grid{grid-template-columns:1fr;}.an-summary{grid-template-columns:repeat(3,1fr);}.an-grid{grid-template-columns:1fr;}}
 @media(max-width:600px){.app{padding:12px;}.ctrls{flex-direction:column;align-items:flex-start;}.glossary{display:none;}}
 
 /* -- VIEW TRANSITIONS -- */
@@ -649,6 +688,7 @@ td{padding:13px 14px;white-space:nowrap;}
   <button class="nav-tab" onclick="switchView('favorites',this)">Watchlist ⭐ <span class="fav-count-badge" id="favCountBadge" style="display:none"></span></button>
   <button class="nav-tab" onclick="switchView('parlay',this)">Parlay Builder 🎯 <span id="parlayNavBadge" class="parlay-nav-badge" style="display:none">0</span></button>
   <button class="nav-tab sim-tab" onclick="switchView('simulator',this)">Simulator 🎲</button>
+  <button class="nav-tab" onclick="switchView('analytics',this)">Analytics 📊</button>
   <button class="nav-tab" onclick="switchView('glossary',this)">Glossary 📖</button>
 </nav>
 
@@ -796,6 +836,11 @@ td{padding:13px 14px;white-space:nowrap;}
       </div>
       <div id="betHistory"></div>
     </div>
+  </div>
+
+  <!-- ======= ANALYTICS VIEW ======= -->
+  <div class="view-pane" id="analyticsView">
+    <div class="an-view" id="analyticsContent"><div class="an-empty">Loading…</div></div>
   </div>
 
   <!-- ======= PARLAY BUILDER VIEW ======= -->
@@ -1325,17 +1370,18 @@ function switchView(v, btn) {
   window.scrollTo({top: 0, behavior: 'smooth'});
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('on'));
   if (btn) btn.classList.add('on');
-  const views = ['propsView','alertsView','simView','parlayView','glossView','favView'];
+  const views = ['propsView','alertsView','simView','analyticsView','parlayView','glossView','favView'];
   views.forEach(id => {
     const el = document.getElementById(id);
     if (el) { el.classList.remove('show'); }
   });
-  const target = {props:'propsView',alerts:'alertsView',simulator:'simView',parlay:'parlayView',glossary:'glossView',favorites:'favView'}[v];
+  const target = {props:'propsView',alerts:'alertsView',simulator:'simView',analytics:'analyticsView',parlay:'parlayView',glossary:'glossView',favorites:'favView'}[v];
   if (target) {
     const el = document.getElementById(target);
     if (el) { el.classList.add('show'); }
   }
   if (v === 'simulator') renderSimulator();
+  if (v === 'analytics') renderAnalytics();
   if (v === 'parlay') renderParlay();
   if (v === 'favorites') renderFavorites();
   if (v === 'alerts') {
@@ -3090,6 +3136,292 @@ function placeBet() {
         &nbsp;·&nbsp; New balance: <strong style="color:var(--t1);">$${sim.balance.toFixed(2)}</strong>
       </div>
       <button class="bet-confirm-done" style="background:${_col};" onclick="closeBetModal()">Done</button>
+    </div>`;
+}
+
+// ── Analytics ──
+function renderAnalytics() {
+  const el = document.getElementById('analyticsContent');
+  const sim = simLoad();
+  const settled = sim.bets.filter(b => b.status !== 'open');
+  const won = settled.filter(b => b.status === 'won');
+  const lost = settled.filter(b => b.status === 'lost');
+
+  if (!settled.length) {
+    el.innerHTML = `<div class="an-empty" style="padding:60px;">No settled bets yet.<br><br>Place bets from <strong>Player Props</strong> or <strong>Parlay Builder</strong>, then grade them in the <strong>Simulator</strong> tab.</div>`;
+    return;
+  }
+
+  // ── Core numbers ──
+  const totalStaked = settled.reduce((s,b) => s + b.stake, 0);
+  const totalPnl = settled.reduce((s,b) => s + (b.pnl||0), 0);
+  const roi = totalStaked ? totalPnl / totalStaked * 100 : 0;
+  const winRate = settled.length ? won.length / settled.length * 100 : 0;
+  const singles = settled.filter(b => b.type !== 'parlay');
+  const parlays = settled.filter(b => b.type === 'parlay');
+  const avgOdds = singles.length ? singles.reduce((s,b) => s + b.odds, 0) / singles.length : 0;
+
+  // ── Player map (single bets only) ──
+  const pm = {};
+  for (const b of singles) {
+    if (!b.player) continue;
+    if (!pm[b.player]) pm[b.player] = { name: b.player, wins: 0, losses: 0, pnl: 0, staked: 0, bets: 0 };
+    pm[b.player].bets++;
+    pm[b.player].staked += b.stake;
+    pm[b.player].pnl += b.pnl || 0;
+    if (b.status === 'won') pm[b.player].wins++;
+    else if (b.status === 'lost') pm[b.player].losses++;
+  }
+  const players = Object.values(pm);
+  const qualified = players.filter(p => p.wins + p.losses >= 2);
+
+  const mostHits   = [...players].sort((a,b) => b.wins - a.wins || a.losses - b.losses).slice(0,5);
+  const mostMisses = [...players].sort((a,b) => b.losses - a.losses || a.wins - b.wins).slice(0,5);
+  const bestROI    = [...qualified].sort((a,b) => (b.pnl/b.staked) - (a.pnl/a.staked)).slice(0,5);
+  const worstROI   = [...qualified].sort((a,b) => (a.pnl/a.staked) - (b.pnl/b.staked)).slice(0,5);
+
+  // ── Biggest wins / losses ──
+  const bigWins   = [...won].sort((a,b) => (b.pnl||0) - (a.pnl||0)).slice(0,5);
+  const bigLosses = [...lost].sort((a,b) => (a.pnl||0) - (b.pnl||0)).slice(0,5);
+
+  // ── Best multiplier return ──
+  const wonMult = won.map(b => ({ ...b, mult: b.stake ? (b.stake + (b.pnl||0)) / b.stake : 1 }))
+                     .sort((a,b) => b.mult - a.mult).slice(0,3);
+
+  // ── Market breakdown ──
+  const mkMap = {};
+  for (const b of singles) {
+    const mk = b.marketLabel || 'PTS';
+    if (!mkMap[mk]) mkMap[mk] = { label: mk, wins: 0, losses: 0, pnl: 0, staked: 0 };
+    if (b.status === 'won') mkMap[mk].wins++;
+    else if (b.status === 'lost') mkMap[mk].losses++;
+    mkMap[mk].pnl += b.pnl || 0;
+    mkMap[mk].staked += b.stake;
+  }
+  const markets = Object.values(mkMap).sort((a,b) => (b.wins+b.losses) - (a.wins+a.losses));
+
+  // ── Over vs Under ──
+  const overB  = singles.filter(b => b.direction === 'over');
+  const underB = singles.filter(b => b.direction === 'under');
+  const overW  = overB.filter(b => b.status === 'won').length;
+  const underW = underB.filter(b => b.status === 'won').length;
+  const overPnl  = overB.reduce((s,b) => s + (b.pnl||0), 0);
+  const underPnl = underB.reduce((s,b) => s + (b.pnl||0), 0);
+
+  // ── Streaks ──
+  let curStreak = 0, curType = '';
+  for (const b of settled) {
+    if (!curStreak) { curType = b.status; curStreak = 1; }
+    else if (b.status === curType) curStreak++;
+    else break;
+  }
+  let longestW = 0, longestL = 0, runW = 0, runL = 0;
+  for (const b of [...settled].reverse()) {
+    if (b.status === 'won')  { runW++; longestW = Math.max(longestW, runW); runL = 0; }
+    else if (b.status === 'lost') { runL++; longestL = Math.max(longestL, runL); runW = 0; }
+    else { runW = 0; runL = 0; }
+  }
+
+  // ── Helpers ──
+  const medal = i => ['r1','r2','r3','rn','rn'][i] || 'rn';
+  const pnlColor = v => v >= 0 ? 'var(--g)' : 'var(--r)';
+  const pnlFmt  = v => (v >= 0 ? '+$' : '-$') + Math.abs(v).toFixed(2);
+  const roiFmt  = v => (v >= 0 ? '+' : '') + v.toFixed(1) + '%';
+  const betName = b => b.type === 'parlay' ? `${b.legs?.length||'?'}-Leg Parlay` : (b.player || '—');
+  const betDesc = b => b.type === 'parlay'
+    ? (b.legs||[]).slice(0,2).map(l=>`${l.name} ${l.direction==='over'?'▲':'▼'}`).join(' · ') + (b.legs?.length>2?` +${b.legs.length-2} more`:'')
+    : `${b.direction==='over'?'▲':'▼'} ${b.direction?.toUpperCase()} ${b.line} ${b.marketLabel||''} · ${(b.odds>0?'+':'')+b.odds}`;
+  const avHtml = name => {
+    const hs = getHeadshot(name); const init = (name||'?').split(' ').map(n=>n[0]).join('').substring(0,2);
+    return `<div class="an-av" data-av="${(name||'').replace(/"/g,'&quot;')}">${hs?`<img src="${hs}" onerror="headshotError(this,'${init}')" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" alt="">`:`<span>${init}</span>`}</div>`;
+  };
+
+  const lb = (items, keyFn, valFn, colorFn, subFn) => !items.length
+    ? `<div class="an-empty">Not enough data yet.</div>`
+    : items.map((item,i) => `
+      <div class="an-row">
+        <div class="an-rank ${medal(i)}">${i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1}</div>
+        ${keyFn(item)}
+        <div class="an-info">
+          <div class="an-name">${item.name||betName(item)}</div>
+          <div class="an-meta">${subFn(item)}</div>
+        </div>
+        <div class="an-val" style="color:${colorFn(item)}">${valFn(item)}</div>
+      </div>`).join('');
+
+  el.innerHTML = `
+    <!-- Summary bar -->
+    <div class="an-summary">
+      <div class="an-sum-card">
+        <div class="an-sum-lbl">Net P&L</div>
+        <div class="an-sum-val" style="color:${pnlColor(totalPnl)}">${pnlFmt(totalPnl)}</div>
+        <div class="an-sum-sub">${settled.length} settled bets</div>
+      </div>
+      <div class="an-sum-card">
+        <div class="an-sum-lbl">Win Rate</div>
+        <div class="an-sum-val">${winRate.toFixed(1)}%</div>
+        <div class="an-sum-sub">${won.length}W · ${lost.length}L</div>
+      </div>
+      <div class="an-sum-card">
+        <div class="an-sum-lbl">ROI</div>
+        <div class="an-sum-val" style="color:${pnlColor(roi)}">${roiFmt(roi)}</div>
+        <div class="an-sum-sub">$${totalStaked.toFixed(0)} staked</div>
+      </div>
+      <div class="an-sum-card">
+        <div class="an-sum-lbl">Avg Odds</div>
+        <div class="an-sum-val">${singles.length ? (avgOdds>0?'+':'')+avgOdds.toFixed(0) : '—'}</div>
+        <div class="an-sum-sub">${singles.length} single bets</div>
+      </div>
+      <div class="an-sum-card">
+        <div class="an-sum-lbl">Parlays</div>
+        <div class="an-sum-val">${parlays.length}</div>
+        <div class="an-sum-sub">${parlays.filter(b=>b.status==='won').length} won</div>
+      </div>
+      <div class="an-sum-card">
+        <div class="an-sum-lbl">Current Streak</div>
+        <div class="an-sum-val" style="color:${curType==='won'?'var(--g)':curType==='lost'?'var(--r)':'var(--t3)'}">${curStreak}${curType==='won'?'W':curType==='lost'?'L':'—'}</div>
+        <div class="an-sum-sub">Best: ${longestW}W · ${longestL}L</div>
+      </div>
+    </div>
+
+    <!-- Leaderboard grid -->
+    <div class="an-grid">
+
+      <!-- Most Lines Hit -->
+      <div class="an-card">
+        <div class="an-card-hdr"><span>🏆</span><span class="an-card-title">Most Lines Hit</span><span class="an-card-sub">by player</span></div>
+        ${lb(mostHits,
+          item => avHtml(item.name),
+          item => `${item.wins}W`,
+          () => 'var(--g)',
+          item => `${item.wins+item.losses} bets · ${item.losses}L · ${item.staked?((item.wins/(item.wins+item.losses))*100).toFixed(0)+'% hit rate':''}`
+        )}
+      </div>
+
+      <!-- Most Lines Missed -->
+      <div class="an-card">
+        <div class="an-card-hdr"><span>💀</span><span class="an-card-title">Most Lines Missed</span><span class="an-card-sub">by player</span></div>
+        ${lb(mostMisses,
+          item => avHtml(item.name),
+          item => `${item.losses}L`,
+          () => 'var(--r)',
+          item => `${item.wins+item.losses} bets · ${item.wins}W · ${item.staked?((item.losses/(item.wins+item.losses))*100).toFixed(0)+'% miss rate':''}`
+        )}
+      </div>
+
+      <!-- Biggest Wins -->
+      <div class="an-card">
+        <div class="an-card-hdr"><span>💰</span><span class="an-card-title">Biggest Wins</span><span class="an-card-sub">by profit</span></div>
+        ${!bigWins.length ? '<div class="an-empty">No wins yet.</div>' : bigWins.map((b,i) => `
+          <div class="an-row">
+            <div class="an-rank ${medal(i)}">${i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1}</div>
+            ${b.type!=='parlay'?avHtml(b.player):'<div class="an-av">🎯</div>'}
+            <div class="an-info">
+              <div class="an-name">${betName(b)}</div>
+              <div class="an-meta">${betDesc(b)}</div>
+            </div>
+            <div style="text-align:right;flex-shrink:0;">
+              <div class="an-val" style="color:var(--g)">${pnlFmt(b.pnl)}</div>
+              <div style="font-size:10px;color:var(--t3);">${((b.stake+(b.pnl||0))/b.stake).toFixed(2)}×</div>
+            </div>
+          </div>`).join('')}
+      </div>
+
+      <!-- Biggest Losses -->
+      <div class="an-card">
+        <div class="an-card-hdr"><span>📉</span><span class="an-card-title">Biggest Losses</span><span class="an-card-sub">by amount</span></div>
+        ${!bigLosses.length ? '<div class="an-empty">No losses yet.</div>' : bigLosses.map((b,i) => `
+          <div class="an-row">
+            <div class="an-rank ${medal(i)}">${i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1}</div>
+            ${b.type!=='parlay'?avHtml(b.player):'<div class="an-av">🎯</div>'}
+            <div class="an-info">
+              <div class="an-name">${betName(b)}</div>
+              <div class="an-meta">${betDesc(b)}</div>
+            </div>
+            <div class="an-val" style="color:var(--r)">${pnlFmt(b.pnl)}</div>
+          </div>`).join('')}
+      </div>
+
+      <!-- Best ROI -->
+      <div class="an-card">
+        <div class="an-card-hdr"><span>🔥</span><span class="an-card-title">Best ROI</span><span class="an-card-sub">min 2 settled bets</span></div>
+        ${!bestROI.length ? '<div class="an-empty">Need 2+ settled bets per player.</div>' : lb(bestROI,
+          item => avHtml(item.name),
+          item => roiFmt(item.pnl/item.staked*100),
+          item => pnlColor(item.pnl),
+          item => `${item.wins}W · ${item.losses}L · ${pnlFmt(item.pnl)}`
+        )}
+      </div>
+
+      <!-- Worst ROI -->
+      <div class="an-card">
+        <div class="an-card-hdr"><span>🧊</span><span class="an-card-title">Worst ROI</span><span class="an-card-sub">min 2 settled bets</span></div>
+        ${!worstROI.length ? '<div class="an-empty">Need 2+ settled bets per player.</div>' : lb(worstROI,
+          item => avHtml(item.name),
+          item => roiFmt(item.pnl/item.staked*100),
+          item => pnlColor(item.pnl),
+          item => `${item.wins}W · ${item.losses}L · ${pnlFmt(item.pnl)}`
+        )}
+      </div>
+
+      <!-- Over vs Under split -->
+      <div class="an-card">
+        <div class="an-card-hdr"><span>⚖️</span><span class="an-card-title">Over vs Under</span></div>
+        <div class="an-split">
+          <div class="an-split-col">
+            <div class="an-split-lbl" style="color:var(--g)">▲ Overs</div>
+            <div class="an-split-row"><span>Bets</span><strong>${overB.length}</strong></div>
+            <div class="an-split-row"><span>Win Rate</span><strong>${overB.length?(overW/overB.length*100).toFixed(1)+'%':'—'}</strong></div>
+            <div class="an-split-row"><span>Record</span><strong>${overW}W · ${overB.length-overW}L</strong></div>
+            <div class="an-split-row"><span>P&L</span><strong style="color:${pnlColor(overPnl)}">${pnlFmt(overPnl)}</strong></div>
+          </div>
+          <div class="an-split-col">
+            <div class="an-split-lbl" style="color:var(--r)">▼ Unders</div>
+            <div class="an-split-row"><span>Bets</span><strong>${underB.length}</strong></div>
+            <div class="an-split-row"><span>Win Rate</span><strong>${underB.length?(underW/underB.length*100).toFixed(1)+'%':'—'}</strong></div>
+            <div class="an-split-row"><span>Record</span><strong>${underW}W · ${underB.length-underW}L</strong></div>
+            <div class="an-split-row"><span>P&L</span><strong style="color:${pnlColor(underPnl)}">${pnlFmt(underPnl)}</strong></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Market breakdown -->
+      <div class="an-card">
+        <div class="an-card-hdr"><span>📊</span><span class="an-card-title">By Market</span><span class="an-card-sub">stat category performance</span></div>
+        ${!markets.length ? '<div class="an-empty">No single bets yet.</div>' : markets.map((m,i) => {
+          const wr = m.wins+m.losses ? m.wins/(m.wins+m.losses)*100 : 0;
+          return `<div class="an-row">
+            <div class="an-rank ${medal(i)}">${i+1}</div>
+            <div class="an-info">
+              <div class="an-name">${m.label}</div>
+              <div class="an-meta">${m.wins}W · ${m.losses}L · ${wr.toFixed(0)}% hit rate</div>
+            </div>
+            <div style="text-align:right;flex-shrink:0;">
+              <div class="an-val" style="color:${pnlColor(m.pnl)}">${pnlFmt(m.pnl)}</div>
+              <div style="font-size:10px;color:var(--t3);">${m.staked?'ROI '+(m.pnl/m.staked*100).toFixed(0)+'%':''}</div>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+
+      <!-- Best multiplier returns (full width) -->
+      ${wonMult.length ? `<div class="an-card an-grid-full">
+        <div class="an-card-hdr"><span>🚀</span><span class="an-card-title">Biggest Return Multiples</span><span class="an-card-sub">highest payout × per stake on won bets</span></div>
+        ${wonMult.map((b,i) => `
+          <div class="an-row">
+            <div class="an-rank ${medal(i)}">${i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1}</div>
+            ${b.type!=='parlay'?avHtml(b.player):'<div class="an-av">🎯</div>'}
+            <div class="an-info">
+              <div class="an-name">${betName(b)}</div>
+              <div class="an-meta">${betDesc(b)}</div>
+            </div>
+            <div style="text-align:right;flex-shrink:0;">
+              <div class="an-val" style="color:var(--g)">${b.mult.toFixed(2)}×</div>
+              <div style="font-size:10px;color:var(--t3);">${pnlFmt(b.pnl)} profit</div>
+            </div>
+          </div>`).join('')}
+      </div>` : ''}
+
     </div>`;
 }
 
