@@ -429,11 +429,30 @@ td{padding:13px 14px;white-space:nowrap;}
 .bet-act.lost{background:var(--rd);color:var(--r);border:1px solid var(--rb);}
 .bet-act.void{background:var(--bg3);color:var(--t2);border:1px solid var(--bd);}
 .bet-act.auto{background:var(--bld);color:#818cf8;border:1px solid var(--bb);}
-.hist-row{display:grid;grid-template-columns:60px 1fr auto auto;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--bd);font-size:12px;}
+.hist-row{display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--bd);font-size:12px;}
 .hist-row:last-child{border-bottom:none;}
 .hist-status{font-weight:700;font-size:11px;padding:2px 8px;border-radius:20px;text-align:center;}
 .hist-status.won{background:var(--gd);color:var(--g);}.hist-status.lost{background:var(--rd);color:var(--r);}.hist-status.void{background:var(--bg3);color:var(--t3);}
 .hist-pnl.pos{color:var(--g);font-weight:700;}.hist-pnl.neg{color:var(--r);font-weight:700;}
+.bc-av{width:52px;height:52px;border-radius:50%;background:var(--bg3);overflow:hidden;border:2px solid var(--bd);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:var(--t3);}
+.bc-av img{width:100%;height:100%;object-fit:cover;border-radius:50%;}
+.bc-av-cluster{display:flex;flex-shrink:0;padding-right:4px;}
+.bc-av-cluster-item{width:34px;height:34px;border-radius:50%;background:var(--bg3);overflow:hidden;border:2px solid var(--bg1);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:var(--t3);margin-left:-10px;}
+.bc-av-cluster-item:first-child{margin-left:0;}
+.bc-av-cluster-item img{width:100%;height:100%;object-fit:cover;border-radius:50%;}
+.bc-parlay-hdr{display:flex;align-items:center;gap:12px;cursor:pointer;user-select:none;}
+.bc-parlay-legs{border-top:1px solid var(--bd);margin-top:12px;padding-top:6px;}
+.bc-leg-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--bd);}
+.bc-leg-row:last-child{border-bottom:none;}
+.bc-leg-av{width:36px;height:36px;border-radius:50%;background:var(--bg3);overflow:hidden;border:2px solid var(--bd);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--t3);}
+.bc-leg-av img{width:100%;height:100%;object-fit:cover;border-radius:50%;}
+.bc-chevron{font-size:13px;color:var(--t3);transition:transform .2s;flex-shrink:0;}
+.bc-chevron.open{transform:rotate(180deg);}
+.hist-row{display:flex;align-items:center;gap:10px;padding:11px 16px;border-bottom:1px solid var(--bd);font-size:12px;}
+.hist-row:last-child{border-bottom:none;}
+.hist-av{width:38px;height:38px;border-radius:50%;background:var(--bg3);overflow:hidden;border:2px solid var(--bd);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--t3);}
+.hist-av img{width:100%;height:100%;object-fit:cover;border-radius:50%;}
+.hist-parlay-hdr{display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none;width:100%;}
 .bet-btn{padding:4px 9px;background:var(--b);border:none;border-radius:6px;color:#fff;font-size:10px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:3px;font-family:var(--sans);transition:background .12s;}
 .bet-btn:hover{background:#818cf8;}
 .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:800;align-items:center;justify-content:center;backdrop-filter:blur(4px);}
@@ -3529,22 +3548,39 @@ function renderSimulator() {
     obEl.innerHTML = '<div style="padding:24px;text-align:center;color:var(--t3);font-size:13px;">No open bets. Go to Player Props and click 🎲 Bet.</div>';
   } else {
     obEl.innerHTML = open.map(b => {
-      if(b.type==='parlay'){
-        return`<div class="bet-card">
-          <div class="bet-card-top">
-            <div>
-              <div class="bet-player">🎯 ${b.legs.length}-Leg Custom Parlay</div>
-              <div class="bet-meta">${b.legs.map(l=>`${l.name} ${l.direction==='over'?'▲':'▼'} ${l.line} ${l.marketLabel}`).join(' · ')}</div>
+      const sid = b.id.replace(/[^a-zA-Z0-9]/g,'_');
+      if (b.type === 'parlay') {
+        const cluster = (b.legs||[]).slice(0,4).map(l => {
+          const hs=getHeadshot(l.name); const ini=(l.name||'?').split(' ').map(n=>n[0]).join('').substring(0,2);
+          return `<div class="bc-av-cluster-item" data-av="${l.name.replace(/"/g,'&quot;')}">${hs?`<img src="${hs}" onerror="headshotError(this,'${ini}')" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" alt="">`:`<span>${ini}</span>`}</div>`;
+        }).join('');
+        const legsHtml = (b.legs||[]).map(l => {
+          const hs=getHeadshot(l.name); const ini=(l.name||'?').split(' ').map(n=>n[0]).join('').substring(0,2);
+          const isOv=l.direction==='over';
+          return `<div class="bc-leg-row">
+            <div class="bc-leg-av" data-av="${l.name.replace(/"/g,'&quot;')}">${hs?`<img src="${hs}" onerror="headshotError(this,'${ini}')" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" alt="">`:`<span>${ini}</span>`}</div>
+            <span class="bet-dir ${l.direction}" style="font-size:10px;padding:2px 7px;">${isOv?'▲':'▼'} ${l.direction.toUpperCase()}</span>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:13px;font-weight:700;">${l.name}</div>
+              <div style="font-size:11px;color:var(--t3);">${l.line} ${l.marketLabel}</div>
             </div>
-            <span class="bet-dir" style="color:var(--b);background:rgba(99,102,241,.12);padding:3px 8px;border-radius:6px;font-size:11px;font-weight:700;">${b.combinedOdds}</span>
+            <div style="font-size:14px;font-weight:700;color:var(--b);flex-shrink:0;">${(l.odds>0?'+':'')+l.odds}</div>
+          </div>`;
+        }).join('');
+        return `<div class="bet-card">
+          <div class="bc-parlay-hdr" onclick="toggleParlayExpand('${sid}')">
+            <div class="bc-av-cluster">${cluster}</div>
+            <div style="flex:1;min-width:0;">
+              <div class="bet-player" style="font-size:15px;">🎯 ${b.legs.length}-Leg Parlay</div>
+              <div class="bet-meta">$${b.stake.toFixed(2)} stake · To Win <strong style="color:var(--g)">$${b.toWin.toFixed(2)}</strong> · EV <strong style="color:${b.evParlay>0?'var(--g)':'var(--r)'}">${b.evParlay>0?'+':''}${b.evParlay}%</strong></div>
+            </div>
+            <div style="text-align:right;flex-shrink:0;">
+              <div style="font-size:22px;font-weight:800;color:var(--b)">${b.combinedOdds}</div>
+              <div style="font-size:11px;color:var(--t3);">${(b.modelProb*100).toFixed(1)}% prob</div>
+            </div>
+            <div id="chev-${sid}" class="bc-chevron">▼</div>
           </div>
-          <div style="display:flex;gap:16px;font-size:11px;color:var(--t2);">
-            <span>Stake: <strong>$${b.stake.toFixed(2)}</strong></span>
-            <span>To Win: <strong style="color:var(--g)">$${b.toWin.toFixed(2)}</strong></span>
-            <span>Model Prob: <strong>${(b.modelProb*100).toFixed(1)}%</strong></span>
-            <span>EV: <strong style="color:${b.evParlay>0?'var(--g)':'var(--r)'}">${b.evParlay>0?'+':''}${b.evParlay}%</strong></span>
-          </div>
-          <div style="font-size:10px;color:var(--t3);margin-top:4px;">${new Date(b.placedAt).toLocaleString()}</div>
+          <div class="bc-parlay-legs" id="pl-${sid}" style="display:none;">${legsHtml}</div>
           <div class="bet-actions">
             <button class="bet-act won" onclick="settleBet('${b.id}','won')">✓ All Hit (Won)</button>
             <button class="bet-act lost" onclick="settleBet('${b.id}','lost')">✗ Lost</button>
@@ -3552,23 +3588,24 @@ function renderSimulator() {
           </div>
         </div>`;
       }
+      const hs=getHeadshot(b.player); const ini=(b.player||'?').split(' ').map(n=>n[0]).join('').substring(0,2);
       const odds = (b.odds > 0 ? '+' : '') + b.odds;
       return `<div class="bet-card">
-        <div class="bet-card-top">
-          <div>
-            <div class="bet-player">${b.player}</div>
-            <div class="bet-meta">${b.matchup} · ${b.marketLabel} ${b.line}</div>
+        <div style="display:flex;gap:14px;align-items:flex-start;">
+          <div class="bc-av" data-av="${(b.player||'').replace(/"/g,'&quot;')}">${hs?`<img src="${hs}" onerror="headshotError(this,'${ini}')" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" alt="">`:`<span>${ini}</span>`}</div>
+          <div style="flex:1;min-width:0;">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+              <div class="bet-player" style="font-size:15px;">${b.player}</div>
+              <span class="bet-dir ${b.direction}">${b.direction==='over'?'▲ OVER':'▼ UNDER'}</span>
+            </div>
+            <div style="font-size:22px;font-weight:800;margin:5px 0;line-height:1.1;">${b.line} <span style="color:var(--t2);font-size:15px;font-weight:600;">${b.marketLabel}</span> <span style="color:var(--b);font-size:20px;">${odds}</span></div>
+            <div class="bet-meta">${b.matchup} · Edge <span style="color:${b.edge>=0?'var(--g)':'var(--r)'}">${b.edge>=0?'+':''}${b.edge.toFixed(1)}%</span>${b.isValue?' ⚡ VALUE':''} · ${new Date(b.placedAt).toLocaleDateString()}</div>
+            <div style="display:flex;gap:16px;font-size:12px;color:var(--t2);margin-top:6px;">
+              <span>Stake: <strong>$${b.stake.toFixed(2)}</strong></span>
+              <span>To Win: <strong style="color:var(--g)">$${b.toWin.toFixed(2)}</strong></span>
+            </div>
           </div>
-          <span class="bet-dir ${b.direction}">${b.direction === 'over' ? '▲ OVER' : '▼ UNDER'}</span>
         </div>
-        <div style="display:flex;gap:16px;font-size:11px;color:var(--t2);">
-          <span>Stake: <strong>$${b.stake.toFixed(2)}</strong></span>
-          <span>To Win: <strong style="color:var(--g)">$${b.toWin.toFixed(2)}</strong></span>
-          <span>Odds: <strong>${odds}</strong></span>
-          <span>Edge: <strong style="color:${b.edge>=0?'var(--g)':'var(--r)'}">${b.edge>=0?'+':''}${b.edge.toFixed(1)}%</strong></span>
-          ${b.isValue?'<span class="val-badge">⚡ VALUE</span>':''}
-        </div>
-        <div style="font-size:10px;color:var(--t3);margin-top:4px;">${new Date(b.placedAt).toLocaleString()}</div>
         <div class="bet-actions">
           <button class="bet-act auto" onclick="tryAutoResolve()">⟳ Auto</button>
           <button class="bet-act won" onclick="settleBet('${b.id}','won')">✓ Won</button>
@@ -3586,29 +3623,62 @@ function renderSimulator() {
   } else {
     histEl.innerHTML = settled.map(b => {
       const pnlFmt = b.pnl >= 0 ? `+$${b.pnl.toFixed(2)}` : `-$${Math.abs(b.pnl).toFixed(2)}`;
-      if(b.type==='parlay'){
-        return`<div class="hist-row">
-          <span class="hist-status ${b.status}">${b.status.toUpperCase()}</span>
-          <div>
-            <div style="font-weight:600;">🎯 ${b.legs.length}-Leg Parlay · <span style="color:var(--b)">${b.combinedOdds}</span></div>
-            <div style="font-size:10px;color:var(--t3);">${b.legs.map(l=>`${l.name} ${l.direction.toUpperCase()} ${l.line}`).join(' + ')} · ${new Date(b.placedAt).toLocaleDateString()}</div>
+      const sid = b.id.replace(/[^a-zA-Z0-9]/g,'_');
+      if (b.type === 'parlay') {
+        const cluster = (b.legs||[]).slice(0,4).map(l => {
+          const hs=getHeadshot(l.name); const ini=(l.name||'?').split(' ').map(n=>n[0]).join('').substring(0,2);
+          return `<div class="bc-av-cluster-item" data-av="${l.name.replace(/"/g,'&quot;')}">${hs?`<img src="${hs}" onerror="headshotError(this,'${ini}')" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" alt="">`:`<span>${ini}</span>`}</div>`;
+        }).join('');
+        const legsHtml = (b.legs||[]).map(l => {
+          const hs=getHeadshot(l.name); const ini=(l.name||'?').split(' ').map(n=>n[0]).join('').substring(0,2);
+          const isOv=l.direction==='over';
+          return `<div class="bc-leg-row">
+            <div class="bc-leg-av" data-av="${l.name.replace(/"/g,'&quot;')}">${hs?`<img src="${hs}" onerror="headshotError(this,'${ini}')" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" alt="">`:`<span>${ini}</span>`}</div>
+            <span class="bet-dir ${l.direction}" style="font-size:10px;padding:2px 7px;">${isOv?'▲':'▼'} ${l.direction.toUpperCase()}</span>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:13px;font-weight:700;">${l.name}</div>
+              <div style="font-size:11px;color:var(--t3);">${l.line} ${l.marketLabel}</div>
+            </div>
+            <div style="font-size:13px;font-weight:700;color:var(--b);flex-shrink:0;">${(l.odds>0?'+':'')+l.odds}</div>
+          </div>`;
+        }).join('');
+        return `<div class="hist-row" style="flex-direction:column;align-items:stretch;gap:0;padding:12px 16px;">
+          <div class="hist-parlay-hdr" onclick="toggleParlayExpand('h${sid}')">
+            <span class="hist-status ${b.status}">${b.status.toUpperCase()}</span>
+            <div class="bc-av-cluster">${cluster}</div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:13px;font-weight:700;">🎯 ${b.legs.length}-Leg Parlay · <span style="color:var(--b)">${b.combinedOdds}</span></div>
+              <div style="font-size:11px;color:var(--t3);">${new Date(b.placedAt).toLocaleDateString()} · $${b.stake} staked</div>
+            </div>
+            <span class="hist-pnl ${b.pnl>=0?'pos':'neg'}" style="flex-shrink:0;">${pnlFmt}</span>
+            <div id="chev-h${sid}" class="bc-chevron">▼</div>
           </div>
-          <span class="hist-pnl ${b.pnl>=0?'pos':'neg'}">${pnlFmt}</span>
-          <span style="font-size:11px;color:var(--t3);">$${b.stake}</span>
+          <div class="bc-parlay-legs" id="pl-h${sid}" style="display:none;">${legsHtml}</div>
         </div>`;
       }
-      const resultNote = b.actualResult !== null ? ` (Actual: ${b.actualResult})` : '';
+      const hs=getHeadshot(b.player); const ini=(b.player||'?').split(' ').map(n=>n[0]).join('').substring(0,2);
+      const resultNote = b.actualResult != null ? ` · Actual: ${b.actualResult}` : '';
       return `<div class="hist-row">
         <span class="hist-status ${b.status}">${b.status.toUpperCase()}</span>
-        <div>
-          <div style="font-weight:600;">${b.player} <span style="color:${b.direction==='over'?'var(--g)':'var(--r)'};">${b.direction.toUpperCase()}</span> ${b.line} ${b.marketLabel}</div>
-          <div style="font-size:10px;color:var(--t3);">${b.matchup} · Edge ${b.edge>=0?'+':''}${b.edge.toFixed(1)}%${b.isValue?' ⚡':''} · ${new Date(b.placedAt).toLocaleDateString()}${resultNote}</div>
+        <div class="hist-av" data-av="${(b.player||'').replace(/"/g,'&quot;')}">${hs?`<img src="${hs}" onerror="headshotError(this,'${ini}')" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" alt="">`:`<span>${ini}</span>`}</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;font-weight:700;">${b.player} <span style="color:${b.direction==='over'?'var(--g)':'var(--r)'};">${b.direction==='over'?'▲':'▼'} ${b.direction.toUpperCase()}</span> ${b.line} ${b.marketLabel}</div>
+          <div style="font-size:11px;color:var(--t3);">${b.matchup} · ${(b.odds>0?'+':'')+b.odds} · Edge ${b.edge>=0?'+':''}${b.edge?.toFixed(1)||0}%${b.isValue?' ⚡':''}${resultNote} · ${new Date(b.placedAt).toLocaleDateString()}</div>
         </div>
         <span class="hist-pnl ${b.pnl>=0?'pos':'neg'}">${pnlFmt}</span>
-        <span style="font-size:11px;color:var(--t3);">$${b.stake}</span>
+        <span style="font-size:11px;color:var(--t3);flex-shrink:0;">$${b.stake}</span>
       </div>`;
     }).join('');
   }
+}
+
+function toggleParlayExpand(id) {
+  const el = document.getElementById('pl-' + id);
+  const chev = document.getElementById('chev-' + id);
+  if (!el) return;
+  const open = el.style.display !== 'none';
+  el.style.display = open ? 'none' : 'block';
+  if (chev) chev.classList.toggle('open', !open);
 }
 
 function setBalance() {
