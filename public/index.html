@@ -1188,7 +1188,7 @@ td{padding:13px 14px;white-space:nowrap;}
       <div class="cr">
         <select class="sel" id="sortS" onchange="renderTable()">
           <option value="edge">Sort: Edge %</option>
-          <option value="kelly">Sort: ¼ Kelly %</option>
+          <option value="ev">Sort: Expected Value</option>
           <option value="conf">Sort: Confidence</option>
           <option value="val">Sort: Value Score</option>
           <option value="hr">Sort: Hit Rate</option>
@@ -1226,7 +1226,7 @@ td{padding:13px 14px;white-space:nowrap;}
           <thead><tr>
             <th>Player</th><th class="col-mob-hide">Matchup</th><th data-sort="line" onclick="sortByCol('line')">Line</th><th>Odds</th>
             <th data-sort="edge" onclick="sortByCol('edge')" class="col-sm-hide">Avg</th><th data-sort="hr" onclick="sortByCol('hr')" class="col-sm-hide">Hit Rate</th><th class="col-mob-hide">O/U</th><th class="col-mob-hide">Trend</th>
-            <th data-sort="edge" onclick="sortByCol('edge')">Edge</th><th class="col-mob-hide">Lean</th><th data-sort="conf" onclick="sortByCol('conf')" class="col-sm-hide">Confidence</th><th data-sort="kelly" onclick="sortByCol('kelly')" class="col-sm-hide">¼ Kelly</th><th data-sort="val" onclick="sortByCol('val')">Value</th><th>Bet</th><th class="col-sm-hide">⭐</th>
+            <th data-sort="edge" onclick="sortByCol('edge')">Edge</th><th class="col-mob-hide">Lean</th><th data-sort="conf" onclick="sortByCol('conf')" class="col-sm-hide">Confidence</th><th data-sort="ev" onclick="sortByCol('ev')" class="col-sm-hide">EV</th><th data-sort="val" onclick="sortByCol('val')">Value</th><th>Bet</th><th class="col-sm-hide">⭐</th>
             <th id="scnTh" style="display:none">Scenario ⚡</th>
           </tr></thead>
           <tbody id="tBody"></tbody>
@@ -1340,8 +1340,8 @@ Negative odds: |odds| / (|odds| + 100)</div>
       </div>
       <div class="gls-card">
         <div class="gls-card-hd"><div class="gls-card-dot" style="background:var(--gold)"></div><span class="gls-card-name">Value Score</span></div>
-        <div class="gls-card-formula">Value = |Edge|×0.25 + max(0,HitRate−50)×0.25 + Confidence×0.25 + EV×0.25</div>
-        <div class="gls-card-desc">A single composite ranking blending edge, hit rate, confidence, and EV equally. Players with Value Score ≥30, Edge &gt;4%, Confidence ≥55, and EV &gt;0 earn the <b>⚡ VALUE</b> badge and appear in the Value Alerts tab.</div>
+        <div class="gls-card-formula">Value = |Edge|×w₁ + max(0,HR−50)×w₂ + Confidence×w₃ + EV×w₄</div>
+        <div class="gls-card-desc">A composite ranking blending edge, hit rate, confidence, and EV using <b>adjustable weights</b> (default 25% each). Tune the weights in the Value Alerts tab settings. Players with Value Score ≥30, Edge &gt;4%, Confidence ≥55, and EV &gt;0 earn the <b>⚡ VALUE</b> badge.</div>
         <div class="gls-card-ex">Score ≥ 40 = Strong · 25–39 = Moderate · &lt;25 = Risky</div>
       </div>
       <div class="gls-card">
@@ -1351,10 +1351,10 @@ Negative odds: |odds| / (|odds| + 100)</div>
         <div class="gls-card-ex">+8% edge → <b>OVER ▲</b> · −6% edge → <b>UNDER ▼</b> · ±2% → <b>EVEN</b></div>
       </div>
       <div class="gls-card">
-        <div class="gls-card-hd"><div class="gls-card-dot" style="background:var(--b)"></div><span class="gls-card-name">¼ Kelly Criterion</span></div>
-        <div class="gls-card-formula">f* = (b×p − q) / b · ¼ Kelly = f* × 0.25</div>
-        <div class="gls-card-desc">The mathematically optimal bet size that maximizes long-term bankroll growth. <b>b</b> = net decimal payout, <b>p</b> = model probability, <b>q</b> = 1−p. We use <b>Quarter Kelly</b> (25% of full Kelly) for conservative risk management — full Kelly is aggressive and can cause large drawdowns.</div>
-        <div class="gls-card-ex">Model 60%, +100 odds → f* = 20% → ¼ Kelly = <b>5% of bankroll</b></div>
+        <div class="gls-card-hd"><div class="gls-card-dot" style="background:var(--b)"></div><span class="gls-card-name">Expected Value (EV)</span></div>
+        <div class="gls-card-formula">EV = ModelProb × Payout − (1 − ModelProb) × Stake</div>
+        <div class="gls-card-desc">The average return per $100 wagered if this bet were placed infinitely many times. Positive EV means the bet is profitable long-term. <b>ModelProb</b> = weighted model probability in the bet direction, <b>Payout</b> = net return on a win based on the odds.</div>
+        <div class="gls-card-ex">Model 60%, +100 odds → EV = 0.6 × $100 − 0.4 × $100 = <b>+20%</b></div>
       </div>
       <div class="gls-card">
         <div class="gls-card-hd"><div class="gls-card-dot" style="background:var(--p)"></div><span class="gls-card-name">Scenario Mode</span></div>
@@ -2248,7 +2248,7 @@ function renderTable(){
   }
   const sf={
     edge:(a,b)=>Math.abs(b.edge||0)-Math.abs(a.edge||0),
-    kelly:(a,b)=>{const pa=a.modelProb!=null?((a.edge||0)>=0?a.modelProb:1-a.modelProb):(a.hitRate||50)/100;const pb=b.modelProb!=null?((b.edge||0)>=0?b.modelProb:1-b.modelProb):(b.hitRate||50)/100;const oa=(a.edge||0)>=0?a.overOdds:a.underOdds;const ob=(b.edge||0)>=0?b.overOdds:b.underOdds;return computeKelly(pb,ob)-computeKelly(pa,oa);},
+    ev:(a,b)=>getDirectionalEV(b)-getDirectionalEV(a),
     conf:(a,b)=>(b.confidence||0)-(a.confidence||0),
     val:(a,b)=>{const ia=+(valueScore(a)>=30&&Math.abs(a.edge||0)>4&&(a.confidence||0)>=55&&getDirectionalEV(a)>3);const ib=+(valueScore(b)>=30&&Math.abs(b.edge||0)>4&&(b.confidence||0)>=55&&getDirectionalEV(b)>3);if(ib!==ia)return ib-ia;return valueScore(b)-valueScore(a);},
     hr:(a,b)=>(b.hitRate||0)-(a.hitRate||0),
@@ -2275,13 +2275,8 @@ function renderTable(){
     const evUnder=p.evUnder??calcEV(1-(p.hitRate||50)/100,p.underOdds);
     const dirEV=edge>=0?evOver:evUnder; // EV for the recommended bet direction
     const isValue=vs>=30&&Math.abs(edge)>4&&(p.confidence||0)>=55&&dirEV>3;
-    // Kelly: use weighted modelProb if available (more accurate than raw hitRate)
     const betOdds=edge>=0?p.overOdds:p.underOdds;
-    const baseProb=p.modelProb!=null?p.modelProb:(p.hitRate||50)/100;
-    const dirModelProbKelly=edge>=0?baseProb:1-baseProb;
-    const qKelly=computeKelly(dirModelProbKelly,betOdds)*0.25;
-    const qKellyPct=(qKelly*100).toFixed(1);
-    const kellyColor=qKelly>=0.03?'var(--g)':qKelly>=0.01?'var(--a)':'var(--t3)';
+    const evColor=dirEV>=10?'var(--g)':dirEV>=3?'var(--a)':dirEV>=0?'var(--t2)':'var(--r)';
     const overFmt=p.overOdds?(p.overOdds>0?'+':'')+p.overOdds:'—';
     const underFmt=p.underOdds?(p.underOdds>0?'+':'')+p.underOdds:'—';
     const lean=leanInfo(edge);
@@ -2333,8 +2328,8 @@ function renderTable(){
         <div class="cb-bar"><div class="cb-fill" style="width:${p.confidence||0}%;background:${cc};"></div></div>
         <span class="cb-l" style="color:${cc}">${p.confidence||0}</span>
       </div></td>
-      <td class="col-sm-hide"><span style="font-size:11px;font-weight:700;color:${kellyColor}">${qKelly>0?qKellyPct+'%':'—'}</span></td>
-      <td>${(()=>{if(isValue)return`<span class="val-badge">⚡ VALUE</span>`;const cls=dirEV>=15?'ev-strong':dirEV>=5?'ev-good':dirEV>=0?'ev-weak':'ev-neg';return`<span class="ev-pill ${cls}">${dirEV>=0?'+':''}${dirEV.toFixed(1)}%</span>`;})()}</td>
+      <td class="col-sm-hide"><span style="font-size:11px;font-weight:700;color:${evColor}">${dirEV>=0?'+':''}${dirEV.toFixed(1)}%</span></td>
+      <td>${(()=>{const vsColor=vs>=40?'var(--g)':vs>=25?'var(--a)':vs>=15?'var(--t2)':'var(--r)';if(isValue)return`<span class="val-badge">⚡ ${vs}</span>`;return`<span style="font-size:12px;font-weight:700;color:${vsColor}">${vs}</span>`;})()}</td>
       <td><button class="bet-btn" onclick="event.stopPropagation();openBetModal(${JSON.stringify(p).replace(/"/g,'&quot;')})">🎲 Bet</button></td>
       <td class="col-sm-hide"><button class="fav-btn${favorites.has(p.name)?' on':''}" data-name="${p.name.replace(/"/g,'&quot;')}" onclick="toggleFav('${p.name.replace(/'/g,"\\'")}',event)" title="${favorites.has(p.name)?'Remove from watchlist':'Add to watchlist'}">${favorites.has(p.name)?'⭐':'☆'}</button></td>
       <td><button class="share-btn" onclick="event.stopPropagation();openShareModal(${JSON.stringify(p).replace(/"/g,'&quot;')})" title="Share line">📤</button></td>
@@ -2600,6 +2595,41 @@ function renderOverview(el,p){
           </div>`;
         })()}
       </div>`:''}
+      <div style="margin-top:10px;padding:9px 11px;background:var(--bg1);border-radius:7px;border:1px solid var(--bd);font-size:11px;">
+        <div style="font-weight:700;color:var(--t2);margin-bottom:6px;">Value Score Breakdown</div>
+        ${(()=>{
+          const _isOv=(p.edge||0)>=0;
+          const _dirEV=getDirectionalEV(p);
+          const _evScore=Math.min(Math.max(_dirEV,-20),20);
+          const _dirHR=_isOv?(p.hitRate||50):(100-(p.hitRate||50));
+          const _tot=vsWeights.edge+vsWeights.hr+vsWeights.conf+vsWeights.ev||1;
+          const _we=vsWeights.edge/_tot, _wh=vsWeights.hr/_tot, _wc=vsWeights.conf/_tot, _wv=vsWeights.ev/_tot;
+          const edgePts=Math.abs(p.edge||0)*_we;
+          const hrPts=Math.max(0,_dirHR-50)*_wh;
+          const confPts=(p.confidence||0)*_wc;
+          const evPts=(_evScore+20)*_wv;
+          const total=Math.round(edgePts+hrPts+confPts+evPts);
+          const vsC=total>=40?'var(--g)':total>=25?'var(--a)':'var(--r)';
+          return`<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+            <span style="color:var(--t3);">Edge:</span><strong>${Math.abs(p.edge||0).toFixed(1)}</strong>
+            <span style="color:var(--bd2)">×${Math.round(_we*100)}%</span>
+            <span style="color:var(--t3);margin-left:4px;">= ${edgePts.toFixed(1)}</span>
+            <span style="color:var(--bd);margin:0 2px;">|</span>
+            <span style="color:var(--t3);">HR:</span><strong>${Math.max(0,_dirHR-50)}</strong>
+            <span style="color:var(--bd2)">×${Math.round(_wh*100)}%</span>
+            <span style="color:var(--t3);margin-left:4px;">= ${hrPts.toFixed(1)}</span>
+            <span style="color:var(--bd);margin:0 2px;">|</span>
+            <span style="color:var(--t3);">Conf:</span><strong>${p.confidence||0}</strong>
+            <span style="color:var(--bd2)">×${Math.round(_wc*100)}%</span>
+            <span style="color:var(--t3);margin-left:4px;">= ${confPts.toFixed(1)}</span>
+            <span style="color:var(--bd);margin:0 2px;">|</span>
+            <span style="color:var(--t3);">EV:</span><strong>${(_evScore+20).toFixed(1)}</strong>
+            <span style="color:var(--bd2)">×${Math.round(_wv*100)}%</span>
+            <span style="color:var(--t3);margin-left:4px;">= ${evPts.toFixed(1)}</span>
+            <span style="margin-left:6px;padding:2px 8px;border-radius:8px;background:${vsC}20;color:${vsC};font-weight:800;">= ${total}</span>
+          </div>`;
+        })()}
+      </div>
     </div>
     ${p.hasRealStats?(()=>{const pg=(p.gameLog||[]).filter(g=>parseInt(g.min||'0')>0);const am=pg.length?Math.round(pg.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/pg.length):30;return`<div class="dc full"><div class="dc-t"><span class="dt" style="background:#8b5cf6"></span>Minutes Projection <span style="font-size:10px;color:var(--t3);font-weight:400;margin-left:4px;">Adjust model for expected playing time</span></div>
       <div style="padding:6px 0 2px;">
@@ -2643,14 +2673,14 @@ function renderOverview(el,p){
             const betDirEV=isOverBet?(p.evOver??calcEV((p.hitRate||50)/100,p.overOdds)):(p.evUnder??calcEV(1-(p.hitRate||50)/100,p.underOdds));
             const dirHR=isOverBet?(p.hitRate||50):(100-(p.hitRate||50));
             const dirImplied=isOverBet?((p.impliedProbOver??impliedProb(p.overOdds))*100):((p.impliedProbUnder??impliedProb(p.underOdds))*100);
-            const fk=computeKelly(dirHR/100,betOddsVal);const qk=fk*0.25;
-            const kc=fk>0.05?'var(--g)':fk>0?'var(--a)':'var(--r)';
             const vs=valueScore(p);
+            const evC=betDirEV>0?'var(--g)':'var(--r)';
+            const _t=vsWeights.edge+vsWeights.hr+vsWeights.conf+vsWeights.ev||1;
+            const _we=Math.round(vsWeights.edge/_t*100),_wh=Math.round(vsWeights.hr/_t*100),_wc=Math.round(vsWeights.conf/_t*100),_wv=Math.round(vsWeights.ev/_t*100);
             return `<strong>Edge:</strong> <code>(${p.avg} − ${p.line}) / ${p.line} × 100 = ${(p.edge||0)>0?'+':''}${(p.edge||0).toFixed(1)}%</code><br>
           <strong>Implied prob (${isOverBet?'Over':'Under'}):</strong> <code>${dirImplied.toFixed(1)}%</code> · <strong>Model hit rate (${isOverBet?'Over':'Under'}):</strong> <code>${dirHR}%</code><br>
-          <strong>EV (${isOverBet?'Over':'Under'} ${betOddsFmt}):</strong> <code style="color:${betDirEV>0?'var(--g)':'var(--r)'}">${betDirEV>0?'+':''}${betDirEV}%</code> per $100 wagered<br>
-          <strong>Value score:</strong> <code>${Math.abs(p.edge||0).toFixed(1)}×0.25 + ${Math.max(0,dirHR-50)}×0.25 + ${p.confidence||0}×0.25 + EV×0.25 = ${vs}</code><br>
-          <strong>¼ Kelly:</strong> <code style="color:${kc}">${(qk*100).toFixed(1)}% of bankroll</code> — bet ~$${Math.max(1,Math.floor(1000*qk))} per $1,000`;
+          <strong>EV (${isOverBet?'Over':'Under'} ${betOddsFmt}):</strong> <code style="color:${evC}">${betDirEV>0?'+':''}${betDirEV}%</code> per $100 wagered<br>
+          <strong>Value score:</strong> <code>Edge ${Math.abs(p.edge||0).toFixed(1)}×${_we}% + HR ${Math.max(0,dirHR-50)}×${_wh}% + Conf ${p.confidence||0}×${_wc}% + EV×${_wv}% = <b>${vs}</b></code>`;
           })()}
         </div>
       </div>
@@ -3521,6 +3551,7 @@ function renderAlerts(){
       </div>
       <div style="font-size:12px;font-weight:700;color:var(--t3);margin-bottom:8px;">${dir} ${p.line} ${MKT_SHORT[p.market||S.market]||''} · ${betOddsFmt} odds · ${(p.edge||0).toFixed(1)}% edge · ${isOver?p.avg+' avg vs '+p.line+' line':p.line+' line vs '+p.avg+' avg'}</div>
       <div class="va-stats">
+        <div class="va-stat"><div class="va-stat-v" style="color:${p.vs>=40?'var(--g)':p.vs>=25?'var(--a)':'var(--r)'}"><b>${p.vs}</b></div><div class="va-stat-l">Value Score</div></div>
         <div class="va-stat"><div class="va-stat-v">${p.avg}</div><div class="va-stat-l">L10 Avg</div></div>
         <div class="va-stat"><div class="va-stat-v">${dirModelProbPct}%</div><div class="va-stat-l">Model Prob</div></div>
         <div class="va-stat"><div class="va-stat-v">${implP}%</div><div class="va-stat-l">Implied Prob</div></div>
@@ -3529,6 +3560,7 @@ function renderAlerts(){
       </div>
       <div class="va-reason">${reasons.join(' · ')||'Moderate edge detected.'}</div>
       <div class="va-formula">EV = ModelProb (<span>${dirModelProbPct}%</span>) × Payout − (1−ModelProb) × Stake = <span style="color:${evPct>0?'var(--g)':'var(--r)'}">${evPct>0?'+':''}${evPct}%</span></div>
+      ${(()=>{const _t=vsWeights.edge+vsWeights.hr+vsWeights.conf+vsWeights.ev||1;const _we=vsWeights.edge/_t,_wh=vsWeights.hr/_t,_wc=vsWeights.conf/_t,_wv=vsWeights.ev/_t;const _evS=Math.min(Math.max(evPct,-20),20);const _dHR=isOver?(p.hitRate||50):(100-(p.hitRate||50));return`<div class="va-formula" style="margin-top:4px;">Value = Edge ${Math.abs(p.edge||0).toFixed(1)}×${Math.round(_we*100)}% + HR ${Math.max(0,_dHR-50)}×${Math.round(_wh*100)}% + Conf ${p.confidence||0}×${Math.round(_wc*100)}% + EV ${(_evS+20).toFixed(0)}×${Math.round(_wv*100)}% = <span style="color:${p.vs>=40?'var(--g)':p.vs>=25?'var(--a)':'var(--r)'}"><b>${p.vs}</b></span></div>`;})()}
       <div style="display:flex;gap:8px;margin-top:10px;">
         <button class="bet-btn" style="flex:1;padding:9px;font-size:13px;border-radius:8px;" onclick="event.stopPropagation();openBetModal(${JSON.stringify(p).replace(/"/g,'&quot;')})">🎲 Place Bet — ${isOver?'OVER':'UNDER'} ${p.line}</button>
         <button class="share-btn" style="padding:9px 14px;font-size:13px;border-radius:8px;" onclick="event.stopPropagation();shareAlert(_vaAlerts[${rank}])" title="Share">📤</button>
