@@ -12,16 +12,12 @@
     { "src": "/(.*)", "dest": "server.js" }
   ],
   "crons": [
-    {
-      "path": "/api/cron/refresh-stats",
-      "schedule": "30 18 * * *"
-    },
-    { "path": "/api/cron/refresh-odds", "schedule": "0 18 * * *" },
-    { "path": "/api/cron/refresh-odds", "schedule": "0 23 * * *" },
-    { "path": "/api/cron/refresh-odds", "schedule": "30 2 * * *" },
-    { "path": "/api/cron/grade-bets", "schedule": "15 19 * * *" },
-    { "path": "/api/cron/agent-bet", "schedule": "30 23 * * *" },
-    { "path": "/api/cron/grade-agent-bets", "schedule": "0 19 * * *" },
-    { "path": "/api/cron/newsletter", "schedule": "30 19 * * *" }
+    { "path": "/api/cron/refresh-odds", "schedule": "0 17 * * *" },
+    { "path": "/api/cron/refresh-stats", "schedule": "30 17 * * *" },
+    { "path": "/api/cron/grade-agent-bets", "schedule": "0 18 * * *" },
+    { "path": "/api/cron/grade-bets", "schedule": "15 18 * * *" },
+    { "path": "/api/cron/newsletter", "schedule": "30 18 * * *" },
+    { "path": "/api/cron/refresh-odds", "schedule": "0 22 * * *" },
+    { "path": "/api/cron/agent-bet", "schedule": "30 22 * * *" }
   ]
 }
