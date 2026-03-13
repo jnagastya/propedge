@@ -620,6 +620,22 @@ td{padding:13px 14px;white-space:nowrap;}
 .flag-minutes-down{background:rgba(239,68,68,.15);color:#f87171;border:1px solid rgba(239,68,68,.3);}
 .flag-dnp{background:rgba(156,163,175,.15);color:#9ca3af;border:1px solid rgba(156,163,175,.3);}
 .flag-est{background:var(--bld);color:var(--b-text);border:1px solid var(--bb);font-style:italic;}
+.flag-mover{background:rgba(168,85,247,.15);color:#c084fc;border:1px solid rgba(168,85,247,.3);}
+.lm-ribbon{display:flex;gap:10px;overflow-x:auto;padding:10px 16px;scrollbar-width:none;-ms-overflow-style:none;}
+.lm-ribbon::-webkit-scrollbar{display:none;}
+.lm-ribbon-wrap{background:linear-gradient(135deg,var(--bg2),var(--bg1));border-bottom:1px solid var(--bd);margin:-16px -16px 16px;position:sticky;top:0;z-index:5;}
+.lm-ribbon-hdr{display:flex;align-items:center;justify-content:space-between;padding:10px 16px 0;font-size:12px;font-weight:700;color:var(--t2);}
+.lm-card{flex-shrink:0;min-width:160px;max-width:200px;padding:10px 12px;background:var(--bg1);border:1px solid var(--bd);border-radius:10px;cursor:pointer;transition:border-color .15s,transform .15s;}
+.lm-card:hover{border-color:var(--b);transform:translateY(-1px);}
+.lm-av{width:28px;height:28px;border-radius:50%;overflow:hidden;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:var(--t3);flex-shrink:0;}
+.lm-name{font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.lm-mkt{font-size:9px;color:var(--t3);font-weight:600;text-transform:uppercase;letter-spacing:.3px;}
+.lm-row{display:flex;align-items:baseline;gap:4px;margin-top:4px;}
+.lm-old{font-size:11px;color:var(--t3);text-decoration:line-through;}
+.lm-arrow{font-size:9px;color:var(--t3);}
+.lm-new{font-size:14px;font-weight:700;}
+.lm-odds{font-size:10px;color:var(--t3);margin-top:2px;}
+.lm-prob{font-size:10px;font-weight:600;margin-top:3px;padding:2px 6px;border-radius:4px;display:inline-block;}
 .va-formula{margin-top:8px;font-size:10px;color:var(--t3);padding:8px 10px;background:var(--bg2);border-radius:6px;line-height:1.7;border:1px solid var(--bd);}
 .va-formula span{color:var(--b);font-weight:700;}
 
@@ -2398,7 +2414,7 @@ function renderTable(){
         </div>
       </div></td>
       <td class="col-mob-hide" style="color:var(--t2);font-size:11px;">${(p.matchup||'—').replace(/^\?\?\?[·\s·]*/,'').substring(0,26)||'—'}</td>
-      <td style="font-weight:700;font-size:14px;">${p.line}${(()=>{if(p.prev_line==null||p.prev_line===p.line)return'';const diff=+(p.line-p.prev_line).toFixed(1);const cls=diff>0?'up':'dn';const big=Math.abs(diff)>=1.5?'line-move-big':'';return`<span class="line-move ${cls} ${big}" title="Was ${p.prev_line}">${diff>0?'↑':'↓'}${Math.abs(diff)}</span>`;})()}</td>
+      <td style="font-weight:700;font-size:14px;">${p.line}${(()=>{if(p.prev_line==null||p.prev_line===p.line)return'';const diff=+(p.line-p.prev_line).toFixed(1);const cls=diff>0?'up':'dn';const big=Math.abs(diff)>=1.5?'line-move-big':'';return`<span class="line-move ${cls} ${big}" title="Was ${p.prev_line}">${diff>0?'↑':'↓'}${Math.abs(diff).toFixed(1)}</span>`;})()}</td>
       <td><div class="odds-cell"><span class="odd over">O ${overFmt}${(()=>{if(p.prev_overOdds==null||p.prev_overOdds===p.overOdds)return'';const diff=p.overOdds-p.prev_overOdds;return`<span class="line-move ${diff>0?'dn':'up'}" style="font-size:8px;margin-left:2px;" title="Was ${p.prev_overOdds>0?'+':''}${p.prev_overOdds}">${diff>0?'↑':'↓'}${Math.abs(diff)}</span>`;})()}</span><span class="odd under">U ${underFmt}${(()=>{if(p.prev_underOdds==null||p.prev_underOdds===p.underOdds)return'';const diff=p.underOdds-p.prev_underOdds;return`<span class="line-move ${diff>0?'dn':'up'}" style="font-size:8px;margin-left:2px;" title="Was ${p.prev_underOdds>0?'+':''}${p.prev_underOdds}">${diff>0?'↑':'↓'}${Math.abs(diff)}</span>`;})()}</span></div></td>
       <td class="col-sm-hide" style="font-weight:600;">${p.avg}</td>
       <td class="col-sm-hide" style="font-weight:600;">${oP}%</td>
@@ -3587,34 +3603,51 @@ function renderAlerts(){
 
   // Build "Line Movers" ribbon from ALL loaded data (not just filtered alerts)
   const allData = getAlertData().filter(p=>!p.gameTime||new Date(p.gameTime)>_now);
-  const movers = allData.filter(p=>p.prev_line!=null && p.prev_line!==p.line)
-    .map(p=>({...p, _lineDiff:+(p.line-p.prev_line).toFixed(1), _absMove:Math.abs(p.line-p.prev_line)}))
-    .sort((a,b)=>b._absMove-a._absMove).slice(0,8);
+  const movers = allData.filter(p=>p.prev_line!=null && (p.prev_line!==p.line || p.prev_overOdds!==p.overOdds || p.prev_underOdds!==p.underOdds))
+    .map(p=>{
+      const ld=+(p.line-p.prev_line).toFixed(1);
+      const od=p.overOdds&&p.prev_overOdds?p.overOdds-p.prev_overOdds:0;
+      const ud=p.underOdds&&p.prev_underOdds?p.underOdds-p.prev_underOdds:0;
+      const absMove=Math.abs(ld)+Math.abs(od)/50+Math.abs(ud)/50;
+      return {...p,_lineDiff:ld,_absMove:absMove,_oddsDiffO:od,_oddsDiffU:ud};
+    })
+    .sort((a,b)=>b._absMove-a._absMove).slice(0,10);
+  window._lmMovers=movers;
 
   const grid=document.getElementById('vaGrid');
-  const moverHtml = movers.length ? `<div style="margin-bottom:16px;">
-    <div style="font-size:13px;font-weight:700;color:var(--t2);margin-bottom:8px;">📊 Line Movers — Since Last Refresh</div>
-    <div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:6px;">
-      ${movers.map(m=>{
-        const dir = m._lineDiff>0?'↑':'↓';
-        const cls = m._lineDiff>0?'up':'dn';
-        const bg = m._lineDiff>0?'var(--rd)':'var(--gd)';
-        const col = m._lineDiff>0?'var(--r)':'var(--g)';
+  const moverHtml = movers.length ? `<div class="lm-ribbon-wrap">
+    <div class="lm-ribbon-hdr"><span>Line Movers — Since Last Refresh</span><span style="font-size:10px;font-weight:500;color:var(--t3);">${movers.length} moved</span></div>
+    <div class="lm-ribbon">
+      ${movers.map((m,i)=>{
+        const dir = m._lineDiff>0?'↑':m._lineDiff<0?'↓':'';
+        const cls = m._lineDiff>0?'up':m._lineDiff<0?'dn':'';
         const mktS = ({'player_points':'PTS','player_rebounds':'REB','player_assists':'AST','player_threes':'3PM','player_points_rebounds_assists':'PRA','player_rebounds_assists':'R+A'})[m.market||S.market]||'';
         const hs = getHeadshot(m.name);
         const init = m.name.split(' ').map(n=>n[0]).join('').substring(0,2);
-        return `<div style="flex-shrink:0;min-width:130px;padding:10px 12px;background:var(--bg2);border:1px solid var(--bd);border-radius:10px;cursor:pointer;transition:border-color .12s;" onmouseover="this.style.borderColor='var(--b)'" onmouseout="this.style.borderColor='var(--bd)'" onclick="switchView('props');document.getElementById('searchIn').value='${m.name.replace(/'/g,"\\'")}';renderTable();">
-          <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
-            <div style="width:24px;height:24px;border-radius:50%;overflow:hidden;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:var(--t3);flex-shrink:0;">${hs?`<img src="${hs}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" alt="">`:init}</div>
-            <div style="font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${m.name}</div>
+        const fmtOdds=o=>o?(o>0?'+':'')+o:'—';
+        const oddsChanged=m._oddsDiffO||m._oddsDiffU;
+        const rawMP=m.modelProb??(m.hitRate||50)/100;
+        const isOver=m.edge>0;
+        const dirMP=isOver?rawMP:1-rawMP;
+        const probPct=Math.round(dirMP*100);
+        const probCol=probPct>=65?'var(--g)':probPct>=50?'var(--a)':'var(--r)';
+        const probBg=probPct>=65?'var(--gd)':probPct>=50?'rgba(251,191,36,.15)':'var(--rd)';
+        return `<div class="lm-card" onclick="openAlertDetail(_lmMovers[${i}])">
+          <div style="display:flex;align-items:center;gap:7px;margin-bottom:6px;">
+            <div class="lm-av" data-av="${m.name.replace(/"/g,'&quot;')}">${hs?`<img src="${hs}" onerror="headshotError(this,'${init}')" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" alt="">`:init}</div>
+            <div style="flex:1;min-width:0;">
+              <div class="lm-name">${m.name}</div>
+              <div class="lm-mkt">${mktS} · ${m.team||''}</div>
+            </div>
           </div>
-          <div style="font-size:10px;color:var(--t3);margin-bottom:4px;">${mktS} Line</div>
-          <div style="display:flex;align-items:baseline;gap:4px;">
-            <span style="font-size:11px;color:var(--t3);text-decoration:line-through;">${m.prev_line}</span>
-            <span style="font-size:10px;color:var(--t3);">→</span>
-            <span style="font-size:14px;font-weight:700;">${m.line}</span>
-            <span class="line-move ${cls} ${m._absMove>=1.5?'line-move-big':''}" style="font-size:10px;">${dir}${m._absMove}</span>
+          <div class="lm-row">
+            <span class="lm-old">${m.prev_line}</span>
+            <span class="lm-arrow">→</span>
+            <span class="lm-new">${m.line}</span>
+            ${m._lineDiff!==0?`<span class="line-move ${cls} ${Math.abs(m._lineDiff)>=1.5?'line-move-big':''}" style="font-size:10px;">${dir}${Math.abs(m._lineDiff).toFixed(1)}</span>`:''}
           </div>
+          ${oddsChanged?`<div class="lm-odds">Odds: ${fmtOdds(m.prev_overOdds)} → ${fmtOdds(m.overOdds)} O / ${fmtOdds(m.prev_underOdds)} → ${fmtOdds(m.underOdds)} U</div>`:''}
+          <div class="lm-prob" style="color:${probCol};background:${probBg};">Model: ${probPct}% ${isOver?'Over':'Under'}</div>
         </div>`;
       }).join('')}
     </div>
@@ -3663,7 +3696,7 @@ function renderAlerts(){
           </div>
           <div class="va-meta">${p.team||''} · ${(p.matchup||'').substring(0,25)}</div>
           ${!p.hasRealStats?`<div style="margin-top:3px;"><span class="player-flag flag-est" style="font-size:9px;">⚠ Fake Stats — EV may be inaccurate</span></div>`:''}
-          ${(p.returnFromInjury>=2||p.minutesFlag||(p.dnpCount>=5))?`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;">${p.returnFromInjury>=2?`<span class="player-flag flag-injury">⚠ Back after ${p.returnFromInjury} games missed</span>`:''}${p.minutesFlag?`<span class="player-flag ${p.minutesFlag>0?'flag-minutes-up':'flag-minutes-down'}">⏱ ${Math.abs(Math.round(p.minutesFlag*100))}% ${p.minutesFlag>0?'↑ more':'↓ fewer'} minutes</span>`:''}${p.dnpCount>=5?`<span class="player-flag flag-dnp">✗ ${p.dnpCount} DNPs/10</span>`:''}</div>`:''}</div>
+          ${(()=>{const hasMove=p.prev_line!=null&&(p.prev_line!==p.line||p.prev_overOdds!==p.overOdds||p.prev_underOdds!==p.underOdds);const hasFlags=p.returnFromInjury>=2||p.minutesFlag||(p.dnpCount>=5)||hasMove;if(!hasFlags)return'';return`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;">${hasMove?`<span class="player-flag flag-mover">↕ Line Moved${p.prev_line!==p.line?' '+((p.line-p.prev_line)>0?'+':'')+((p.line-p.prev_line).toFixed(1)):' (odds)'}</span>`:''}${p.returnFromInjury>=2?`<span class="player-flag flag-injury">⚠ Back after ${p.returnFromInjury} games missed</span>`:''}${p.minutesFlag?`<span class="player-flag ${p.minutesFlag>0?'flag-minutes-up':'flag-minutes-down'}">⏱ ${Math.abs(Math.round(p.minutesFlag*100))}% ${p.minutesFlag>0?'↑ more':'↓ fewer'} minutes</span>`:''}${p.dnpCount>=5?`<span class="player-flag flag-dnp">✗ ${p.dnpCount} DNPs/10</span>`:''}</div>`;})()}</div>
         <div class="va-right">
           <div class="va-edge-big ${evPct>0?'pos':'neg'}">${evPct>0?'+':''}${evPct}%</div>
           <div class="va-direction ${isOver?'over':'under'}">${isOver?'▲':'▼'} BET ${dir}</div>
