@@ -2372,10 +2372,14 @@ function renderParlay(){
   }
   const MKT_LABEL_MAP={'player_points':'PTS','player_rebounds':'REB','player_assists':'AST','player_threes':'3PM','player_points_rebounds_assists':'PRA'};
   // Merge all cached markets so parlay legs can come from any market category
+  const _now=new Date();
   const _parlayPool=[...S.data];
   Object.entries(alertMktCache).forEach(([mkt,data])=>{if(mkt!==S.market&&Array.isArray(data))_parlayPool.push(...data);});
   const _seen=new Set();
-  const allParlayData=_parlayPool.filter(p=>{const k=`${p.name}|${p.market||S.market}`;if(_seen.has(k))return false;_seen.add(k);return true;});
+  const allParlayData=_parlayPool.filter(p=>{
+    if(p.gameTime&&new Date(p.gameTime)<=_now)return false; // exclude started games
+    const k=`${p.name}|${p.market||S.market}`;if(_seen.has(k))return false;_seen.add(k);return true;
+  });
   // Score each player/market combo by best-direction EV: EV = modelProb*(decimal-1) - (1-modelProb)
   const scored=allParlayData
     .filter(p=>p.line&&(p.overOdds||p.underOdds)&&!parlayExcluded.has(p.name))
