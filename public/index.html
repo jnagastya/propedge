@@ -4,6 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ValueAlert</title>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#6366f1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Value Alert">
+<link rel="apple-touch-icon" href="/icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -699,6 +705,19 @@ td{padding:13px 14px;white-space:nowrap;}
 .save-status.ok{color:var(--g);}
 .save-status.syncing{color:var(--t3);}
 
+/* ── PUSH NOTIFICATIONS ── */
+.push-toggle{padding:8px 16px;border-radius:8px;border:1px solid var(--bd);background:var(--bg2);color:var(--t2);font-family:var(--sans);font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:6px;}
+.push-toggle:hover{background:var(--bg3);color:var(--t1);}
+.push-toggle.push-on{border-color:rgba(16,185,129,.3);background:rgba(16,185,129,.08);color:var(--g);}
+.push-toggle.push-ios-install{border-color:rgba(99,102,241,.3);background:rgba(99,102,241,.08);color:var(--b);}
+.ios-guide-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:2000;display:flex;align-items:center;justify-content:center;animation:fadeIn .2s;}
+.ios-guide{background:var(--bg1);border:1px solid var(--bd);border-radius:16px;padding:24px;max-width:340px;width:90%;text-align:center;}
+.ios-guide h3{margin:0 0 12px;font-size:16px;color:var(--t1);}
+.ios-guide p{font-size:13px;color:var(--t2);line-height:1.6;margin:0 0 8px;}
+.ios-guide .step{display:flex;align-items:center;gap:10px;text-align:left;padding:8px 0;font-size:13px;color:var(--t1);}
+.ios-guide .step-num{width:24px;height:24px;border-radius:50%;background:var(--b);color:white;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;}
+.ios-guide button{margin-top:14px;padding:10px 20px;border-radius:8px;border:none;background:var(--b);color:white;font-family:var(--sans);font-weight:600;font-size:13px;cursor:pointer;}
+
 /* ── SOCIAL ── */
 .soc-layout{display:grid;grid-template-columns:272px 1fr;min-height:500px;height:calc(100vh - 160px);background:var(--bg1);border:1px solid var(--bd);border-radius:var(--radius-lg);overflow:hidden;}
 .soc-sidebar{border-right:1px solid var(--bd);display:flex;flex-direction:column;overflow:hidden;}
@@ -1272,6 +1291,11 @@ Negative odds: |odds| / (|odds| + 100)</div>
   <div class="view-pane" id="socialView">
     <div id="socSetupBanner" style="display:none;background:var(--bg2);border:1px solid var(--bd);border-radius:10px;padding:14px 18px;margin-bottom:14px;font-size:13px;color:var(--t2);">
       ⚠️ <strong>Setup required:</strong> Run the SQL schema in your Supabase SQL Editor to enable social features. See <code style="background:var(--bg3);padding:1px 5px;border-radius:4px;">server.js</code> for the schema comments at the top of the social routes section.
+    </div>
+    <!-- Push notification toggle + iOS install prompt -->
+    <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center;flex-wrap:wrap;">
+      <button class="push-toggle" id="pushToggleBtn" onclick="togglePush()" style="display:none;">🔕 Enable Notifications</button>
+      <button class="push-toggle push-ios-install" id="iosInstallBtn" onclick="showIosInstallGuide()" style="display:none;">📲 Install App</button>
     </div>
     <div class="soc-layout">
       <!-- Sidebar -->
@@ -4675,6 +4699,128 @@ async function initSocial() {
   ]);
   if (friends) _socFriends = friends;
   if (convs) _socConversations = convs;
+  // Auto-prompt for push notifications after social init
+  initPushNotifications();
+}
+
+// ── Push Notifications ──
+let _pushSubscription = null;
+
+async function initPushNotifications() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+  try {
+    const reg = await navigator.serviceWorker.register('/sw.js');
+    _pushSubscription = await reg.pushManager.getSubscription();
+    updatePushUI();
+    // If user already granted permission but isn't subscribed, auto-subscribe
+    if (Notification.permission === 'granted' && !_pushSubscription) {
+      await subscribeToPush(reg);
+    }
+  } catch {}
+}
+
+async function subscribeToPush(reg) {
+  try {
+    if (!reg) reg = await navigator.serviceWorker.ready;
+    const resp = await fetch(`${API}/api/push/vapid-key`);
+    const { key } = await resp.json();
+    if (!key) return;
+    _pushSubscription = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(key),
+    });
+    await fetch(`${API}/api/push/subscribe`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_authToken}` },
+      body: JSON.stringify({ subscription: _pushSubscription }),
+    });
+    updatePushUI();
+  } catch {}
+}
+
+async function unsubscribePush() {
+  try {
+    const endpoint = _pushSubscription?.endpoint;
+    if (_pushSubscription) await _pushSubscription.unsubscribe();
+    _pushSubscription = null;
+    if (endpoint) {
+      await fetch(`${API}/api/push/unsubscribe`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_authToken}` },
+        body: JSON.stringify({ endpoint }),
+      });
+    }
+    updatePushUI();
+  } catch {}
+}
+
+async function togglePush() {
+  if (_pushSubscription) {
+    await unsubscribePush();
+  } else {
+    const perm = await Notification.requestPermission();
+    if (perm === 'granted') await subscribeToPush();
+  }
+}
+
+function updatePushUI() {
+  const btn = document.getElementById('pushToggleBtn');
+  if (!btn) return;
+  if (!('PushManager' in window)) { btn.style.display = 'none'; return; }
+  btn.style.display = 'flex';
+  if (_pushSubscription) {
+    btn.innerHTML = '🔔 Notifications On';
+    btn.classList.add('push-on');
+    btn.classList.remove('push-off');
+  } else {
+    btn.innerHTML = '🔕 Enable Notifications';
+    btn.classList.remove('push-on');
+    btn.classList.add('push-off');
+  }
+}
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const raw = atob(base64);
+  const arr = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+  return arr;
+}
+
+// ── iOS PWA Install Prompt ──
+function isIos() { return /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1); }
+function isInStandaloneMode() { return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true; }
+
+function checkIosInstall() {
+  const btn = document.getElementById('iosInstallBtn');
+  if (!btn) return;
+  // Show install button only on iOS Safari when NOT already installed
+  if (isIos() && !isInStandaloneMode()) {
+    btn.style.display = 'flex';
+  } else {
+    btn.style.display = 'none';
+  }
+}
+
+function showIosInstallGuide() {
+  // Remove existing if any
+  const existing = document.getElementById('iosGuideOverlay');
+  if (existing) existing.remove();
+  const overlay = document.createElement('div');
+  overlay.id = 'iosGuideOverlay';
+  overlay.className = 'ios-guide-overlay';
+  overlay.onclick = e => { if (e.target === overlay) overlay.remove(); };
+  overlay.innerHTML = `<div class="ios-guide">
+    <h3>Install Value Alert</h3>
+    <p>Add to your home screen to get push notifications and an app-like experience.</p>
+    <div class="step"><span class="step-num">1</span><span>Tap the <strong>Share</strong> button <span style="font-size:18px;">⬆️</span> in Safari's toolbar</span></div>
+    <div class="step"><span class="step-num">2</span><span>Scroll down and tap <strong>"Add to Home Screen"</strong></span></div>
+    <div class="step"><span class="step-num">3</span><span>Tap <strong>"Add"</strong> — Value Alert will appear on your home screen</span></div>
+    <p style="margin-top:12px;font-size:11px;color:var(--t3);">Once installed, you'll receive push notifications for shared lines and bets.</p>
+    <button onclick="this.closest('.ios-guide-overlay').remove()">Got it</button>
+  </div>`;
+  document.body.appendChild(overlay);
 }
 
 function startSocUnreadPoll() {
@@ -4714,6 +4860,8 @@ async function showSocialView() {
   }
   if (banner) banner.style.display = 'none';
   await loadSocialSidebar();
+  updatePushUI();
+  checkIosInstall();
 }
 
 async function loadSocialSidebar() {

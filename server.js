@@ -13,6 +13,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const fetch = require('node-fetch');
+const webpush = require('web-push');
 const ESPN_PLAYERS = require('./data/espn-players.json'); // name → ESPN athlete ID
 // Odds API name aliases → ESPN file names
 const ESPN_ALIASES = {
@@ -67,6 +68,13 @@ const ODDS_BASE = 'https://api.the-odds-api.com/v4';
 const BDL_BASE = 'https://api.balldontlie.io/nba/v1';
 const NBA_BASE = 'https://stats.nba.com/stats';
 const STATS_TTL = 3 * 60 * 60; // 3-hour cache for stats (games happen daily)
+
+// ---- WEB PUSH SETUP ----
+const VAPID_PUBLIC = process.env.VAPID_PUBLIC_KEY || '';
+const VAPID_PRIVATE = process.env.VAPID_PRIVATE_KEY || '';
+if (VAPID_PUBLIC && VAPID_PRIVATE) {
+  webpush.setVapidDetails('mailto:agent@propedge.app', VAPID_PUBLIC, VAPID_PRIVATE);
+}
 
 // ---- SUPABASE SETUP ----
 const SUPABASE_URL = process.env.SUPABASE_URL || '';
@@ -1784,6 +1792,41 @@ app.post('/api/social/conversations/:id/messages', async (req, res) => {
     const { data } = await supabase.from('messages').insert(msg).select('id, conversation_id, sender_id, content, type, line_data, created_at').single();
     const pm = await socProfiles([user.id]);
     res.json({ ...data, sender: pm[user.id] || {} });
+
+    // Send push notifications to other conversation members (non-blocking)
+    (async () => {
+      try {
+        const { data: members } = await supabase.from('conversation_members').select('user_id').eq('conversation_id', req.params.id).neq('user_id', user.id);
+        if (!members?.length) return;
+        const senderName = pm[user.id]?.displayName || pm[user.id]?.username || 'Someone';
+        let pushBody = '';
+        if (type === 'line' && lineData) {
+          const ld = lineData;
+          const dir = (ld.edge || 0) >= 0 ? 'Over' : 'Under';
+          const ev = ld.dirEV != null ? (ld.dirEV >= 0 ? '+' : '') + ld.dirEV.toFixed(1) + '%' : '';
+          pushBody = `${ld.name || 'Player'} ${dir} ${ld.line ?? ''} ${ld.market || ''} ${ev ? '(EV ' + ev + ')' : ''}`.trim();
+        } else if (type === 'bet' && betData) {
+          const bd = betData;
+          if (bd.type === 'parlay') {
+            pushBody = `${bd.legs?.length || 0}-Leg Parlay · ${bd.combinedOdds || ''}`;
+          } else {
+            // Skip closed bets
+            if (bd.status && bd.status !== 'open') return;
+            const dir = bd.direction === 'over' ? 'Over' : 'Under';
+            pushBody = `${bd.player || 'Player'} ${dir} ${bd.line ?? ''} · $${(bd.stake || 0).toFixed(2)}`;
+          }
+        } else {
+          pushBody = content?.trim()?.substring(0, 100) || 'New message';
+        }
+        const payload = {
+          title: `${senderName} shared a ${type === 'line' ? 'line' : type === 'bet' ? 'bet' : 'message'}`,
+          body: pushBody,
+          tag: `conv-${req.params.id}`,
+          url: '/?tab=social',
+        };
+        await Promise.allSettled(members.map(m => sendPushToUser(m.user_id, payload)));
+      } catch {}
+    })();
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -1821,6 +1864,76 @@ app.get('/api/social/unread', async (req, res) => {
     res.json({ count: msgUnread, pendingRequests: pendingRequests || 0 });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
+
+// ============================================================
+// WEB PUSH NOTIFICATIONS
+// ============================================================
+// Schema (run in Supabase SQL editor):
+//   CREATE TABLE IF NOT EXISTS push_subscriptions (
+//     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+//     user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+//     subscription JSONB NOT NULL,
+//     created_at TIMESTAMPTZ DEFAULT now(),
+//     UNIQUE(user_id, subscription)
+//   );
+
+// Subscribe to push notifications
+app.post('/api/push/subscribe', async (req, res) => {
+  if (!supabase) return res.status(503).json({ error: 'Not configured' });
+  const user = await authUser(req);
+  if (!user) return res.status(401).json({ error: 'Unauthorized' });
+  const { subscription } = req.body;
+  if (!subscription?.endpoint) return res.status(400).json({ error: 'Invalid subscription' });
+  try {
+    // Upsert — same endpoint = update, new endpoint = insert
+    await supabase.from('push_subscriptions').upsert(
+      { user_id: user.id, subscription },
+      { onConflict: 'user_id,subscription' }
+    );
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Unsubscribe
+app.post('/api/push/unsubscribe', async (req, res) => {
+  if (!supabase) return res.status(503).json({ error: 'Not configured' });
+  const user = await authUser(req);
+  if (!user) return res.status(401).json({ error: 'Unauthorized' });
+  const { endpoint } = req.body;
+  try {
+    if (endpoint) {
+      await supabase.from('push_subscriptions').delete().eq('user_id', user.id).filter('subscription->>endpoint', 'eq', endpoint);
+    } else {
+      await supabase.from('push_subscriptions').delete().eq('user_id', user.id);
+    }
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Get VAPID public key (client needs this to subscribe)
+app.get('/api/push/vapid-key', (req, res) => {
+  res.json({ key: VAPID_PUBLIC });
+});
+
+// Helper: send push notification to a user
+async function sendPushToUser(userId, payload) {
+  if (!VAPID_PUBLIC || !VAPID_PRIVATE || !supabase) return;
+  try {
+    const { data: subs } = await supabase.from('push_subscriptions').select('id, subscription').eq('user_id', userId);
+    if (!subs?.length) return;
+    const body = JSON.stringify(payload);
+    const results = await Promise.allSettled(
+      subs.map(s => webpush.sendNotification(s.subscription, body).catch(async err => {
+        // Remove expired/invalid subscriptions (410 Gone or 404)
+        if (err.statusCode === 410 || err.statusCode === 404) {
+          await supabase.from('push_subscriptions').delete().eq('id', s.id);
+        }
+        throw err;
+      }))
+    );
+    return results.filter(r => r.status === 'fulfilled').length;
+  } catch {}
+}
 
 // ============================================================
 // AGENT BETTING SYSTEM — Automated value alert validation
