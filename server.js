@@ -42,6 +42,9 @@ const cache = new NodeCache({
 
 let ODDS_KEY = process.env.ODDS_API_KEY || '';
 let BDL_KEY = process.env.BDL_API_KEY || '';
+
+// Player → team cache (populated by refresh-stats, cold-start load, and stats fetches)
+const _playerTeamCache = {};
 const ODDS_BASE = 'https://api.the-odds-api.com/v4';
 const BDL_BASE = 'https://api.balldontlie.io/nba/v1';
 const NBA_BASE = 'https://stats.nba.com/stats';
@@ -873,7 +876,7 @@ app.get('/api/analytics/merged', async (req, res) => {
       const hitRate = p.line ? Math.round(l10.filter(v => v >= p.line).length / l10.length * 100) : 50;
       const edge = p.line ? +((avg - p.line) / p.line * 100).toFixed(1) : 0;
       const pos = guessPosition(p.name);
-      const team = guessTeam(p.name);
+      const team = _playerTeamCache[p.name] || guessTeam(p.name);
       const modelProb = hitRate / 100;
       const impliedProbOver = impliedProb(p.overOdds);
       const impliedProbUnder = impliedProb(p.underOdds);
@@ -1089,6 +1092,9 @@ app.get('/api/cron/refresh-stats', async (req, res) => {
         newGames.forEach(g => byDate.set(g.date, g));
         const merged = [...byDate.values()].sort((a, b) => new Date(b.date) - new Date(a.date));
         await sbSetGameLog(name, bdlId, merged, position);
+        // Cache team from most recent game
+        const latestTeam = merged[0]?.team;
+        if (latestTeam) _playerTeamCache[name] = latestTeam;
         results.ok.push(`${name} (+${newGames.length})`);
       } catch (e) {
         results.failed.push(`${name} (${e.message})`);
@@ -1103,6 +1109,8 @@ app.get('/api/cron/refresh-stats', async (req, res) => {
         if (!bdlId) { results.failed.push(`${name} (not found in BDL)`); return; }
         const games = await fetchBDLGameLog(bdlId);
         await sbSetGameLog(name, bdlId, games, bdlPos);
+        const latestTeam = games.sort((a, b) => new Date(b.date) - new Date(a.date))[0]?.team;
+        if (latestTeam) _playerTeamCache[name] = latestTeam;
         results.newPlayers.push(`${name} (${games.length} games)`);
       } catch (e) {
         results.failed.push(`${name} (${e.message})`);
@@ -2679,7 +2687,21 @@ if (require.main === module) {
   });
 }
 
-// Load DvP cache from Supabase on cold start (non-blocking)
+// Load player team cache from Supabase on cold start (non-blocking)
+if (supabase) {
+  (async () => {
+    try {
+      const { data } = await supabase.from('player_stats').select('player_name, game_log').eq('season', NBA_SEASON);
+      if (data) {
+        for (const r of data) {
+          const latest = r.game_log?.sort((a, b) => new Date(b.date) - new Date(a.date))?.[0];
+          if (latest?.team) _playerTeamCache[r.player_name] = latest.team;
+        }
+        console.log(`Team cache loaded: ${Object.keys(_playerTeamCache).length} players`);
+      }
+    } catch (e) { console.warn('Team cache load failed:', e.message); }
+  })();
+}
 
 // Required for Vercel serverless
 module.exports = app;
