@@ -1125,6 +1125,18 @@ async function afterLogin() {
     localStorage.setItem('pe_favorites', JSON.stringify([...favorites]));
   }
   updateFavBadge();
+  // Restore UI preferences from server profile (roams across devices)
+  const ui = profile.preferences?.ui;
+  if (ui) {
+    if (ui.pe_theme) { localStorage.setItem('pe_theme', ui.pe_theme); const isLight = ui.pe_theme === 'light'; document.body.classList.toggle('light', isLight); const lbl = document.getElementById('themeLabel'); if (lbl) lbl.textContent = isLight ? 'Light Mode' : 'Dark Mode'; }
+    if (ui.pe_accent) { localStorage.setItem('pe_accent', ui.pe_accent); applyAccent(ui.pe_accent); }
+    if (ui.pe_bg_tint) { localStorage.setItem('pe_bg_tint', ui.pe_bg_tint); applyBgTint(ui.pe_bg_tint); }
+    if (ui.pe_bg_tint_opacity != null) { localStorage.setItem('pe_bg_tint_opacity', ui.pe_bg_tint_opacity); setBgTintOpacity(parseFloat(ui.pe_bg_tint_opacity)); const s=document.getElementById('bgTintSlider'); if(s) s.value=Math.round(parseFloat(ui.pe_bg_tint_opacity)*100); }
+    if (ui.pe_bg_mode) { localStorage.setItem('pe_bg_mode', ui.pe_bg_mode); setBgMode(ui.pe_bg_mode); }
+    if (ui.pe_bg_gradient_intensity != null) { localStorage.setItem('pe_bg_gradient_intensity', ui.pe_bg_gradient_intensity); setBgGradientIntensity(parseFloat(ui.pe_bg_gradient_intensity)); const s=document.getElementById('bgGradSlider'); if(s) s.value=Math.round(parseFloat(ui.pe_bg_gradient_intensity)*100); }
+    if (ui.pe_bg_grad_color) { localStorage.setItem('pe_bg_grad_color', ui.pe_bg_grad_color); setBgGradientColor(ui.pe_bg_grad_color); }
+    if (ui.pe_bg_grad_match != null) { localStorage.setItem('pe_bg_grad_match', ui.pe_bg_grad_match); _bgGradMatchTint = ui.pe_bg_grad_match === '1'; const cb=document.getElementById('bgGradMatchTint'); if(cb) cb.checked=_bgGradMatchTint; toggleGradMatchTint(); }
+  }
   // Update topbar badge
   const initials = (profile.displayName||'?').slice(0,2).toUpperCase();
   document.getElementById('userAvatar').textContent = initials;
@@ -1190,6 +1202,14 @@ function scheduleProfileSync() {
   clearTimeout(_syncTimer);
   _syncTimer = setTimeout(syncProfile, 1500);
 }
+function collectUiPrefs() {
+  const keys = ['pe_accent','pe_theme','pe_bg_tint','pe_bg_tint_opacity',
+                 'pe_bg_mode','pe_bg_gradient_intensity','pe_bg_grad_color','pe_bg_grad_match'];
+  const ui = {};
+  keys.forEach(k => { const v = localStorage.getItem(k); if (v !== null) ui[k] = v; });
+  return ui;
+}
+
 async function syncProfile() {
   if (!_authToken) return;
   const sim = simLoad();
@@ -1199,7 +1219,7 @@ async function syncProfile() {
     const r = await fetch(`${API}/api/user/profile`, {
       method:'PUT',
       headers:{ 'Content-Type':'application/json', 'Authorization': `Bearer ${_authToken}` },
-      body: JSON.stringify({ balance: sim.balance, bets: sim.bets, preferences: { favorites: [...favorites] } }),
+      body: JSON.stringify({ balance: sim.balance, bets: sim.bets, preferences: { favorites: [...favorites], ui: collectUiPrefs() } }),
     });
     if (r.ok) { _lastSyncTime = Date.now(); updateLastSaved(); }
   } catch(e) {
@@ -3899,13 +3919,13 @@ function applyBgTint(rgb, save = false) {
     sw.classList.toggle('active', sw.dataset.rgb === rgb);
   });
   updateBgImage();
-  if (save) localStorage.setItem('pe_bg_tint', rgb);
+  if (save) { localStorage.setItem('pe_bg_tint', rgb); scheduleProfileSync(); }
 }
 
 function setBgGradientColor(hex, save = false) {
   _bgGradientColor = hexToRgb(hex);
   updateBgImage();
-  if (save) localStorage.setItem('pe_bg_grad_color', hex);
+  if (save) { localStorage.setItem('pe_bg_grad_color', hex); scheduleProfileSync(); }
 }
 
 function toggleGradMatchTint(save = false) {
@@ -3922,7 +3942,7 @@ function toggleGradMatchTint(save = false) {
     }
   }
   updateBgImage();
-  if (save) localStorage.setItem('pe_bg_grad_match', _bgGradMatchTint ? '1' : '0');
+  if (save) { localStorage.setItem('pe_bg_grad_match', _bgGradMatchTint ? '1' : '0'); scheduleProfileSync(); }
 }
 
 function setBgTintOpacity(val, save = false) {
@@ -3931,7 +3951,7 @@ function setBgTintOpacity(val, save = false) {
   const lbl = document.getElementById('bgTintVal');
   if (lbl) lbl.textContent = pct + '%';
   updateBgImage();
-  if (save) localStorage.setItem('pe_bg_tint_opacity', _bgTintOpacity);
+  if (save) { localStorage.setItem('pe_bg_tint_opacity', _bgTintOpacity); scheduleProfileSync(); }
 }
 
 function setBgMode(mode, save = false) {
@@ -3941,7 +3961,7 @@ function setBgMode(mode, save = false) {
   const row = document.getElementById('bgGradientRow');
   if (row) row.style.display = mode === 'linear' ? 'block' : 'none';
   updateBgImage();
-  if (save) localStorage.setItem('pe_bg_mode', mode);
+  if (save) { localStorage.setItem('pe_bg_mode', mode); scheduleProfileSync(); }
 }
 
 function setBgGradientIntensity(val, save = false) {
@@ -3950,7 +3970,7 @@ function setBgGradientIntensity(val, save = false) {
   const lbl = document.getElementById('bgGradVal');
   if (lbl) lbl.textContent = pct + '%';
   updateBgImage();
-  if (save) localStorage.setItem('pe_bg_gradient_intensity', _bgGradientIntensity);
+  if (save) { localStorage.setItem('pe_bg_gradient_intensity', _bgGradientIntensity); scheduleProfileSync(); }
 }
 
 function hexToRgb(hex) {
@@ -4000,7 +4020,7 @@ function applyAccent(hex, save = false) {
     if (inp) inp.value = hex;
     updateBgImage();
   }
-  if (save) localStorage.setItem('pe_accent', hex);
+  if (save) { localStorage.setItem('pe_accent', hex); scheduleProfileSync(); }
 }
 
 function resetAccent() {
@@ -4012,6 +4032,7 @@ function toggleTheme() {
   const lbl = document.getElementById('themeLabel');
   if (lbl) lbl.textContent = light ? 'Light Mode' : 'Dark Mode';
   localStorage.setItem('pe_theme', light ? 'light' : 'dark');
+  scheduleProfileSync();
 }
 
 function toggleSettings() {
