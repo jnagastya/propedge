@@ -829,8 +829,8 @@ td{padding:13px 14px;white-space:nowrap;}
         </div>
       </div>
       <div id="bgGradientRow" style="margin-top:12px;display:none;">
-        <div class="settings-row-label"><span>Gradient strength</span><span id="bgGradVal">15%</span></div>
-        <input type="range" class="settings-slider" id="bgGradSlider" min="0" max="40" value="15" oninput="setBgGradientIntensity(this.value/100,true)">
+        <div class="settings-row-label"><span>Gradient strength</span><span id="bgGradVal">80%</span></div>
+        <input type="range" class="settings-slider" id="bgGradSlider" min="0" max="100" value="80" oninput="setBgGradientIntensity(this.value/100,true)">
       </div>
     </div>
   </div>
@@ -2684,6 +2684,7 @@ function openParlayBetModal(legsOverride){
 }
 function placeParlayBet(){
   const d=window._parlayBetData;if(!d)return;
+  playBetSound();
   const sim=simLoad();
   const stake=parseFloat(document.getElementById('stakeInp')?.value)||0;
   if(stake<=0||stake>sim.balance){alert('Invalid stake amount.');return;}
@@ -3211,6 +3212,7 @@ function updatePayoutPreview() {
 }
 function placeBet() {
   if (!_betPlayer) return;
+  playBetSound();
   const sim = simLoad();
   const stake = parseFloat(document.getElementById('stakeInp')?.value) || 0;
   if (stake <= 0 || stake > sim.balance) { alert('Invalid stake amount.'); return; }
@@ -3821,7 +3823,7 @@ const DEFAULT_BG_TINT = '99,102,241';
 let _bgTintRgb = DEFAULT_BG_TINT;
 let _bgTintOpacity = 0.10;
 let _bgMode = 'radial';
-let _bgGradientIntensity = 0.15;
+let _bgGradientIntensity = 0.80;
 let _bgGradientColor = DEFAULT_BG_TINT; // RGB string
 let _bgGradMatchTint = true;
 
@@ -4052,6 +4054,58 @@ document.addEventListener('click', e => {
   }
   updateBgImage();
 })();
+
+// ── Sound Engine (Web Audio API) ──
+let _audioCtx = null;
+function _getACtx() {
+  if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (_audioCtx.state === 'suspended') _audioCtx.resume();
+  return _audioCtx;
+}
+
+function playClick() {
+  try {
+    const ctx = _getACtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(900, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(540, ctx.currentTime + 0.065);
+    gain.gain.setValueAtTime(0.13, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.065);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.065);
+  } catch(e) {}
+}
+
+function playBetSound() {
+  try {
+    const ctx = _getACtx();
+    // Three-note ascending chime: C5 → E5 → G5
+    [[523, 0], [659, 0.13], [784, 0.26]].forEach(([freq, delay]) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, ctx.currentTime + delay);
+      gain.gain.setValueAtTime(0.0, ctx.currentTime + delay);
+      gain.gain.linearRampToValueAtTime(0.20, ctx.currentTime + delay + 0.012);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.55);
+      osc.start(ctx.currentTime + delay);
+      osc.stop(ctx.currentTime + delay + 0.55);
+    });
+  } catch(e) {}
+}
+
+// Global click sound — fires for buttons, tabs, cards
+document.addEventListener('click', e => {
+  if (e.target.matches('input, textarea, select, input[type=range]')) return;
+  if (e.target.closest('input[type=range]')) return;
+  if (e.target.closest('button, .nav-tab, .va-card, .swatch, .bg-swatch, .fav-card, .p-leg, .bet-card, .hist-row, .an-card, .gls-card, .sim-stat')) {
+    playClick();
+  }
+}, { passive: true });
 
 // ── Bell animation (JS-driven for compound motion) ──
 (function() {
