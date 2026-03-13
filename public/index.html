@@ -208,6 +208,24 @@ td{padding:9px 11px;white-space:nowrap;}
 .di-tab{padding:7px 13px;border:none;background:none;color:var(--t2);font-family:var(--sans);font-size:12px;font-weight:500;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .12s;}
 .di-tab:hover{color:var(--t1);}.di-tab.on{color:var(--b);border-bottom-color:var(--b);font-weight:600;}
 .di-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+/* -- Line Simulator -- */
+.sim-panel{background:linear-gradient(135deg,rgba(99,102,241,.07),rgba(139,92,246,.04));border:1px solid rgba(99,102,241,.28);border-radius:10px;padding:16px 18px;}
+.sim-compare{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px;}
+.sim-col{background:var(--bg2);border-radius:8px;padding:10px 12px;border:1px solid var(--bd);}
+.sim-col.sim-new{border-color:rgba(99,102,241,.45);background:rgba(99,102,241,.08);}
+.sim-stat{display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:11px;border-bottom:1px solid var(--bd);}
+.sim-stat:last-child{border-bottom:none;}
+.sim-stat-lbl{color:var(--t3);font-weight:600;}
+.sim-stat-val{font-weight:700;display:flex;align-items:center;gap:2px;}
+.sim-delta{font-size:10px;font-weight:700;margin-left:3px;}
+.sim-delta.pos{color:var(--g);}
+.sim-delta.neg{color:var(--r);}
+.sim-inp{width:64px;text-align:center;font-size:11px;font-weight:600;background:var(--bg2);border:1px solid var(--bd);border-radius:5px;padding:3px 6px;outline:none;color:var(--t1);-moz-appearance:textfield;}
+.sim-inp::-webkit-inner-spin-button,.sim-inp::-webkit-outer-spin-button{-webkit-appearance:none;}
+.sim-inp:focus{border-color:var(--b);}
+.sim-line-num{width:62px;text-align:center;font-size:13px;font-weight:700;color:#818cf8;background:var(--bg2);border:1px solid rgba(99,102,241,.4);border-radius:6px;padding:3px 8px;outline:none;-moz-appearance:textfield;}
+.sim-line-num::-webkit-inner-spin-button,.sim-line-num::-webkit-outer-spin-button{-webkit-appearance:none;}
+.sim-line-num:focus{border-color:var(--b);box-shadow:0 0 0 2px rgba(99,102,241,.2);}
 .dc{background:var(--bg1);border:1px solid var(--bd);border-radius:var(--radius);padding:14px;}
 .dc.full{grid-column:1/-1;}
 .dc-t{font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--t2);margin-bottom:12px;display:flex;align-items:center;gap:6px;}
@@ -1714,6 +1732,7 @@ function renderDet(i,p){
     <button class="di-tab" onclick="showDTab('${i}','splits',this)">Splits</button>
     <button class="di-tab" onclick="showDTab('${i}','gamelog',this)">Game Log</button>
     ${booksTab}${scnTab}
+    <button class="di-tab" onclick="showDTab('${i}','simulator',this)">⚡ Line Sim</button>
   </div><div id="dtc-${i}"></div>`;
   showDTab(i,'overview',c.querySelector('.di-tab'));
   // Fetch real stats from stats.nba.com in background; auto-refresh overview when ready
@@ -1804,6 +1823,7 @@ async function showDTab(i,tab,btn){
   else if(tab==='gamelog')await loadAndRenderGameLog(el,p);
   else if(tab==='books')renderBookComparison(el,p);
   else if(tab==='scenario')renderScenario(el,p);
+  else if(tab==='simulator')renderLineSimulator(el,p);
 }
 async function loadAndRenderSplits(el,p){
   if(p.splits){renderSplits(el,p);return;}
@@ -1938,6 +1958,139 @@ function renderOverview(el,p){
       </div>
     </div>
   </div>`;
+}
+
+// ── Normal CDF (Abramowitz & Stegun) ──
+function normalCDF(z){
+  const a1=0.254829592,a2=-0.284496736,a3=1.421413741,a4=-1.453152027,a5=1.061405429,pp=0.3275911;
+  const sign=z<0?-1:1; z=Math.abs(z);
+  const t=1/(1+pp*z);
+  const y=1-(((((a5*t+a4)*t)+a3)*t+a2)*t+a1)*t*Math.exp(-z*z);
+  return 0.5*(1+sign*y);
+}
+function estHitRate(line,avg,stdDev){
+  if(!stdDev||stdDev===0)return avg>=line?99:1;
+  return Math.min(99,Math.max(1,Math.round((1-normalCDF((line-avg)/stdDev))*100)));
+}
+
+function renderLineSimulator(el,p){
+  if(!p.hasRealStats){
+    el.innerHTML=`<div style="padding:24px;text-align:center;color:var(--t3);font-size:12px;">
+      Real stats are required for the simulator.<br>Click <strong>Overview</strong> first — stats load automatically from NBA.com.</div>`;
+    return;
+  }
+  const orig=p.line, avg=p.avg, sd=p.stdDev||1, n=p.gamesPlayed||10;
+  const half=Math.max(4,+(sd*2).toFixed(1));
+  const sMin=+(Math.max(0.5,orig-half).toFixed(1)), sMax=+(orig+half).toFixed(1);
+  el.innerHTML=`<div class="sim-panel">
+    <div style="font-size:13px;font-weight:700;color:var(--t1);margin-bottom:3px;">⚡ Alternate Line Simulator</div>
+    <div style="font-size:11px;color:var(--t3);margin-bottom:14px;">Drag the line to see how each stat changes. Hit rates are estimated using a normal distribution (avg <strong>${avg}</strong>, σ <strong>${sd}</strong>, <strong>${n}</strong>-game sample).</div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+      <span style="font-size:11px;color:var(--t3);min-width:40px;">Line</span>
+      <input type="range" min="${sMin}" max="${sMax}" step="0.5" value="${orig}" style="flex:1;cursor:pointer;accent-color:#6366f1;" id="simLineSlider" oninput="updateLineSim()">
+      <input type="number" min="${sMin}" max="${sMax}" step="0.5" value="${orig}" class="sim-line-num" id="simLineNum" oninput="updateLineSimNum()">
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:11px;color:var(--t2);margin-bottom:6px;">
+      <span style="font-weight:600;">Alternate odds <span style="color:var(--t3);font-weight:400;">(optional — leave blank to use current)</span></span>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;font-size:11px;flex-wrap:wrap;">
+      <span style="color:var(--t3);">Over</span>
+      <input type="number" placeholder="${p.overOdds||'-110'}" class="sim-inp" id="simOverOdds" oninput="updateLineSim()">
+      <span style="color:var(--t3);">Under</span>
+      <input type="number" placeholder="${p.underOdds||'-110'}" class="sim-inp" id="simUnderOdds" oninput="updateLineSim()">
+    </div>
+    <div class="sim-compare" id="simCompare"></div>
+    <div style="margin-top:12px;font-size:10px;color:var(--t3);font-style:italic;">Estimates assume player output follows a normal distribution. Actual alternate-line hit rates depend on game-by-game data not available in the frontend.</div>
+  </div>`;
+  window._simP=p;
+  updateLineSim();
+}
+
+function updateLineSim(){
+  const p=window._simP; if(!p) return;
+  const slider=document.getElementById('simLineSlider');
+  const numEl=document.getElementById('simLineNum');
+  if(!slider||!numEl) return;
+  const newLine=parseFloat(slider.value);
+  numEl.value=newLine;
+
+  const avg=p.avg, sd=p.stdDev||1, n=p.gamesPlayed||10;
+  // Estimate hit rates at new line via normal distribution
+  const l10=p.l10||[];
+  const l10avg=l10.length?l10.reduce((a,b)=>a+b,0)/l10.length:avg;
+  const l5=l10.slice(0,5);
+  const l5avg=l5.length?l5.reduce((a,b)=>a+b,0)/l5.length:l10avg;
+  const eSeason=estHitRate(newLine,avg,sd);
+  const eL10=estHitRate(newLine,l10avg,sd);
+  const eL5=estHitRate(newLine,l5avg,sd);
+  // Bayesian shrinkage
+  const rawProb=(eL5*0.35+eL10*0.40+eSeason*0.25)/100;
+  const simMP=Math.min(0.97,Math.max(0.03,(rawProb*n+5)/(n+10)));
+  const simEdge=newLine>0?+((avg-newLine)/newLine*100).toFixed(1):0;
+  const isOver=simEdge>=0;
+  const dirMP=isOver?simMP:1-simMP;
+  const dirHR=Math.round(dirMP*100);
+  // Odds — use typed values or fall back to originals
+  const rawOv=parseInt(document.getElementById('simOverOdds')?.value);
+  const rawUv=parseInt(document.getElementById('simUnderOdds')?.value);
+  const simOvOdds=isNaN(rawOv)?(p.overOdds||-110):rawOv;
+  const simUvOdds=isNaN(rawUv)?(p.underOdds||-110):rawUv;
+  const simDirOdds=isOver?simOvOdds:simUvOdds;
+  const simEV=calcEV(dirMP,simDirOdds);
+  const dirImpl=impliedProb(simDirOdds);
+  const evEdge=dirMP-dirImpl;
+  // Confidence
+  const cv=avg>0?sd/avg:0.5;
+  const edgePts=Math.min(40,Math.max(0,evEdge/0.15*20+20));
+  const hrPts=Math.min(40,Math.max(0,(dirHR-25)*0.8));
+  const cvPts=Math.min(20,Math.max(0,(0.6-Math.min(cv,0.6))/0.4*20));
+  const simConf=Math.max(0,Math.min(100,Math.round(edgePts+hrPts+cvPts)));
+
+  // Original baseline
+  const origIsOver=(p.edge||0)>=0;
+  const origDirHR=origIsOver?(p.hitRate||50):(100-(p.hitRate||50));
+  const origDirMP=origIsOver?(p.modelProb||0.5):(1-(p.modelProb||0.5));
+  const origDirEV=origIsOver?(p.evOver??0):(p.evUnder??0);
+
+  function delta(nv,ov,higherBetter=true){
+    const d=+(nv-ov).toFixed(1); if(d===0)return'';
+    const good=higherBetter?d>0:d<0;
+    return`<span class="sim-delta ${good?'pos':'neg'}">${d>0?'+':''}${d}</span>`;
+  }
+  const dir=isOver?'Over':'Under';
+  const oc=simEdge>=0?'var(--g)':'var(--r)';
+  const origOc=(p.edge||0)>=0?'var(--g)':'var(--r)';
+
+  document.getElementById('simCompare').innerHTML=`
+    <div class="sim-col">
+      <div style="font-size:10px;font-weight:800;letter-spacing:.5px;color:var(--t3);text-transform:uppercase;margin-bottom:8px;">Original · Line ${p.line}</div>
+      <div class="sim-stat"><span class="sim-stat-lbl">Direction</span><span class="sim-stat-val">${origIsOver?'Over':'Under'}</span></div>
+      <div class="sim-stat"><span class="sim-stat-lbl">Hit Rate</span><span class="sim-stat-val">${origDirHR}%</span></div>
+      <div class="sim-stat"><span class="sim-stat-lbl">Model Prob</span><span class="sim-stat-val">${Math.round(origDirMP*100)}%</span></div>
+      <div class="sim-stat"><span class="sim-stat-lbl">Edge</span><span class="sim-stat-val" style="color:${origOc}">${(p.edge||0)>0?'+':''}${(p.edge||0).toFixed(1)}%</span></div>
+      <div class="sim-stat"><span class="sim-stat-lbl">EV</span><span class="sim-stat-val" style="color:${origDirEV>=0?'var(--g)':'var(--r)'}">${origDirEV>0?'+':''}${origDirEV}%</span></div>
+      <div class="sim-stat"><span class="sim-stat-lbl">Confidence</span><span class="sim-stat-val">${p.confidence||0}/100</span></div>
+    </div>
+    <div class="sim-col sim-new">
+      <div style="font-size:10px;font-weight:800;letter-spacing:.5px;color:#818cf8;text-transform:uppercase;margin-bottom:8px;">Simulated · Line ${newLine}${newLine!==p.line?` <span style="font-weight:600;color:${newLine<p.line?'var(--g)':'var(--r)'}">(${newLine<p.line?'−':'+'}${Math.abs(+(newLine-p.line).toFixed(1))})</span>`:''}</div>
+      <div class="sim-stat"><span class="sim-stat-lbl">Direction</span><span class="sim-stat-val">${dir}</span></div>
+      <div class="sim-stat"><span class="sim-stat-lbl">Hit Rate (est)</span><span class="sim-stat-val">${dirHR}%${delta(dirHR,origDirHR)}</span></div>
+      <div class="sim-stat"><span class="sim-stat-lbl">Model Prob</span><span class="sim-stat-val">${Math.round(dirMP*100)}%${delta(Math.round(dirMP*100),Math.round(origDirMP*100))}</span></div>
+      <div class="sim-stat"><span class="sim-stat-lbl">Edge</span><span class="sim-stat-val" style="color:${oc}">${simEdge>0?'+':''}${simEdge}%${delta(simEdge,p.edge||0)}</span></div>
+      <div class="sim-stat"><span class="sim-stat-lbl">EV (${simDirOdds>0?'+':''}${simDirOdds})</span><span class="sim-stat-val" style="color:${simEV>=0?'var(--g)':'var(--r)'}">${simEV>0?'+':''}${simEV}%${delta(simEV,origDirEV)}</span></div>
+      <div class="sim-stat"><span class="sim-stat-lbl">Confidence</span><span class="sim-stat-val">${simConf}/100${delta(simConf,p.confidence||0)}</span></div>
+    </div>`;
+}
+
+function updateLineSimNum(){
+  const slider=document.getElementById('simLineSlider');
+  const numEl=document.getElementById('simLineNum');
+  if(!slider||!numEl)return;
+  let v=parseFloat(numEl.value);
+  if(isNaN(v))return;
+  v=Math.min(parseFloat(slider.max),Math.max(parseFloat(slider.min),Math.round(v/0.5)*0.5));
+  numEl.value=v; slider.value=v;
+  updateLineSim();
 }
 
 function renderBookComparison(el,p){
