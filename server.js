@@ -75,7 +75,7 @@ const _playerTeamCache = {
   'Toumani Camara':'POR','Bennedict Mathurin':'IND','Jaylen Wells':'MEM',
   'Dean Wade':'CLE','Robert Williams':'POR','Isaiah Stewart II':'DET',
   'Donovan Clingan':'POR','Cooper Flagg':'LAL','Saddiq Bey':'ATL',
-  'Kris Dunn':'LAC','Kevin Huerter':'IND','Jabari Smith Jr':'HOU',
+  'Kris Dunn':'LAC','Kevin Huerter':'IND','Jabari Smith Jr':'HOU','Leonard Miller':'CHI',
 };
 const ODDS_BASE = 'https://api.the-odds-api.com/v4';
 const BDL_BASE = 'https://api.balldontlie.io/nba/v1';

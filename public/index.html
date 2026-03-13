@@ -363,6 +363,10 @@ table{width:100%;border-collapse:collapse;font-size:13px;}
   .var-card{width:150px;padding:6px 8px;gap:6px;border-radius:8px;}
   .var-label-text{font-size:9px;}
   .var-label-icon{font-size:13px;}
+  .lmr-outer{height:60px;margin-bottom:10px;}
+  .lmr-card{width:170px;padding:6px 8px;gap:6px;border-radius:8px;}
+  .lmr-label-text{font-size:7px;}
+  .lmr-av{width:28px;height:28px;}
   .parlay-stats{gap:8px;}
   .parlay-stat{padding:10px;min-width:0;}
   .bet-card{padding:12px 14px;}
@@ -621,21 +625,27 @@ td{padding:13px 14px;white-space:nowrap;}
 .flag-dnp{background:rgba(156,163,175,.15);color:#9ca3af;border:1px solid rgba(156,163,175,.3);}
 .flag-est{background:var(--bld);color:var(--b-text);border:1px solid var(--bb);font-style:italic;}
 .flag-mover{background:rgba(168,85,247,.15);color:#c084fc;border:1px solid rgba(168,85,247,.3);}
-.lm-ribbon{display:flex;gap:10px;overflow-x:auto;padding:10px 16px;scrollbar-width:none;-ms-overflow-style:none;}
-.lm-ribbon::-webkit-scrollbar{display:none;}
-.lm-ribbon-wrap{background:linear-gradient(135deg,var(--bg2),var(--bg1));border-bottom:1px solid var(--bd);margin:-16px -16px 16px;position:sticky;top:0;z-index:5;}
-.lm-ribbon-hdr{display:flex;align-items:center;justify-content:space-between;padding:10px 16px 0;font-size:12px;font-weight:700;color:var(--t2);}
-.lm-card{flex-shrink:0;min-width:160px;max-width:200px;padding:10px 12px;background:var(--bg1);border:1px solid var(--bd);border-radius:10px;cursor:pointer;transition:border-color .15s,transform .15s;}
-.lm-card:hover{border-color:var(--b);transform:translateY(-1px);}
-.lm-av{width:28px;height:28px;border-radius:50%;overflow:hidden;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:var(--t3);flex-shrink:0;}
-.lm-name{font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.lm-mkt{font-size:9px;color:var(--t3);font-weight:600;text-transform:uppercase;letter-spacing:.3px;}
-.lm-row{display:flex;align-items:baseline;gap:4px;margin-top:4px;}
-.lm-old{font-size:11px;color:var(--t3);text-decoration:line-through;}
-.lm-arrow{font-size:9px;color:var(--t3);}
-.lm-new{font-size:14px;font-weight:700;}
-.lm-odds{font-size:10px;color:var(--t3);margin-top:2px;}
-.lm-prob{font-size:10px;font-weight:600;margin-top:3px;padding:2px 6px;border-radius:4px;display:inline-block;}
+.lmr-outer{position:relative;margin-bottom:14px;height:72px;overflow:hidden;display:flex;align-items:center;}
+.lmr-outer::after{content:'';position:absolute;top:0;bottom:0;right:0;width:80px;z-index:2;pointer-events:none;background:linear-gradient(-90deg,var(--bg0) 30%,transparent);}
+.lmr-label{flex-shrink:0;width:52px;z-index:3;display:flex;align-items:center;justify-content:center;pointer-events:none;}
+.lmr-label-inner{display:flex;flex-direction:column;align-items:center;gap:2px;white-space:nowrap;}
+.lmr-label-icon{font-size:16px;line-height:1;}
+.lmr-label-text{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:#c084fc;}
+.lmr-scroll{flex:1;height:72px;display:flex;align-items:center;overflow:hidden;mask-image:linear-gradient(90deg,transparent 0%,#000 3%,#000 92%,transparent 100%);-webkit-mask-image:linear-gradient(90deg,transparent 0%,#000 3%,#000 92%,transparent 100%);}
+.lmr-track{display:flex;gap:8px;width:max-content;animation:var-scroll 50s linear infinite;}
+.lmr-track:hover{animation-play-state:paused;}
+.lmr-card{flex-shrink:0;width:200px;background:var(--bg1);border:1px solid rgba(168,85,247,.15);border-radius:10px;padding:8px 10px;cursor:pointer;display:flex;gap:8px;align-items:center;user-select:none;transition:border-color .15s,box-shadow .15s,transform .15s;}
+.lmr-card:hover{border-color:rgba(168,85,247,.45);box-shadow:0 0 14px rgba(168,85,247,.13),0 2px 8px rgba(0,0,0,.3);transform:translateY(-1px);}
+.lmr-av{width:36px;height:36px;border-radius:50%;overflow:hidden;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--t3);flex-shrink:0;}
+.lmr-body{flex:1;min-width:0;line-height:1.35;}
+.lmr-top{display:flex;align-items:center;gap:4px;font-size:11px;}
+.lmr-nm{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.lmr-ln{font-size:10px;color:var(--t2);white-space:nowrap;}
+.lmr-st{font-size:9px;color:var(--t3);white-space:nowrap;display:flex;gap:3px;align-items:center;}
+.lmr-sep{opacity:.4;}
+.lmr-ev{color:var(--g);font-weight:600;}
+.vs-slider-wrap{display:flex;align-items:center;gap:8px;margin-top:4px;padding:0 18px 6px;}
+.vs-slider-wrap input[type=range]{flex:1;max-width:200px;}
 .va-formula{margin-top:8px;font-size:10px;color:var(--t3);padding:8px 10px;background:var(--bg2);border-radius:6px;line-height:1.7;border:1px solid var(--bd);}
 .va-formula span{color:var(--b);font-weight:700;}
 
@@ -1332,6 +1342,15 @@ td{padding:13px 14px;white-space:nowrap;}
 
   <!-- ======= VALUE ALERTS VIEW ======= -->
   <div class="va-view view-pane" id="alertsView">
+    <!-- LINE MOVERS RIBBON -->
+    <div class="lmr-outer" id="lmRibbonOuter" style="display:none;">
+      <div class="lmr-label">
+        <div class="lmr-label-inner"><span class="lmr-label-icon">↕</span><span class="lmr-label-text">Line<br>Movers</span></div>
+      </div>
+      <div class="lmr-scroll">
+        <div class="lmr-track" id="lmRibbonTrack"></div>
+      </div>
+    </div>
     <div class="alert-mkt-bar" id="alertMktBar"></div>
     <div class="risk-ctrl">
       <span class="risk-label">Risk Profile:</span>
@@ -1339,10 +1358,15 @@ td{padding:13px 14px;white-space:nowrap;}
       <span class="risk-val" id="riskVal" style="color:var(--a);">Balanced</span>
     </div>
     <div class="risk-thresholds" id="riskThresh">
-      <span><span class="dot" style="background:var(--g)"></span>Conservative: Value Score 44+</span>
-      <span><span class="dot" style="background:var(--a)"></span>Balanced: Value Score 30+</span>
-      <span><span class="dot" style="background:var(--r)"></span>Aggressive: Value Score 18+</span>
+      <span><span class="dot" style="background:var(--g)"></span>Conservative: Value Score 50+</span>
+      <span><span class="dot" style="background:var(--a)"></span>Balanced: Value Score 40+</span>
+      <span><span class="dot" style="background:var(--r)"></span>Aggressive: Value Score 30+</span>
       <button class="wt-toggle" id="wtToggleBtn" onclick="toggleWeightPanel()">⚙ Weights</button>
+    </div>
+    <div class="vs-slider-wrap">
+      <span style="font-size:10px;color:var(--t3);font-weight:600;">Custom Min VS:</span>
+      <input type="range" min="5" max="80" step="1" value="40" id="vsCustomSlider" oninput="updateCustomVS(this.value)"/>
+      <span style="font-size:11px;font-weight:700;color:var(--t1);" id="vsCustomVal">40</span>
     </div>
     <div class="wt-panel" id="wtPanel">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
@@ -1892,7 +1916,11 @@ let S = {
   sort:'edge', scnOn:false, scnPlayers:[],
   api:{odds:'err',stats:'err',scores:'err'}, risk:2,
   gameFilter:null,
+  customMinVS: parseInt(localStorage.getItem('va_customMinVS'))||40,
 };
+
+// Restore custom VS slider on load
+(function(){const cs=document.getElementById('vsCustomSlider');const cv=document.getElementById('vsCustomVal');if(cs&&cv&&S.customMinVS){cs.value=S.customMinVS;cv.textContent=S.customMinVS;}})();
 
 const TEAM_MAP = {
   "LeBron James":"LAL","Stephen Curry":"GSW","Kevin Durant":"PHX",
@@ -3139,13 +3167,27 @@ function resetWeights(){
 function updateRisk(v){
   S.risk=parseInt(v||document.getElementById('riskSlider').value);
   const labels=[
-    {n:'Conservative',c:'var(--g)'},
-    {n:'Balanced',c:'var(--a)'},
-    {n:'Aggressive',c:'var(--r)'},
+    {n:'Conservative',c:'var(--g)',vs:50},
+    {n:'Balanced',c:'var(--a)',vs:40},
+    {n:'Aggressive',c:'var(--r)',vs:30},
   ];
   const l=labels[S.risk-1];
   document.getElementById('riskVal').textContent=l.n;
   document.getElementById('riskVal').style.color=l.c;
+  // Sync custom slider to preset
+  const cs=document.getElementById('vsCustomSlider');
+  const cv=document.getElementById('vsCustomVal');
+  if(cs&&cv){cs.value=l.vs;cv.textContent=l.vs;S.customMinVS=l.vs;localStorage.setItem('va_customMinVS',l.vs);}
+  renderAlerts();
+}
+function updateCustomVS(v){
+  const val=parseInt(v);
+  S.customMinVS=val;
+  document.getElementById('vsCustomVal').textContent=val;
+  localStorage.setItem('va_customMinVS',val);
+  // Deselect preset labels
+  const el=document.getElementById('riskVal');
+  if(el){el.textContent=`Custom (${val}+)`;el.style.color='var(--t2)';}
   renderAlerts();
 }
 
@@ -3587,21 +3629,19 @@ function renderAlerts(){
   if(S.data.length)alertMktCache[S.market]=S.data;
   renderAlertMktBar();
   const showMktTag=alertMkt==='all';
-  // Risk levels control a minimum VALUE SCORE cutoff (single composite number that already
-  // blends edge + hit rate + confidence + EV). Using one number guarantees the #1 ranked
-  // pick in Balanced is also #1 in Conservative — Conservative just shows fewer total picks.
-  // A separate minimum edge gate (≥2%) keeps obvious noise out across all modes.
   // Composite value score thresholds — Conservative shows only highest-signal bets
-  const riskCfg=[{label:'Conservative',minVS:44},{label:'Balanced',minVS:30},{label:'Aggressive',minVS:18}];
+  const riskCfg=[{label:'Conservative',minVS:50},{label:'Balanced',minVS:40},{label:'Aggressive',minVS:30}];
   const t=riskCfg[(S.risk||2)-1];
+  // Use custom slider value if set, otherwise preset
+  const effectiveMinVS = S.customMinVS || t.minVS;
   const _now=new Date();
   let alerts=getAlertData()
     .filter(p=>!p.gameTime||new Date(p.gameTime)>_now)
     .map(p=>({...p,vs:valueScore(p),_dirEV:getDirectionalEV(p)}))
-    .filter(p=>p.vs>=t.minVS&&Math.abs(p.edge||0)>=2&&p._dirEV>0)
+    .filter(p=>p.vs>=effectiveMinVS&&Math.abs(p.edge||0)>=2&&p._dirEV>0)
     .sort((a,b)=>b.vs-a.vs);
 
-  // Build "Line Movers" ribbon from ALL loaded data (not just filtered alerts)
+  // Build "Line Movers" rotating ribbon (all lines that moved)
   const allData = getAlertData().filter(p=>!p.gameTime||new Date(p.gameTime)>_now);
   const movers = allData.filter(p=>p.prev_line!=null && (p.prev_line!==p.line || p.prev_overOdds!==p.overOdds || p.prev_underOdds!==p.underOdds))
     .map(p=>{
@@ -3609,56 +3649,71 @@ function renderAlerts(){
       const od=p.overOdds&&p.prev_overOdds?p.overOdds-p.prev_overOdds:0;
       const ud=p.underOdds&&p.prev_underOdds?p.underOdds-p.prev_underOdds:0;
       const absMove=Math.abs(ld)+Math.abs(od)/50+Math.abs(ud)/50;
-      return {...p,_lineDiff:ld,_absMove:absMove,_oddsDiffO:od,_oddsDiffU:ud};
+      // Compute current & previous VS/EV/prob for delta display
+      const vs=valueScore(p);
+      const dirEV=getDirectionalEV(p);
+      const isOver=p.edge>0;
+      const rawMP=p.modelProb??(p.hitRate||50)/100;
+      const dirMP=isOver?rawMP:1-rawMP;
+      const probPct=Math.round(dirMP*100);
+      // Estimate previous values by simulating with prev line/odds
+      const prevP={...p,line:p.prev_line,overOdds:p.prev_overOdds||p.overOdds,underOdds:p.prev_underOdds||p.underOdds};
+      const prevEdge=prevP.avg!=null?+(((prevP.avg-prevP.line)/prevP.line)*100).toFixed(1):0;
+      prevP.edge=prevEdge;
+      const prevVS=valueScore(prevP);
+      const prevDirEV=getDirectionalEV(prevP);
+      const rec=vs>=40?(isOver?'BET OVER':'BET UNDER'):'MONITOR';
+      const prevRec=prevVS>=40?(prevEdge>0?'BET OVER':'BET UNDER'):'MONITOR';
+      return {...p,_lineDiff:ld,_absMove:absMove,_oddsDiffO:od,_oddsDiffU:ud,
+        _vs:vs,_prevVS:prevVS,_dirEV:dirEV,_prevDirEV:prevDirEV,
+        _probPct:probPct,_rec:rec,_prevRec:prevRec,_isOver:isOver};
     })
-    .sort((a,b)=>b._absMove-a._absMove).slice(0,10);
+    .sort((a,b)=>b._absMove-a._absMove);
   window._lmMovers=movers;
 
-  const grid=document.getElementById('vaGrid');
-  const moverHtml = movers.length ? `<div class="lm-ribbon-wrap">
-    <div class="lm-ribbon-hdr"><span>Line Movers — Since Last Refresh</span><span style="font-size:10px;font-weight:500;color:var(--t3);">${movers.length} moved</span></div>
-    <div class="lm-ribbon">
-      ${movers.map((m,i)=>{
-        const dir = m._lineDiff>0?'↑':m._lineDiff<0?'↓':'';
-        const cls = m._lineDiff>0?'up':m._lineDiff<0?'dn':'';
-        const mktS = ({'player_points':'PTS','player_rebounds':'REB','player_assists':'AST','player_threes':'3PM','player_points_rebounds_assists':'PRA','player_rebounds_assists':'R+A'})[m.market||S.market]||'';
-        const hs = getHeadshot(m.name);
-        const init = m.name.split(' ').map(n=>n[0]).join('').substring(0,2);
-        const fmtOdds=o=>o?(o>0?'+':'')+o:'—';
-        const oddsChanged=m._oddsDiffO||m._oddsDiffU;
-        const rawMP=m.modelProb??(m.hitRate||50)/100;
-        const isOver=m.edge>0;
-        const dirMP=isOver?rawMP:1-rawMP;
-        const probPct=Math.round(dirMP*100);
-        const probCol=probPct>=65?'var(--g)':probPct>=50?'var(--a)':'var(--r)';
-        const probBg=probPct>=65?'var(--gd)':probPct>=50?'rgba(251,191,36,.15)':'var(--rd)';
-        return `<div class="lm-card" onclick="openAlertDetail(_lmMovers[${i}])">
-          <div style="display:flex;align-items:center;gap:7px;margin-bottom:6px;">
-            <div class="lm-av" data-av="${m.name.replace(/"/g,'&quot;')}">${hs?`<img src="${hs}" onerror="headshotError(this,'${init}')" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" alt="">`:init}</div>
-            <div style="flex:1;min-width:0;">
-              <div class="lm-name">${m.name}</div>
-              <div class="lm-mkt">${mktS} · ${m.team||''}</div>
-            </div>
+  // Render rotating ribbon
+  const lmOuter=document.getElementById('lmRibbonOuter');
+  const lmTrack=document.getElementById('lmRibbonTrack');
+  if(lmOuter&&lmTrack){
+    if(!movers.length){lmOuter.style.display='none';}
+    else{
+      lmOuter.style.display='';
+      const fmtD=v=>v>0?`+${v.toFixed(1)}`:v.toFixed(1);
+      const makeCard=(m,i)=>{
+        const dir=m._lineDiff>0?'↑':m._lineDiff<0?'↓':'';
+        const mktS=({'player_points':'PTS','player_rebounds':'REB','player_assists':'AST','player_threes':'3PM','player_points_rebounds_assists':'PRA','player_rebounds_assists':'R+A'})[m.market||S.market]||'';
+        const hs=getHeadshot(m.name);
+        const init=m.name.split(' ').map(n=>n[0]).join('').substring(0,2);
+        const av=hs?`<img src="${hs}" onerror="headshotError(this,'${init}')" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" alt="">`:init;
+        const lastName=m.name.split(' ').slice(1).join(' ')||m.name;
+        const vsDelta=m._vs-m._prevVS;
+        const evDelta=m._dirEV-m._prevDirEV;
+        const recChanged=m._rec!==m._prevRec;
+        const dirLabel=m._isOver?'OVER':'UNDER';
+        const lineStr=m._lineDiff!==0?`${m.prev_line}→${m.line} ${dir}${Math.abs(m._lineDiff).toFixed(1)}`:`${m.line} (odds moved)`;
+        return `<div class="lmr-card" onclick="openAlertDetail(_lmMovers[${i}])">
+          <div class="lmr-av" data-av="${m.name.replace(/"/g,'&quot;')}">${av}</div>
+          <div class="lmr-body">
+            <div class="lmr-top"><span class="lmr-nm">${lastName}</span></div>
+            <div class="lmr-ln">${dirLabel} ${lineStr} ${mktS}</div>
+            <div class="lmr-st"><span class="lmr-ev">${fmtD(m._dirEV)}% EV</span><span class="lmr-sep">·</span><span>${m._probPct}%</span><span class="lmr-sep">·</span><span>VS ${m._vs}${vsDelta!==0?` (${fmtD(vsDelta)})`:''}</span>${recChanged?`<span class="lmr-sep">·</span><span style="color:#c084fc;">NEW: ${m._rec}</span>`:''}</div>
           </div>
-          <div class="lm-row">
-            <span class="lm-old">${m.prev_line}</span>
-            <span class="lm-arrow">→</span>
-            <span class="lm-new">${m.line}</span>
-            ${m._lineDiff!==0?`<span class="line-move ${cls} ${Math.abs(m._lineDiff)>=1.5?'line-move-big':''}" style="font-size:10px;">${dir}${Math.abs(m._lineDiff).toFixed(1)}</span>`:''}
-          </div>
-          ${oddsChanged?`<div class="lm-odds">Odds: ${fmtOdds(m.prev_overOdds)} → ${fmtOdds(m.overOdds)} O / ${fmtOdds(m.prev_underOdds)} → ${fmtOdds(m.underOdds)} U</div>`:''}
-          <div class="lm-prob" style="color:${probCol};background:${probBg};">Model: ${probPct}% ${isOver?'Over':'Under'}</div>
         </div>`;
-      }).join('')}
-    </div>
-  </div>` : '';
+      };
+      const html=movers.map((m,i)=>makeCard(m,i)).join('');
+      lmTrack.innerHTML=html+html;
+      prefetchHeadshots(movers.map(m=>m.name));
+    }
+  }
+
+  const grid=document.getElementById('vaGrid');
 
   if(!alerts.length){
-    grid.innerHTML=`${moverHtml}<div style="padding:48px;text-align:center;color:var(--t3);font-size:13px;">No value alerts at the <b>${t.label}</b> level.<br><br>Minimum value score required: ${t.minVS}/100<br><br>Try Aggressive mode or wait for real stats to finish loading.</div>`;
+    grid.innerHTML=`<div style="padding:48px;text-align:center;color:var(--t3);font-size:13px;">No value alerts at the <b>${S.customMinVS||t.label}</b> level.<br><br>Minimum value score required: ${effectiveMinVS}/100<br><br>Try lowering the threshold or wait for real stats to finish loading.</div>`;
     return;
   }
   window._vaAlerts=alerts;
-  grid.innerHTML=moverHtml+alerts.map((p,rank)=>{
+  grid.innerHTML=alerts.map((p,rank)=>{
     const isOver=p.edge>0;
     const dir=isOver?'OVER':'UNDER';
     const hs=getHeadshot(p.name);
