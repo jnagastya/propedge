@@ -273,20 +273,20 @@ table{width:100%;border-collapse:collapse;font-size:13px;}
   .save-btn{font-size:9px;padding:2px 6px;}
   .save-wrap{gap:2px;}
   .logout-btn{display:none;}
-  /* ── Nav: 3 primary tabs + More button ── */
+  /* ── Nav: 3 primary tabs + More dropdown ── */
   .nav-tabs{padding:0;top:42px;gap:0;flex-wrap:wrap;}
   .nav-secondary{display:none;order:10;}
-  .nav-tabs.nav-expanded .nav-secondary{display:block;width:33.3%;text-align:center;background:var(--bg1);border-bottom:1px solid var(--bd);}
+  .nav-tabs.nav-expanded .nav-secondary{display:flex;align-items:center;justify-content:flex-start;width:100%;padding:10px 16px;background:var(--bg1);border-bottom:1px solid var(--bd);font-size:13px;}
   .nav-more{display:block;margin-left:auto;color:var(--t3);font-size:11px;padding:8px 10px;}
   .nav-tab.nav-primary{flex:1;text-align:center;font-size:11px;padding:8px 4px;}
-  .nav-tab.nav-secondary.on{display:block;}
+  .nav-tab.nav-secondary.on{display:flex;width:100%;padding:10px 16px;justify-content:flex-start;}
   /* ── Table: readable rows ── */
   table{width:100%;}
   .tsc{overflow-x:auto;}
   .pc{min-width:0;gap:8px;align-items:center;}
   .av{width:34px;height:34px;font-size:10px;flex-shrink:0;}
   .pi{min-width:0;overflow:hidden;}
-  .pn{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px;display:block;}
+  .pn{font-size:10.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px;display:block;}
   .pm{font-size:8px;white-space:nowrap;}
   .ptb{font-size:8px;padding:0 3px;}
   .player-flag{font-size:7px !important;padding:1px 3px !important;}
