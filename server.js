@@ -1821,13 +1821,16 @@ async function sendDiscordPicks(betsInserted, date) {
     timestamp: new Date().toISOString(),
   }];
 
+  const dirIcon = d => d === 'over' ? '🟢 OVER' : '🔴 UNDER';
+  const evFmt = v => v > 0 ? `🟢 +${v}%` : `🔴 ${v}%`;
+
   // Top picks by value score (favorites)
   if (valueBets.length) {
     const topPicks = valueBets.slice(0, 5);
     const favLines = topPicks.map((b, i) => {
       const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '▸';
-      return `${medal} **${b.player_name}** — ${b.direction.toUpperCase()} ${b.line} ${b.market_label}\n` +
-        `　Odds: \`${fmtOdds(b.odds)}\` · Model: \`${(b.model_prob * 100).toFixed(0)}%\` · EV: \`+${b.ev}%\` · VS: \`${b.value_score}\``;
+      return `${medal} **${b.player_name}** — ${dirIcon(b.direction)} ${b.line} ${b.market_label}\n` +
+        `　Odds: \`${fmtOdds(b.odds)}\` · Model: \`${(b.model_prob * 100).toFixed(0)}%\` · EV: ${evFmt(b.ev)} · VS: \`${b.value_score}\``;
     }).join('\n\n');
 
     embeds.push({
@@ -1841,8 +1844,8 @@ async function sendDiscordPicks(betsInserted, date) {
   if (valueBets.length) {
     const bestEV = [...valueBets].sort((a, b) => b.ev - a.ev).slice(0, 3);
     const evLines = bestEV.map(b =>
-      `💎 **${b.player_name}** — ${b.direction.toUpperCase()} ${b.line} ${b.market_label}\n` +
-      `　EV: \`+${b.ev}%\` · Odds: \`${fmtOdds(b.odds)}\` · Edge: \`${b.edge > 0 ? '+' : ''}${b.edge.toFixed(1)}%\``
+      `💎 **${b.player_name}** — ${dirIcon(b.direction)} ${b.line} ${b.market_label}\n` +
+      `　EV: ${evFmt(b.ev)} · Odds: \`${fmtOdds(b.odds)}\` · Edge: ${b.edge > 0 ? '🟢' : '🔴'} \`${b.edge > 0 ? '+' : ''}${b.edge.toFixed(1)}%\``
     ).join('\n\n');
 
     embeds.push({
@@ -1856,7 +1859,7 @@ async function sendDiscordPicks(betsInserted, date) {
   if (valueBets.length > 5) {
     const remaining = valueBets.slice(5);
     const listLines = remaining.map(b =>
-      `▸ ${b.player_name} — ${b.direction.toUpperCase()} ${b.line} ${b.market_label} (${fmtOdds(b.odds)}, EV +${b.ev}%)`
+      `${b.direction === 'over' ? '🟢' : '🔴'} ${b.player_name} — ${b.direction.toUpperCase()} ${b.line} ${b.market_label} (${fmtOdds(b.odds)}, EV ${evFmt(b.ev)})`
     ).join('\n');
 
     embeds.push({
@@ -1905,19 +1908,22 @@ async function sendDiscordResults(allBets, latestDate) {
     description: `**${yStats.won}-${yStats.lost}** (${yStats.winRate}%) · P&L: **${pnlFmt(yStats.pnl)}**`,
     color: yStats.pnl >= 0 ? 0x10b981 : 0xf43f5e,
     fields: [
-      { name: 'All-Time Value', value: `${aValStats.won}-${aValStats.lost} (${aValStats.winRate}%)\n${pnlFmt(aValStats.pnl)} · ROI ${aValStats.roi}%`, inline: true },
-      { name: 'All-Time Control', value: `${aCtlStats.won}-${aCtlStats.lost} (${aCtlStats.winRate}%)\n${pnlFmt(aCtlStats.pnl)} · ROI ${aCtlStats.roi}%`, inline: true },
+      { name: 'All-Time Value', value: `${aValStats.won}-${aValStats.lost} (${aValStats.winRate}%)\n${aValStats.pnl >= 0 ? '🟢' : '🔴'} ${pnlFmt(aValStats.pnl)} · ROI ${aValStats.roi}%`, inline: true },
+      { name: 'All-Time Control', value: `${aCtlStats.won}-${aCtlStats.lost} (${aCtlStats.winRate}%)\n${aCtlStats.pnl >= 0 ? '🟢' : '🔴'} ${pnlFmt(aCtlStats.pnl)} · ROI ${aCtlStats.roi}%`, inline: true },
     ],
   }];
 
   // Pick-by-pick results — split wins and losses
   const settled = yesterdayValue.filter(b => b.status === 'won' || b.status === 'lost');
+  const dirIcon = d => d === 'over' ? '🟢 OVER' : '🔴 UNDER';
+  const pnlIcon = v => v >= 0 ? `🟢 ${pnlFmt(v)}` : `🔴 ${pnlFmt(v)}`;
   const fmtPick = b => {
     const actual = b.actual_result != null ? b.actual_result : '—';
     const margin = b.actual_result != null && b.line ? ((b.actual_result - b.line) / b.line * 100).toFixed(1) : '—';
     const marginDir = b.direction === 'under' ? (b.actual_result != null ? (-(b.actual_result - b.line) / b.line * 100).toFixed(1) : '—') : margin;
-    return `**${b.player_name}** ${b.direction.toUpperCase()} ${b.line} ${b.market_label}\n` +
-      `　Actual: \`${actual}\` · Margin: \`${marginDir}%\` · ${fmtOdds(b.odds)} → **${pnlFmt(b.pnl || 0)}**`;
+    const marginIcon = parseFloat(marginDir) >= 0 ? '🟢' : '🔴';
+    return `**${b.player_name}** ${dirIcon(b.direction)} ${b.line} ${b.market_label}\n` +
+      `　Actual: \`${actual}\` · Margin: ${marginIcon} \`${marginDir}%\` · ${fmtOdds(b.odds)} → **${pnlIcon(b.pnl || 0)}**`;
   };
   const wins = settled.filter(b => b.status === 'won').sort((a, b) => (b.pnl || 0) - (a.pnl || 0));
   const losses = settled.filter(b => b.status === 'lost').sort((a, b) => (a.pnl || 0) - (b.pnl || 0));
@@ -2527,15 +2533,15 @@ app.get('/api/test-discord', async (req, res) => {
         }, {
           title: '⭐ Favorite Picks (by Value Score)',
           description:
-            '🥇 **LeBron James** — OVER 25.5 PTS\n　Odds: `-110` · Model: `68%` · EV: `+8.2%` · VS: `74`\n\n' +
-            '🥈 **Nikola Jokic** — OVER 9.5 AST\n　Odds: `+105` · Model: `62%` · EV: `+11.5%` · VS: `68`\n\n' +
-            '🥉 **Jayson Tatum** — UNDER 4.5 3PM\n　Odds: `-125` · Model: `71%` · EV: `+6.1%` · VS: `61`',
+            '🥇 **LeBron James** — 🟢 OVER 25.5 PTS\n　Odds: `-110` · Model: `68%` · EV: 🟢 +8.2% · VS: `74`\n\n' +
+            '🥈 **Nikola Jokic** — 🟢 OVER 9.5 AST\n　Odds: `+105` · Model: `62%` · EV: 🟢 +11.5% · VS: `68`\n\n' +
+            '🥉 **Jayson Tatum** — 🔴 UNDER 4.5 3PM\n　Odds: `-125` · Model: `71%` · EV: 🟢 +6.1% · VS: `61`',
           color: 0xf59e0b,
         }, {
           title: '💰 Best Value (by Expected Value)',
           description:
-            '💎 **Nikola Jokic** — OVER 9.5 AST\n　EV: `+11.5%` · Odds: `+105` · Edge: `+7.2%`\n\n' +
-            '💎 **LeBron James** — OVER 25.5 PTS\n　EV: `+8.2%` · Odds: `-110` · Edge: `+5.8%`',
+            '💎 **Nikola Jokic** — 🟢 OVER 9.5 AST\n　EV: 🟢 +11.5% · Odds: `+105` · Edge: 🟢 `+7.2%`\n\n' +
+            '💎 **LeBron James** — 🟢 OVER 25.5 PTS\n　EV: 🟢 +8.2% · Odds: `-110` · Edge: 🟢 `+5.8%`',
           color: 0x10b981,
         }],
       });
@@ -2553,20 +2559,20 @@ app.get('/api/test-discord', async (req, res) => {
           description: '**3-1** (75.0%) · P&L: **+$18.50**',
           color: 0x10b981,
           fields: [
-            { name: 'All-Time Value', value: '28-17 (62.2%)\n+$94.30 · ROI 12.1%', inline: true },
-            { name: 'All-Time Control', value: '19-22 (46.3%)\n-$31.20 · ROI -4.8%', inline: true },
+            { name: 'All-Time Value', value: '28-17 (62.2%)\n🟢 +$94.30 · ROI 12.1%', inline: true },
+            { name: 'All-Time Control', value: '19-22 (46.3%)\n🔴 -$31.20 · ROI -4.8%', inline: true },
           ],
         }, {
           title: '✅ Wins (3)',
           description:
-            '**Nikola Jokic** OVER 9.5 AST\n　Actual: `12` · Margin: `+26.3%` · +105 → **+$10.50**\n\n' +
-            '**LeBron James** OVER 25.5 PTS\n　Actual: `31` · Margin: `+21.6%` · -110 → **+$9.09**\n\n' +
-            '**Jayson Tatum** UNDER 4.5 3PM\n　Actual: `3` · Margin: `+33.3%` · -125 → **+$8.00**',
+            '**Nikola Jokic** 🟢 OVER 9.5 AST\n　Actual: `12` · Margin: 🟢 `+26.3%` · +105 → **🟢 +$10.50**\n\n' +
+            '**LeBron James** 🟢 OVER 25.5 PTS\n　Actual: `31` · Margin: 🟢 `+21.6%` · -110 → **🟢 +$9.09**\n\n' +
+            '**Jayson Tatum** 🔴 UNDER 4.5 3PM\n　Actual: `3` · Margin: 🟢 `+33.3%` · -125 → **🟢 +$8.00**',
           color: 0x10b981,
         }, {
           title: '❌ Losses (1)',
           description:
-            '**Anthony Davis** OVER 11.5 REB\n　Actual: `9` · Margin: `-21.7%` · -115 → **-$10.00**',
+            '**Anthony Davis** 🟢 OVER 11.5 REB\n　Actual: `9` · Margin: 🔴 `-21.7%` · -115 → **🔴 -$10.00**',
           color: 0xf43f5e,
         }, {
           title: '🎯 Model Calibration',
