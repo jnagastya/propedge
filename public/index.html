@@ -3702,6 +3702,7 @@ function renderAlerts(){
       };
       const html=movers.map((m,i)=>makeCard(m,i)).join('');
       lmTrack.innerHTML=html+html;
+      lmTrack.style.animationDuration=Math.max(35,movers.length*7)+'s';
       prefetchHeadshots(movers.map(m=>m.name));
     }
   }
