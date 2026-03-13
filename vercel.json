@@ -20,6 +20,9 @@
     { "path": "/api/cron/refresh-odds", "schedule": "0 23 * * *" },
     { "path": "/api/cron/refresh-odds", "schedule": "30 2 * * *" },
     { "path": "/api/cron/grade-bets", "schedule": "0 9 * * *" },
-    { "path": "/api/cron/grade-bets", "schedule": "0 15 * * *" }
+    { "path": "/api/cron/grade-bets", "schedule": "0 15 * * *" },
+    { "path": "/api/cron/agent-bet", "schedule": "30 23 * * *" },
+    { "path": "/api/cron/grade-agent-bets", "schedule": "0 14 * * *" },
+    { "path": "/api/cron/newsletter", "schedule": "0 15 * * *" }
   ]
 }

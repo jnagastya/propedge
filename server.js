@@ -1744,6 +1744,490 @@ app.get('/api/social/unread', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// ============================================================
+// AGENT BETTING SYSTEM — Automated value alert validation
+// ============================================================
+// Schema (run in Supabase SQL editor):
+//   CREATE TABLE IF NOT EXISTS agent_bets (
+//     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+//     bet_date DATE NOT NULL,
+//     player_name TEXT NOT NULL,
+//     team TEXT,
+//     matchup TEXT,
+//     market TEXT NOT NULL,
+//     market_label TEXT,
+//     line NUMERIC NOT NULL,
+//     direction TEXT NOT NULL CHECK (direction IN ('over','under')),
+//     odds INTEGER NOT NULL,
+//     model_prob NUMERIC,
+//     confidence NUMERIC,
+//     edge NUMERIC,
+//     ev NUMERIC,
+//     value_score INTEGER,
+//     hit_rate NUMERIC,
+//     is_control BOOLEAN DEFAULT false,
+//     stake NUMERIC DEFAULT 10,
+//     status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open','won','lost','void','dnp')),
+//     actual_result NUMERIC,
+//     pnl NUMERIC,
+//     game_time TIMESTAMPTZ,
+//     graded_at TIMESTAMPTZ,
+//     created_at TIMESTAMPTZ DEFAULT now()
+//   );
+//   CREATE INDEX IF NOT EXISTS idx_agent_bets_date ON agent_bets(bet_date);
+//   CREATE INDEX IF NOT EXISTS idx_agent_bets_status ON agent_bets(status);
+
+const { Resend } = require('resend');
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
+const NEWSLETTER_TO = process.env.NEWSLETTER_EMAIL || '';
+const NEWSLETTER_FROM = process.env.NEWSLETTER_FROM || 'PropEdge Agent <agent@propedge.app>';
+
+const MKT_LABELS = { player_points: 'PTS', player_rebounds: 'REB', player_assists: 'AST', player_threes: '3PM', player_points_rebounds_assists: 'PRA' };
+const STAT_KEYS  = { player_points: 'pts', player_rebounds: 'reb', player_assists: 'ast', player_threes: 'fg3m', player_points_rebounds_assists: 'pra' };
+
+// Server-side value scoring (mirrors client logic exactly)
+function serverValueScore(edge, hitRate, confidence, dirEV) {
+  const evScore = Math.min(Math.max(dirEV, -20), 20);
+  const isOver = edge >= 0;
+  const dirHR = isOver ? hitRate : (100 - hitRate);
+  return Math.round(Math.abs(edge) * 0.25 + Math.max(0, dirHR - 50) * 0.25 + confidence * 0.25 + (evScore + 20) * 0.25);
+}
+
+function serverComputeStats(gameLog, line, market, overOdds, underOdds) {
+  const statKey = STAT_KEYS[market] || 'pts';
+  const getVal = g => statKey === 'pra' ? (+g.pts || 0) + (+g.reb || 0) + (+g.ast || 0) : +(g[statKey] || 0);
+  const sorted = [...gameLog].sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+  const played = sorted.filter(g => parseInt(g.min || '0') > 0);
+  if (!played.length) return null;
+
+  const vals = played.map(g => getVal(g));
+  const l10 = vals.slice(0, 10);
+  const l5 = vals.slice(0, 5);
+  const avg = +(vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1);
+  const hitRate = line ? Math.round(vals.filter(v => v >= line).length / vals.length * 100) : 50;
+  const edge = line ? +((avg - line) / line * 100).toFixed(1) : 0;
+  const l10avg = l10.reduce((a, b) => a + b, 0) / l10.length;
+  const stdDev = +(Math.sqrt(l10.reduce((s, v) => s + Math.pow(v - l10avg, 2), 0) / l10.length)).toFixed(1);
+  const cv = avg ? stdDev / avg : 0.4;
+
+  const l10HitRate = line && l10.length ? Math.round(l10.filter(v => v >= line).length / l10.length * 100) : hitRate;
+  const l5HitRate = (l5.length >= 3 && line) ? Math.round(l5.filter(v => v >= line).length / l5.length * 100) : l10HitRate;
+
+  const rawProb = (l5HitRate * 0.35 + l10HitRate * 0.40 + hitRate * 0.25) / 100;
+  const modelProb = Math.min(0.97, Math.max(0.03, (rawProb * vals.length + 5) / (vals.length + 10)));
+
+  const evOver = calcEV(modelProb, overOdds);
+  const evUnder = calcEV(1 - modelProb, underOdds);
+
+  const isOverBet = edge >= 0;
+  const dirModelProb = isOverBet ? modelProb : 1 - modelProb;
+  const dirImplied = isOverBet ? impliedProb(overOdds) : impliedProb(underOdds);
+  const evEdge = dirModelProb - dirImplied;
+  const edgePts = Math.min(40, Math.max(0, evEdge / 0.15 * 20 + 20));
+  const dirHR = Math.round(dirModelProb * 100);
+  const hrPts = Math.min(40, Math.max(0, (dirHR - 25) * 0.8));
+  const cvPts = Math.min(20, Math.max(0, (0.6 - Math.min(cv, 0.6)) / 0.4 * 20));
+  const confidence = Math.max(0, Math.min(100, Math.round(edgePts + hrPts + cvPts)));
+
+  const direction = isOverBet ? 'over' : 'under';
+  const odds = isOverBet ? overOdds : underOdds;
+  const dirEV = isOverBet ? evOver : evUnder;
+  const vs = serverValueScore(edge, hitRate, confidence, dirEV);
+
+  return { avg, hitRate, edge, modelProb, confidence, evOver, evUnder, direction, odds, dirEV, vs, stdDev, gamesPlayed: vals.length };
+}
+
+// ============================================================
+// CRON: Place agent bets — runs daily at 3:30 PM PST
+// ============================================================
+app.get('/api/cron/agent-bet', async (req, res) => {
+  const secret = req.headers['x-cron-secret'] || req.query.secret;
+  if (process.env.CRON_SECRET && secret !== process.env.CRON_SECRET) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  if (!supabase) return res.status(503).json({ error: 'Supabase not configured' });
+
+  const STAKE = 10;
+  const today = new Date().toISOString().slice(0, 10);
+
+  // Idempotency: skip if we already placed bets today
+  const { count: existing } = await supabase.from('agent_bets').select('id', { count: 'exact', head: true }).eq('bet_date', today);
+  if (existing > 0) return res.json({ skipped: true, message: `Already placed ${existing} agent bets for ${today}` });
+
+  const summary = { value: 0, control: 0, skipped: 0, errors: [] };
+
+  try {
+    // 1. Get today's odds from cache (combined book)
+    const allPlayers = await sbGetOdds('combined');
+    if (!allPlayers?.length) return res.status(404).json({ error: 'No odds data in cache' });
+
+    // 2. Filter to only games that haven't started
+    const now = new Date();
+    const upcoming = allPlayers.filter(p => !p.gameTime || new Date(p.gameTime) > now);
+
+    // 3. For each player/market combo, compute stats and value score
+    const betsToInsert = [];
+    const processedKeys = new Set();
+
+    for (const p of upcoming) {
+      const key = `${p.name}|${p.market}`;
+      if (processedKeys.has(key)) continue;
+      processedKeys.add(key);
+
+      try {
+        // Get real game logs from Supabase
+        const record = await sbGetGameLogRecord(p.name);
+        if (!record?.game_log?.length) { summary.skipped++; continue; }
+
+        const stats = serverComputeStats(record.game_log, p.line, p.market, p.overOdds, p.underOdds);
+        if (!stats || stats.gamesPlayed < 5) { summary.skipped++; continue; }
+
+        const isValue = stats.vs >= 30 && Math.abs(stats.edge) > 4 && stats.confidence >= 55 && stats.dirEV > 3;
+        // Control group: nearly qualified but didn't make the cut
+        const isControl = !isValue && stats.vs >= 20 && Math.abs(stats.edge) > 2 && stats.dirEV > 0;
+
+        if (!isValue && !isControl) { summary.skipped++; continue; }
+
+        const payout = stats.odds > 0 ? +(STAKE * stats.odds / 100).toFixed(2) : +(STAKE * 100 / Math.abs(stats.odds)).toFixed(2);
+
+        betsToInsert.push({
+          bet_date: today,
+          player_name: p.name,
+          team: guessTeam(p.name) || p.homeTeam || null,
+          matchup: p.matchup || null,
+          market: p.market,
+          market_label: MKT_LABELS[p.market] || p.market,
+          line: p.line,
+          direction: stats.direction,
+          odds: stats.odds,
+          model_prob: +stats.modelProb.toFixed(4),
+          confidence: stats.confidence,
+          edge: stats.edge,
+          ev: +stats.dirEV.toFixed(1),
+          value_score: stats.vs,
+          hit_rate: stats.hitRate,
+          is_control: isControl,
+          stake: STAKE,
+          status: 'open',
+          game_time: p.gameTime || null,
+        });
+
+        if (isValue) summary.value++;
+        else summary.control++;
+      } catch (e) {
+        summary.errors.push(`${p.name}: ${e.message}`);
+      }
+    }
+
+    // 4. Bulk insert
+    if (betsToInsert.length) {
+      const { error: insertErr } = await supabase.from('agent_bets').insert(betsToInsert);
+      if (insertErr) return res.status(500).json({ error: insertErr.message, summary });
+    }
+
+    res.json({ success: true, date: today, ...summary, total: betsToInsert.length });
+  } catch (err) {
+    res.status(500).json({ error: err.message, ...summary });
+  }
+});
+
+// ============================================================
+// CRON: Grade agent bets — runs after games complete
+// ============================================================
+app.get('/api/cron/grade-agent-bets', async (req, res) => {
+  const secret = req.headers['x-cron-secret'] || req.query.secret;
+  if (process.env.CRON_SECRET && secret !== process.env.CRON_SECRET) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  if (!supabase) return res.status(503).json({ error: 'Supabase not configured' });
+
+  const GRADE_AFTER_MS = 10 * 60 * 60 * 1000;
+  const now = Date.now();
+  const summary = { graded: 0, skipped: 0, errors: [] };
+
+  try {
+    const { data: openBets, error: fetchErr } = await supabase
+      .from('agent_bets')
+      .select('*')
+      .eq('status', 'open');
+    if (fetchErr) return res.status(500).json({ error: fetchErr.message });
+
+    for (const bet of (openBets || [])) {
+      if (!bet.game_time || (now - new Date(bet.game_time).getTime()) < GRADE_AFTER_MS) {
+        summary.skipped++;
+        continue;
+      }
+
+      try {
+        const gameDate = getEtDate(bet.game_time);
+        const { status, value } = await getActualStat(bet.player_name, gameDate, bet.market);
+
+        if (status === 'missing') { summary.skipped++; continue; }
+
+        const outcome = status === 'dnp' ? 'void' : gradeSingleOutcome(value, +bet.line, bet.direction);
+        let pnl = 0;
+        if (outcome === 'won') {
+          pnl = bet.odds > 0 ? +(bet.stake * bet.odds / 100).toFixed(2) : +(bet.stake * 100 / Math.abs(bet.odds)).toFixed(2);
+        } else if (outcome === 'lost') {
+          pnl = -bet.stake;
+        }
+
+        const { error: updateErr } = await supabase.from('agent_bets').update({
+          status: outcome,
+          actual_result: status === 'dnp' ? null : value,
+          pnl,
+          graded_at: new Date().toISOString(),
+        }).eq('id', bet.id);
+
+        if (updateErr) summary.errors.push(`${bet.player_name}: ${updateErr.message}`);
+        else summary.graded++;
+      } catch (e) {
+        summary.errors.push(`${bet.player_name}: ${e.message}`);
+      }
+    }
+
+    res.json({ success: true, ...summary });
+  } catch (err) {
+    res.status(500).json({ error: err.message, ...summary });
+  }
+});
+
+// ============================================================
+// CRON: Send daily newsletter — runs morning after games
+// ============================================================
+app.get('/api/cron/newsletter', async (req, res) => {
+  const secret = req.headers['x-cron-secret'] || req.query.secret;
+  if (process.env.CRON_SECRET && secret !== process.env.CRON_SECRET) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  if (!supabase) return res.status(503).json({ error: 'Supabase not configured' });
+  if (!resend || !NEWSLETTER_TO) return res.status(503).json({ error: 'Email not configured. Set RESEND_API_KEY and NEWSLETTER_EMAIL.' });
+
+  try {
+    // Get all graded bets
+    const { data: allBets } = await supabase.from('agent_bets').select('*').neq('status', 'open').order('bet_date', { ascending: false });
+    if (!allBets?.length) return res.json({ message: 'No graded bets yet' });
+
+    // Yesterday's bets (most recent bet_date with graded results)
+    const latestDate = allBets[0].bet_date;
+    const yesterdayBets = allBets.filter(b => b.bet_date === latestDate);
+    const yesterdayValue = yesterdayBets.filter(b => !b.is_control);
+    const yesterdayControl = yesterdayBets.filter(b => b.is_control);
+
+    // All-time stats
+    const allValue = allBets.filter(b => !b.is_control);
+    const allControl = allBets.filter(b => b.is_control);
+
+    const stats = (bets) => {
+      const settled = bets.filter(b => b.status === 'won' || b.status === 'lost');
+      const won = settled.filter(b => b.status === 'won');
+      const totalPnl = settled.reduce((s, b) => s + (b.pnl || 0), 0);
+      const totalStaked = settled.reduce((s, b) => s + b.stake, 0);
+      return {
+        total: settled.length, won: won.length, lost: settled.length - won.length,
+        winRate: settled.length ? (won.length / settled.length * 100).toFixed(1) : '0.0',
+        pnl: totalPnl, roi: totalStaked ? (totalPnl / totalStaked * 100).toFixed(1) : '0.0',
+        staked: totalStaked,
+      };
+    };
+
+    const yValStats = stats(yesterdayValue);
+    const yCtlStats = stats(yesterdayControl);
+    const aValStats = stats(allValue);
+    const aCtlStats = stats(allControl);
+
+    // Calibration buckets (all-time, value bets only)
+    const buckets = {};
+    for (const b of allValue.filter(b => b.status === 'won' || b.status === 'lost')) {
+      const mp = Math.round((b.model_prob || 0.5) * 100);
+      const bucket = `${Math.floor(mp / 5) * 5}-${Math.floor(mp / 5) * 5 + 5}%`;
+      if (!buckets[bucket]) buckets[bucket] = { total: 0, won: 0 };
+      buckets[bucket].total++;
+      if (b.status === 'won') buckets[bucket].won++;
+    }
+    const calibrationRows = Object.entries(buckets).sort().map(([range, d]) =>
+      `<tr><td style="padding:6px 12px;border-bottom:1px solid #e2e8f0;">${range}</td>
+       <td style="padding:6px 12px;border-bottom:1px solid #e2e8f0;text-align:center;">${d.total}</td>
+       <td style="padding:6px 12px;border-bottom:1px solid #e2e8f0;text-align:center;">${(d.won / d.total * 100).toFixed(1)}%</td></tr>`
+    ).join('');
+
+    // By market breakdown
+    const mktMap = {};
+    for (const b of allValue.filter(b => b.status === 'won' || b.status === 'lost')) {
+      const mk = b.market_label || 'PTS';
+      if (!mktMap[mk]) mktMap[mk] = { total: 0, won: 0, pnl: 0 };
+      mktMap[mk].total++;
+      if (b.status === 'won') mktMap[mk].won++;
+      mktMap[mk].pnl += b.pnl || 0;
+    }
+    const marketRows = Object.entries(mktMap).sort((a, b) => b[1].total - a[1].total).map(([mk, d]) =>
+      `<tr><td style="padding:6px 12px;border-bottom:1px solid #e2e8f0;">${mk}</td>
+       <td style="padding:6px 12px;border-bottom:1px solid #e2e8f0;text-align:center;">${d.won}-${d.total - d.won}</td>
+       <td style="padding:6px 12px;border-bottom:1px solid #e2e8f0;text-align:center;">${(d.won / d.total * 100).toFixed(0)}%</td>
+       <td style="padding:6px 12px;border-bottom:1px solid #e2e8f0;text-align:right;color:${d.pnl >= 0 ? '#16a34a' : '#dc2626'}">${d.pnl >= 0 ? '+' : ''}$${d.pnl.toFixed(2)}</td></tr>`
+    ).join('');
+
+    // By confidence tier
+    const confTiers = { 'Elite (75+)': { min: 75 }, 'Strong (65-74)': { min: 65 }, 'Standard (55-64)': { min: 55 } };
+    const confRows = Object.entries(confTiers).map(([label, cfg]) => {
+      const tier = allValue.filter(b => (b.status === 'won' || b.status === 'lost') && b.confidence >= cfg.min && (cfg.min === 75 || b.confidence < cfg.min + 10));
+      if (!tier.length) return '';
+      const w = tier.filter(b => b.status === 'won').length;
+      const pnl = tier.reduce((s, b) => s + (b.pnl || 0), 0);
+      return `<tr><td style="padding:6px 12px;border-bottom:1px solid #e2e8f0;">${label}</td>
+        <td style="padding:6px 12px;border-bottom:1px solid #e2e8f0;text-align:center;">${w}-${tier.length - w}</td>
+        <td style="padding:6px 12px;border-bottom:1px solid #e2e8f0;text-align:center;">${(w / tier.length * 100).toFixed(0)}%</td>
+        <td style="padding:6px 12px;border-bottom:1px solid #e2e8f0;text-align:right;color:${pnl >= 0 ? '#16a34a' : '#dc2626'}">${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)}</td></tr>`;
+    }).filter(Boolean).join('');
+
+    // Yesterday's pick-by-pick results
+    const fmtOdds = o => o > 0 ? `+${o}` : `${o}`;
+    const pickRows = yesterdayValue.filter(b => b.status !== 'open').map(b => {
+      const sc = b.status === 'won' ? '#16a34a' : b.status === 'lost' ? '#dc2626' : '#94a3b8';
+      const icon = b.status === 'won' ? '✅' : b.status === 'lost' ? '❌' : '—';
+      const actual = b.actual_result != null ? b.actual_result : '—';
+      return `<tr>
+        <td style="padding:6px 12px;border-bottom:1px solid #e2e8f0;">${icon} ${b.player_name}</td>
+        <td style="padding:6px 12px;border-bottom:1px solid #e2e8f0;">${b.direction === 'over' ? '▲' : '▼'} ${b.line} ${b.market_label}</td>
+        <td style="padding:6px 12px;border-bottom:1px solid #e2e8f0;text-align:center;">${fmtOdds(b.odds)}</td>
+        <td style="padding:6px 12px;border-bottom:1px solid #e2e8f0;text-align:center;">${(b.model_prob * 100).toFixed(0)}%</td>
+        <td style="padding:6px 12px;border-bottom:1px solid #e2e8f0;text-align:center;">${actual}</td>
+        <td style="padding:6px 12px;border-bottom:1px solid #e2e8f0;text-align:center;font-weight:700;color:${sc}">${b.status.toUpperCase()}</td>
+        <td style="padding:6px 12px;border-bottom:1px solid #e2e8f0;text-align:right;color:${(b.pnl||0) >= 0 ? '#16a34a' : '#dc2626'}">${(b.pnl||0) >= 0 ? '+' : ''}$${(b.pnl||0).toFixed(2)}</td>
+      </tr>`;
+    }).join('');
+
+    // Build HTML
+    const pnlFmt = v => `${v >= 0 ? '+' : ''}$${Math.abs(v).toFixed(2)}`;
+    const pnlClr = v => v >= 0 ? '#16a34a' : '#dc2626';
+    const dateStr = new Date(latestDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+<div style="max-width:640px;margin:0 auto;background:#fff;">
+
+  <!-- HEADER -->
+  <div style="background:linear-gradient(135deg,#1e293b,#0f172a);padding:32px 24px;text-align:center;">
+    <div style="font-size:28px;font-weight:800;color:#fff;letter-spacing:-0.5px;">PropEdge Daily Report</div>
+    <div style="color:#94a3b8;font-size:14px;margin-top:6px;">${dateStr}</div>
+  </div>
+
+  <!-- HEADLINE -->
+  <div style="padding:24px;text-align:center;border-bottom:1px solid #e2e8f0;">
+    <div style="font-size:14px;color:#64748b;text-transform:uppercase;letter-spacing:1px;font-weight:600;">Value Alerts Record</div>
+    <div style="font-size:36px;font-weight:800;color:${pnlClr(yValStats.pnl)};margin:8px 0;">${pnlFmt(yValStats.pnl)}</div>
+    <div style="font-size:18px;font-weight:700;color:#1e293b;">${yValStats.won}-${yValStats.lost} (${yValStats.winRate}%)</div>
+    <div style="font-size:12px;color:#94a3b8;margin-top:4px;">$${yValStats.staked.toFixed(0)} staked · ${yValStats.total} picks</div>
+  </div>
+
+  ${yesterdayControl.length ? `
+  <!-- CONTROL GROUP HEADLINE -->
+  <div style="padding:16px 24px;text-align:center;border-bottom:1px solid #e2e8f0;background:#f8fafc;">
+    <div style="font-size:12px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;font-weight:600;">Control Group (Near-Misses)</div>
+    <div style="font-size:20px;font-weight:700;color:${pnlClr(yCtlStats.pnl)};margin-top:4px;">${yCtlStats.won}-${yCtlStats.lost} · ${pnlFmt(yCtlStats.pnl)}</div>
+  </div>` : ''}
+
+  <!-- PICK BY PICK -->
+  <div style="padding:24px;">
+    <div style="font-size:16px;font-weight:700;color:#1e293b;margin-bottom:12px;">Yesterday's Picks</div>
+    <table style="width:100%;border-collapse:collapse;font-size:12px;">
+      <thead><tr style="background:#f8fafc;">
+        <th style="padding:8px 12px;text-align:left;font-weight:600;color:#64748b;border-bottom:2px solid #e2e8f0;">Player</th>
+        <th style="padding:8px 12px;text-align:left;font-weight:600;color:#64748b;border-bottom:2px solid #e2e8f0;">Line</th>
+        <th style="padding:8px 12px;text-align:center;font-weight:600;color:#64748b;border-bottom:2px solid #e2e8f0;">Odds</th>
+        <th style="padding:8px 12px;text-align:center;font-weight:600;color:#64748b;border-bottom:2px solid #e2e8f0;">Prob</th>
+        <th style="padding:8px 12px;text-align:center;font-weight:600;color:#64748b;border-bottom:2px solid #e2e8f0;">Actual</th>
+        <th style="padding:8px 12px;text-align:center;font-weight:600;color:#64748b;border-bottom:2px solid #e2e8f0;">Result</th>
+        <th style="padding:8px 12px;text-align:right;font-weight:600;color:#64748b;border-bottom:2px solid #e2e8f0;">P&L</th>
+      </tr></thead>
+      <tbody>${pickRows || '<tr><td colspan="7" style="padding:16px;text-align:center;color:#94a3b8;">No graded picks yet</td></tr>'}</tbody>
+    </table>
+  </div>
+
+  <!-- ALL-TIME SUMMARY -->
+  <div style="padding:24px;background:#f8fafc;border-top:1px solid #e2e8f0;">
+    <div style="font-size:16px;font-weight:700;color:#1e293b;margin-bottom:12px;">Season Totals</div>
+    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+      <tr>
+        <td style="padding:8px 0;color:#64748b;">Value Alerts</td>
+        <td style="padding:8px 0;text-align:right;font-weight:700;">${aValStats.won}-${aValStats.lost} (${aValStats.winRate}%)</td>
+        <td style="padding:8px 0;text-align:right;font-weight:700;color:${pnlClr(aValStats.pnl)}">${pnlFmt(aValStats.pnl)}</td>
+        <td style="padding:8px 0;text-align:right;color:#64748b;">ROI ${aValStats.roi}%</td>
+      </tr>
+      <tr>
+        <td style="padding:8px 0;color:#64748b;">Control Group</td>
+        <td style="padding:8px 0;text-align:right;font-weight:700;">${aCtlStats.won}-${aCtlStats.lost} (${aCtlStats.winRate}%)</td>
+        <td style="padding:8px 0;text-align:right;font-weight:700;color:${pnlClr(aCtlStats.pnl)}">${pnlFmt(aCtlStats.pnl)}</td>
+        <td style="padding:8px 0;text-align:right;color:#64748b;">ROI ${aCtlStats.roi}%</td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- CALIBRATION -->
+  <div style="padding:24px;border-top:1px solid #e2e8f0;">
+    <div style="font-size:16px;font-weight:700;color:#1e293b;margin-bottom:4px;">Model Calibration</div>
+    <div style="font-size:12px;color:#94a3b8;margin-bottom:12px;">When we say X% probability, how often does it actually hit?</div>
+    <table style="width:100%;border-collapse:collapse;font-size:12px;">
+      <thead><tr style="background:#f8fafc;">
+        <th style="padding:8px 12px;text-align:left;font-weight:600;color:#64748b;border-bottom:2px solid #e2e8f0;">Model Prob</th>
+        <th style="padding:8px 12px;text-align:center;font-weight:600;color:#64748b;border-bottom:2px solid #e2e8f0;">Bets</th>
+        <th style="padding:8px 12px;text-align:center;font-weight:600;color:#64748b;border-bottom:2px solid #e2e8f0;">Actual Hit Rate</th>
+      </tr></thead>
+      <tbody>${calibrationRows || '<tr><td colspan="3" style="padding:16px;text-align:center;color:#94a3b8;">Not enough data yet</td></tr>'}</tbody>
+    </table>
+  </div>
+
+  <!-- BY MARKET -->
+  <div style="padding:24px;background:#f8fafc;border-top:1px solid #e2e8f0;">
+    <div style="font-size:16px;font-weight:700;color:#1e293b;margin-bottom:12px;">Performance by Market</div>
+    <table style="width:100%;border-collapse:collapse;font-size:12px;">
+      <thead><tr>
+        <th style="padding:8px 12px;text-align:left;font-weight:600;color:#64748b;border-bottom:2px solid #e2e8f0;">Market</th>
+        <th style="padding:8px 12px;text-align:center;font-weight:600;color:#64748b;border-bottom:2px solid #e2e8f0;">Record</th>
+        <th style="padding:8px 12px;text-align:center;font-weight:600;color:#64748b;border-bottom:2px solid #e2e8f0;">Win %</th>
+        <th style="padding:8px 12px;text-align:right;font-weight:600;color:#64748b;border-bottom:2px solid #e2e8f0;">P&L</th>
+      </tr></thead>
+      <tbody>${marketRows}</tbody>
+    </table>
+  </div>
+
+  <!-- BY CONFIDENCE TIER -->
+  <div style="padding:24px;border-top:1px solid #e2e8f0;">
+    <div style="font-size:16px;font-weight:700;color:#1e293b;margin-bottom:12px;">Performance by Confidence</div>
+    <table style="width:100%;border-collapse:collapse;font-size:12px;">
+      <thead><tr>
+        <th style="padding:8px 12px;text-align:left;font-weight:600;color:#64748b;border-bottom:2px solid #e2e8f0;">Tier</th>
+        <th style="padding:8px 12px;text-align:center;font-weight:600;color:#64748b;border-bottom:2px solid #e2e8f0;">Record</th>
+        <th style="padding:8px 12px;text-align:center;font-weight:600;color:#64748b;border-bottom:2px solid #e2e8f0;">Win %</th>
+        <th style="padding:8px 12px;text-align:right;font-weight:600;color:#64748b;border-bottom:2px solid #e2e8f0;">P&L</th>
+      </tr></thead>
+      <tbody>${confRows}</tbody>
+    </table>
+  </div>
+
+  <!-- FOOTER -->
+  <div style="padding:24px;background:#0f172a;text-align:center;">
+    <div style="color:#64748b;font-size:11px;">PropEdge Agent · Automated Value Alert Tracking</div>
+    <div style="color:#475569;font-size:10px;margin-top:4px;">Flat $${STAKE} units · All bets placed at 3:30 PM PST daily</div>
+  </div>
+
+</div></body></html>`;
+
+    // Send email
+    const { error: emailErr } = await resend.emails.send({
+      from: NEWSLETTER_FROM,
+      to: NEWSLETTER_TO,
+      subject: `PropEdge Daily: ${yValStats.won}-${yValStats.lost} (${pnlFmt(yValStats.pnl)}) — ${dateStr}`,
+      html,
+    });
+
+    if (emailErr) return res.status(500).json({ error: emailErr.message });
+    res.json({ success: true, sent_to: NEWSLETTER_TO, date: latestDate });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ---- CATCH-ALL: Serve frontend ----
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
