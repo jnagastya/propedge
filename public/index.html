@@ -129,6 +129,30 @@ body.light .theme-toggle::after{transform:translateX(20px);background:var(--b);}
 /* -- SCORES -- */
 .scs{display:flex;gap:8px;overflow-x:auto;margin-bottom:16px;scrollbar-width:none;padding:2px 0;}
 .scs::-webkit-scrollbar{display:none;}
+/* -- VALUE ALERTS RIBBON -- */
+.var-outer{position:relative;margin-bottom:14px;height:72px;overflow:hidden;}
+.var-outer::before,.var-outer::after{content:'';position:absolute;top:0;bottom:0;width:100px;z-index:2;pointer-events:none;}
+.var-outer::before{left:0;background:linear-gradient(90deg,var(--bg0) 60%,transparent);}
+.var-outer::after{right:0;background:linear-gradient(-90deg,var(--bg0) 40%,transparent);}
+.var-label{position:absolute;left:0;top:0;bottom:0;z-index:3;display:flex;align-items:center;padding:0 10px 0 0;pointer-events:none;}
+.var-label-inner{display:flex;flex-direction:column;align-items:center;gap:2px;white-space:nowrap;}
+.var-label-icon{font-size:16px;line-height:1;animation:alert-tab-pulse 2.4s ease-in-out infinite;}
+.var-label-text{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--gold);}
+.var-scroll-area{height:72px;display:flex;align-items:center;padding-left:52px;}
+.var-track{display:flex;gap:8px;width:max-content;animation:var-scroll 45s linear infinite;}
+.var-track:hover{animation-play-state:paused;}
+@keyframes var-scroll{0%{transform:translateX(0);}100%{transform:translateX(-50%);}}
+.var-card{flex-shrink:0;width:176px;background:var(--bg1);border:1px solid rgba(245,158,11,.15);border-radius:10px;padding:8px 10px;cursor:pointer;display:flex;gap:8px;align-items:center;user-select:none;transition:border-color .15s,box-shadow .15s,transform .15s;}
+.var-card:hover{border-color:rgba(245,158,11,.45);box-shadow:0 0 14px rgba(245,158,11,.13),0 2px 8px rgba(0,0,0,.3);transform:translateY(-1px);}
+.var-av{width:34px;height:34px;border-radius:50%;border:1.5px solid rgba(245,158,11,.28);background:var(--bg3);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--t3);overflow:hidden;}
+.var-body{flex:1;min-width:0;}
+.var-top{display:flex;align-items:center;gap:4px;margin-bottom:1px;}
+.var-rnk{font-size:10px;line-height:1;}
+.var-nm{font-size:11px;font-weight:700;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.var-ln{font-size:10px;color:var(--gold);font-weight:600;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.var-st{display:flex;gap:3px;align-items:center;font-size:9px;white-space:nowrap;flex-wrap:nowrap;}
+.var-ev{color:var(--g);font-weight:700;}.var-sep{color:var(--t3);}
+.var-prob{color:var(--t2);}.var-odds{color:var(--t2);}
 .sc{flex-shrink:0;padding:10px 14px;background:var(--bg1);border:1px solid var(--bd);border-radius:var(--radius);min-width:172px;box-shadow:var(--shadow);cursor:pointer;transition:all .2s;user-select:none;}
 .sc:hover{border-color:var(--b);box-shadow:var(--shadow-md);transform:translateY(-1px);}
 .sc.lv{border-color:rgba(16,185,129,.3);background:rgba(16,185,129,.04);}
@@ -1008,6 +1032,16 @@ td{padding:13px 14px;white-space:nowrap;}
   <div id="propsView" class="view-pane show">
     <!-- SCORES RIBBON -->
     <div class="scs" id="scs"></div>
+
+    <!-- VALUE ALERTS RIBBON -->
+    <div class="var-outer" id="vaRibbonOuter" style="display:none;">
+      <div class="var-label">
+        <div class="var-label-inner"><span class="var-label-icon">⚡</span><span class="var-label-text">Value<br>Alerts</span></div>
+      </div>
+      <div class="var-scroll-area">
+        <div class="var-track" id="vaRibbonTrack"></div>
+      </div>
+    </div>
 
     <!-- GAME PLAYERS PANEL (shown on score card click) -->
     <div class="game-panel" id="gamePanel">
@@ -3248,7 +3282,54 @@ function parlayHeader(){
   </div>`;
 }
 
+function renderVARibbon(){
+  const outer=document.getElementById('vaRibbonOuter');
+  const track=document.getElementById('vaRibbonTrack');
+  if(!outer||!track)return;
+  const now=new Date();
+  // Build from all cached markets (same cross-market data as alerts tab 'all' mode)
+  const combined=[...S.data];
+  const seen=new Set();
+  Object.entries(alertMktCache||{}).forEach(([mkt,data])=>{if(mkt!==S.market)combined.push(...data);});
+  const allData=combined.filter(p=>{const k=`${p.name}|${p.market||S.market}`;if(seen.has(k))return false;seen.add(k);return true;});
+  const alerts=allData
+    .filter(p=>!p.gameTime||new Date(p.gameTime)>now)
+    .map(p=>({...p,vs:valueScore(p),_dirEV:getDirectionalEV(p)}))
+    .filter(p=>p.vs>=30&&Math.abs(p.edge||0)>4&&(p.confidence||0)>=55&&p._dirEV>3)
+    .sort((a,b)=>b.vs-a.vs);
+  if(!alerts.length){outer.style.display='none';return;}
+  outer.style.display='';
+  window._vaRibbonAlerts=alerts;
+  const makeCard=(p,rank)=>{
+    const isOver=p.edge>0;
+    const dir=isOver?'▲ OVER':'▼ UNDER';
+    const hs=getHeadshot(p.name);
+    const ini=p.name.split(' ').map(n=>n[0]).join('').substring(0,2);
+    const av=hs?`<img src="${hs}" onerror="headshotError(this,'${ini}')" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" alt="">`:ini;
+    const rnk=rank===0?'🥇':rank===1?'🥈':rank===2?'🥉':`#${rank+1}`;
+    const ev=p._dirEV>=0?`+${p._dirEV.toFixed(1)}%`:`${p._dirEV.toFixed(1)}%`;
+    const prob=Math.round((p.modelProb||0.5)*100)+'%';
+    const odds=isOver?p.overOdds:p.underOdds;
+    const fmtO=o=>o>0?`+${o}`:`${o}`;
+    const mkt=MKT_SHORT[p.market]||'';
+    const lastName=p.name.split(' ').slice(1).join(' ')||p.name;
+    return `<div class="var-card" onclick="openAlertDetail(window._vaRibbonAlerts[${rank}])">
+      <div class="var-av" data-av="${p.name.replace(/"/g,'&quot;')}">${av}</div>
+      <div class="var-body">
+        <div class="var-top"><span class="var-rnk">${rnk}</span><span class="var-nm">${lastName}</span></div>
+        <div class="var-ln">${dir} ${p.line} ${mkt}</div>
+        <div class="var-st"><span class="var-ev">${ev} EV</span><span class="var-sep">·</span><span class="var-prob">${prob}</span><span class="var-sep">·</span><span class="var-odds">${fmtO(odds)}</span></div>
+      </div>
+    </div>`;
+  };
+  const html=alerts.map((p,i)=>makeCard(p,i)).join('');
+  track.innerHTML=html+html;
+  track.style.animationDuration=Math.max(25,alerts.length*5)+'s';
+  prefetchHeadshots(alerts.map(p=>p.name));
+}
+
 function renderAlerts(){
+  renderVARibbon();
   // Seed cache with current market's data so it's available for 'all' without a fetch
   if(S.data.length)alertMktCache[S.market]=S.data;
   renderAlertMktBar();
