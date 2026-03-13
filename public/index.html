@@ -3345,7 +3345,7 @@ function renderAlerts(){
     .filter(p=>!p.gameTime||new Date(p.gameTime)>_now)
     .map(p=>({...p,vs:valueScore(p),_dirEV:getDirectionalEV(p)}))
     .filter(p=>p.vs>=t.minVS&&Math.abs(p.edge||0)>=2&&p._dirEV>0)
-    .sort((a,b)=>b._dirEV-a._dirEV);
+    .sort((a,b)=>b.vs-a.vs);
 
   const grid=document.getElementById('vaGrid');
   if(!alerts.length){
