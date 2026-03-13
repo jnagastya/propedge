@@ -4040,7 +4040,7 @@ function renderSimulator() {
               <span class="bet-dir ${b.direction}">${b.direction==='over'?'▲ OVER':'▼ UNDER'}</span>
             </div>
             <div style="font-size:22px;font-weight:800;margin:5px 0;line-height:1.1;">${b.line} <span style="color:var(--t2);font-size:15px;font-weight:600;">${b.marketLabel}</span> <span style="color:var(--b);font-size:20px;">${odds}</span></div>
-            <div class="bet-meta">${b.matchup} · Edge <span style="color:${b.edge>=0?'var(--g)':'var(--r)'}">${b.edge>=0?'+':''}${b.edge.toFixed(1)}%</span>${b.isValue?' ⚡ VALUE':''} · ${new Date(b.placedAt).toLocaleDateString()}</div>
+            <div class="bet-meta">${b.matchup} · Edge <span style="color:${b.edge>=0?'var(--g)':'var(--r)'}">${b.edge>=0?'+':''}${b.edge.toFixed(1)}%</span>${b.isValue?' ⚡ VALUE':''} · ${b.placedAt ? new Date(b.placedAt).toLocaleDateString() : '—'}</div>
             <div style="display:flex;gap:16px;font-size:12px;color:var(--t2);margin-top:6px;">
               <span>Stake: <strong>$${b.stake.toFixed(2)}</strong></span>
               <span>To Win: <strong style="color:var(--g)">$${b.toWin.toFixed(2)}</strong></span>
@@ -4090,7 +4090,7 @@ function renderSimulator() {
             <div class="bc-av-cluster">${cluster}</div>
             <div style="flex:1;min-width:0;">
               <div style="font-size:13px;font-weight:700;">🎯 ${b.legs.length}-Leg Parlay · <span style="color:var(--b)">${b.combinedOdds}</span></div>
-              <div style="font-size:11px;color:var(--t3);">${new Date(b.placedAt).toLocaleDateString()} · $${b.stake} staked</div>
+              <div style="font-size:11px;color:var(--t3);">${b.placedAt ? new Date(b.placedAt).toLocaleDateString() : '—'} · $${b.stake} staked</div>
             </div>
             <span class="hist-pnl ${b.pnl>=0?'pos':'neg'}" style="flex-shrink:0;">${pnlFmt}</span>
             <button class="share-btn" onclick="event.stopPropagation();openBetShareModal('${b.id}')" title="Share bet" style="flex-shrink:0;">📤</button>
@@ -4106,7 +4106,7 @@ function renderSimulator() {
         <div class="hist-av" data-av="${(b.player||'').replace(/"/g,'&quot;')}">${hs?`<img src="${hs}" onerror="headshotError(this,'${ini}')" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" alt="">`:`<span>${ini}</span>`}</div>
         <div style="flex:1;min-width:0;">
           <div style="font-size:13px;font-weight:700;">${b.player} <span style="color:${b.direction==='over'?'var(--g)':'var(--r)'};">${b.direction==='over'?'▲':'▼'} ${b.direction.toUpperCase()}</span> ${b.line} ${b.marketLabel}</div>
-          <div style="font-size:11px;color:var(--t3);">${b.matchup} · ${(b.odds>0?'+':'')+b.odds} · Edge ${b.edge>=0?'+':''}${b.edge?.toFixed(1)||0}%${b.isValue?' ⚡':''}${resultNote} · ${new Date(b.placedAt).toLocaleDateString()}</div>
+          <div style="font-size:11px;color:var(--t3);">${b.matchup} · ${(b.odds>0?'+':'')+b.odds} · Edge ${b.edge>=0?'+':''}${b.edge?.toFixed(1)||0}%${b.isValue?' ⚡':''}${resultNote} · ${b.placedAt ? new Date(b.placedAt).toLocaleDateString() : '—'}</div>
         </div>
         <span class="hist-pnl ${b.pnl>=0?'pos':'neg'}">${pnlFmt}</span>
         <span style="font-size:11px;color:var(--t3);flex-shrink:0;">$${b.stake}</span>
@@ -4730,10 +4730,10 @@ function renderSocMessages() {
   let lastDay = '';
   _socMessages.forEach(msg => {
     const mine = msg.sender_id === _socUserId;
-    const d = new Date(msg.created_at);
-    const dayStr = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    const d = msg.created_at ? new Date(msg.created_at) : null;
+    const dayStr = (d && !isNaN(d)) ? d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : 'Today';
     if (dayStr !== lastDay) { html += `<div class="soc-day-sep">${dayStr}</div>`; lastDay = dayStr; }
-    const timeStr = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    const timeStr = (d && !isNaN(d)) ? d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : '';
     const cls = mine ? 'mine' : 'them';
     const senderName = mine ? 'You' : (msg.sender?.displayName || msg.sender?.username || '?');
     if (msg.type === 'line' && msg.line_data) {
