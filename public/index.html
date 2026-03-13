@@ -455,13 +455,13 @@ td{padding:13px 14px;white-space:nowrap;}
 .sim-dir-btn.on.under-btn{border-color:var(--r);background:var(--rd);color:var(--r);}
 .dc{background:var(--bg1);border:1px solid var(--bd);border-radius:var(--radius);padding:14px;}
 .dc.full{grid-column:1/-1;}
-.dc-t{font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--t2);margin-bottom:12px;display:flex;align-items:center;gap:6px;}
+.dc-t{font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--b-text);margin-bottom:12px;display:flex;align-items:center;gap:6px;}
 .dc-t .dt{width:5px;height:5px;border-radius:50%;}
 .sr{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
 .sb2{padding:12px;background:var(--bg2);border-radius:8px;border:1px solid var(--bd);}
-.sb2-l{font-size:11px;font-weight:600;text-transform:uppercase;color:var(--t2);margin-bottom:4px;letter-spacing:.3px;}
+.sb2-l{font-size:11px;font-weight:600;text-transform:uppercase;color:var(--b-text);margin-bottom:4px;letter-spacing:.3px;}
 .sb2-v{font-size:22px;font-weight:800;color:var(--t1);}
-.sb2-s{font-size:11px;color:var(--t2);margin-top:3px;}
+.sb2-s{font-size:11px;color:var(--b-text);margin-top:3px;}
 .up{color:var(--g);font-weight:600;}.dn{color:var(--r);font-weight:600;}
 .chb{width:100%;height:162px;background:var(--bg2);border-radius:8px;border:1px solid var(--bd);position:relative;overflow:visible;padding:8px;}
 .bars{display:flex;align-items:flex-end;gap:3px;height:110px;margin-top:24px;}
@@ -533,7 +533,7 @@ td{padding:13px 14px;white-space:nowrap;}
 .di-player-hdr-av{width:54px;height:54px;border-radius:50%;background:var(--bg3);overflow:hidden;border:2px solid var(--bd);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:var(--t3);}
 .di-player-hdr-av img{width:100%;height:100%;object-fit:cover;border-radius:50%;}
 .di-player-hdr-name{font-size:17px;font-weight:700;color:var(--t1);}
-.di-player-hdr-meta{font-size:12px;color:var(--t3);margin-top:2px;}
+.di-player-hdr-meta{font-size:12px;color:var(--b-text);margin-top:2px;}
 .p-leg-name{font-size:13px;font-weight:700;}
 .p-leg-meta{font-size:11px;color:var(--t3);margin-top:2px;}
 .p-leg-odds{font-size:13px;font-weight:700;margin-left:auto;}
@@ -1373,9 +1373,9 @@ td{padding:13px 14px;white-space:nowrap;}
       <button class="wt-toggle" id="wtToggleBtn" onclick="toggleWeightPanel()">⚙ Weights</button>
     </div>
     <div class="vs-slider-wrap">
-      <span style="font-size:10px;color:var(--t3);font-weight:600;">Custom Min VS:</span>
+      <span style="font-size:10px;color:var(--t2);font-weight:600;">Custom Value Threshold:</span>
       <input type="range" min="5" max="80" step="1" value="40" id="vsCustomSlider" oninput="updateCustomVS(this.value)"/>
-      <span style="font-size:11px;font-weight:700;color:var(--t1);" id="vsCustomVal">40</span>
+      <input type="number" min="5" max="80" step="1" value="40" id="vsCustomNum" oninput="updateCustomVS(this.value)" style="width:42px;padding:2px 4px;background:var(--bg2);border:1px solid var(--bd);border-radius:4px;color:var(--t1);font-size:11px;font-weight:700;text-align:center;font-family:inherit;"/>
     </div>
     <div class="wt-panel" id="wtPanel">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
@@ -1929,7 +1929,7 @@ let S = {
 };
 
 // Restore custom VS slider on load
-(function(){const cs=document.getElementById('vsCustomSlider');const cv=document.getElementById('vsCustomVal');if(cs&&cv&&S.customMinVS){cs.value=S.customMinVS;cv.textContent=S.customMinVS;}})();
+(function(){const cs=document.getElementById('vsCustomSlider');const cn=document.getElementById('vsCustomNum');if(cs&&S.customMinVS){cs.value=S.customMinVS;}if(cn&&S.customMinVS){cn.value=S.customMinVS;}})();
 
 const TEAM_MAP = {
   "LeBron James":"LAL","Stephen Curry":"GSW","Kevin Durant":"PHX",
@@ -2714,7 +2714,7 @@ function renderOverview(el,p){
         <div class="sb2"><div class="sb2-l">Confidence</div><div class="sb2-v" style="color:${(p.confidence||0)>=70?'var(--g)':(p.confidence||0)>=50?'var(--a)':'var(--r)'}">${p.confidence||0}</div><div class="sb2-s">${(p.confidence||0)>=70?'High':(p.confidence||0)>=50?'Med':'Low'}</div></div>
       </div>
       ${p.hasRealStats?`<div style="margin-top:10px;padding:9px 11px;background:var(--bg1);border-radius:7px;border:1px solid var(--bd);font-size:11px;">
-        <div style="font-weight:700;color:var(--t2);margin-bottom:6px;">Model Probability Breakdown</div>
+        <div style="font-weight:700;color:var(--b-text);margin-bottom:6px;">Model Probability Breakdown</div>
         ${(()=>{
           const _isOv=(p.edge||0)>=0;
           const dir=_isOv?'over':'under';
@@ -2723,12 +2723,12 @@ function renderOverview(el,p){
           const dHr=p.hitRate!=null?(_isOv?p.hitRate:100-p.hitRate):'—';
           const dMP=p.modelProb!=null?Math.round((_isOv?p.modelProb:1-p.modelProb)*100):dHr;
           return`<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-            <span style="color:var(--t3);">L5 ${dir} rate:</span><strong>${dL5}%</strong>
-            <span style="color:var(--bd2)">×35%</span>
-            <span style="color:var(--t3);margin-left:6px;">L10 ${dir} rate:</span><strong>${dL10}%</strong>
-            <span style="color:var(--bd2)">×40%</span>
-            <span style="color:var(--t3);margin-left:6px;">Season ${dir} rate:</span><strong>${dHr}%</strong>
-            <span style="color:var(--bd2)">×25%</span>
+            <span style="color:var(--b-text);">L5 ${dir} rate:</span><strong>${dL5}%</strong>
+            <span style="color:var(--t2)">×35%</span>
+            <span style="color:var(--b-text);margin-left:6px;">L10 ${dir} rate:</span><strong>${dL10}%</strong>
+            <span style="color:var(--t2)">×40%</span>
+            <span style="color:var(--b-text);margin-left:6px;">Season ${dir} rate:</span><strong>${dHr}%</strong>
+            <span style="color:var(--t2)">×25%</span>
             <span style="margin-left:6px;padding:2px 8px;border-radius:8px;background:var(--bld);color:var(--b);font-weight:800;">= ${dMP}% ${dir}</span>
           </div>`;
         })()}
@@ -2773,7 +2773,7 @@ function renderOverview(el,p){
         </div>`;
       })()}
       <div style="margin-top:10px;padding:9px 11px;background:var(--bg1);border-radius:7px;border:1px solid var(--bd);font-size:11px;">
-        <div style="font-weight:700;color:var(--t2);margin-bottom:6px;">Value Score Breakdown</div>
+        <div style="font-weight:700;color:var(--b-text);margin-bottom:6px;">Value Score Breakdown</div>
         ${(()=>{
           const _isOv=(p.edge||0)>=0;
           const _dirEV=getDirectionalEV(p);
@@ -2788,21 +2788,21 @@ function renderOverview(el,p){
           const total=Math.round(edgePts+hrPts+confPts+evPts);
           const vsC=total>=40?'var(--g)':total>=25?'var(--a)':'var(--r)';
           return`<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-            <span style="color:var(--t3);">Edge:</span><strong>${Math.abs(p.edge||0).toFixed(1)}</strong>
-            <span style="color:var(--bd2)">×${Math.round(_we*100)}%</span>
-            <span style="color:var(--t3);margin-left:4px;">= ${edgePts.toFixed(1)}</span>
-            <span style="color:var(--bd);margin:0 2px;">|</span>
-            <span style="color:var(--t3);">HR:</span><strong>${Math.max(0,_dirHR-50)}</strong>
-            <span style="color:var(--bd2)">×${Math.round(_wh*100)}%</span>
-            <span style="color:var(--t3);margin-left:4px;">= ${hrPts.toFixed(1)}</span>
-            <span style="color:var(--bd);margin:0 2px;">|</span>
-            <span style="color:var(--t3);">Conf:</span><strong>${p.confidence||0}</strong>
-            <span style="color:var(--bd2)">×${Math.round(_wc*100)}%</span>
-            <span style="color:var(--t3);margin-left:4px;">= ${confPts.toFixed(1)}</span>
-            <span style="color:var(--bd);margin:0 2px;">|</span>
-            <span style="color:var(--t3);">EV:</span><strong>${(_evScore+20).toFixed(1)}</strong>
-            <span style="color:var(--bd2)">×${Math.round(_wv*100)}%</span>
-            <span style="color:var(--t3);margin-left:4px;">= ${evPts.toFixed(1)}</span>
+            <span style="color:var(--b-text);">Edge:</span><strong>${Math.abs(p.edge||0).toFixed(1)}</strong>
+            <span style="color:var(--t2)">×${Math.round(_we*100)}%</span>
+            <span style="color:var(--b-text);margin-left:4px;">= ${edgePts.toFixed(1)}</span>
+            <span style="color:var(--bd2);margin:0 2px;">|</span>
+            <span style="color:var(--b-text);">HR:</span><strong>${Math.max(0,_dirHR-50)}</strong>
+            <span style="color:var(--t2)">×${Math.round(_wh*100)}%</span>
+            <span style="color:var(--b-text);margin-left:4px;">= ${hrPts.toFixed(1)}</span>
+            <span style="color:var(--bd2);margin:0 2px;">|</span>
+            <span style="color:var(--b-text);">Conf:</span><strong>${p.confidence||0}</strong>
+            <span style="color:var(--t2)">×${Math.round(_wc*100)}%</span>
+            <span style="color:var(--b-text);margin-left:4px;">= ${confPts.toFixed(1)}</span>
+            <span style="color:var(--bd2);margin:0 2px;">|</span>
+            <span style="color:var(--b-text);">EV:</span><strong>${(_evScore+20).toFixed(1)}</strong>
+            <span style="color:var(--t2)">×${Math.round(_wv*100)}%</span>
+            <span style="color:var(--b-text);margin-left:4px;">= ${evPts.toFixed(1)}</span>
             <span style="margin-left:6px;padding:2px 8px;border-radius:8px;background:${vsC}20;color:${vsC};font-weight:800;">= ${total}</span>
           </div>`;
         })()}
@@ -3222,20 +3222,30 @@ function updateRisk(v){
   const l=labels[S.risk-1];
   document.getElementById('riskVal').textContent=l.n;
   document.getElementById('riskVal').style.color=l.c;
-  // Sync custom slider to preset
+  // Sync custom slider + number input to preset
   const cs=document.getElementById('vsCustomSlider');
-  const cv=document.getElementById('vsCustomVal');
-  if(cs&&cv){cs.value=l.vs;cv.textContent=l.vs;S.customMinVS=l.vs;localStorage.setItem('va_customMinVS',l.vs);}
+  const cn=document.getElementById('vsCustomNum');
+  if(cs){cs.value=l.vs;}
+  if(cn){cn.value=l.vs;}
+  S.customMinVS=l.vs;localStorage.setItem('va_customMinVS',l.vs);
   renderAlerts();
 }
 function updateCustomVS(v){
-  const val=parseInt(v);
+  const val=Math.min(80,Math.max(5,parseInt(v)||40));
   S.customMinVS=val;
-  document.getElementById('vsCustomVal').textContent=val;
+  // Sync slider + number input
+  const cs=document.getElementById('vsCustomSlider');
+  const cn=document.getElementById('vsCustomNum');
+  if(cs)cs.value=val;
+  if(cn)cn.value=val;
   localStorage.setItem('va_customMinVS',val);
-  // Deselect preset labels
+  // Map to nearest preset and move the risk slider
   const el=document.getElementById('riskVal');
-  if(el){el.textContent=`Custom (${val}+)`;el.style.color='var(--t2)';}
+  const rs=document.getElementById('riskSlider');
+  if(val>=50){S.risk=1;if(rs)rs.value=1;if(el){el.textContent='Conservative';el.style.color='var(--g)';}}
+  else if(val>=40){S.risk=2;if(rs)rs.value=2;if(el){el.textContent='Balanced';el.style.color='var(--a)';}}
+  else if(val>=30){S.risk=3;if(rs)rs.value=3;if(el){el.textContent='Aggressive';el.style.color='var(--r)';}}
+  else{if(el){el.textContent=`Custom (${val}+)`;el.style.color='var(--t2)';}}
   renderAlerts();
 }
 
