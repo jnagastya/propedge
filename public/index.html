@@ -36,6 +36,12 @@ body{background:var(--bg0);background-image:radial-gradient(ellipse at 20% 0%,rg
 ::-webkit-scrollbar{width:4px;height:4px;}::-webkit-scrollbar-track{background:transparent;}::-webkit-scrollbar-thumb{background:var(--b);opacity:.5;border-radius:4px;}
 @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+@keyframes bell-ring{0%,70%,100%{transform:rotate(0deg)}73%{transform:rotate(-15deg)}77%{transform:rotate(15deg)}81%{transform:rotate(-11deg)}85%{transform:rotate(11deg)}89%{transform:rotate(-6deg)}93%{transform:rotate(6deg)}97%{transform:rotate(0deg)}}
+@keyframes wave-pulse{0%,68%,100%{opacity:0}74%,90%{opacity:.7}}
+.logo-icon{animation:bell-ring 7s ease-in-out infinite;transform-origin:50% 18%;transform-box:fill-box;}
+.logo-icon .bell-wave{animation:wave-pulse 7s ease-in-out infinite;}
+.login-logo svg{animation:bell-ring 7s ease-in-out 1.5s infinite;transform-origin:50% 16%;transform-box:fill-box;}
+.login-logo svg .bell-wave{animation:wave-pulse 7s ease-in-out 1.5s infinite;}
 @keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
 @keyframes cardIn{from{opacity:0;transform:scale(.97)}to{opacity:1;transform:scale(1)}}
 
@@ -72,6 +78,13 @@ body.light .theme-toggle::after{transform:translateX(20px);background:var(--b);}
 .bg-swatch:hover{transform:scale(1.1);}
 .bg-swatch.active{border-color:var(--t1);box-shadow:0 0 0 3px rgba(var(--bg-tint),.35);}
 .custom-color-row{display:flex;align-items:center;justify-content:space-between;margin-top:12px;font-size:12px;color:var(--t2);}
+.settings-slider{width:100%;-webkit-appearance:none;height:4px;border-radius:2px;background:var(--bg3);outline:none;cursor:pointer;margin-top:2px;}
+.settings-slider::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:var(--b);cursor:pointer;border:2px solid var(--bg1);box-shadow:0 1px 4px rgba(0,0,0,.3);}
+.settings-slider::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:var(--b);cursor:pointer;border:2px solid var(--bg1);}
+.bg-mode-tabs{display:flex;gap:6px;margin-top:8px;}
+.bg-mode-tab{flex:1;padding:6px 4px;font-size:11px;font-weight:600;border:1px solid var(--bd);border-radius:6px;background:var(--bg2);color:var(--t2);cursor:pointer;font-family:var(--sans);transition:all .15s;}
+.bg-mode-tab.active{background:var(--bld);color:var(--b);border-color:var(--b);}
+.settings-row-label{display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;font-size:11px;color:var(--t3);}
 .custom-color-inp{width:36px;height:28px;border-radius:8px;border:1px solid var(--bd);cursor:pointer;padding:2px;background:var(--bg2);}
 .settings-reset{width:100%;padding:8px;background:var(--bg2);border:1px solid var(--bd);border-radius:8px;color:var(--t3);font-family:var(--sans);font-size:12px;cursor:pointer;transition:all .12s;margin-top:10px;}
 .settings-reset:hover{color:var(--t1);border-color:var(--bd2);}
@@ -670,8 +683,8 @@ td{padding:13px 14px;white-space:nowrap;}
         <!-- clapper -->
         <circle cx="23" cy="35.5" r="3" fill="rgba(255,255,255,.7)"/>
         <!-- sound waves -->
-        <path d="M7.5 16Q4 23 7.5 30" stroke="rgba(255,255,255,.45)" stroke-width="1.8" stroke-linecap="round" fill="none"/>
-        <path d="M38.5 16Q42 23 38.5 30" stroke="rgba(255,255,255,.45)" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+        <path class="bell-wave" d="M7.5 16Q4 23 7.5 30" stroke="rgba(255,255,255,.7)" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+        <path class="bell-wave" d="M38.5 16Q42 23 38.5 30" stroke="rgba(255,255,255,.7)" stroke-width="1.8" stroke-linecap="round" fill="none"/>
         <defs><linearGradient id="lg" x1="0" y1="0" x2="46" y2="46" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#4f46e5"/><stop offset="100%" stop-color="#7c3aed"/></linearGradient></defs>
       </svg>
       <div>
@@ -733,8 +746,8 @@ td{padding:13px 14px;white-space:nowrap;}
       <!-- clapper -->
       <circle cx="17" cy="26.5" r="2.2" fill="rgba(255,255,255,.7)"/>
       <!-- sound waves -->
-      <path d="M5.5 13Q3 18 5.5 23" stroke="rgba(255,255,255,.45)" stroke-width="1.5" stroke-linecap="round" fill="none"/>
-      <path d="M28.5 13Q31 18 28.5 23" stroke="rgba(255,255,255,.45)" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+      <path class="bell-wave" d="M5.5 13Q3 18 5.5 23" stroke="rgba(255,255,255,.7)" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+      <path class="bell-wave" d="M28.5 13Q31 18 28.5 23" stroke="rgba(255,255,255,.7)" stroke-width="1.5" stroke-linecap="round" fill="none"/>
       <defs><linearGradient id="hg" x1="0" y1="0" x2="34" y2="34" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#4f46e5"/><stop offset="100%" stop-color="#7c3aed"/></linearGradient></defs>
     </svg>
     <div>
@@ -794,6 +807,21 @@ td{padding:13px 14px;white-space:nowrap;}
     <div class="settings-section">
       <div class="settings-sec-title">Background Tint</div>
       <div class="swatches" id="bgSwatches" style="gap:10px;margin-top:10px;"></div>
+      <div style="margin-top:14px;">
+        <div class="settings-row-label"><span>Intensity</span><span id="bgTintVal">10%</span></div>
+        <input type="range" class="settings-slider" id="bgTintSlider" min="0" max="30" value="10" oninput="setBgTintOpacity(this.value/100,true)">
+      </div>
+      <div style="margin-top:12px;">
+        <div class="settings-sec-title" style="margin-bottom:0;">Mode</div>
+        <div class="bg-mode-tabs">
+          <button class="bg-mode-tab active" id="bgModeRadial" onclick="setBgMode('radial',true)">Radial Glow</button>
+          <button class="bg-mode-tab" id="bgModeLinear" onclick="setBgMode('linear',true)">Linear</button>
+        </div>
+      </div>
+      <div id="bgGradientRow" style="margin-top:12px;display:none;">
+        <div class="settings-row-label"><span>Gradient strength</span><span id="bgGradVal">15%</span></div>
+        <input type="range" class="settings-slider" id="bgGradSlider" min="0" max="40" value="15" oninput="setBgGradientIntensity(this.value/100,true)">
+      </div>
     </div>
   </div>
 
@@ -3780,12 +3808,59 @@ const BG_TINT_PRESETS = [
 ];
 const DEFAULT_BG_TINT = '99,102,241';
 
+let _bgTintRgb = DEFAULT_BG_TINT;
+let _bgTintOpacity = 0.10;
+let _bgMode = 'radial';
+let _bgGradientIntensity = 0.15;
+
+function updateBgImage() {
+  const a1 = _bgTintOpacity, a2 = (_bgTintOpacity * 0.7).toFixed(3);
+  let img;
+  if (_bgMode === 'linear') {
+    const a = _bgGradientIntensity, a3 = (_bgGradientIntensity * 0.6).toFixed(3);
+    img = `linear-gradient(135deg,rgba(${_bgTintRgb},${a}) 0%,transparent 45%,rgba(${_bgTintRgb},${a3}) 100%)`;
+  } else {
+    img = `radial-gradient(ellipse at 20% 0%,rgba(${_bgTintRgb},${a1}) 0%,transparent 60%),radial-gradient(ellipse at 80% 100%,rgba(${_bgTintRgb},${a2}) 0%,transparent 50%)`;
+  }
+  document.body.style.backgroundImage = img;
+}
+
 function applyBgTint(rgb, save = false) {
+  _bgTintRgb = rgb;
   document.documentElement.style.setProperty('--bg-tint', rgb);
   document.querySelectorAll('.bg-swatch').forEach(sw => {
     sw.classList.toggle('active', sw.dataset.rgb === rgb);
   });
+  updateBgImage();
   if (save) localStorage.setItem('pe_bg_tint', rgb);
+}
+
+function setBgTintOpacity(val, save = false) {
+  _bgTintOpacity = parseFloat(val);
+  const pct = Math.round(_bgTintOpacity * 100);
+  const lbl = document.getElementById('bgTintVal');
+  if (lbl) lbl.textContent = pct + '%';
+  updateBgImage();
+  if (save) localStorage.setItem('pe_bg_tint_opacity', _bgTintOpacity);
+}
+
+function setBgMode(mode, save = false) {
+  _bgMode = mode;
+  document.getElementById('bgModeRadial')?.classList.toggle('active', mode === 'radial');
+  document.getElementById('bgModeLinear')?.classList.toggle('active', mode === 'linear');
+  const row = document.getElementById('bgGradientRow');
+  if (row) row.style.display = mode === 'linear' ? 'block' : 'none';
+  updateBgImage();
+  if (save) localStorage.setItem('pe_bg_mode', mode);
+}
+
+function setBgGradientIntensity(val, save = false) {
+  _bgGradientIntensity = parseFloat(val);
+  const pct = Math.round(_bgGradientIntensity * 100);
+  const lbl = document.getElementById('bgGradVal');
+  if (lbl) lbl.textContent = pct + '%';
+  updateBgImage();
+  if (save) localStorage.setItem('pe_bg_gradient_intensity', _bgGradientIntensity);
 }
 
 function hexToRgb(hex) {
@@ -3892,9 +3967,33 @@ document.addEventListener('click', e => {
   const savedAccent = localStorage.getItem('pe_accent');
   if (savedAccent) applyAccent(savedAccent);
   else applyAccent(DEFAULT_ACCENT);
+  // bg tint
   const savedBgTint = localStorage.getItem('pe_bg_tint');
-  if (savedBgTint) applyBgTint(savedBgTint);
-  else applyBgTint(DEFAULT_BG_TINT);
+  _bgTintRgb = savedBgTint || DEFAULT_BG_TINT;
+  document.documentElement.style.setProperty('--bg-tint', _bgTintRgb);
+  document.querySelectorAll('.bg-swatch').forEach(sw => sw.classList.toggle('active', sw.dataset.rgb === _bgTintRgb));
+  // bg opacity
+  const savedOp = localStorage.getItem('pe_bg_tint_opacity');
+  if (savedOp !== null) {
+    _bgTintOpacity = parseFloat(savedOp);
+    const s = document.getElementById('bgTintSlider'); if (s) s.value = Math.round(_bgTintOpacity * 100);
+    const l = document.getElementById('bgTintVal'); if (l) l.textContent = Math.round(_bgTintOpacity * 100) + '%';
+  }
+  // bg mode
+  const savedMode = localStorage.getItem('pe_bg_mode') || 'radial';
+  _bgMode = savedMode;
+  document.getElementById('bgModeRadial')?.classList.toggle('active', savedMode === 'radial');
+  document.getElementById('bgModeLinear')?.classList.toggle('active', savedMode === 'linear');
+  const gradRow = document.getElementById('bgGradientRow');
+  if (gradRow) gradRow.style.display = savedMode === 'linear' ? 'block' : 'none';
+  // gradient intensity
+  const savedGrad = localStorage.getItem('pe_bg_gradient_intensity');
+  if (savedGrad !== null) {
+    _bgGradientIntensity = parseFloat(savedGrad);
+    const s = document.getElementById('bgGradSlider'); if (s) s.value = Math.round(_bgGradientIntensity * 100);
+    const l = document.getElementById('bgGradVal'); if (l) l.textContent = Math.round(_bgGradientIntensity * 100) + '%';
+  }
+  updateBgImage();
 })();
 
 function toggleParlayExpand(id) {
