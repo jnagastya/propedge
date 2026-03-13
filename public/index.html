@@ -120,12 +120,14 @@ body.light .theme-toggle::after{transform:translateX(20px);background:var(--b);}
 /* -- SCORES -- */
 .scs{display:flex;gap:8px;overflow-x:auto;margin-bottom:16px;scrollbar-width:none;padding:2px 0;}
 .scs::-webkit-scrollbar{display:none;}
-.sc{flex-shrink:0;padding:10px 14px;background:var(--bg1);border:1px solid var(--bd);border-radius:var(--radius);min-width:152px;box-shadow:var(--shadow);cursor:pointer;transition:all .2s;user-select:none;}
+.sc{flex-shrink:0;padding:10px 14px;background:var(--bg1);border:1px solid var(--bd);border-radius:var(--radius);min-width:172px;box-shadow:var(--shadow);cursor:pointer;transition:all .2s;user-select:none;}
 .sc:hover{border-color:var(--b);box-shadow:var(--shadow-md);transform:translateY(-1px);}
 .sc.lv{border-color:rgba(16,185,129,.3);background:rgba(16,185,129,.04);}
 .sc.active{border-color:var(--b);background:var(--bld);box-shadow:0 0 0 1px rgba(99,102,241,.3);}
-.sc-r{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:2px;}
-.sc-t{font-size:11px;font-weight:700;color:var(--t2);letter-spacing:.3px;}.sc-v{font-size:13px;font-weight:700;color:var(--t1);}
+.sc-r{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:2px;}
+.sc-logo{width:22px;height:22px;object-fit:contain;flex-shrink:0;filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
+.sc-team{display:flex;align-items:center;gap:5px;min-width:0;flex:1;}
+.sc-t{font-size:11px;font-weight:700;color:var(--t2);letter-spacing:.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}.sc-v{font-size:13px;font-weight:700;color:var(--t1);flex-shrink:0;}
 .sc-s{font-size:10px;color:var(--t3);text-align:center;margin-top:3px;}
 .sc-s.lv{color:var(--g);font-weight:600;}
 .sc-hint{font-size:9px;color:var(--b);text-align:center;margin-top:2px;font-weight:700;display:none;}
@@ -1756,6 +1758,23 @@ setInterval(()=>{
 },30000);
 
 // ── Render: Scores ──
+const NBA_LOGOS = {
+  'Atlanta Hawks':'atl','Boston Celtics':'bos','Brooklyn Nets':'bkn',
+  'Charlotte Hornets':'cha','Chicago Bulls':'chi','Cleveland Cavaliers':'cle',
+  'Dallas Mavericks':'dal','Denver Nuggets':'den','Detroit Pistons':'det',
+  'Golden State Warriors':'gsw','Houston Rockets':'hou','Indiana Pacers':'ind',
+  'Los Angeles Clippers':'lac','Los Angeles Lakers':'lal','Memphis Grizzlies':'mem',
+  'Miami Heat':'mia','Milwaukee Bucks':'mil','Minnesota Timberwolves':'min',
+  'New Orleans Pelicans':'no','New York Knicks':'ny','Oklahoma City Thunder':'okc',
+  'Orlando Magic':'orl','Philadelphia 76ers':'phi','Phoenix Suns':'phx',
+  'Portland Trail Blazers':'por','Sacramento Kings':'sac','San Antonio Spurs':'sa',
+  'Toronto Raptors':'tor','Utah Jazz':'utah','Washington Wizards':'wsh',
+};
+function teamLogo(name){
+  const c=NBA_LOGOS[name];
+  return c?`<img class="sc-logo" src="https://a.espncdn.com/i/teamlogos/nba/500/${c}.png" alt="" onerror="this.style.display='none'">`:'';
+}
+
 function renderScores(data){
   const el=document.getElementById('scs');
   if(!data.length){el.innerHTML='';return;}
@@ -1765,8 +1784,8 @@ function renderScores(data){
     const aS=g.awayScore||'—',hS=g.homeScore||'—';
     const lv=g.live,st=g.completed?'Final':(lv?'LIVE':new Date(g.commence).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}));
     return`<div class="sc${lv?' lv':''}${active?' active':''}" onclick="filterGame('${g.away}','${g.home}')">
-      <div class="sc-r"><span class="sc-t">${g.away}</span><span class="sc-v">${aS}</span></div>
-      <div class="sc-r"><span class="sc-t">${g.home}</span><span class="sc-v">${hS}</span></div>
+      <div class="sc-r"><div class="sc-team">${teamLogo(g.away)}<span class="sc-t">${g.away}</span></div><span class="sc-v">${aS}</span></div>
+      <div class="sc-r"><div class="sc-team">${teamLogo(g.home)}<span class="sc-t">${g.home}</span></div><span class="sc-v">${hS}</span></div>
       <div class="sc-s${lv?' lv':''}">${st}</div>
       <div class="sc-hint">${active?'✓ Filtered':'Click for players'}</div>
     </div>`;
