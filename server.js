@@ -13,6 +13,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const fetch = require('node-fetch');
+const ESPN_PLAYERS = require('./data/espn-players.json'); // name → ESPN athlete ID
 const NodeCache = require('node-cache');
 const path = require('path');
 const { createClient } = require('@supabase/supabase-js');
@@ -1338,36 +1339,25 @@ app.get('/api/debug/bdl', async (req, res) => {
 });
 
 // ============================================================
-// ROUTE: GET /api/player/nba-id/:name — return NBA player ID only (lightweight, no image)
-// Used by frontend throttled prefetch queue to resolve headshots without hammering BDL
+// ROUTE: GET /api/player/nba-id/:name — return ESPN athlete ID from static map
+// Used by frontend throttled prefetch queue to resolve headshots
 // ============================================================
-app.get('/api/player/nba-id/:name', async (req, res) => {
+app.get('/api/player/nba-id/:name', (req, res) => {
   const name = decodeURIComponent(req.params.name);
-  try {
-    const { nbaPlayerId } = await getBDLPlayerId(name);
-    res.json({ nbaPlayerId: nbaPlayerId || null });
-  } catch {
-    res.json({ nbaPlayerId: null });
-  }
+  const espnId = ESPN_PLAYERS[name] || null;
+  res.json({ nbaPlayerId: espnId });
 });
 
 // ============================================================
-// ROUTE: GET /api/headshot/name/:name — resolve player name → NBA CDN headshot
+// ROUTE: GET /api/headshot/name/:name — resolve player name → ESPN headshot
 // Must be registered BEFORE /api/headshot/:id so "name" isn't treated as an ID
 // ============================================================
 app.get('/api/headshot/name/:name', async (req, res) => {
   const name = decodeURIComponent(req.params.name);
   try {
-    const { nbaPlayerId } = await getBDLPlayerId(name);
-    if (!nbaPlayerId) return res.status(404).end();
-    const url = `https://cdn.nba.com/headshots/nba/latest/1040x760/${nbaPlayerId}.png`;
-    const resp = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-        'Referer': 'https://www.nba.com/',
-        'Accept': 'image/png,image/*,*/*',
-      },
-    });
+    const espnId = ESPN_PLAYERS[name];
+    if (!espnId) return res.status(404).end();
+    const resp = await fetch(`https://a.espncdn.com/i/headshots/nba/players/full/${espnId}.png`);
     if (!resp.ok) return res.status(404).end();
     const buf = await resp.buffer();
     res.set('Content-Type', 'image/png');
@@ -1379,18 +1369,11 @@ app.get('/api/headshot/name/:name', async (req, res) => {
 });
 
 // ============================================================
-// ROUTE: GET /api/headshot/:id — proxy NBA CDN to avoid CORS
+// ROUTE: GET /api/headshot/:id — proxy ESPN CDN to avoid CORS
 // ============================================================
 app.get('/api/headshot/:id', async (req, res) => {
   try {
-    const url = `https://cdn.nba.com/headshots/nba/latest/1040x760/${req.params.id}.png`;
-    const resp = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-        'Referer': 'https://www.nba.com/',
-        'Accept': 'image/png,image/*,*/*',
-      },
-    });
+    const resp = await fetch(`https://a.espncdn.com/i/headshots/nba/players/full/${req.params.id}.png`);
     if (!resp.ok) return res.status(404).end();
     const buf = await resp.buffer();
     res.set('Content-Type', 'image/png');
