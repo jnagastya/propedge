@@ -244,6 +244,74 @@ table{width:100%;border-collapse:collapse;font-size:13px;}
   .col-mob-hide{display:none;}
   .topbar{padding:0 12px;}
   .logo-v{display:none;}
+  .settings-panel{right:8px;max-width:calc(100vw - 16px);}
+  .srch{width:100%;min-width:0;}
+  .ctrls{gap:6px;}
+  .ctrls .sel{font-size:11px;padding:6px 8px;}
+  .th-bar{padding:10px 12px;flex-wrap:wrap;gap:6px;}
+  .th-bar .tt{flex-wrap:wrap;gap:4px;}
+}
+/* ── Small phone (≤480px) ── */
+@media(max-width:480px){
+  .col-sm-hide{display:none;}
+  .app{padding:8px;}
+  .topbar{height:48px;}
+  .logo-icon svg{width:28px;height:28px;}
+  .logo-n{font-size:15px;}
+  .top-r{gap:6px;}
+  .top-notif-btn{width:30px;height:30px;font-size:14px;}
+  .settings-btn{width:30px;height:30px;font-size:14px;padding:0;}
+  .user-badge{padding:4px 8px;gap:5px;}
+  .user-avatar{width:22px;height:22px;font-size:10px;}
+  .user-name{font-size:11px;max-width:60px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .save-btn{font-size:10px;padding:3px 8px;}
+  .logout-btn{font-size:10px;}
+  .nav-tabs{padding:0 4px;}
+  .nav-tab{padding:9px 9px;font-size:11px;}
+  /* Table — compact for mobile */
+  .pc{min-width:140px;gap:8px;}
+  .av{width:36px;height:36px;font-size:11px;}
+  .pn{font-size:13px;}
+  .pm{font-size:10px;}
+  thead th{padding:7px 8px;font-size:10px;}
+  td{padding:9px 8px;font-size:12px;}
+  .odd{font-size:10px;padding:2px 6px;}
+  .et{font-size:11px;padding:3px 7px;}
+  .lean-wrap{min-width:65px;font-size:10px;}
+  .th-bar{padding:8px 10px;}
+  .bdg{font-size:10px;padding:3px 7px;}
+  /* Score cards row */
+  .sc{min-width:140px;padding:8px 10px;}
+  .sc-t{font-size:10px;}
+  .sc-v{font-size:12px;}
+  .sc-s{font-size:9px;}
+  /* Controls */
+  .srch{padding:6px 9px;}
+  .srch input{font-size:12px;}
+  .sel{font-size:11px;padding:6px 8px;}
+  /* Game panel */
+  .game-panel{padding:12px;}
+  .gp-title{font-size:13px;}
+  .gp-player{gap:6px;padding:4px 0;}
+  .gp-av{width:24px;height:24px;}
+  /* Value alerts */
+  .va-grid{grid-template-columns:1fr;}
+  .va-card{padding:13px;}
+  .va-name{font-size:14px;}
+  .va-stat-grid{gap:4px;}
+  /* Modals */
+  .modal{padding:18px;}
+  .modal-detail{padding:16px;}
+  /* Social chat */
+  .soc-msg{max-width:88%;}
+  .soc-line-card{min-width:0;max-width:100%;}
+  .soc-line-grid{grid-template-columns:repeat(3,1fr);gap:4px;}
+  /* Bet slip & parlay */
+  .p-leg{padding:12px;gap:8px;}
+  .parlay-title{font-size:18px;}
+  .parlay-stats{gap:8px;}
+  .parlay-stat{padding:10px;min-width:0;}
+  .bet-card{padding:12px 14px;}
 }
 thead th{padding:9px 11px;text-align:left;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--t2);border-bottom:1px solid var(--bd);white-space:nowrap;background:var(--bg2);cursor:pointer;user-select:none;transition:color .12s,background .12s;}
 thead th:hover{color:var(--t1);background:var(--bg3);}
@@ -1141,8 +1209,8 @@ td{padding:13px 14px;white-space:nowrap;}
         <table>
           <thead><tr>
             <th>Player</th><th class="col-mob-hide">Matchup</th><th data-sort="line" onclick="sortByCol('line')">Line</th><th>Odds</th>
-            <th data-sort="edge" onclick="sortByCol('edge')">Avg</th><th data-sort="hr" onclick="sortByCol('hr')">Hit Rate</th><th class="col-mob-hide">O/U</th><th class="col-mob-hide">Trend</th>
-            <th data-sort="edge" onclick="sortByCol('edge')">Edge</th><th class="col-mob-hide">Lean</th><th data-sort="conf" onclick="sortByCol('conf')">Confidence</th><th data-sort="kelly" onclick="sortByCol('kelly')">¼ Kelly</th><th data-sort="val" onclick="sortByCol('val')">Value</th><th>Bet</th><th>⭐</th>
+            <th data-sort="edge" onclick="sortByCol('edge')" class="col-sm-hide">Avg</th><th data-sort="hr" onclick="sortByCol('hr')" class="col-sm-hide">Hit Rate</th><th class="col-mob-hide">O/U</th><th class="col-mob-hide">Trend</th>
+            <th data-sort="edge" onclick="sortByCol('edge')">Edge</th><th class="col-mob-hide">Lean</th><th data-sort="conf" onclick="sortByCol('conf')" class="col-sm-hide">Confidence</th><th data-sort="kelly" onclick="sortByCol('kelly')" class="col-sm-hide">¼ Kelly</th><th data-sort="val" onclick="sortByCol('val')">Value</th><th>Bet</th><th class="col-sm-hide">⭐</th>
             <th id="scnTh" style="display:none">Scenario ⚡</th>
           </tr></thead>
           <tbody id="tBody"></tbody>
@@ -2235,8 +2303,8 @@ function renderTable(){
       <td class="col-mob-hide" style="color:var(--t2);font-size:11px;">${(p.matchup||'—').replace(/^\?\?\?[·\s·]*/,'').substring(0,26)||'—'}</td>
       <td style="font-weight:700;font-size:14px;">${p.line}</td>
       <td><div class="odds-cell"><span class="odd over">O ${overFmt}</span><span class="odd under">U ${underFmt}</span></div></td>
-      <td style="font-weight:600;">${p.avg}</td>
-      <td style="font-weight:600;">${oP}%</td>
+      <td class="col-sm-hide" style="font-weight:600;">${p.avg}</td>
+      <td class="col-sm-hide" style="font-weight:600;">${oP}%</td>
       <td class="col-mob-hide"><div class="ouv"><div class="oub"><div class="ouo" style="width:${oP}%"></div><div class="ouu" style="width:${uP}%"></div></div><span class="oul">${oP}/${uP}</span></div></td>
       <td class="col-mob-hide"><div class="spk">${mkSpk(p.l10,p.line)}</div></td>
       <td><span class="et ${ec}" data-edge="${edge.toFixed(1)}" data-tip="${edgeTip.replace(/"/g,'&quot;')}">${es}${edge.toFixed(1)}%</span></td>
@@ -2244,14 +2312,14 @@ function renderTable(){
         <span class="lean-lbl ${lean.cls}">${lean.label}</span>
         <div class="lean-track"><div class="lean-dot" style="left:${lean.pct}%"></div></div>
       </div></td>
-      <td><div class="cb-wrap" data-tip="${confTip.replace(/"/g,'&quot;')}">
+      <td class="col-sm-hide"><div class="cb-wrap" data-tip="${confTip.replace(/"/g,'&quot;')}">
         <div class="cb-bar"><div class="cb-fill" style="width:${p.confidence||0}%;background:${cc};"></div></div>
         <span class="cb-l" style="color:${cc}">${p.confidence||0}</span>
       </div></td>
-      <td><span style="font-size:11px;font-weight:700;color:${kellyColor}">${qKelly>0?qKellyPct+'%':'—'}</span></td>
+      <td class="col-sm-hide"><span style="font-size:11px;font-weight:700;color:${kellyColor}">${qKelly>0?qKellyPct+'%':'—'}</span></td>
       <td>${(()=>{if(isValue)return`<span class="val-badge">⚡ VALUE</span>`;const cls=dirEV>=15?'ev-strong':dirEV>=5?'ev-good':dirEV>=0?'ev-weak':'ev-neg';return`<span class="ev-pill ${cls}">${dirEV>=0?'+':''}${dirEV.toFixed(1)}%</span>`;})()}</td>
       <td><button class="bet-btn" onclick="event.stopPropagation();openBetModal(${JSON.stringify(p).replace(/"/g,'&quot;')})">🎲 Bet</button></td>
-      <td><button class="fav-btn${favorites.has(p.name)?' on':''}" data-name="${p.name.replace(/"/g,'&quot;')}" onclick="toggleFav('${p.name.replace(/'/g,"\\'")}',event)" title="${favorites.has(p.name)?'Remove from watchlist':'Add to watchlist'}">${favorites.has(p.name)?'⭐':'☆'}</button></td>
+      <td class="col-sm-hide"><button class="fav-btn${favorites.has(p.name)?' on':''}" data-name="${p.name.replace(/"/g,'&quot;')}" onclick="toggleFav('${p.name.replace(/'/g,"\\'")}',event)" title="${favorites.has(p.name)?'Remove from watchlist':'Add to watchlist'}">${favorites.has(p.name)?'⭐':'☆'}</button></td>
       <td><button class="share-btn" onclick="event.stopPropagation();openShareModal(${JSON.stringify(p).replace(/"/g,'&quot;')})" title="Share line">📤</button></td>
       ${S.scnOn?`<td>${(p.scenarioBoost||0)>0?`<span class="scn-boost">+${p.scenarioBoost} pts</span>`:'<span style="color:var(--t3)">—</span>'}</td>`:''}
     `;
@@ -2843,17 +2911,17 @@ function renderSkeletons(){
       <td class="col-mob-hide"><div class="skel-cell" style="width:${w(60,100)}px"></div></td>
       <td><div class="skel-cell" style="width:28px"></div></td>
       <td><div class="skel-cell" style="width:${w(80,110)}px"></div></td>
-      <td><div class="skel-cell" style="width:28px"></div></td>
-      <td><div class="skel-cell" style="width:36px"></div></td>
+      <td class="col-sm-hide"><div class="skel-cell" style="width:28px"></div></td>
+      <td class="col-sm-hide"><div class="skel-cell" style="width:36px"></div></td>
       <td class="col-mob-hide"><div class="skel-cell" style="width:64px"></div></td>
       <td class="col-mob-hide"><div class="skel-cell" style="width:70px"></div></td>
       <td><div class="skel-cell" style="width:36px"></div></td>
       <td class="col-mob-hide"><div class="skel-cell" style="width:80px"></div></td>
-      <td><div class="skel-cell" style="width:44px"></div></td>
-      <td><div class="skel-cell" style="width:32px"></div></td>
+      <td class="col-sm-hide"><div class="skel-cell" style="width:44px"></div></td>
+      <td class="col-sm-hide"><div class="skel-cell" style="width:32px"></div></td>
       <td><div class="skel-cell" style="width:52px"></div></td>
       <td><div class="skel-cell" style="width:48px"></div></td>
-      <td><div class="skel-cell" style="width:16px"></div></td>`;
+      <td class="col-sm-hide"><div class="skel-cell" style="width:16px"></div></td>`;
     tb.appendChild(tr);
   }
 }
