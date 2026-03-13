@@ -50,7 +50,7 @@ body{background:var(--bg0);background-image:radial-gradient(ellipse at 20% 0%,rg
 
 /* -- NAV TABS -- */
 .nav-tabs{display:flex;gap:2px;padding:0 24px;background:rgba(22,25,32,.95);backdrop-filter:blur(12px);border-bottom:1px solid var(--bd);position:sticky;top:56px;z-index:299;}
-.nav-tab{padding:11px 16px;border:none;background:none;color:var(--t2);font-family:var(--sans);font-size:13px;font-weight:500;cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;margin-bottom:-1px;letter-spacing:.1px;}
+.nav-tab{padding:11px 16px;border:none;background:none;color:var(--t2);font-family:var(--sans);font-size:14px;font-weight:500;cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;margin-bottom:-1px;letter-spacing:.1px;}
 .nav-tab:hover{color:var(--t1);background:rgba(255,255,255,.03);border-radius:6px 6px 0 0;}
 .nav-tab.on{color:var(--b);background:rgba(99,102,241,.12);border-bottom-color:var(--b);font-weight:700;border-radius:6px 6px 0 0;}
 .nav-tab.alert-tab.on{color:var(--gold);background:rgba(251,191,36,.08);border-bottom-color:var(--gold);border-radius:6px 6px 0 0;}
@@ -85,14 +85,14 @@ body{background:var(--bg0);background-image:radial-gradient(ellipse at 20% 0%,rg
 .cl,.cr{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
 .sel{padding:7px 28px 7px 11px;background:var(--bg1);border:1px solid var(--bd);border-radius:var(--radius);color:var(--t1);font-family:var(--sans);font-size:12px;font-weight:500;cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' fill='%23475569' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 9px center;box-shadow:var(--shadow);transition:border-color .12s;}
 .sel:focus{outline:none;border-color:var(--b);}
-.cbtn{display:flex;align-items:center;gap:5px;padding:7px 12px;background:var(--bg1);border:1px solid var(--bd);border-radius:var(--radius);color:var(--t2);font-family:var(--sans);font-size:12px;font-weight:500;cursor:pointer;transition:all .15s;box-shadow:var(--shadow);}
+.cbtn{display:flex;align-items:center;gap:5px;padding:7px 12px;background:var(--bg1);border:1px solid var(--bd);border-radius:var(--radius);color:var(--t2);font-family:var(--sans);font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;box-shadow:var(--shadow);}
 .cbtn:hover{border-color:var(--bd2);color:var(--t1);}
 .cbtn.on{border-color:var(--p);color:var(--p);background:var(--pd);}
-.rbtn{padding:7px 13px;background:var(--b);border:none;border-radius:var(--radius);color:#fff;font-family:var(--sans);font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:5px;box-shadow:0 2px 8px rgba(99,102,241,.3);transition:all .15s;}
+.rbtn{padding:7px 13px;background:var(--b);border:none;border-radius:var(--radius);color:#fff;font-family:var(--sans);font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:5px;box-shadow:0 2px 8px rgba(99,102,241,.3);transition:all .15s;}
 .rbtn:hover{background:#818cf8;}.rbtn.sp svg{animation:spin .7s linear infinite;}
 .srch{display:flex;align-items:center;gap:6px;background:var(--bg1);border:1px solid var(--bd);border-radius:var(--radius);padding:7px 11px;width:200px;box-shadow:var(--shadow);transition:border-color .12s;}
 .srch:focus-within{border-color:var(--b);}
-.srch input{background:none;border:none;color:var(--t1);font-family:var(--sans);font-size:12px;width:100%;outline:none;}
+.srch input{background:none;border:none;color:var(--t1);font-family:var(--sans);font-size:13px;width:100%;outline:none;}
 .srch input::placeholder{color:var(--t3);}
 
 /* -- SCENARIO BAR -- */
@@ -127,7 +127,7 @@ body{background:var(--bg0);background-image:radial-gradient(ellipse at 20% 0%,rg
 @keyframes bdgPulse{0%,100%{opacity:1}50%{opacity:.45}}
 .bdg-game:hover{background:var(--bb);}
 .tsc{overflow-x:auto;-webkit-overflow-scrolling:touch;}
-table{width:100%;border-collapse:collapse;font-size:12px;}
+table{width:100%;border-collapse:collapse;font-size:13px;}
 /* -- Row animation -- */
 @keyframes rowIn{from{opacity:0;transform:translateX(-3px)}to{opacity:1;transform:translateX(0)}}
 /* -- Skeleton loader -- */
@@ -150,7 +150,7 @@ table{width:100%;border-collapse:collapse;font-size:12px;}
   .topbar{padding:0 12px;}
   .logo-v{display:none;}
 }
-thead th{padding:9px 11px;text-align:left;font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--t2);border-bottom:1px solid var(--bd);white-space:nowrap;background:var(--bg2);cursor:pointer;user-select:none;transition:color .12s,background .12s;}
+thead th{padding:9px 11px;text-align:left;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--t2);border-bottom:1px solid var(--bd);white-space:nowrap;background:var(--bg2);cursor:pointer;user-select:none;transition:color .12s,background .12s;}
 thead th:hover{color:var(--t1);background:var(--bg3);}
 thead th.sort-active{color:var(--b);}
 thead th.sort-asc::after{content:' ▲';font-size:8px;color:var(--b);}
@@ -205,7 +205,7 @@ td{padding:9px 11px;white-space:nowrap;}
 .dr td{padding:0!important;background:var(--bg0)!important;border-bottom:1px solid var(--bd)!important;}
 .di{padding:18px;animation:fadeUp .2s ease both;}
 .di-tabs{display:flex;gap:2px;margin-bottom:14px;border-bottom:1px solid var(--bd);padding-bottom:0;}
-.di-tab{padding:7px 13px;border:none;background:none;color:var(--t2);font-family:var(--sans);font-size:12px;font-weight:500;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .12s;}
+.di-tab{padding:7px 13px;border:none;background:none;color:var(--t2);font-family:var(--sans);font-size:13px;font-weight:500;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .12s;}
 .di-tab:hover{color:var(--t1);}.di-tab.on{color:var(--b);border-bottom-color:var(--b);font-weight:600;}
 .di-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
 /* -- Line Simulator -- */
@@ -226,15 +226,21 @@ td{padding:9px 11px;white-space:nowrap;}
 .sim-line-num{width:62px;text-align:center;font-size:13px;font-weight:700;color:#818cf8;background:var(--bg2);border:1px solid rgba(99,102,241,.4);border-radius:6px;padding:3px 8px;outline:none;-moz-appearance:textfield;}
 .sim-line-num::-webkit-inner-spin-button,.sim-line-num::-webkit-outer-spin-button{-webkit-appearance:none;}
 .sim-line-num:focus{border-color:var(--b);box-shadow:0 0 0 2px rgba(99,102,241,.2);}
+.sim-dir-btn{padding:4px 13px;border:1px solid var(--bd);border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;background:none;color:var(--t3);font-family:var(--sans);transition:all .12s;}
+.sim-dir-btn:hover{color:var(--t1);border-color:var(--bd2);}
+.sim-dir-btn.on{color:#fff;}
+.sim-dir-btn.on.auto{border-color:var(--b);background:var(--bld);color:var(--b);}
+.sim-dir-btn.on.over-btn{border-color:var(--g);background:var(--gd);color:var(--g);}
+.sim-dir-btn.on.under-btn{border-color:var(--r);background:var(--rd);color:var(--r);}
 .dc{background:var(--bg1);border:1px solid var(--bd);border-radius:var(--radius);padding:14px;}
 .dc.full{grid-column:1/-1;}
-.dc-t{font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--t2);margin-bottom:12px;display:flex;align-items:center;gap:6px;}
+.dc-t{font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--t2);margin-bottom:12px;display:flex;align-items:center;gap:6px;}
 .dc-t .dt{width:5px;height:5px;border-radius:50%;}
 .sr{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
 .sb2{padding:12px;background:var(--bg2);border-radius:8px;border:1px solid var(--bd);}
-.sb2-l{font-size:10px;font-weight:600;text-transform:uppercase;color:var(--t2);margin-bottom:4px;letter-spacing:.4px;}
-.sb2-v{font-size:20px;font-weight:800;color:var(--t1);}
-.sb2-s{font-size:10px;color:var(--t2);margin-top:3px;}
+.sb2-l{font-size:11px;font-weight:600;text-transform:uppercase;color:var(--t2);margin-bottom:4px;letter-spacing:.3px;}
+.sb2-v{font-size:22px;font-weight:800;color:var(--t1);}
+.sb2-s{font-size:11px;color:var(--t2);margin-top:3px;}
 .up{color:var(--g);font-weight:600;}.dn{color:var(--r);font-weight:600;}
 .chb{width:100%;height:162px;background:var(--bg2);border-radius:8px;border:1px solid var(--bd);position:relative;overflow:visible;padding:8px;}
 .bars{display:flex;align-items:flex-end;gap:3px;height:110px;margin-top:24px;}
@@ -1962,116 +1968,147 @@ function renderOverview(el,p){
 
 function renderLineSimulator(el,p){
   if(!p.hasRealStats||!p.gameLog){
-    el.innerHTML=`<div style="padding:24px;text-align:center;color:var(--t3);font-size:12px;">
+    el.innerHTML=`<div style="padding:24px;text-align:center;color:var(--t3);font-size:13px;">
       Real stats are required for the simulator.<br>Click <strong>Overview</strong> first — stats load automatically from NBA.com.</div>`;
     return;
   }
-  // Extract actual per-game stat values from game log (same logic as applyPlayerStats)
+  // Extract actual per-game stat values (same logic as applyPlayerStats)
   const statMap={'player_points':'pts','player_rebounds':'reb','player_assists':'ast','player_threes':'fg3m',
     'player_steals':'stl','player_blocks':'blk','player_turnovers':'turnover','player_points_rebounds_assists':'pra'};
-  const statKey=statMap[p.market||S.market]||'pts';
+  const mkt=p.market||S.market;
+  const statKey=statMap[mkt]||'pts';
   const getV=g=>statKey==='pra'?(+g.pts||0)+(+g.reb||0)+(+g.ast||0):+(g[statKey]||0);
   const played=p.gameLog.filter(g=>parseInt(g.min||'0')>0);
-  const vals=played.map(g=>getV(g));
-  // Slider range: actual floor/ceil of season data
-  const lo=Math.max(0.5,Math.floor(Math.min(...vals)*2)/2);
-  const hi=Math.ceil(Math.max(...vals)*2)/2;
-  const orig=p.line, n=vals.length, avg=p.avg;
-  window._simP=p; window._simVals=vals;
+  const vals=played.map(g=>getV(g)).filter(v=>!isNaN(v));
+  // Fall back to stored l10 values if game log extraction yields nothing
+  const effectiveVals=vals.length?vals:(p.l10||[]);
+  if(!effectiveVals.length){
+    el.innerHTML=`<div style="padding:24px;text-align:center;color:var(--t3);font-size:13px;">No game data available for this stat. Try refreshing from Overview.</div>`;
+    return;
+  }
+  const lo=Math.max(0.5,Math.floor(Math.min(...effectiveVals)*2)/2);
+  const hi=Math.ceil(Math.max(...effectiveVals)*2)/2;
+  const orig=p.line, n=effectiveVals.length;
+  window._simP=p; window._simVals=effectiveVals; window._simDir=null;
   el.innerHTML=`<div class="sim-panel">
-    <div style="font-size:13px;font-weight:700;color:var(--t1);margin-bottom:3px;">⚡ Alternate Line Simulator</div>
-    <div style="font-size:11px;color:var(--t3);margin-bottom:14px;">Hit rates are calculated from <strong>${n} actual games</strong> this season — no estimates or approximations.</div>
+    <div style="font-size:14px;font-weight:700;color:var(--t1);margin-bottom:3px;">⚡ Alternate Line Simulator</div>
+    <div style="font-size:12px;color:var(--t3);margin-bottom:14px;">Hit rates calculated from <strong>${n} actual games</strong> this season — no estimates or approximations.</div>
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
-      <span style="font-size:11px;color:var(--t3);min-width:40px;">Line</span>
+      <span style="font-size:12px;color:var(--t3);min-width:40px;">Line</span>
       <input type="range" min="${lo}" max="${hi}" step="0.5" value="${orig}" style="flex:1;cursor:pointer;accent-color:#6366f1;" id="simLineSlider" oninput="updateLineSim()">
       <input type="number" min="${lo}" max="${hi}" step="0.5" value="${orig}" class="sim-line-num" id="simLineNum" oninput="updateLineSimNum()">
     </div>
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;font-size:11px;flex-wrap:wrap;">
-      <span style="color:var(--t2);font-weight:600;">Alternate odds <span style="color:var(--t3);font-weight:400;">(optional — leave blank to use current book)</span></span>
-      <span style="color:var(--t3);">Over</span>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
+      <span style="font-size:12px;color:var(--t2);font-weight:600;">Direction</span>
+      <button class="sim-dir-btn auto on" id="simDirAuto" onclick="setSimDir(null)">Auto</button>
+      <button class="sim-dir-btn over-btn" id="simDirOver" onclick="setSimDir('over')">Over</button>
+      <button class="sim-dir-btn under-btn" id="simDirUnder" onclick="setSimDir('under')">Under</button>
+      <span style="margin-left:8px;font-size:12px;color:var(--t2);font-weight:600;">Alternate odds</span>
+      <span style="font-size:12px;color:var(--t3);">Over</span>
       <input type="number" placeholder="${p.overOdds||'-110'}" class="sim-inp" id="simOverOdds" oninput="updateLineSim()">
-      <span style="color:var(--t3);">Under</span>
+      <span style="font-size:12px;color:var(--t3);">Under</span>
       <input type="number" placeholder="${p.underOdds||'-110'}" class="sim-inp" id="simUnderOdds" oninput="updateLineSim()">
     </div>
     <div class="sim-compare" id="simCompare"></div>
   </div>`;
+  setTimeout(updateLineSim,0);
+}
+
+function setSimDir(dir){
+  window._simDir=dir;
+  ['simDirAuto','simDirOver','simDirUnder'].forEach(id=>{
+    const b=document.getElementById(id); if(b)b.classList.remove('on');
+  });
+  const activeId=dir===null?'simDirAuto':dir==='over'?'simDirOver':'simDirUnder';
+  const activeBtn=document.getElementById(activeId); if(activeBtn)activeBtn.classList.add('on');
   updateLineSim();
 }
 
 function updateLineSim(){
-  const p=window._simP, vals=window._simVals;
-  if(!p||!vals) return;
-  const slider=document.getElementById('simLineSlider');
-  const numEl=document.getElementById('simLineNum');
-  if(!slider||!numEl) return;
-  const newLine=parseFloat(slider.value);
-  numEl.value=newLine;
+  try{
+    const p=window._simP, vals=window._simVals;
+    if(!p||!vals||!vals.length) return;
+    const slider=document.getElementById('simLineSlider');
+    const numEl=document.getElementById('simLineNum');
+    const compareEl=document.getElementById('simCompare');
+    if(!slider||!numEl||!compareEl) return;
+    const newLine=parseFloat(slider.value);
+    if(isNaN(newLine)) return;
+    numEl.value=newLine;
 
-  const n=vals.length, avg=p.avg, sd=p.stdDev||1;
-  const l10vals=vals.slice(0,10), l5vals=vals.slice(0,5);
-  // Exact hit rates from actual game log
-  const hitSeason=n?Math.round(vals.filter(v=>v>=newLine).length/n*100):50;
-  const hitL10=l10vals.length?Math.round(l10vals.filter(v=>v>=newLine).length/l10vals.length*100):hitSeason;
-  const hitL5=l5vals.length>=3?Math.round(l5vals.filter(v=>v>=newLine).length/l5vals.length*100):hitL10;
-  // Bayesian shrinkage (same formula as applyPlayerStats)
-  const rawProb=(hitL5*0.35+hitL10*0.40+hitSeason*0.25)/100;
-  const simMP=Math.min(0.97,Math.max(0.03,(rawProb*n+5)/(n+10)));
-  const simEdge=newLine>0?+((avg-newLine)/newLine*100).toFixed(1):0;
-  const isOver=simEdge>=0;
-  const dirMP=isOver?simMP:1-simMP;
-  const dirHR=isOver?hitSeason:100-hitSeason;
-  // Odds
-  const rawOv=parseInt(document.getElementById('simOverOdds')?.value);
-  const rawUv=parseInt(document.getElementById('simUnderOdds')?.value);
-  const simOvOdds=isNaN(rawOv)?(p.overOdds||-110):rawOv;
-  const simUvOdds=isNaN(rawUv)?(p.underOdds||-110):rawUv;
-  const simDirOdds=isOver?simOvOdds:simUvOdds;
-  const simEV=calcEV(dirMP,simDirOdds);
-  const dirImpl=impliedProb(simDirOdds);
-  const evEdge=dirMP-dirImpl;
-  // Confidence
-  const cv=avg>0?sd/avg:0.5;
-  const edgePts=Math.min(40,Math.max(0,evEdge/0.15*20+20));
-  const hrPts=Math.min(40,Math.max(0,(dirHR-25)*0.8));
-  const cvPts=Math.min(20,Math.max(0,(0.6-Math.min(cv,0.6))/0.4*20));
-  const simConf=Math.max(0,Math.min(100,Math.round(edgePts+hrPts+cvPts)));
+    const n=vals.length, avg=p.avg, sd=p.stdDev||1;
+    const l10vals=vals.slice(0,10), l5vals=vals.slice(0,5);
+    // Exact hit rates from actual game data
+    const overCount=vals.filter(v=>v>=newLine).length;
+    const hitSeason=Math.round(overCount/n*100);
+    const hitL10=l10vals.length?Math.round(l10vals.filter(v=>v>=newLine).length/l10vals.length*100):hitSeason;
+    const hitL5=l5vals.length>=3?Math.round(l5vals.filter(v=>v>=newLine).length/l5vals.length*100):hitL10;
+    // Bayesian shrinkage
+    const rawProb=(hitL5*0.35+hitL10*0.40+hitSeason*0.25)/100;
+    const simMP=Math.min(0.97,Math.max(0.03,(rawProb*n+5)/(n+10)));
+    const simEdge=newLine>0?+((avg-newLine)/newLine*100).toFixed(1):0;
+    // Direction: manual override or auto from edge
+    const isOver=window._simDir!==null?window._simDir==='over':simEdge>=0;
+    const dirMP=isOver?simMP:1-simMP;
+    const dirHR=isOver?hitSeason:100-hitSeason;
+    const gameCount=isOver?overCount:n-overCount;
+    // Odds
+    const rawOv=parseInt(document.getElementById('simOverOdds')?.value);
+    const rawUv=parseInt(document.getElementById('simUnderOdds')?.value);
+    const simOvOdds=isNaN(rawOv)?(p.overOdds||-110):rawOv;
+    const simUvOdds=isNaN(rawUv)?(p.underOdds||-110):rawUv;
+    const simDirOdds=isOver?simOvOdds:simUvOdds;
+    const simEV=calcEV(dirMP,simDirOdds);
+    const dirImpl=impliedProb(simDirOdds);
+    const evEdge=dirMP-dirImpl;
+    // Confidence
+    const cv=avg>0?sd/avg:0.5;
+    const edgePts=Math.min(40,Math.max(0,evEdge/0.15*20+20));
+    const hrPts=Math.min(40,Math.max(0,(dirHR-25)*0.8));
+    const cvPts=Math.min(20,Math.max(0,(0.6-Math.min(cv,0.6))/0.4*20));
+    const simConf=Math.max(0,Math.min(100,Math.round(edgePts+hrPts+cvPts)));
 
-  // Original baseline
-  const origIsOver=(p.edge||0)>=0;
-  const origDirHR=origIsOver?(p.hitRate||50):(100-(p.hitRate||50));
-  const origDirMP=origIsOver?(p.modelProb||0.5):(1-(p.modelProb||0.5));
-  const origDirEV=origIsOver?(p.evOver??0):(p.evUnder??0);
+    // Original baseline
+    const origIsOver=(p.edge||0)>=0;
+    const origDirHR=origIsOver?(p.hitRate||50):(100-(p.hitRate||50));
+    const origDirMP=origIsOver?(p.modelProb||0.5):(1-(p.modelProb||0.5));
+    const origDirEV=origIsOver?(p.evOver??0):(p.evUnder??0);
 
-  function delta(nv,ov,higherBetter=true){
-    const d=+(nv-ov).toFixed(1); if(d===0)return'';
-    const good=higherBetter?d>0:d<0;
-    return`<span class="sim-delta ${good?'pos':'neg'}">${d>0?'+':''}${d}</span>`;
+    function delta(nv,ov,higherBetter=true){
+      const d=+(nv-ov).toFixed(1); if(d===0)return'';
+      const good=higherBetter?d>0:d<0;
+      return`<span class="sim-delta ${good?'pos':'neg'}">${d>0?'+':''}${d}</span>`;
+    }
+    const dir=isOver?'Over':'Under';
+    const oc=simEdge>=0?'var(--g)':'var(--r)';
+    const origOc=(p.edge||0)>=0?'var(--g)':'var(--r)';
+    const lineDiff=+(newLine-p.line).toFixed(1);
+    const lineDiffHtml=lineDiff!==0?` <span style="font-weight:600;color:${lineDiff<0?'var(--g)':'var(--r)'}">(${lineDiff>0?'+':''}${lineDiff})</span>`:'';
+
+    compareEl.innerHTML=`
+      <div class="sim-col">
+        <div style="font-size:11px;font-weight:800;letter-spacing:.5px;color:var(--t3);text-transform:uppercase;margin-bottom:8px;">Original · Line ${p.line}</div>
+        <div class="sim-stat"><span class="sim-stat-lbl">Direction</span><span class="sim-stat-val">${origIsOver?'Over':'Under'}</span></div>
+        <div class="sim-stat"><span class="sim-stat-lbl">Season Hit Rate</span><span class="sim-stat-val">${origDirHR}%</span></div>
+        <div class="sim-stat"><span class="sim-stat-lbl">Model Prob</span><span class="sim-stat-val">${Math.round(origDirMP*100)}%</span></div>
+        <div class="sim-stat"><span class="sim-stat-lbl">Edge</span><span class="sim-stat-val" style="color:${origOc}">${(p.edge||0)>0?'+':''}${(p.edge||0).toFixed(1)}%</span></div>
+        <div class="sim-stat"><span class="sim-stat-lbl">EV</span><span class="sim-stat-val" style="color:${origDirEV>=0?'var(--g)':'var(--r)'}">${origDirEV>0?'+':''}${origDirEV}%</span></div>
+        <div class="sim-stat"><span class="sim-stat-lbl">Confidence</span><span class="sim-stat-val">${p.confidence||0}/100</span></div>
+      </div>
+      <div class="sim-col sim-new">
+        <div style="font-size:11px;font-weight:800;letter-spacing:.5px;color:#818cf8;text-transform:uppercase;margin-bottom:8px;">Simulated · Line ${newLine}${lineDiffHtml}</div>
+        <div class="sim-stat"><span class="sim-stat-lbl">Direction</span><span class="sim-stat-val">${dir}</span></div>
+        <div class="sim-stat"><span class="sim-stat-lbl">Season Hit Rate</span><span class="sim-stat-val">${dirHR}% <span style="font-size:11px;color:var(--t3);">(${gameCount}/${n}g)</span>${delta(dirHR,origDirHR)}</span></div>
+        <div class="sim-stat"><span class="sim-stat-lbl">Model Prob</span><span class="sim-stat-val">${Math.round(dirMP*100)}%${delta(Math.round(dirMP*100),Math.round(origDirMP*100))}</span></div>
+        <div class="sim-stat"><span class="sim-stat-lbl">Edge</span><span class="sim-stat-val" style="color:${oc}">${simEdge>0?'+':''}${simEdge}%${delta(simEdge,p.edge||0)}</span></div>
+        <div class="sim-stat"><span class="sim-stat-lbl">EV (${simDirOdds>0?'+':''}${simDirOdds})</span><span class="sim-stat-val" style="color:${simEV>=0?'var(--g)':'var(--r)'}">${simEV>0?'+':''}${simEV}%${delta(simEV,origDirEV)}</span></div>
+        <div class="sim-stat"><span class="sim-stat-lbl">Confidence</span><span class="sim-stat-val">${simConf}/100${delta(simConf,p.confidence||0)}</span></div>
+      </div>`;
+  }catch(e){
+    console.warn('[LineSim]',e);
+    const c=document.getElementById('simCompare');
+    if(c)c.innerHTML=`<div style="color:var(--r);font-size:12px;padding:8px;">Error computing stats: ${e.message}</div>`;
   }
-  const dir=isOver?'Over':'Under';
-  const oc=simEdge>=0?'var(--g)':'var(--r)';
-  const origOc=(p.edge||0)>=0?'var(--g)':'var(--r)';
-  const lineDiff=+(newLine-p.line).toFixed(1);
-  const lineDiffHtml=lineDiff!==0?` <span style="font-weight:600;color:${lineDiff<0?'var(--g)':'var(--r)'}">(${lineDiff>0?'+':''}${lineDiff})</span>`:'';
-
-  document.getElementById('simCompare').innerHTML=`
-    <div class="sim-col">
-      <div style="font-size:10px;font-weight:800;letter-spacing:.5px;color:var(--t3);text-transform:uppercase;margin-bottom:8px;">Original · Line ${p.line}</div>
-      <div class="sim-stat"><span class="sim-stat-lbl">Direction</span><span class="sim-stat-val">${origIsOver?'Over':'Under'}</span></div>
-      <div class="sim-stat"><span class="sim-stat-lbl">Season Hit Rate</span><span class="sim-stat-val">${origDirHR}%</span></div>
-      <div class="sim-stat"><span class="sim-stat-lbl">Model Prob</span><span class="sim-stat-val">${Math.round(origDirMP*100)}%</span></div>
-      <div class="sim-stat"><span class="sim-stat-lbl">Edge</span><span class="sim-stat-val" style="color:${origOc}">${(p.edge||0)>0?'+':''}${(p.edge||0).toFixed(1)}%</span></div>
-      <div class="sim-stat"><span class="sim-stat-lbl">EV</span><span class="sim-stat-val" style="color:${origDirEV>=0?'var(--g)':'var(--r)'}">${origDirEV>0?'+':''}${origDirEV}%</span></div>
-      <div class="sim-stat"><span class="sim-stat-lbl">Confidence</span><span class="sim-stat-val">${p.confidence||0}/100</span></div>
-    </div>
-    <div class="sim-col sim-new">
-      <div style="font-size:10px;font-weight:800;letter-spacing:.5px;color:#818cf8;text-transform:uppercase;margin-bottom:8px;">Simulated · Line ${newLine}${lineDiffHtml}</div>
-      <div class="sim-stat"><span class="sim-stat-lbl">Direction</span><span class="sim-stat-val">${dir}</span></div>
-      <div class="sim-stat"><span class="sim-stat-lbl">Season Hit Rate</span><span class="sim-stat-val">${dirHR}% <span style="font-size:10px;color:var(--t3);">(${isOver?vals.filter(v=>v>=newLine).length:vals.filter(v=>v<newLine).length}/${n}g)</span>${delta(dirHR,origDirHR)}</span></div>
-      <div class="sim-stat"><span class="sim-stat-lbl">Model Prob</span><span class="sim-stat-val">${Math.round(dirMP*100)}%${delta(Math.round(dirMP*100),Math.round(origDirMP*100))}</span></div>
-      <div class="sim-stat"><span class="sim-stat-lbl">Edge</span><span class="sim-stat-val" style="color:${oc}">${simEdge>0?'+':''}${simEdge}%${delta(simEdge,p.edge||0)}</span></div>
-      <div class="sim-stat"><span class="sim-stat-lbl">EV (${simDirOdds>0?'+':''}${simDirOdds})</span><span class="sim-stat-val" style="color:${simEV>=0?'var(--g)':'var(--r)'}">${simEV>0?'+':''}${simEV}%${delta(simEV,origDirEV)}</span></div>
-      <div class="sim-stat"><span class="sim-stat-lbl">Confidence</span><span class="sim-stat-val">${simConf}/100${delta(simConf,p.confidence||0)}</span></div>
-    </div>`;
 }
 
 function updateLineSimNum(){
