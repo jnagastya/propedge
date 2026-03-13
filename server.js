@@ -1009,59 +1009,86 @@ app.get('/api/cron/refresh-stats', async (req, res) => {
   if (!supabase) return res.status(503).json({ error: 'Supabase not configured' });
   if (!BDL_KEY) return res.status(503).json({ error: 'BDL key not configured' });
 
-  const results = { ok: [], failed: [], skipped: [] };
+  const results = { ok: [], failed: [], skipped: [], newPlayers: [] };
   try {
     // Get player names from Supabase odds_cache (populated by refresh-odds cron)
-    // This avoids extra Odds API calls and ensures we use the same player list users see
     const oddsPlayers = await sbGetOdds('combined');
     if (!oddsPlayers || !oddsPlayers.length) {
       return res.status(503).json({ error: 'No odds data in Supabase — run refresh-odds first' });
     }
-    const playerNames = new Set(oddsPlayers.map(p => p.name).filter(Boolean));
+    const playerNames = [...new Set(oddsPlayers.map(p => p.name).filter(Boolean))];
 
-    // Fetch/update BDL stats for each player with throttling
-    // Uses incremental mode when possible: only fetches games since last stored game date
-    // (with a 3-day lookback buffer to catch back-to-backs and late BDL reporting)
-    const names = [...playerNames];
-    for (let i = 0; i < names.length; i++) {
-      const name = names[i];
-      try {
-        const { id: bdlId, position: bdlPos } = await getBDLPlayerId(name);
-        if (!bdlId) { results.failed.push(`${name} (not found in BDL)`); continue; }
+    // Batch-read all existing records from Supabase to avoid N+1 queries
+    const { data: existingRecords } = await supabase
+      .from('player_stats')
+      .select('player_name, bdl_id, position, game_log, last_fetched, season')
+      .eq('season', NBA_SEASON)
+      .in('player_name', playerNames);
+    const recordMap = new Map((existingRecords || []).map(r => [r.player_name, r]));
 
-        const record = await sbGetGameLogRecord(name);
-        const existingGames = record?.game_log;
+    // Split players: those needing incremental update vs full fetch
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
+    const incremental = []; // already have data, just need recent games
+    const fullFetch = [];   // no data yet, need full season
 
-        if (existingGames?.length) {
-          // Incremental mode: find last game date, fetch 3 days back to catch
-          // back-to-backs and any games BDL reported late
-          const lastGameDate = existingGames
-            .map(g => g.date).filter(Boolean).sort().pop();
-          const fetchFrom = new Date(lastGameDate);
-          fetchFrom.setDate(fetchFrom.getDate() - 3);
-          const startDate = fetchFrom.toISOString().split('T')[0];
-
-          const newGames = await fetchBDLGameLog(bdlId, startDate);
-          // Merge: new games override existing on same date (fresher data wins)
-          const byDate = new Map(existingGames.map(g => [g.date, g]));
-          newGames.forEach(g => byDate.set(g.date, g));
-          const merged = [...byDate.values()].sort((a, b) => new Date(b.date) - new Date(a.date));
-          await sbSetGameLog(name, bdlId, merged, bdlPos);
-          results.ok.push(`${name} (+${newGames.length} new)`);
-        } else {
-          // First time: full season fetch
-          const games = await fetchBDLGameLog(bdlId);
-          await sbSetGameLog(name, bdlId, games, bdlPos);
-          results.ok.push(`${name} (full, ${games.length} games)`);
+    for (const name of playerNames) {
+      const rec = recordMap.get(name);
+      if (rec?.game_log?.length) {
+        // Skip if already updated today (within last 12 hours)
+        if (rec.last_fetched && (now - new Date(rec.last_fetched)) < 12 * 60 * 60 * 1000) {
+          results.skipped.push(name);
+          continue;
         }
+        incremental.push({ name, record: rec });
+      } else {
+        fullFetch.push(name);
+      }
+    }
+
+    // Process incremental updates first (fast — only fetches last few days)
+    for (let i = 0; i < incremental.length; i++) {
+      const { name, record } = incremental[i];
+      try {
+        const bdlId = record.bdl_id;
+        const lastGameDate = record.game_log.map(g => g.date).filter(Boolean).sort().pop();
+        const fetchFrom = new Date(lastGameDate);
+        fetchFrom.setDate(fetchFrom.getDate() - 3);
+        const startDate = fetchFrom.toISOString().split('T')[0];
+
+        const newGames = await fetchBDLGameLog(bdlId, startDate);
+        const byDate = new Map(record.game_log.map(g => [g.date, g]));
+        newGames.forEach(g => byDate.set(g.date, g));
+        const merged = [...byDate.values()].sort((a, b) => new Date(b.date) - new Date(a.date));
+        await sbSetGameLog(name, bdlId, merged, record.position);
+        results.ok.push(`${name} (+${newGames.length})`);
       } catch (e) {
         results.failed.push(`${name} (${e.message})`);
       }
-      // Throttle to avoid BDL rate limits
-      if (i < names.length - 1) await new Promise(r => setTimeout(r, 400));
+      if (i < incremental.length - 1) await new Promise(r => setTimeout(r, 250));
     }
 
-    res.json({ success: true, processed: names.length, ...results });
+    // Then process new players (slower — full season fetch)
+    // Cap at 50 new players per run to stay within Vercel time limits
+    const newBatch = fullFetch.slice(0, 50);
+    for (let i = 0; i < newBatch.length; i++) {
+      const name = newBatch[i];
+      try {
+        const { id: bdlId, position: bdlPos } = await getBDLPlayerId(name);
+        if (!bdlId) { results.failed.push(`${name} (not found in BDL)`); continue; }
+        const games = await fetchBDLGameLog(bdlId);
+        await sbSetGameLog(name, bdlId, games, bdlPos);
+        results.newPlayers.push(`${name} (${games.length} games)`);
+      } catch (e) {
+        results.failed.push(`${name} (${e.message})`);
+      }
+      if (i < newBatch.length - 1) await new Promise(r => setTimeout(r, 400));
+    }
+    if (fullFetch.length > 50) {
+      results.deferred = fullFetch.length - 50;
+    }
+
+    res.json({ success: true, total: playerNames.length, incremental: incremental.length, newFetched: newBatch.length, skipped: results.skipped.length, ...results });
   } catch (err) {
     res.status(500).json({ error: err.message, ...results });
   }
