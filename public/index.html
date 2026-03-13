@@ -5166,23 +5166,9 @@ function buildShareSendList() {
   return html;
 }
 function shareAlert(p) {
-  const isOver = (p.edge || 0) > 0;
-  const dir = isOver ? 'OVER' : 'UNDER';
-  const mkt = MKT_SHORT[p.market || S.market] || '';
-  const odds = isOver ? p.overOdds : p.underOdds;
-  const oddsFmt = odds ? (odds > 0 ? '+' : '') + odds : '';
-  const ev = (p._dirEV || getDirectionalEV(p));
-  const vs = p.vs || valueScore(p);
-  const prob = Math.round((p.modelProb || 0.5) * 100 * (isOver ? 1 : -1) + (isOver ? 0 : 100));
-  const text = `⚡ Value Alert: ${p.name}\n${dir} ${p.line} ${mkt} (${oddsFmt})\nModel: ${Math.round((isOver ? p.modelProb : 1 - p.modelProb) * 100)}% · EV: +${ev.toFixed(1)}% · Edge: ${(p.edge||0)>0?'+':''}${(p.edge||0).toFixed(1)}%\nValue Score: ${vs}/100\n\n— Value Alert`;
-  // Native share (mobile) or clipboard
-  if (navigator.share) {
-    navigator.share({ title: `Value Alert: ${p.name}`, text }).catch(() => {});
-  } else {
-    navigator.clipboard.writeText(text).then(() => showSts('Alert copied to clipboard', 'ok')).catch(() => {});
-  }
-  // Also open in-app share if logged in
-  if (_authToken && _socUsername) openShareModal(p);
+  if (!_authToken) return;
+  if (!_socUsername) { showUsernameModal(); return; }
+  openShareModal(p);
 }
 
 function openShareModal(p) {
