@@ -1018,74 +1018,79 @@ app.get('/api/cron/refresh-stats', async (req, res) => {
     }
     const playerNames = [...new Set(oddsPlayers.map(p => p.name).filter(Boolean))];
 
-    // Batch-read all existing records from Supabase to avoid N+1 queries
+    // Batch-read existing records (metadata only — no game_log to keep query fast)
     const { data: existingRecords } = await supabase
       .from('player_stats')
-      .select('player_name, bdl_id, position, game_log, last_fetched, season')
+      .select('player_name, bdl_id, position, last_fetched, season')
       .eq('season', NBA_SEASON)
       .in('player_name', playerNames);
     const recordMap = new Map((existingRecords || []).map(r => [r.player_name, r]));
 
-    // Split players: those needing incremental update vs full fetch
+    // Split players: incremental (have data) vs full fetch (new)
     const now = new Date();
-    const todayStr = now.toISOString().split('T')[0];
-    const incremental = []; // already have data, just need recent games
-    const fullFetch = [];   // no data yet, need full season
+    const incremental = [];
+    const fullFetch = [];
 
     for (const name of playerNames) {
       const rec = recordMap.get(name);
-      if (rec?.game_log?.length) {
-        // Skip if already updated today (within last 12 hours)
+      if (rec?.bdl_id) {
+        // Skip if already updated within last 12 hours
         if (rec.last_fetched && (now - new Date(rec.last_fetched)) < 12 * 60 * 60 * 1000) {
           results.skipped.push(name);
           continue;
         }
-        incremental.push({ name, record: rec });
+        incremental.push({ name, bdlId: rec.bdl_id, position: rec.position });
       } else {
         fullFetch.push(name);
       }
     }
 
-    // Process incremental updates first (fast — only fetches last few days)
-    for (let i = 0; i < incremental.length; i++) {
-      const { name, record } = incremental[i];
+    // Helper: process a batch of promises with concurrency limit
+    async function processBatch(items, fn, concurrency) {
+      for (let i = 0; i < items.length; i += concurrency) {
+        await Promise.all(items.slice(i, i + concurrency).map(fn));
+      }
+    }
+
+    // Process incremental updates — 5 concurrent
+    // Each fetches only last 3 days of games, then merges with stored data
+    await processBatch(incremental, async ({ name, bdlId, position }) => {
       try {
-        const bdlId = record.bdl_id;
-        const lastGameDate = record.game_log.map(g => g.date).filter(Boolean).sort().pop();
-        const fetchFrom = new Date(lastGameDate);
+        // Fetch existing game_log for this player
+        const record = await sbGetGameLogRecord(name);
+        const existingGames = record?.game_log || [];
+
+        const lastGameDate = existingGames.map(g => g.date).filter(Boolean).sort().pop();
+        const fetchFrom = lastGameDate ? new Date(lastGameDate) : new Date(NBA_SEASON + '-10-01');
         fetchFrom.setDate(fetchFrom.getDate() - 3);
         const startDate = fetchFrom.toISOString().split('T')[0];
 
         const newGames = await fetchBDLGameLog(bdlId, startDate);
-        const byDate = new Map(record.game_log.map(g => [g.date, g]));
+        const byDate = new Map(existingGames.map(g => [g.date, g]));
         newGames.forEach(g => byDate.set(g.date, g));
         const merged = [...byDate.values()].sort((a, b) => new Date(b.date) - new Date(a.date));
-        await sbSetGameLog(name, bdlId, merged, record.position);
+        await sbSetGameLog(name, bdlId, merged, position);
         results.ok.push(`${name} (+${newGames.length})`);
       } catch (e) {
         results.failed.push(`${name} (${e.message})`);
       }
-      if (i < incremental.length - 1) await new Promise(r => setTimeout(r, 250));
-    }
+    }, 5);
 
-    // Then process new players (slower — full season fetch)
-    // Cap at 50 new players per run to stay within Vercel time limits
-    const newBatch = fullFetch.slice(0, 50);
-    for (let i = 0; i < newBatch.length; i++) {
-      const name = newBatch[i];
+    // Process new players — 3 concurrent, cap at 30 per run
+    const newBatch = fullFetch.slice(0, 30);
+    await processBatch(newBatch, async (name) => {
       try {
         const { id: bdlId, position: bdlPos } = await getBDLPlayerId(name);
-        if (!bdlId) { results.failed.push(`${name} (not found in BDL)`); continue; }
+        if (!bdlId) { results.failed.push(`${name} (not found in BDL)`); return; }
         const games = await fetchBDLGameLog(bdlId);
         await sbSetGameLog(name, bdlId, games, bdlPos);
         results.newPlayers.push(`${name} (${games.length} games)`);
       } catch (e) {
         results.failed.push(`${name} (${e.message})`);
       }
-      if (i < newBatch.length - 1) await new Promise(r => setTimeout(r, 400));
-    }
-    if (fullFetch.length > 50) {
-      results.deferred = fullFetch.length - 50;
+    }, 3);
+    if (fullFetch.length > 30) {
+      results.deferred = fullFetch.length - 30;
     }
 
     res.json({ success: true, total: playerNames.length, incremental: incremental.length, newFetched: newBatch.length, skipped: results.skipped.length, ...results });
