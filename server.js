@@ -2091,7 +2091,7 @@ async function sendPushToUser(userId, payload) {
 // Schema (run in Supabase SQL editor):
 //   CREATE TABLE IF NOT EXISTS agent_bets (
 //     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-//     bet_date DATE NOT NULL,
+//     placed_at DATE NOT NULL,
 //     player_name TEXT NOT NULL,
 //     team TEXT,
 //     matchup TEXT,
@@ -2115,7 +2115,7 @@ async function sendPushToUser(userId, payload) {
 //     graded_at TIMESTAMPTZ,
 //     created_at TIMESTAMPTZ DEFAULT now()
 //   );
-//   CREATE INDEX IF NOT EXISTS idx_agent_bets_date ON agent_bets(bet_date);
+//   CREATE INDEX IF NOT EXISTS idx_agent_bets_date ON agent_bets(placed_at);
 //   CREATE INDEX IF NOT EXISTS idx_agent_bets_status ON agent_bets(status);
 
 const { Resend } = require('resend');
@@ -2223,7 +2223,7 @@ async function sendDiscordResults(allBets, latestDate) {
   const pnlFmt = v => `${v >= 0 ? '+' : '-'}$${Math.abs(v).toFixed(2)}`;
   const dateStr = new Date(latestDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
 
-  const yesterdayBets = allBets.filter(b => b.bet_date === latestDate);
+  const yesterdayBets = allBets.filter(b => b.placed_at === latestDate);
   const yesterdayValue = yesterdayBets.filter(b => !b.is_control);
   const allValue = allBets.filter(b => !b.is_control);
   const allControl = allBets.filter(b => b.is_control);
@@ -2354,10 +2354,10 @@ async function sendDiscordResults(allBets, latestDate) {
     }
 
     // Trend: last 7 days vs prior
-    const dates = [...new Set(settledValue.map(b => b.bet_date))].sort().reverse();
+    const dates = [...new Set(settledValue.map(b => b.placed_at))].sort().reverse();
     if (dates.length >= 7) {
-      const recent = settledValue.filter(b => dates.slice(0, 7).includes(b.bet_date));
-      const prior = settledValue.filter(b => !dates.slice(0, 7).includes(b.bet_date));
+      const recent = settledValue.filter(b => dates.slice(0, 7).includes(b.placed_at));
+      const prior = settledValue.filter(b => !dates.slice(0, 7).includes(b.placed_at));
       if (prior.length >= 10) {
         const recentWr = recent.filter(b => b.status === 'won').length / recent.length * 100;
         const priorWr = prior.filter(b => b.status === 'won').length / prior.length * 100;
@@ -2458,7 +2458,7 @@ app.get('/api/cron/agent-bet', async (req, res) => {
   const today = new Date().toISOString().slice(0, 10);
 
   // Idempotency: skip if we already placed bets today
-  const { count: existing } = await supabase.from('agent_bets').select('id', { count: 'exact', head: true }).eq('bet_date', today);
+  const { count: existing } = await supabase.from('agent_bets').select('id', { count: 'exact', head: true }).eq('placed_at', today);
   if (existing > 0) return res.json({ skipped: true, message: `Already placed ${existing} agent bets for ${today}` });
 
   const summary = { value: 0, control: 0, skipped: 0, errors: [] };
@@ -2506,7 +2506,7 @@ app.get('/api/cron/agent-bet', async (req, res) => {
         const payout = stats.odds > 0 ? +(STAKE * stats.odds / 100).toFixed(2) : +(STAKE * 100 / Math.abs(stats.odds)).toFixed(2);
 
         betsToInsert.push({
-          bet_date: today,
+          placed_at: today,
           player_name: p.name,
           team: guessTeam(p.name) || p.homeTeam || null,
           matchup: p.matchup || null,
@@ -2623,12 +2623,12 @@ app.get('/api/cron/newsletter', async (req, res) => {
 
   try {
     // Get all graded bets
-    const { data: allBets } = await supabase.from('agent_bets').select('*').neq('status', 'open').order('bet_date', { ascending: false });
+    const { data: allBets } = await supabase.from('agent_bets').select('*').neq('status', 'open').order('placed_at', { ascending: false });
     if (!allBets?.length) return res.json({ message: 'No graded bets yet' });
 
-    // Yesterday's bets (most recent bet_date with graded results)
-    const latestDate = allBets[0].bet_date;
-    const yesterdayBets = allBets.filter(b => b.bet_date === latestDate);
+    // Yesterday's bets (most recent placed_at with graded results)
+    const latestDate = allBets[0].placed_at;
+    const yesterdayBets = allBets.filter(b => b.placed_at === latestDate);
     const yesterdayValue = yesterdayBets.filter(b => !b.is_control);
     const yesterdayControl = yesterdayBets.filter(b => b.is_control);
 
