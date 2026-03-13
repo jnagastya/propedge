@@ -1788,11 +1788,15 @@ const DISCORD_RESULTS_WEBHOOK = process.env.DISCORD_RESULTS_WEBHOOK || '';
 async function postDiscord(webhookUrl, payload) {
   if (!webhookUrl) return;
   try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
     await fetch(webhookUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
+      signal: controller.signal,
     });
+    clearTimeout(timeout);
   } catch (e) { console.error('Discord webhook error:', e.message); }
 }
 
@@ -2482,6 +2486,11 @@ app.get('/api/cron/newsletter', async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+// ---- Diagnostic ping ----
+app.get('/api/ping', (req, res) => {
+  res.json({ ok: true, time: new Date().toISOString(), discord: { picks: !!DISCORD_PICKS_WEBHOOK, results: !!DISCORD_RESULTS_WEBHOOK } });
 });
 
 // ---- TEST: Send sample Discord messages ----
