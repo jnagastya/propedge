@@ -1813,11 +1813,10 @@ app.post('/api/social/conversations/:id/messages', async (req, res) => {
           const odds = fmtOdds(isOver ? ld.overOdds : ld.underOdds);
           const ev = fmtEV(ld.dirEV);
           const prob = fmtProb(ld.modelProb != null ? (isOver ? ld.modelProb : 1 - ld.modelProb) : null);
-          const conf = ld.confidence != null ? `Conf ${ld.confidence}` : null;
           pushTitle = `${senderName} shared a line`;
           pushBody = [
             `${ld.name || 'Player'} ${dir} ${ld.line ?? ''} ${mkt}`,
-            [odds, ev ? `EV ${ev}` : null, prob ? `Model ${prob}` : null, conf].filter(Boolean).join(' · ')
+            [odds, ev ? `EV ${ev}` : null, prob ? `Model ${prob}` : null].filter(Boolean).join(' · ')
           ].filter(Boolean).join('\n');
         } else if (type === 'bet' && betData) {
           const bd = betData;
@@ -1828,12 +1827,13 @@ app.post('/api/social/conversations/:id/messages', async (req, res) => {
           } else {
             if (bd.status && bd.status !== 'open') return;
             const dir = bd.direction === 'over' ? '▲ OVER' : '▼ UNDER';
+            const mktB = MKT_SHORT[bd.market] || bd.marketLabel || '';
             const odds = fmtOdds(bd.odds);
             const ev = fmtEV(bd.evParlay ?? (bd.edge != null ? bd.edge : null));
             const prob = fmtProb(bd.modelProb);
             pushTitle = `${senderName} shared a bet`;
             pushBody = [
-              `${bd.player || 'Player'} ${dir} ${bd.line ?? ''}`,
+              `${bd.player || 'Player'} ${dir} ${bd.line ?? ''} ${mktB}`.trim(),
               [odds, ev ? `EV ${ev}` : null, prob ? `Model ${prob}` : null].filter(Boolean).join(' · ')
             ].filter(Boolean).join('\n');
           }
