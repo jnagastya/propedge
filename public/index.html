@@ -349,7 +349,7 @@ td{padding:13px 14px;white-space:nowrap;}
 .game-panel.show{display:block;}
 .gp-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
 .gp-title{font-size:14px;font-weight:700;}
-.gp-close{background:none;border:none;font-size:18px;color:var(--t3);cursor:pointer;line-height:1;}.gp-close:hover{color:var(--t1);}
+.gp-close{background:none;border:none;font-size:12px;font-family:var(--sans);font-weight:600;color:var(--t3);cursor:pointer;letter-spacing:.3px;}.gp-close:hover{color:var(--r);}
 .gp-teams{display:flex;gap:8px;flex-wrap:wrap;}
 .gp-team{flex:1;min-width:140px;background:var(--bg2);border:1px solid var(--bd);border-radius:var(--radius);padding:10px;}
 .gp-team-name{font-size:12px;font-weight:700;color:var(--t2);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px;}
@@ -2097,7 +2097,14 @@ function teamLogo(abbr){
 function renderScores(data){
   const el=document.getElementById('scs');
   if(!data.length){el.innerHTML='';return;}
-  el.innerHTML=data.map(g=>{
+  // Sort: live first, then upcoming (by commence time), then completed last
+  const sorted=[...data].sort((a,b)=>{
+    const rank=g=>g.live?0:(!g.completed?1:2);
+    const ra=rank(a),rb=rank(b);
+    if(ra!==rb)return ra-rb;
+    return new Date(a.commence)-new Date(b.commence);
+  });
+  el.innerHTML=sorted.map(g=>{
     const key=`${g.away} @ ${g.home}`;
     const active=S.gameFilter===key;
     const aS=g.awayScore||'—',hS=g.homeScore||'—';
