@@ -666,6 +666,82 @@ td{padding:13px 14px;white-space:nowrap;}
 .save-status{font-size:9px;color:var(--t3);white-space:nowrap;transition:color .2s;letter-spacing:.1px;}
 .save-status.ok{color:var(--g);}
 .save-status.syncing{color:var(--t3);}
+
+/* ── SOCIAL ── */
+.soc-view{display:none;}.soc-view.show{display:block;}
+.soc-layout{display:grid;grid-template-columns:272px 1fr;height:calc(100vh - 130px);min-height:400px;background:var(--bg1);border:1px solid var(--bd);border-radius:var(--radius-lg);overflow:hidden;}
+.soc-sidebar{border-right:1px solid var(--bd);display:flex;flex-direction:column;overflow:hidden;}
+.soc-sidebar-scroll{flex:1;overflow-y:auto;display:flex;flex-direction:column;}
+.soc-section{border-bottom:1px solid var(--bd);}
+.soc-section-hd{display:flex;align-items:center;justify-content:space-between;padding:11px 14px 9px;font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.6px;}
+.soc-add-btn{font-size:11px;font-weight:600;padding:3px 9px;border-radius:6px;background:var(--bld);color:var(--b);border:1px solid var(--bb);cursor:pointer;transition:all .12s;}.soc-add-btn:hover{background:var(--b);color:#fff;}
+.soc-friend-item{display:flex;align-items:center;gap:10px;padding:9px 14px;cursor:pointer;transition:background .1s;}.soc-friend-item:hover{background:var(--bgh);}
+.soc-av{width:30px;height:30px;border-radius:50%;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--b);flex-shrink:0;}
+.soc-friend-info{flex:1;min-width:0;}.soc-friend-name{font-size:13px;font-weight:600;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}.soc-friend-user{font-size:11px;color:var(--t3);}
+.soc-conv-item{display:flex;align-items:center;gap:10px;padding:9px 14px;cursor:pointer;transition:background .1s;}.soc-conv-item:hover{background:var(--bgh);}.soc-conv-item.active{background:var(--bld);}
+.soc-conv-info{flex:1;min-width:0;}.soc-conv-name{font-size:13px;font-weight:600;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}.soc-conv-last{font-size:11px;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px;}
+.soc-unread-dot{width:8px;height:8px;border-radius:50%;background:var(--b);flex-shrink:0;}
+.soc-chat{display:flex;flex-direction:column;overflow:hidden;}
+.soc-chat-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:var(--t3);padding:24px;}
+.soc-empty-icon{font-size:38px;}.soc-empty-title{font-size:16px;font-weight:700;color:var(--t2);}.soc-empty-sub{font-size:13px;text-align:center;max-width:220px;line-height:1.5;}
+.soc-chat-active{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+.soc-chat-hd{padding:11px 16px;border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:10px;flex-shrink:0;}
+.soc-chat-hd-info{flex:1;min-width:0;}.soc-chat-hd-name{font-size:14px;font-weight:700;color:var(--t1);}.soc-chat-hd-sub{font-size:11px;color:var(--t3);}
+.soc-messages{flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:6px;}
+.soc-msg{display:flex;flex-direction:column;max-width:76%;}.soc-msg.mine{align-self:flex-end;align-items:flex-end;}.soc-msg.them{align-self:flex-start;align-items:flex-start;}
+.soc-msg-sender{font-size:10px;color:var(--t3);margin-bottom:2px;font-weight:600;}
+.soc-bubble{padding:8px 12px;border-radius:14px;font-size:13px;line-height:1.45;word-break:break-word;}
+.soc-msg.mine .soc-bubble{background:var(--b);color:#fff;border-bottom-right-radius:4px;}.soc-msg.them .soc-bubble{background:var(--bg3);color:var(--t1);border-bottom-left-radius:4px;}
+.soc-msg-time{font-size:10px;color:var(--t3);margin-top:2px;}
+.soc-line-card{background:var(--bg2);border:1px solid var(--bd2);border-radius:10px;padding:10px 12px;cursor:pointer;transition:border-color .12s,background .12s;min-width:190px;max-width:260px;}
+.soc-line-card:hover{border-color:var(--b);background:var(--bld);}
+.soc-msg.mine .soc-line-card{background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.25);color:#fff;}.soc-msg.mine .soc-line-card:hover{background:rgba(255,255,255,.2);}
+.soc-line-name{font-size:13px;font-weight:700;margin-bottom:4px;display:flex;align-items:center;gap:6px;}
+.soc-line-mkt{font-size:9px;font-weight:700;background:var(--bld);color:var(--b);padding:1px 5px;border-radius:4px;text-transform:uppercase;}
+.soc-msg.mine .soc-line-mkt{background:rgba(255,255,255,.2);color:#fff;}
+.soc-line-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-top:6px;}
+.soc-line-cell{font-size:10px;color:var(--t3);}.soc-line-val{font-size:12px;font-weight:700;color:var(--t1);}
+.soc-msg.mine .soc-line-cell,.soc-msg.mine .soc-line-val{color:rgba(255,255,255,.75);}
+.soc-line-live{margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,.1);font-size:11px;display:flex;gap:6px;flex-wrap:wrap;}
+.soc-line-live-tag{background:var(--gd);color:var(--g);border-radius:4px;padding:1px 6px;font-weight:700;font-size:10px;}
+.soc-chat-input-row{padding:10px 12px;border-top:1px solid var(--bd);display:flex;gap:8px;align-items:flex-end;flex-shrink:0;}
+.soc-input{flex:1;background:var(--bg2);border:1px solid var(--bd);border-radius:10px;padding:8px 12px;font-family:var(--sans);font-size:13px;color:var(--t1);resize:none;outline:none;max-height:100px;transition:border-color .15s;line-height:1.4;}.soc-input:focus{border-color:var(--b);}
+.soc-send-btn{padding:8px 16px;background:var(--b);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--sans);transition:opacity .12s;flex-shrink:0;}.soc-send-btn:hover{opacity:.85;}
+.soc-day-sep{text-align:center;font-size:10px;color:var(--t3);margin:6px 0;font-weight:600;letter-spacing:.4px;}
+.soc-pending-item{display:flex;align-items:center;justify-content:space-between;padding:8px 14px;gap:8px;}
+.soc-pending-name{font-size:13px;font-weight:600;color:var(--t1);}.soc-pending-user{font-size:11px;color:var(--t3);}
+.soc-pending-btns{display:flex;gap:5px;flex-shrink:0;}
+.soc-accept-btn{padding:3px 9px;border-radius:6px;background:var(--gd);color:var(--g);border:1px solid var(--gb);cursor:pointer;font-size:11px;font-weight:600;font-family:var(--sans);}
+.soc-decline-btn{padding:3px 9px;border-radius:6px;background:var(--rd);color:var(--r);border:1px solid var(--rb);cursor:pointer;font-size:11px;font-weight:600;font-family:var(--sans);}
+.soc-notif-badge{display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;padding:0 4px;background:var(--b);color:#fff;border-radius:8px;font-size:10px;font-weight:700;margin-left:4px;vertical-align:middle;line-height:1;}
+.share-btn{background:none;border:1px solid var(--bd);border-radius:6px;cursor:pointer;padding:3px 7px;font-size:11px;color:var(--t3);transition:all .12s;font-family:var(--sans);white-space:nowrap;}.share-btn:hover{border-color:var(--b);color:var(--b);background:var(--bld);}
+/* social modals */
+.soc-modal-body{padding:16px;display:flex;flex-direction:column;gap:10px;}
+.soc-modal-inp{width:100%;background:var(--bg2);border:1px solid var(--bd);border-radius:8px;padding:9px 12px;font-family:var(--sans);font-size:13px;color:var(--t1);outline:none;box-sizing:border-box;transition:border-color .15s;}.soc-modal-inp:focus{border-color:var(--b);}
+.soc-modal-results{display:flex;flex-direction:column;gap:6px;max-height:220px;overflow-y:auto;}
+.soc-result-row{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-radius:8px;background:var(--bg2);border:1px solid var(--bd);}
+.soc-result-name{font-size:13px;font-weight:600;color:var(--t1);}.soc-result-dn{font-size:11px;color:var(--t3);}
+.soc-req-btn{padding:4px 10px;border-radius:6px;background:var(--bld);color:var(--b);border:1px solid var(--bb);cursor:pointer;font-size:12px;font-weight:600;font-family:var(--sans);}.soc-req-btn:disabled{opacity:.5;cursor:not-allowed;}
+.soc-req-btn.sent{background:var(--gd);color:var(--g);border-color:var(--gb);}
+.soc-member-chips{display:flex;flex-wrap:wrap;gap:6px;min-height:24px;}
+.soc-chip{display:flex;align-items:center;gap:4px;padding:3px 8px;border-radius:20px;background:var(--bld);color:var(--b);font-size:12px;font-weight:600;border:1px solid var(--bb);}
+.soc-chip-rm{background:none;border:none;cursor:pointer;color:var(--b);font-size:12px;padding:0;line-height:1;}
+.share-preview{background:var(--bg2);border:1px solid var(--bd);border-radius:10px;padding:12px;font-size:13px;}
+.share-preview-name{font-weight:700;font-size:14px;margin-bottom:4px;}
+.share-preview-detail{font-size:12px;color:var(--t3);}
+.share-friend-list{display:flex;flex-direction:column;gap:6px;max-height:220px;overflow-y:auto;}
+.share-to-btn{padding:4px 12px;border-radius:6px;background:var(--bld);color:var(--b);border:1px solid var(--bb);cursor:pointer;font-size:12px;font-weight:600;font-family:var(--sans);transition:all .12s;flex-shrink:0;}.share-to-btn:hover{background:var(--b);color:#fff;}
+.share-to-btn.sent{background:var(--gd);color:var(--g);border-color:var(--gb);cursor:default;}
+/* username modal */
+.un-modal-body{padding:24px;text-align:center;}
+.un-modal-icon{font-size:36px;margin-bottom:10px;}
+.un-modal-title{font-size:18px;font-weight:800;margin-bottom:6px;}
+.un-modal-sub{font-size:13px;color:var(--t3);margin-bottom:18px;line-height:1.5;}
+.un-inp-row{display:flex;gap:8px;margin-bottom:6px;}
+.un-inp{flex:1;background:var(--bg2);border:1px solid var(--bd);border-radius:8px;padding:10px 12px;font-family:var(--sans);font-size:14px;color:var(--t1);outline:none;}.un-inp:focus{border-color:var(--b);}
+.un-err{font-size:12px;color:var(--r);min-height:16px;text-align:left;}
+.un-skip{font-size:12px;color:var(--t3);cursor:pointer;margin-top:8px;display:inline-block;}.un-skip:hover{color:var(--t2);}
+@media(max-width:768px){.soc-layout{grid-template-columns:1fr;height:auto;}.soc-sidebar{max-height:45vh;}.soc-chat-active,.soc-chat-empty{height:55vh;}}
 </style>
 </head>
 <body>
@@ -710,6 +786,70 @@ td{padding:13px 14px;white-space:nowrap;}
     </div>
     <button class="login-btn" id="loginBtn" onclick="doLogin()">Sign In</button>
     <div class="login-err" id="loginErr"></div>
+  </div>
+</div>
+
+<!-- Username Setup Modal -->
+<div class="modal-overlay" id="usernameModal">
+  <div class="modal" style="max-width:380px;">
+    <div class="un-modal-body">
+      <div class="un-modal-icon">👤</div>
+      <div class="un-modal-title">Choose a username</div>
+      <div class="un-modal-sub">Pick a unique username so friends can find and message you on ValueAlert.</div>
+      <div class="un-inp-row">
+        <input class="un-inp" id="unInp" type="text" placeholder="e.g. sharpshoooter99" maxlength="20" oninput="clearUnErr()">
+        <button class="cbtn" onclick="submitUsername()" style="padding:10px 16px;">Set</button>
+      </div>
+      <div class="un-err" id="unErr"></div>
+      <span class="un-skip" onclick="closeUsernameModal()">Skip for now</span>
+    </div>
+  </div>
+</div>
+
+<!-- Add Friend Modal -->
+<div class="modal-overlay" id="addFriendModal">
+  <div class="modal" style="max-width:380px;">
+    <div class="modal-hdr">
+      <span class="modal-title">Add Friend</span>
+      <button class="modal-close" onclick="closeAddFriend()">✕</button>
+    </div>
+    <div class="soc-modal-body">
+      <input class="soc-modal-inp" id="friendSearchInp" type="text" placeholder="Search by username…" oninput="socSearchUsers(this.value)">
+      <div class="soc-modal-results" id="friendSearchResults"></div>
+    </div>
+  </div>
+</div>
+
+<!-- New Conversation Modal -->
+<div class="modal-overlay" id="newConvModal">
+  <div class="modal" style="max-width:400px;">
+    <div class="modal-hdr">
+      <span class="modal-title">New Message</span>
+      <button class="modal-close" onclick="closeNewConv()">✕</button>
+    </div>
+    <div class="soc-modal-body">
+      <input class="soc-modal-inp" id="newConvNameInp" type="text" placeholder="Group name (optional for DMs)">
+      <input class="soc-modal-inp" id="newConvSearchInp" type="text" placeholder="Add people by username…" oninput="newConvSearch(this.value)">
+      <div class="soc-modal-results" id="newConvSearchResults"></div>
+      <div class="soc-member-chips" id="newConvChips"></div>
+      <button class="cbtn" onclick="createNewConv()" style="width:100%;padding:10px;">Start Conversation</button>
+      <div style="font-size:12px;color:var(--r);min-height:14px;" id="newConvErr"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Share Line Modal -->
+<div class="modal-overlay" id="shareModal">
+  <div class="modal" style="max-width:400px;">
+    <div class="modal-hdr">
+      <span class="modal-title">Share Line</span>
+      <button class="modal-close" onclick="closeShareModal()">✕</button>
+    </div>
+    <div class="soc-modal-body">
+      <div class="share-preview" id="sharePreview"></div>
+      <div style="font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;">Send to</div>
+      <div class="share-friend-list" id="shareFriendList"></div>
+    </div>
   </div>
 </div>
 
@@ -786,6 +926,7 @@ td{padding:13px 14px;white-space:nowrap;}
   <button class="nav-tab sim-tab" onclick="switchView('simulator',this)">Simulator 🎲</button>
   <button class="nav-tab" onclick="switchView('analytics',this)">Analytics 📊</button>
   <button class="nav-tab" onclick="switchView('glossary',this)">Glossary 📖</button>
+  <button class="nav-tab" onclick="switchView('social',this)">Social 💬 <span id="socNotifBadge" class="soc-notif-badge" style="display:none"></span></button>
 </nav>
 
 <div class="app">
@@ -1076,6 +1217,61 @@ Negative odds: |odds| / (|odds| + 100)</div>
     <div id="favContent"><div class="fav-empty"><div class="fav-empty-icon">⭐</div>No players watched yet.<br>Hit the ☆ star icon on any player row or value alert card to add them here.</div></div>
   </div>
 
+  <!-- ======= SOCIAL VIEW ======= -->
+  <div class="soc-view view-pane" id="socialView">
+    <div class="soc-layout">
+      <!-- Sidebar -->
+      <div class="soc-sidebar">
+        <div class="soc-sidebar-scroll">
+          <!-- Pending friend requests -->
+          <div class="soc-section" id="socPendingSection" style="display:none">
+            <div class="soc-section-hd"><span>Friend Requests</span></div>
+            <div id="socPendingList"></div>
+          </div>
+          <!-- Friends -->
+          <div class="soc-section">
+            <div class="soc-section-hd">
+              <span>Friends</span>
+              <button class="soc-add-btn" onclick="openAddFriend()">+ Add</button>
+            </div>
+            <div id="socFriendsList"><div style="padding:10px 14px;font-size:12px;color:var(--t3);">No friends yet.</div></div>
+          </div>
+          <!-- Conversations -->
+          <div class="soc-section">
+            <div class="soc-section-hd">
+              <span>Messages</span>
+              <button class="soc-add-btn" onclick="openNewConv()">+ New</button>
+            </div>
+            <div id="socConvList"><div style="padding:10px 14px;font-size:12px;color:var(--t3);">No conversations yet.</div></div>
+          </div>
+        </div>
+      </div>
+      <!-- Chat panel -->
+      <div class="soc-chat">
+        <div class="soc-chat-empty" id="socChatEmpty">
+          <div class="soc-empty-icon">💬</div>
+          <div class="soc-empty-title">Your messages</div>
+          <div class="soc-empty-sub">Send bets and messages to friends. Hit 📤 on any player row to share a line.</div>
+        </div>
+        <div class="soc-chat-active" id="socChatActive" style="display:none">
+          <div class="soc-chat-hd" id="socChatHd">
+            <div class="soc-av" id="socChatAv" style="width:34px;height:34px;font-size:13px;"></div>
+            <div class="soc-chat-hd-info">
+              <div class="soc-chat-hd-name" id="socChatName"></div>
+              <div class="soc-chat-hd-sub" id="socChatSub"></div>
+            </div>
+            <button class="cbtn" onclick="closeSocChat()" style="font-size:11px;padding:4px 10px;margin-left:auto;">✕</button>
+          </div>
+          <div class="soc-messages" id="socMessages"></div>
+          <div class="soc-chat-input-row">
+            <textarea class="soc-input" id="socMsgInput" placeholder="Message…" rows="1" onkeydown="socInputKey(event)" oninput="autoResocInput(this)"></textarea>
+            <button class="soc-send-btn" onclick="sendSocMessage()">Send</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <script>
@@ -1145,6 +1341,7 @@ async function afterLogin() {
   // Hide login overlay and load data
   document.getElementById('loginOverlay').classList.remove('show');
   setApi('odds','err');setApi('stats','err');setApi('scores','err');
+  initSocial(); // non-blocking social init
   const h = await apiGet('/api/health');
   if (h && h.apis?.odds==='configured') { showSts('Backend connected, loading data…','inf'); await loadData(); }
   else showSts('Odds API key not configured on server. Check your environment variables.','err');
@@ -1153,9 +1350,12 @@ async function afterLogin() {
 async function doLogout() {
   // Flush any pending sync before clearing auth so no data is lost
   clearTimeout(_syncTimer);
+  clearInterval(_socPollTimer);
+  clearInterval(_socUnreadTimer);
   await syncProfile();
   _authToken = null;
   _authUser = null;
+  _socUserId = null; _socUsername = null; _socInited = false; _activeConvId = null;
   localStorage.removeItem('pe_auth_token');
   // Reset simulator and favorites to defaults
   localStorage.setItem('pe_sim_balance', '1000');
@@ -1562,12 +1762,12 @@ function switchView(v, btn) {
   window.scrollTo({top: 0, behavior: 'smooth'});
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('on'));
   if (btn) btn.classList.add('on');
-  const views = ['propsView','alertsView','simView','analyticsView','parlayView','glossView','favView'];
+  const views = ['propsView','alertsView','simView','analyticsView','parlayView','glossView','favView','socialView'];
   views.forEach(id => {
     const el = document.getElementById(id);
     if (el) { el.classList.remove('show'); }
   });
-  const target = {props:'propsView',alerts:'alertsView',simulator:'simView',analytics:'analyticsView',parlay:'parlayView',glossary:'glossView',favorites:'favView'}[v];
+  const target = {props:'propsView',alerts:'alertsView',simulator:'simView',analytics:'analyticsView',parlay:'parlayView',glossary:'glossView',favorites:'favView',social:'socialView'}[v];
   if (target) {
     const el = document.getElementById(target);
     if (el) { el.classList.add('show'); }
@@ -1580,6 +1780,7 @@ function switchView(v, btn) {
     // Alerts are pre-rendered after enrichment — only re-render if not yet loaded
     if (!document.getElementById('vaGrid').children.length) renderAlerts();
   }
+  if (v === 'social') showSocialView();
 }
 
 // ── Game filter ──
@@ -1945,6 +2146,7 @@ function renderTable(){
       <td>${(()=>{if(isValue)return`<span class="val-badge">⚡ VALUE</span>`;const cls=dirEV>=15?'ev-strong':dirEV>=5?'ev-good':dirEV>=0?'ev-weak':'ev-neg';return`<span class="ev-pill ${cls}">${dirEV>=0?'+':''}${dirEV.toFixed(1)}%</span>`;})()}</td>
       <td><button class="bet-btn" onclick="event.stopPropagation();openBetModal(${JSON.stringify(p).replace(/"/g,'&quot;')})">🎲 Bet</button></td>
       <td><button class="fav-btn${favorites.has(p.name)?' on':''}" data-name="${p.name.replace(/"/g,'&quot;')}" onclick="toggleFav('${p.name.replace(/'/g,"\\'")}',event)" title="${favorites.has(p.name)?'Remove from watchlist':'Add to watchlist'}">${favorites.has(p.name)?'⭐':'☆'}</button></td>
+      <td><button class="share-btn" onclick="event.stopPropagation();openShareModal(${JSON.stringify(p).replace(/"/g,'&quot;')})" title="Share line">📤</button></td>
       ${S.scnOn?`<td>${(p.scenarioBoost||0)>0?`<span class="scn-boost">+${p.scenarioBoost} pts</span>`:'<span style="color:var(--t3)">—</span>'}</td>`:''}
     `;
     tb.appendChild(tr);
@@ -4193,7 +4395,7 @@ function playBetSound() {
 document.addEventListener('click', e => {
   if (e.target.matches('input, textarea, select, input[type=range]')) return;
   if (e.target.closest('input[type=range]')) return;
-  if (e.target.closest('button, .nav-tab, .va-card, .swatch, .bg-swatch, .fav-card, .p-leg, .bet-card, .hist-row, .an-card, .gls-card, .sim-stat')) {
+  if (e.target.closest('button, .nav-tab, .va-card, .swatch, .bg-swatch, .fav-card, .p-leg, .bet-card, .hist-row, .an-card, .gls-card, .sim-stat, .soc-conv-item, .soc-friend-item, .soc-line-card')) {
     playClick();
   }
 }, { passive: true });
@@ -4267,6 +4469,530 @@ function clearHistory() {
 // Close modal on overlay click
 document.getElementById('betModal').addEventListener('click', e => { if(e.target === document.getElementById('betModal')) closeBetModal(); });
 document.getElementById('playerDetailModal').addEventListener('click', e => { if(e.target === document.getElementById('playerDetailModal')) closeAlertDetail(); });
+['usernameModal','addFriendModal','newConvModal','shareModal'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('click', e => { if (e.target === el) el.classList.remove('show'); });
+});
+
+// ══════════════════════════════════════════════
+// SOCIAL
+// ══════════════════════════════════════════════
+let _socUserId = null;
+let _socUsername = null;
+let _socFriends = { sent: [], received: [] };
+let _socConversations = [];
+let _activeConvId = null;
+let _socMessages = [];
+let _socPollTimer = null;
+let _socUnreadTimer = null;
+let _socSharePlayer = null;
+let _newConvMembers = [];
+let _socSearchTimer = null;
+let _newConvSearchTimer = null;
+let _socInited = false;
+
+async function initSocial() {
+  if (!_authToken) return;
+  const me = await authGet('/api/social/me');
+  if (!me) return;
+  _socUserId = me.userId;
+  _socUsername = me.username;
+  _socInited = true;
+  if (!_socUsername) {
+    setTimeout(showUsernameModal, 600);
+  }
+  startSocUnreadPoll();
+}
+
+function startSocUnreadPoll() {
+  clearInterval(_socUnreadTimer);
+  updateSocNotifBadge();
+  _socUnreadTimer = setInterval(updateSocNotifBadge, 15000);
+}
+
+async function updateSocNotifBadge() {
+  if (!_authToken) return;
+  try {
+    const r = await fetch(`${API}/api/social/unread`, { headers: { 'Authorization': `Bearer ${_authToken}` } });
+    if (!r.ok) return;
+    const data = await r.json();
+    const total = (data.count || 0) + (data.pendingRequests || 0);
+    const badge = document.getElementById('socNotifBadge');
+    if (badge) { badge.textContent = total > 0 ? total : ''; badge.style.display = total > 0 ? 'inline-flex' : 'none'; }
+  } catch {}
+}
+
+async function showSocialView() {
+  if (!_authToken) return;
+  if (!_socInited) await initSocial();
+  await loadSocialSidebar();
+}
+
+async function loadSocialSidebar() {
+  const [friends, convs] = await Promise.all([
+    authGet('/api/social/friends'),
+    authGet('/api/social/conversations'),
+  ]);
+  if (friends) { _socFriends = friends; renderSocFriends(); }
+  if (convs) { _socConversations = convs; renderSocConvs(); }
+}
+
+function renderSocFriends() {
+  const accepted = _socFriends.sent.filter(f => f.status === 'accepted')
+    .concat(_socFriends.received.filter(f => f.status === 'accepted'));
+  const pending = _socFriends.received.filter(f => f.status === 'pending');
+  const sent = _socFriends.sent.filter(f => f.status === 'pending');
+
+  // Pending requests section
+  const pendSec = document.getElementById('socPendingSection');
+  const pendList = document.getElementById('socPendingList');
+  if (pending.length || sent.length) {
+    pendSec.style.display = '';
+    pendList.innerHTML = pending.map(f => `
+      <div class="soc-pending-item">
+        <div><div class="soc-pending-name">${f.displayName || f.username}</div><div class="soc-pending-user">@${f.username}</div></div>
+        <div class="soc-pending-btns">
+          <button class="soc-accept-btn" onclick="respondFriend('${f.id}','accept')">Accept</button>
+          <button class="soc-decline-btn" onclick="respondFriend('${f.id}','decline')">✕</button>
+        </div>
+      </div>`).join('') +
+      sent.map(f => `
+      <div class="soc-pending-item">
+        <div><div class="soc-pending-name">${f.displayName || f.username}</div><div class="soc-pending-user">@${f.username} · Pending</div></div>
+      </div>`).join('');
+  } else {
+    pendSec.style.display = 'none';
+  }
+
+  // Friends list
+  const fl = document.getElementById('socFriendsList');
+  if (!accepted.length) {
+    fl.innerHTML = '<div style="padding:10px 14px;font-size:12px;color:var(--t3);">No friends yet. Hit + Add to find people.</div>';
+    return;
+  }
+  fl.innerHTML = accepted.map(f => {
+    const initials = (f.displayName || f.username || '?').slice(0, 2).toUpperCase();
+    return `<div class="soc-friend-item" onclick="openDmWith('${f.userId}','${(f.displayName||f.username).replace(/'/g,"\\'")}')">
+      <div class="soc-av">${initials}</div>
+      <div class="soc-friend-info">
+        <div class="soc-friend-name">${f.displayName || f.username}</div>
+        <div class="soc-friend-user">@${f.username}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderSocConvs() {
+  const cl = document.getElementById('socConvList');
+  if (!_socConversations.length) {
+    cl.innerHTML = '<div style="padding:10px 14px;font-size:12px;color:var(--t3);">No conversations yet.</div>';
+    return;
+  }
+  cl.innerHTML = _socConversations.map(conv => {
+    const othersInConv = conv.members.filter(m => m.userId !== _socUserId);
+    const name = conv.name || (othersInConv.map(m => m.displayName || m.username).join(', ') || 'Conversation');
+    const initials = name.slice(0, 2).toUpperCase();
+    const lastTxt = conv.lastMessage
+      ? (conv.lastMessage.type === 'line' ? '📤 Shared a line' : (conv.lastMessage.content || '').slice(0, 35))
+      : 'No messages yet';
+    const unread = conv.hasUnread ? '<div class="soc-unread-dot"></div>' : '';
+    const active = _activeConvId === conv.id ? ' active' : '';
+    return `<div class="soc-conv-item${active}" onclick="openConversation('${conv.id}')">
+      <div class="soc-av">${initials}</div>
+      <div class="soc-conv-info">
+        <div class="soc-conv-name">${name}</div>
+        <div class="soc-conv-last">${lastTxt}</div>
+      </div>
+      ${unread}
+    </div>`;
+  }).join('');
+}
+
+async function openConversation(convId) {
+  _activeConvId = convId;
+  clearInterval(_socPollTimer);
+  renderSocConvs(); // update active state
+  const conv = _socConversations.find(c => c.id === convId);
+  const othersInConv = (conv?.members || []).filter(m => m.userId !== _socUserId);
+  const name = conv?.name || (othersInConv.map(m => m.displayName || m.username).join(', ') || 'Chat');
+  const sub = conv?.type === 'group' ? `${(conv.members||[]).length} members` : (othersInConv[0] ? `@${othersInConv[0].username}` : '');
+  document.getElementById('socChatEmpty').style.display = 'none';
+  document.getElementById('socChatActive').style.display = 'flex';
+  document.getElementById('socChatName').textContent = name;
+  document.getElementById('socChatSub').textContent = sub;
+  document.getElementById('socChatAv').textContent = name.slice(0, 2).toUpperCase();
+  const msgs = await authGet(`/api/social/conversations/${convId}/messages`);
+  if (msgs) { _socMessages = msgs; renderSocMessages(); }
+  updateSocNotifBadge();
+  _socPollTimer = setInterval(() => pollConversation(convId), 4000);
+}
+
+async function pollConversation(convId) {
+  if (_activeConvId !== convId || !_authToken) { clearInterval(_socPollTimer); return; }
+  const last = _socMessages.length ? _socMessages[_socMessages.length - 1].created_at : null;
+  try {
+    const r = await fetch(`${API}/api/social/conversations/${convId}/messages${last ? `?after=${last}` : ''}`, { headers: { 'Authorization': `Bearer ${_authToken}` } });
+    if (!r.ok) return;
+    const msgs = await r.json();
+    if (!msgs.length) return;
+    const lastId = _socMessages.length ? _socMessages[_socMessages.length - 1].id : null;
+    const newMsgs = msgs.filter(m => m.created_at > (last || ''));
+    if (newMsgs.length) {
+      _socMessages.push(...newMsgs);
+      renderSocMessages();
+      updateSocNotifBadge();
+    }
+  } catch {}
+}
+
+function renderSocMessages() {
+  const el = document.getElementById('socMessages');
+  if (!el) return;
+  let html = '';
+  let lastDay = '';
+  _socMessages.forEach(msg => {
+    const mine = msg.sender_id === _socUserId;
+    const d = new Date(msg.created_at);
+    const dayStr = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    if (dayStr !== lastDay) { html += `<div class="soc-day-sep">${dayStr}</div>`; lastDay = dayStr; }
+    const timeStr = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    const cls = mine ? 'mine' : 'them';
+    const senderName = mine ? 'You' : (msg.sender?.displayName || msg.sender?.username || '?');
+    if (msg.type === 'line' && msg.line_data) {
+      html += `<div class="soc-msg ${cls}">
+        <div class="soc-msg-sender">${senderName}</div>
+        <div class="soc-line-card" onclick="openSharedLine(${JSON.stringify(msg.line_data).replace(/"/g,'&quot;')})">${renderSocLineCard(msg.line_data)}</div>
+        <div class="soc-msg-time">${timeStr}</div>
+      </div>`;
+    } else {
+      html += `<div class="soc-msg ${cls}">
+        ${!mine ? `<div class="soc-msg-sender">${senderName}</div>` : ''}
+        <div class="soc-bubble">${escHtml(msg.content || '')}</div>
+        <div class="soc-msg-time">${timeStr}</div>
+      </div>`;
+    }
+  });
+  el.innerHTML = html || '<div style="text-align:center;color:var(--t3);font-size:13px;padding:24px;">No messages yet. Say hi!</div>';
+  el.scrollTop = el.scrollHeight;
+}
+
+function renderSocLineCard(ld) {
+  const MKT_S = { player_points: 'PTS', player_rebounds: 'REB', player_assists: 'AST', player_threes: '3PM', player_steals: 'STL', player_blocks: 'BLK', player_turnovers: 'TO', player_points_rebounds_assists: 'PRA' };
+  const mktLabel = MKT_S[ld.market] || ld.market || '';
+  const edge = ld.edge ?? 0;
+  const edgeStr = (edge >= 0 ? '+' : '') + edge.toFixed(1) + '%';
+  const edgeColor = edge >= 0 ? 'var(--g)' : 'var(--r)';
+  // Check for live data from currently loaded S.data
+  let liveHtml = '';
+  if (typeof S !== 'undefined' && S.data?.length) {
+    const live = S.data.find(p => p.name === ld.name && (p.market === ld.market || !ld.market));
+    if (live && live.line !== ld.line) {
+      liveHtml = `<div class="soc-line-live"><span class="soc-line-live-tag">LIVE</span> Line now: <strong>${live.line}</strong> · Edge: <strong style="color:${(live.edge||0)>=0?'var(--g)':'var(--r)'}">${(live.edge||0)>=0?'+':''}${(live.edge||0).toFixed(1)}%</strong></div>`;
+    }
+  }
+  const overFmt = ld.overOdds ? (ld.overOdds > 0 ? '+' : '') + ld.overOdds : '—';
+  const underFmt = ld.underOdds ? (ld.underOdds > 0 ? '+' : '') + ld.underOdds : '—';
+  return `<div class="soc-line-name">${ld.name || '?'} <span class="soc-line-mkt">${mktLabel}</span></div>
+    <div class="soc-line-grid">
+      <div><div class="soc-line-cell">Line</div><div class="soc-line-val">${ld.line ?? '—'}</div></div>
+      <div><div class="soc-line-cell">Avg</div><div class="soc-line-val">${ld.avg ?? '—'}</div></div>
+      <div><div class="soc-line-cell">Edge</div><div class="soc-line-val" style="color:${edgeColor}">${edgeStr}</div></div>
+      <div><div class="soc-line-cell">Over</div><div class="soc-line-val">${overFmt}</div></div>
+      <div><div class="soc-line-cell">Under</div><div class="soc-line-val">${underFmt}</div></div>
+      <div><div class="soc-line-cell">Team</div><div class="soc-line-val">${ld.team || '—'}</div></div>
+    </div>${liveHtml}`;
+}
+
+function openSharedLine(ld) {
+  // Find live player data and open detail modal, or open bet modal
+  if (typeof S !== 'undefined' && S.data?.length) {
+    const live = S.data.find(p => p.name === ld.name && (p.market === ld.market || !ld.market));
+    if (live) { openBetModal(live); return; }
+  }
+  // Fallback: open bet modal with snapshot data
+  openBetModal(ld);
+}
+
+function escHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function closeSocChat() {
+  clearInterval(_socPollTimer);
+  _activeConvId = null;
+  document.getElementById('socChatEmpty').style.display = '';
+  document.getElementById('socChatActive').style.display = 'none';
+  renderSocConvs();
+}
+
+async function sendSocMessage() {
+  if (!_activeConvId || !_authToken) return;
+  const inp = document.getElementById('socMsgInput');
+  const content = inp.value.trim();
+  if (!content) return;
+  inp.value = '';
+  inp.style.height = '';
+  try {
+    const r = await fetch(`${API}/api/social/conversations/${_activeConvId}/messages`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_authToken}` },
+      body: JSON.stringify({ content, type: 'text' }),
+    });
+    if (r.ok) {
+      const msg = await r.json();
+      _socMessages.push(msg);
+      renderSocMessages();
+    }
+  } catch {}
+}
+
+function socInputKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendSocMessage(); }
+}
+function autoResocInput(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 100) + 'px';
+}
+
+async function openDmWith(userId, displayName) {
+  if (!_authToken) return;
+  const r = await fetch(`${API}/api/social/conversations`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_authToken}` },
+    body: JSON.stringify({ type: 'dm', memberIds: [userId] }),
+  });
+  if (!r.ok) return;
+  const data = await r.json();
+  await loadSocialSidebar();
+  openConversation(data.id);
+}
+
+// ── Username modal ──
+function showUsernameModal() { document.getElementById('usernameModal').classList.add('show'); document.getElementById('unInp').focus(); }
+function closeUsernameModal() { document.getElementById('usernameModal').classList.remove('show'); }
+function clearUnErr() { document.getElementById('unErr').textContent = ''; }
+
+async function submitUsername() {
+  const inp = document.getElementById('unInp');
+  const err = document.getElementById('unErr');
+  const username = inp.value.trim();
+  if (!username) { err.textContent = 'Please enter a username.'; return; }
+  try {
+    const r = await fetch(`${API}/api/social/username`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_authToken}` },
+      body: JSON.stringify({ username }),
+    });
+    const d = await r.json();
+    if (!r.ok) { err.textContent = d.error || 'Failed to set username.'; return; }
+    _socUsername = username;
+    closeUsernameModal();
+    showSts(`Username set to @${username}`, 'ok');
+  } catch { err.textContent = 'Network error — try again.'; }
+}
+
+// ── Add friend modal ──
+function openAddFriend() {
+  if (!_socUsername) { showUsernameModal(); return; }
+  document.getElementById('addFriendModal').classList.add('show');
+  document.getElementById('friendSearchInp').value = '';
+  document.getElementById('friendSearchResults').innerHTML = '';
+  setTimeout(() => document.getElementById('friendSearchInp').focus(), 50);
+}
+function closeAddFriend() { document.getElementById('addFriendModal').classList.remove('show'); }
+
+function socSearchUsers(q) {
+  clearTimeout(_socSearchTimer);
+  if (q.length < 2) { document.getElementById('friendSearchResults').innerHTML = ''; return; }
+  _socSearchTimer = setTimeout(async () => {
+    const results = await authGet(`/api/social/search?q=${encodeURIComponent(q)}`);
+    const el = document.getElementById('friendSearchResults');
+    if (!results?.length) { el.innerHTML = '<div style="font-size:12px;color:var(--t3);padding:4px 0;">No users found.</div>'; return; }
+    const sentIds = new Set(_socFriends.sent.map(f => f.userId));
+    const receivedIds = new Set(_socFriends.received.map(f => f.userId));
+    const friendIds = new Set([..._socFriends.sent.filter(f=>f.status==='accepted').map(f=>f.userId), ..._socFriends.received.filter(f=>f.status==='accepted').map(f=>f.userId)]);
+    el.innerHTML = results.map(u => {
+      const alreadyFriend = friendIds.has(u.id);
+      const pendingSent = sentIds.has(u.id);
+      const pendingReceived = receivedIds.has(u.id);
+      const btnTxt = alreadyFriend ? 'Friends ✓' : pendingSent ? 'Sent ✓' : pendingReceived ? 'Accept' : 'Add Friend';
+      const btnCls = alreadyFriend || pendingSent ? 'soc-req-btn sent' : 'soc-req-btn';
+      const btnDisabled = alreadyFriend || pendingSent ? 'disabled' : '';
+      const onclick = pendingReceived
+        ? `respondFriend('${_socFriends.received.find(f=>f.userId===u.id)?.id}','accept')`
+        : `sendFriendReq('${u.id}',this)`;
+      return `<div class="soc-result-row">
+        <div><div class="soc-result-name">${u.displayName || u.username}</div><div class="soc-result-dn">@${u.username}</div></div>
+        <button class="${btnCls}" onclick="${onclick}" ${btnDisabled}>${btnTxt}</button>
+      </div>`;
+    }).join('');
+  }, 300);
+}
+
+async function sendFriendReq(toId, btn) {
+  try {
+    const r = await fetch(`${API}/api/social/friends/request`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_authToken}` },
+      body: JSON.stringify({ toId }),
+    });
+    const d = await r.json();
+    if (!r.ok) { showSts(d.error || 'Failed to send request', 'err'); return; }
+    btn.textContent = 'Sent ✓'; btn.className = 'soc-req-btn sent'; btn.disabled = true;
+    await loadSocialSidebar();
+  } catch {}
+}
+
+async function respondFriend(friendshipId, action) {
+  try {
+    const r = await fetch(`${API}/api/social/friends/${friendshipId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_authToken}` },
+      body: JSON.stringify({ action }),
+    });
+    if (r.ok) { await loadSocialSidebar(); updateSocNotifBadge(); }
+  } catch {}
+}
+
+// ── New conversation modal ──
+function openNewConv() {
+  if (!_socUsername) { showUsernameModal(); return; }
+  _newConvMembers = [];
+  document.getElementById('newConvModal').classList.add('show');
+  document.getElementById('newConvNameInp').value = '';
+  document.getElementById('newConvSearchInp').value = '';
+  document.getElementById('newConvSearchResults').innerHTML = '';
+  document.getElementById('newConvChips').innerHTML = '';
+  document.getElementById('newConvErr').textContent = '';
+  setTimeout(() => document.getElementById('newConvSearchInp').focus(), 50);
+}
+function closeNewConv() { document.getElementById('newConvModal').classList.remove('show'); }
+
+function newConvSearch(q) {
+  clearTimeout(_newConvSearchTimer);
+  if (q.length < 2) { document.getElementById('newConvSearchResults').innerHTML = ''; return; }
+  _newConvSearchTimer = setTimeout(async () => {
+    const results = await authGet(`/api/social/search?q=${encodeURIComponent(q)}`);
+    const el = document.getElementById('newConvSearchResults');
+    if (!results?.length) { el.innerHTML = '<div style="font-size:12px;color:var(--t3);">No users found.</div>'; return; }
+    el.innerHTML = results.map(u => {
+      const already = _newConvMembers.some(m => m.id === u.id);
+      return `<div class="soc-result-row">
+        <div><div class="soc-result-name">${u.displayName || u.username}</div><div class="soc-result-dn">@${u.username}</div></div>
+        <button class="${already ? 'soc-req-btn sent' : 'soc-req-btn'}" onclick="addNewConvMember('${u.id}','${(u.displayName||u.username).replace(/'/g,"\\'")}','${u.username}')" ${already ? 'disabled' : ''}>${already ? 'Added ✓' : 'Add'}</button>
+      </div>`;
+    }).join('');
+  }, 300);
+}
+
+function addNewConvMember(id, displayName, username) {
+  if (_newConvMembers.some(m => m.id === id)) return;
+  _newConvMembers.push({ id, displayName, username });
+  renderNewConvChips();
+  document.getElementById('newConvSearchInp').value = '';
+  document.getElementById('newConvSearchResults').innerHTML = '';
+}
+function removeNewConvMember(id) {
+  _newConvMembers = _newConvMembers.filter(m => m.id !== id);
+  renderNewConvChips();
+}
+function renderNewConvChips() {
+  document.getElementById('newConvChips').innerHTML = _newConvMembers.map(m =>
+    `<div class="soc-chip">@${m.username} <button class="soc-chip-rm" onclick="removeNewConvMember('${m.id}')">✕</button></div>`
+  ).join('');
+}
+
+async function createNewConv() {
+  const errEl = document.getElementById('newConvErr');
+  if (!_newConvMembers.length) { errEl.textContent = 'Add at least one person.'; return; }
+  const name = document.getElementById('newConvNameInp').value.trim();
+  const type = _newConvMembers.length === 1 && !name ? 'dm' : 'group';
+  try {
+    const r = await fetch(`${API}/api/social/conversations`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_authToken}` },
+      body: JSON.stringify({ type, name: name || null, memberIds: _newConvMembers.map(m => m.id) }),
+    });
+    if (!r.ok) { errEl.textContent = 'Failed to create conversation.'; return; }
+    const data = await r.json();
+    closeNewConv();
+    await loadSocialSidebar();
+    openConversation(data.id);
+  } catch { errEl.textContent = 'Network error.'; }
+}
+
+// ── Share line modal ──
+let _shareConvSentSet = new Set();
+function openShareModal(p) {
+  if (!_authToken) return;
+  if (!_socUsername) { showUsernameModal(); return; }
+  _socSharePlayer = p;
+  _shareConvSentSet = new Set();
+  const mktLabels = { player_points: 'Points', player_rebounds: 'Rebounds', player_assists: 'Assists', player_threes: '3-Pointers', player_steals: 'Steals', player_blocks: 'Blocks', player_turnovers: 'Turnovers', player_points_rebounds_assists: 'PRA' };
+  const mkt = mktLabels[p.market] || p.market || '';
+  const edge = p.edge ?? 0;
+  const edgeStr = (edge >= 0 ? '+' : '') + edge.toFixed(1) + '%';
+  document.getElementById('sharePreview').innerHTML = `
+    <div class="share-preview-name">${p.name} <span style="font-size:11px;color:var(--t3);">· ${mkt}</span></div>
+    <div class="share-preview-detail">Line: ${p.line ?? '—'} · Avg: ${p.avg ?? '—'} · Edge: <span style="color:${edge>=0?'var(--g)':'var(--r)'};font-weight:700">${edgeStr}</span></div>`;
+
+  // Build send-to list from friends and recent convs
+  const friends = [..._socFriends.sent.filter(f=>f.status==='accepted'), ..._socFriends.received.filter(f=>f.status==='accepted')];
+  let listHtml = '';
+  if (friends.length) {
+    listHtml += friends.map(f => `
+      <div class="soc-result-row">
+        <div><div class="soc-result-name">${f.displayName || f.username}</div><div class="soc-result-dn">@${f.username}</div></div>
+        <button class="share-to-btn" id="sto-f-${f.userId}" onclick="shareTo('friend','${f.userId}','${(f.displayName||f.username).replace(/'/g,"\\'")}',this)">Send</button>
+      </div>`).join('');
+  }
+  if (_socConversations.length) {
+    listHtml += _socConversations.map(c => {
+      const othersInConv = c.members.filter(m => m.userId !== _socUserId);
+      const name = c.name || othersInConv.map(m => m.displayName||m.username).join(', ') || 'Chat';
+      return `<div class="soc-result-row">
+        <div><div class="soc-result-name">${name}</div><div class="soc-result-dn">${c.type === 'group' ? `Group · ${c.members.length} members` : 'DM'}</div></div>
+        <button class="share-to-btn" id="sto-c-${c.id}" onclick="shareTo('conv','${c.id}','${name.replace(/'/g,"\\'")}',this)">Send</button>
+      </div>`;
+    }).join('');
+  }
+  document.getElementById('shareFriendList').innerHTML = listHtml || '<div style="font-size:12px;color:var(--t3);">Add friends first to share lines.</div>';
+  document.getElementById('shareModal').classList.add('show');
+}
+
+function closeShareModal() { document.getElementById('shareModal').classList.remove('show'); _socSharePlayer = null; }
+
+async function shareTo(mode, id, label, btn) {
+  if (!_socSharePlayer || !_authToken) return;
+  let convId = id;
+  if (mode === 'friend') {
+    const r = await fetch(`${API}/api/social/conversations`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_authToken}` },
+      body: JSON.stringify({ type: 'dm', memberIds: [id] }),
+    });
+    if (!r.ok) return;
+    const data = await r.json();
+    convId = data.id;
+  }
+  const p = _socSharePlayer;
+  const lineData = {
+    name: p.name, team: p.team, market: p.market, line: p.line, avg: p.avg,
+    edge: p.edge, overOdds: p.overOdds, underOdds: p.underOdds,
+    snapshotAt: new Date().toISOString(),
+  };
+  const r2 = await fetch(`${API}/api/social/conversations/${convId}/messages`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_authToken}` },
+    body: JSON.stringify({ type: 'line', lineData }),
+  });
+  if (r2.ok) {
+    btn.textContent = 'Sent ✓'; btn.className = 'share-to-btn sent'; btn.disabled = true;
+    await loadSocialSidebar();
+    updateSocNotifBadge();
+    showSts(`Line shared to ${label}`, 'ok');
+  }
+}
 </script>
 </body>
 </html>

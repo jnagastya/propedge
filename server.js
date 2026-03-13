@@ -1462,6 +1462,262 @@ app.put('/api/user/profile', async (req, res) => {
   }
 });
 
+// ---- SOCIAL ROUTES ----
+// Run this SQL in your Supabase SQL Editor before using social features:
+//   ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS username TEXT UNIQUE;
+//   CREATE TABLE IF NOT EXISTS friendships (
+//     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+//     requester_id UUID NOT NULL REFERENCES user_profiles(id) ON DELETE CASCADE,
+//     addressee_id UUID NOT NULL REFERENCES user_profiles(id) ON DELETE CASCADE,
+//     status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','accepted','declined')),
+//     created_at TIMESTAMPTZ DEFAULT now(),
+//     UNIQUE(requester_id, addressee_id)
+//   );
+//   CREATE TABLE IF NOT EXISTS conversations (
+//     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+//     name TEXT,
+//     type TEXT NOT NULL DEFAULT 'dm' CHECK (type IN ('dm','group')),
+//     created_by UUID REFERENCES user_profiles(id) ON DELETE SET NULL,
+//     created_at TIMESTAMPTZ DEFAULT now()
+//   );
+//   CREATE TABLE IF NOT EXISTS conversation_members (
+//     conversation_id UUID NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+//     user_id UUID NOT NULL REFERENCES user_profiles(id) ON DELETE CASCADE,
+//     last_read_at TIMESTAMPTZ DEFAULT now(),
+//     joined_at TIMESTAMPTZ DEFAULT now(),
+//     PRIMARY KEY (conversation_id, user_id)
+//   );
+//   CREATE TABLE IF NOT EXISTS messages (
+//     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+//     conversation_id UUID NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+//     sender_id UUID NOT NULL REFERENCES user_profiles(id) ON DELETE CASCADE,
+//     content TEXT,
+//     type TEXT NOT NULL DEFAULT 'text' CHECK (type IN ('text','line')),
+//     line_data JSONB,
+//     created_at TIMESTAMPTZ DEFAULT now()
+//   );
+//   CREATE INDEX IF NOT EXISTS messages_conv_idx ON messages(conversation_id, created_at DESC);
+//   CREATE INDEX IF NOT EXISTS conv_members_user_idx ON conversation_members(user_id);
+//   CREATE INDEX IF NOT EXISTS friendships_addressee_idx ON friendships(addressee_id);
+
+// Fetch user profile rows by IDs (helper)
+async function socProfiles(ids) {
+  if (!ids?.length) return {};
+  const { data } = await supabase.from('user_profiles').select('id, username, display_name').in('id', [...new Set(ids)]);
+  const map = {};
+  (data || []).forEach(p => { map[p.id] = { username: p.username, displayName: p.display_name || p.username || 'Unknown' }; });
+  return map;
+}
+
+app.get('/api/social/me', async (req, res) => {
+  if (!supabase) return res.status(503).json({ error: 'Not configured' });
+  const user = await authUser(req);
+  if (!user) return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    const { data } = await supabase.from('user_profiles').select('username, display_name').eq('id', user.id).single();
+    res.json({ userId: user.id, username: data?.username || null, displayName: data?.display_name || user.email?.split('@')[0] });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.put('/api/social/username', async (req, res) => {
+  if (!supabase) return res.status(503).json({ error: 'Not configured' });
+  const user = await authUser(req);
+  if (!user) return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    const { username } = req.body || {};
+    if (!username || !/^[a-zA-Z0-9_]{3,20}$/.test(username))
+      return res.status(400).json({ error: 'Username must be 3–20 characters (letters, numbers, underscores only)' });
+    const { data: existing } = await supabase.from('user_profiles').select('id').ilike('username', username).neq('id', user.id).limit(1);
+    if (existing?.length) return res.status(409).json({ error: 'Username already taken' });
+    await supabase.from('user_profiles').upsert({ id: user.id, username, updated_at: new Date().toISOString() }, { onConflict: 'id' });
+    res.json({ ok: true, username });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/social/search', async (req, res) => {
+  if (!supabase) return res.status(503).json({ error: 'Not configured' });
+  const user = await authUser(req);
+  if (!user) return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    const q = (req.query.q || '').trim();
+    if (q.length < 2) return res.json([]);
+    const { data } = await supabase.from('user_profiles').select('id, username, display_name').ilike('username', `%${q}%`).neq('id', user.id).limit(10);
+    res.json((data || []).map(u => ({ id: u.id, username: u.username, displayName: u.display_name || u.username })));
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/social/friends', async (req, res) => {
+  if (!supabase) return res.status(503).json({ error: 'Not configured' });
+  const user = await authUser(req);
+  if (!user) return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    const [{ data: sent }, { data: received }] = await Promise.all([
+      supabase.from('friendships').select('id, addressee_id, status').eq('requester_id', user.id),
+      supabase.from('friendships').select('id, requester_id, status').eq('addressee_id', user.id),
+    ]);
+    const ids = [...(sent || []).map(f => f.addressee_id), ...(received || []).map(f => f.requester_id)];
+    const pm = await socProfiles(ids);
+    res.json({
+      sent: (sent || []).map(f => ({ id: f.id, status: f.status, userId: f.addressee_id, ...pm[f.addressee_id] })),
+      received: (received || []).map(f => ({ id: f.id, status: f.status, userId: f.requester_id, ...pm[f.requester_id] })),
+    });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/social/friends/request', async (req, res) => {
+  if (!supabase) return res.status(503).json({ error: 'Not configured' });
+  const user = await authUser(req);
+  if (!user) return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    const { toId } = req.body || {};
+    if (!toId || toId === user.id) return res.status(400).json({ error: 'Invalid user' });
+    const { data: existing } = await supabase.from('friendships').select('id, status')
+      .or(`and(requester_id.eq.${user.id},addressee_id.eq.${toId}),and(requester_id.eq.${toId},addressee_id.eq.${user.id})`).limit(1);
+    if (existing?.length) return res.status(409).json({ error: existing[0].status === 'accepted' ? 'Already friends' : 'Request already exists' });
+    const { data } = await supabase.from('friendships').insert({ requester_id: user.id, addressee_id: toId, status: 'pending' }).select().single();
+    res.json({ ok: true, friendship: data });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.put('/api/social/friends/:id', async (req, res) => {
+  if (!supabase) return res.status(503).json({ error: 'Not configured' });
+  const user = await authUser(req);
+  if (!user) return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    const { action } = req.body || {};
+    if (!['accept', 'decline'].includes(action)) return res.status(400).json({ error: 'Invalid action' });
+    const { data } = await supabase.from('friendships')
+      .update({ status: action === 'accept' ? 'accepted' : 'declined' })
+      .eq('id', req.params.id).eq('addressee_id', user.id).select().single();
+    if (!data) return res.status(404).json({ error: 'Not found' });
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/api/social/friends/:id', async (req, res) => {
+  if (!supabase) return res.status(503).json({ error: 'Not configured' });
+  const user = await authUser(req);
+  if (!user) return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    await supabase.from('friendships').delete().eq('id', req.params.id)
+      .or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`);
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/social/conversations', async (req, res) => {
+  if (!supabase) return res.status(503).json({ error: 'Not configured' });
+  const user = await authUser(req);
+  if (!user) return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    const { data: memberships } = await supabase.from('conversation_members').select('conversation_id, last_read_at').eq('user_id', user.id);
+    if (!memberships?.length) return res.json([]);
+    const convIds = memberships.map(m => m.conversation_id);
+    const [{ data: convs }, { data: allMembers }, { data: lastMsgs }] = await Promise.all([
+      supabase.from('conversations').select('id, name, type, created_at').in('id', convIds),
+      supabase.from('conversation_members').select('conversation_id, user_id').in('conversation_id', convIds),
+      supabase.from('messages').select('id, conversation_id, sender_id, content, type, created_at').in('conversation_id', convIds).order('created_at', { ascending: false }).limit(convIds.length * 3),
+    ]);
+    const pm = await socProfiles((allMembers || []).map(m => m.user_id));
+    const lastMsgMap = {};
+    (lastMsgs || []).forEach(m => { if (!lastMsgMap[m.conversation_id]) lastMsgMap[m.conversation_id] = m; });
+    const membersMap = {};
+    (allMembers || []).forEach(m => { if (!membersMap[m.conversation_id]) membersMap[m.conversation_id] = []; membersMap[m.conversation_id].push({ userId: m.user_id, ...pm[m.user_id] }); });
+    const readMap = {};
+    memberships.forEach(m => { readMap[m.conversation_id] = m.last_read_at; });
+    const result = (convs || []).map(conv => {
+      const lastMsg = lastMsgMap[conv.id];
+      const hasUnread = lastMsg && lastMsg.sender_id !== user.id && readMap[conv.id]
+        ? new Date(lastMsg.created_at) > new Date(readMap[conv.id]) : false;
+      return { id: conv.id, name: conv.name, type: conv.type, createdAt: conv.created_at, members: membersMap[conv.id] || [], lastMessage: lastMsg || null, hasUnread };
+    });
+    result.sort((a, b) => new Date(b.lastMessage?.created_at || b.createdAt) - new Date(a.lastMessage?.created_at || a.createdAt));
+    res.json(result);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/social/conversations', async (req, res) => {
+  if (!supabase) return res.status(503).json({ error: 'Not configured' });
+  const user = await authUser(req);
+  if (!user) return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    const { type = 'dm', name, memberIds = [] } = req.body || {};
+    const allIds = [...new Set([user.id, ...memberIds])];
+    if (type === 'dm' && allIds.length === 2) {
+      const otherId = allIds.find(id => id !== user.id);
+      const { data: myMems } = await supabase.from('conversation_members').select('conversation_id').eq('user_id', user.id);
+      if (myMems?.length) {
+        const { data: otherMems } = await supabase.from('conversation_members').select('conversation_id').eq('user_id', otherId).in('conversation_id', myMems.map(m => m.conversation_id));
+        if (otherMems?.length) {
+          const { data: dmConvs } = await supabase.from('conversations').select('id').eq('type', 'dm').in('id', otherMems.map(m => m.conversation_id)).limit(1);
+          if (dmConvs?.length) return res.json({ id: dmConvs[0].id, existing: true });
+        }
+      }
+    }
+    const { data: conv } = await supabase.from('conversations').insert({ type, name: name || null, created_by: user.id }).select().single();
+    await supabase.from('conversation_members').insert(allIds.map(uid => ({ conversation_id: conv.id, user_id: uid })));
+    res.json({ id: conv.id, existing: false });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/social/conversations/:id/messages', async (req, res) => {
+  if (!supabase) return res.status(503).json({ error: 'Not configured' });
+  const user = await authUser(req);
+  if (!user) return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    const { data: mem } = await supabase.from('conversation_members').select('user_id').eq('conversation_id', req.params.id).eq('user_id', user.id).single();
+    if (!mem) return res.status(403).json({ error: 'Not a member' });
+    let query = supabase.from('messages').select('id, conversation_id, sender_id, content, type, line_data, created_at')
+      .eq('conversation_id', req.params.id).order('created_at', { ascending: false }).limit(50);
+    if (req.query.before) query = query.lt('created_at', req.query.before);
+    const { data: msgs } = await query;
+    const pm = await socProfiles((msgs || []).map(m => m.sender_id));
+    await supabase.from('conversation_members').update({ last_read_at: new Date().toISOString() }).eq('conversation_id', req.params.id).eq('user_id', user.id);
+    res.json((msgs || []).reverse().map(m => ({ ...m, sender: pm[m.sender_id] || {} })));
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/social/conversations/:id/messages', async (req, res) => {
+  if (!supabase) return res.status(503).json({ error: 'Not configured' });
+  const user = await authUser(req);
+  if (!user) return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    const { data: mem } = await supabase.from('conversation_members').select('user_id').eq('conversation_id', req.params.id).eq('user_id', user.id).single();
+    if (!mem) return res.status(403).json({ error: 'Not a member' });
+    const { content, type = 'text', lineData } = req.body || {};
+    if (!content?.trim() && !lineData) return res.status(400).json({ error: 'Empty message' });
+    const msg = { conversation_id: req.params.id, sender_id: user.id, type };
+    if (content?.trim()) msg.content = content.trim();
+    if (lineData) msg.line_data = lineData;
+    const { data } = await supabase.from('messages').insert(msg).select('id, conversation_id, sender_id, content, type, line_data, created_at').single();
+    const pm = await socProfiles([user.id]);
+    res.json({ ...data, sender: pm[user.id] || {} });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/social/unread', async (req, res) => {
+  if (!supabase) return res.status(503).json({ error: 'Not configured' });
+  const user = await authUser(req);
+  if (!user) return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    const { data: memberships } = await supabase.from('conversation_members').select('conversation_id, last_read_at').eq('user_id', user.id);
+    let msgUnread = 0;
+    if (memberships?.length) {
+      const convIds = memberships.map(m => m.conversation_id);
+      const { data: recentMsgs } = await supabase.from('messages').select('conversation_id, created_at, sender_id').in('conversation_id', convIds).neq('sender_id', user.id).order('created_at', { ascending: false });
+      const readMap = {};
+      memberships.forEach(m => { readMap[m.conversation_id] = m.last_read_at; });
+      const counted = new Set();
+      (recentMsgs || []).forEach(msg => {
+        if (counted.has(msg.conversation_id)) return;
+        if (!readMap[msg.conversation_id] || new Date(msg.created_at) > new Date(readMap[msg.conversation_id])) { msgUnread++; counted.add(msg.conversation_id); }
+      });
+    }
+    const { count: pendingRequests } = await supabase.from('friendships').select('id', { count: 'exact', head: true }).eq('addressee_id', user.id).eq('status', 'pending');
+    res.json({ count: msgUnread, pendingRequests: pendingRequests || 0 });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 // ---- CATCH-ALL: Serve frontend ----
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
