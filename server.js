@@ -14,6 +14,17 @@ const express = require('express');
 const cors = require('cors');
 const fetch = require('node-fetch');
 const ESPN_PLAYERS = require('./data/espn-players.json'); // name → ESPN athlete ID
+// Odds API name aliases → ESPN file names
+const ESPN_ALIASES = {
+  'G.G. Jackson': 'GG Jackson',
+  'R.J. Barrett': 'RJ Barrett',
+  'Herb Jones': 'Herbert Jones',
+  'Robert Williams': 'Robert Williams III',
+  'Isaiah Stewart II': 'Isaiah Stewart',
+  'Derrick Jones': 'Derrick Jones Jr.',
+  'Jabari Smith Jr': 'Jabari Smith Jr.',
+};
+Object.entries(ESPN_ALIASES).forEach(([alias, real]) => { if (ESPN_PLAYERS[real]) ESPN_PLAYERS[alias] = ESPN_PLAYERS[real]; });
 const NodeCache = require('node-cache');
 const path = require('path');
 const { createClient } = require('@supabase/supabase-js');
