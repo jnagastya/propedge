@@ -5098,9 +5098,10 @@ function renderSocBetCard(bd) {
       <div><div class="soc-line-cell">To Win</div><div class="soc-line-val" style="color:var(--g);">$${(bd.toWin||0).toFixed(2)}</div></div>
       <div><div class="soc-line-cell">Status</div><div class="soc-line-val" style="color:${sc};">${(bd.status||'').toUpperCase()}</div></div>
     </div>`;
+}
 
 async function shareTo(mode, id, label, btn) {
-  if (!_socSharePlayer || !_authToken) return;
+  if ((!_socSharePlayer && !_socShareBet) || !_authToken) return;
   let convId = id;
   if (mode === 'friend') {
     const r = await fetch(`${API}/api/social/conversations`, {
