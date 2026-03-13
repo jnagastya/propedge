@@ -1673,13 +1673,21 @@ app.get('/api/social/conversations/:id/messages', async (req, res) => {
   try {
     const { data: mem } = await supabase.from('conversation_members').select('user_id').eq('conversation_id', req.params.id).eq('user_id', user.id).single();
     if (!mem) return res.status(403).json({ error: 'Not a member' });
-    let query = supabase.from('messages').select('id, conversation_id, sender_id, content, type, line_data, created_at')
-      .eq('conversation_id', req.params.id).order('created_at', { ascending: false }).limit(50);
-    if (req.query.before) query = query.lt('created_at', req.query.before);
+    let query = supabase.from('messages').select('id, conversation_id, sender_id, content, type, line_data, created_at').eq('conversation_id', req.params.id);
+    let ascending = false;
+    if (req.query.after) {
+      // Poll for new messages only — ascending, no limit
+      query = query.gt('created_at', req.query.after).order('created_at', { ascending: true });
+      ascending = true;
+    } else {
+      query = query.order('created_at', { ascending: false }).limit(50);
+      if (req.query.before) query = query.lt('created_at', req.query.before);
+    }
     const { data: msgs } = await query;
     const pm = await socProfiles((msgs || []).map(m => m.sender_id));
-    await supabase.from('conversation_members').update({ last_read_at: new Date().toISOString() }).eq('conversation_id', req.params.id).eq('user_id', user.id);
-    res.json((msgs || []).reverse().map(m => ({ ...m, sender: pm[m.sender_id] || {} })));
+    if (!req.query.after) await supabase.from('conversation_members').update({ last_read_at: new Date().toISOString() }).eq('conversation_id', req.params.id).eq('user_id', user.id);
+    const sorted = ascending ? (msgs || []) : (msgs || []).reverse();
+    res.json(sorted.map(m => ({ ...m, sender: pm[m.sender_id] || {} })));
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

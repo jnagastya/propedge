@@ -674,7 +674,7 @@ td{padding:13px 14px;white-space:nowrap;}
 .soc-section{border-bottom:1px solid var(--bd);}
 .soc-section-hd{display:flex;align-items:center;justify-content:space-between;padding:11px 14px 9px;font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.6px;}
 .soc-add-btn{font-size:11px;font-weight:600;padding:3px 9px;border-radius:6px;background:var(--bld);color:var(--b);border:1px solid var(--bb);cursor:pointer;transition:all .12s;}.soc-add-btn:hover{background:var(--b);color:#fff;}
-.soc-friend-item{display:flex;align-items:center;gap:10px;padding:9px 14px;cursor:pointer;transition:background .1s;}.soc-friend-item:hover{background:var(--bgh);}
+.soc-friend-item{display:flex;align-items:center;gap:10px;padding:9px 14px;cursor:pointer;transition:background .1s;}.soc-friend-item:hover{background:var(--bgh);}.soc-remove-btn{display:none;background:none;border:none;color:var(--t3);cursor:pointer;font-size:13px;padding:2px 5px;border-radius:4px;transition:color .12s;flex-shrink:0;}.soc-friend-item:hover .soc-remove-btn{display:block;}.soc-remove-btn:hover{color:var(--r);}
 .soc-av{width:30px;height:30px;border-radius:50%;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--b);flex-shrink:0;}
 .soc-friend-info{flex:1;min-width:0;}.soc-friend-name{font-size:13px;font-weight:600;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}.soc-friend-user{font-size:11px;color:var(--t3);}
 .soc-conv-item{display:flex;align-items:center;gap:10px;padding:9px 14px;cursor:pointer;transition:background .1s;}.soc-conv-item:hover{background:var(--bgh);}.soc-conv-item.active{background:var(--bld);}
@@ -4597,12 +4597,14 @@ function renderSocFriends() {
   }
   fl.innerHTML = accepted.map(f => {
     const initials = (f.displayName || f.username || '?').slice(0, 2).toUpperCase();
-    return `<div class="soc-friend-item" onclick="openDmWith('${f.userId}','${(f.displayName||f.username).replace(/'/g,"\\'")}')">
+    const name = (f.displayName||f.username).replace(/'/g,"\\'");
+    return `<div class="soc-friend-item" onclick="openDmWith('${f.userId}','${name}')">
       <div class="soc-av">${initials}</div>
       <div class="soc-friend-info">
         <div class="soc-friend-name">${f.displayName || f.username}</div>
         <div class="soc-friend-user">@${f.username}</div>
       </div>
+      <button class="soc-remove-btn" onclick="event.stopPropagation();removeFriend('${f.id}','${name}')" title="Remove friend">✕</button>
     </div>`;
   }).join('');
 }
@@ -4649,24 +4651,21 @@ async function openConversation(convId) {
   const msgs = await authGet(`/api/social/conversations/${convId}/messages`);
   if (msgs) { _socMessages = msgs; renderSocMessages(); }
   updateSocNotifBadge();
-  _socPollTimer = setInterval(() => pollConversation(convId), 4000);
+  _socPollTimer = setInterval(() => pollConversation(convId), 1500);
 }
 
 async function pollConversation(convId) {
   if (_activeConvId !== convId || !_authToken) { clearInterval(_socPollTimer); return; }
   const last = _socMessages.length ? _socMessages[_socMessages.length - 1].created_at : null;
+  if (!last) return;
   try {
-    const r = await fetch(`${API}/api/social/conversations/${convId}/messages${last ? `?after=${last}` : ''}`, { headers: { 'Authorization': `Bearer ${_authToken}` } });
+    const r = await fetch(`${API}/api/social/conversations/${convId}/messages?after=${encodeURIComponent(last)}`, { headers: { 'Authorization': `Bearer ${_authToken}` } });
     if (!r.ok) return;
     const msgs = await r.json();
     if (!msgs.length) return;
-    const lastId = _socMessages.length ? _socMessages[_socMessages.length - 1].id : null;
-    const newMsgs = msgs.filter(m => m.created_at > (last || ''));
-    if (newMsgs.length) {
-      _socMessages.push(...newMsgs);
-      renderSocMessages();
-      updateSocNotifBadge();
-    }
+    _socMessages.push(...msgs);
+    renderSocMessages();
+    updateSocNotifBadge();
   } catch {}
 }
 
@@ -4876,6 +4875,17 @@ async function respondFriend(friendshipId, action) {
       body: JSON.stringify({ action }),
     });
     if (r.ok) { await loadSocialSidebar(); updateSocNotifBadge(); }
+  } catch {}
+}
+
+async function removeFriend(friendshipId, displayName) {
+  if (!confirm(`Remove ${displayName} as a friend?`)) return;
+  try {
+    const r = await fetch(`${API}/api/social/friends/${friendshipId}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${_authToken}` },
+    });
+    if (r.ok) { await loadSocialSidebar(); showSts(`Removed ${displayName}`, 'ok'); }
   } catch {}
 }
 
