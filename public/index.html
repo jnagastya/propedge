@@ -1080,7 +1080,7 @@ function renderFavorites() {
       const { info, markets } = allPlayers[name];
       const hs = getHeadshot(name);
       const initials = name.split(' ').map(n => n[0]).join('').substring(0, 2);
-      const avHTML = hs ? `<img src="${hs}" onerror="this.parentElement.innerHTML='${initials}'" alt="">` : initials;
+      const avHTML = hs ? `<img src="${hs}" onerror="headshotError(this,'${initials}')" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" alt="">` : initials;
       const propsHTML = markets.sort((a,b)=>['PTS','REB','AST','3PM','PRA'].indexOf(a.mktShort)-['PTS','REB','AST','3PM','PRA'].indexOf(b.mktShort))
         .map(m => {
           const ec = m.edge > 3 ? 'pos' : m.edge < -3 ? 'neg' : 'flat';
@@ -1160,11 +1160,35 @@ const NBA_IDS = {
   "Marcus Smart":203935,"Bobby Portis":1626171,"Mike Conley":201144,
 };
 // Proxied through server to bypass CORS. Dynamic cache takes priority over hardcoded map.
-// Hardcoded map = instant (no extra request). Name endpoint = fallback for everyone else.
+// Returns URL for known IDs instantly; null for unknowns (shows initials until prefetch resolves)
 function getHeadshot(name) {
   const id = _nbaIdCache[name] || NBA_IDS[name];
-  if (id) return `/api/headshot/${id}`;
-  return `/api/headshot/name/${encodeURIComponent(name)}`;
+  return id ? `/api/headshot/${id}` : null;
+}
+// Global onerror handler — replaces broken img with styled initials
+function headshotError(img, initials) {
+  const p = img.parentElement; if (!p) return;
+  p.innerHTML = `<span style="font-size:11px;font-weight:700;color:var(--t3);line-height:1;">${initials}</span>`;
+}
+// Throttled background prefetch: resolves NBA IDs for players not in the hardcoded map,
+// updates _nbaIdCache and swaps initials → headshots in-place via data-av
+async function prefetchHeadshots(names) {
+  const unknown = [...new Set(names)].filter(n => !_nbaIdCache[n] && !NBA_IDS[n]);
+  for (const name of unknown) {
+    try {
+      const r = await fetch(`/api/player/nba-id/${encodeURIComponent(name)}`);
+      if (r.ok) {
+        const { nbaPlayerId } = await r.json();
+        if (nbaPlayerId) {
+          _nbaIdCache[name] = nbaPlayerId;
+          document.querySelectorAll(`[data-av="${CSS.escape(name)}"]`).forEach(el => {
+            el.innerHTML = `<img src="/api/headshot/${nbaPlayerId}" onerror="headshotError(this,'${name.split(' ').map(n=>n[0]).join('').substring(0,2)}')" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" alt="">`;
+          });
+        }
+      }
+    } catch {}
+    await new Promise(res => setTimeout(res, 120)); // 120ms between each — ~8/sec
+  }
 }
 
 // ── State ──
@@ -1248,6 +1272,8 @@ async function loadData() {
     showSts(`Loaded ${S.data.length} players${m.cached?' (cached)':''}`,'suc');
   } else if(m.error){setApi('odds','err');showSts(`⚠️ Refresh failed: ${m.error}. ${S.data.length?'Showing last loaded data.':'Enter API keys above.'}`,'err');}
   recalcScenario();renderTable();
+  // Kick off background headshot prefetch for players not in hardcoded map
+  if(S.data&&S.data.length) prefetchHeadshots(S.data.map(p=>p.name));
   _lastRefreshAt=Date.now();
   document.getElementById('dAge').textContent='Just now';
   const _sb=document.getElementById('statsBdg');
@@ -1373,7 +1399,7 @@ function renderGamePanel(away,home){
       const ec=p.edge>3?'var(--g)':p.edge<-3?'var(--r)':'var(--t3)';
       const lean=p.edge>3?'▲ OVER':p.edge<-3?'▼ UNDER':'— EVEN';
       return`<div class="gp-player" onclick="scrollToPlayer('${p.name}')">
-        <div class="gp-av" data-av="${p.name.replace(/"/g,'&quot;')}">${hs?`<img src="${hs}" onerror="this.parentElement.textContent='${initials}'" alt="">`:`<span style="font-size:10px;font-weight:700;color:var(--t3)">${initials}</span>`}</div>
+        <div class="gp-av" data-av="${p.name.replace(/"/g,'&quot;')}">${hs?`<img src="${hs}" onerror="headshotError(this,'${initials}')" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" alt="">`:`<span style="font-size:10px;font-weight:700;color:var(--t3)">${initials}</span>`}</div>
         <div><div class="gp-pname">${p.name}</div><div class="gp-pmeta">Line ${p.line} · ${p.hitRate||0}% hit</div></div>
         <div class="gp-edge" style="color:${ec}">${lean}</div>
       </div>`;
@@ -1616,7 +1642,7 @@ function renderTable(){
     const es=edge>0?'+':'';
     const hs=getHeadshot(p.name);
     const initials=p.name.split(' ').map(n=>n[0]).join('').substring(0,2);
-    const avInner=hs?`<img src="${hs}" onerror="this.parentElement.innerHTML='<span style=\\'font-size:12px;font-weight:700;color:var(--t3)\\'>${initials}</span>'" alt="">`:`<span style="font-size:12px;font-weight:700;color:var(--t3)">${initials}</span>`;
+    const avInner=hs?`<img src="${hs}" onerror="headshotError(this,'${initials}')" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" alt="">`:`<span style="font-size:12px;font-weight:700;color:var(--t3)">${initials}</span>`;
     const oP=p.hitRate||50,uP=100-oP;
     const cc=(p.confidence||0)>=70?'var(--g)':(p.confidence||0)>=50?'var(--a)':'var(--r)';
     const vs=valueScore(p);
@@ -2728,7 +2754,7 @@ function renderAlerts(){
     const dir=isOver?'OVER':'UNDER';
     const hs=getHeadshot(p.name);
     const initials=p.name.split(' ').map(n=>n[0]).join('').substring(0,2);
-    const avHTML=hs?`<img src="${hs}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" onerror="this.parentElement.innerHTML='${initials}'">`:`${initials}`;
+    const avHTML=hs?`<img src="${hs}" onerror="headshotError(this,'${initials}')" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" alt="">`:`${initials}`;
     const strength=p.vs>=40?'strong':p.vs>=25?'moderate':'risky';
     const rankColor=rank===0?'#f59e0b':rank===1?'#94a3b8':rank===2?'#b45309':'var(--t3)';
     const rankLabel=rank===0?'🥇':rank===1?'🥈':rank===2?'🥉':`#${rank+1}`;

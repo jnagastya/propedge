@@ -1338,6 +1338,20 @@ app.get('/api/debug/bdl', async (req, res) => {
 });
 
 // ============================================================
+// ROUTE: GET /api/player/nba-id/:name — return NBA player ID only (lightweight, no image)
+// Used by frontend throttled prefetch queue to resolve headshots without hammering BDL
+// ============================================================
+app.get('/api/player/nba-id/:name', async (req, res) => {
+  const name = decodeURIComponent(req.params.name);
+  try {
+    const { nbaPlayerId } = await getBDLPlayerId(name);
+    res.json({ nbaPlayerId: nbaPlayerId || null });
+  } catch {
+    res.json({ nbaPlayerId: null });
+  }
+});
+
+// ============================================================
 // ROUTE: GET /api/headshot/name/:name — resolve player name → NBA CDN headshot
 // Must be registered BEFORE /api/headshot/:id so "name" isn't treated as an ID
 // ============================================================
