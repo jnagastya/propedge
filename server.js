@@ -1885,7 +1885,14 @@ app.post('/api/social/conversations/:id/messages', async (req, res) => {
           title: pushTitle,
           body: pushBody,
           tag: `conv-${req.params.id}`,
-          url: '/?tab=social',
+          url: `/?tab=social&conv=${req.params.id}`,
+          actions: [
+            { action: 'react_yes', title: '✅ Like' },
+            { action: 'react_maybe', title: '❓ Maybe' },
+            { action: 'react_no', title: '❌ Pass' },
+          ],
+          messageId: data.id,
+          conversationId: req.params.id,
         };
         await Promise.allSettled(members.map(m => sendPushToUser(m.user_id, payload)));
       } catch {}
@@ -1925,6 +1932,66 @@ app.get('/api/social/unread', async (req, res) => {
     }
     const { count: pendingRequests } = await supabase.from('friendships').select('id', { count: 'exact', head: true }).eq('addressee_id', user.id).eq('status', 'pending');
     res.json({ count: msgUnread, pendingRequests: pendingRequests || 0 });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ============================================================
+// MESSAGE REACTIONS
+// ============================================================
+// Schema (run in Supabase SQL editor):
+//   CREATE TABLE IF NOT EXISTS message_reactions (
+//     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+//     message_id UUID NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+//     user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+//     emoji TEXT NOT NULL,
+//     created_at TIMESTAMPTZ DEFAULT now(),
+//     UNIQUE(message_id, user_id, emoji)
+//   );
+//   CREATE INDEX idx_reactions_message ON message_reactions(message_id);
+
+// Get reactions for messages in a conversation (batch)
+app.get('/api/social/reactions/:conversationId', async (req, res) => {
+  if (!supabase) return res.status(503).json({ error: 'Not configured' });
+  const user = await authUser(req);
+  if (!user) return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    const { data: mem } = await supabase.from('conversation_members').select('user_id').eq('conversation_id', req.params.conversationId).eq('user_id', user.id).single();
+    if (!mem) return res.status(403).json({ error: 'Not a member' });
+    const { data } = await supabase.from('message_reactions').select('id, message_id, user_id, emoji, created_at')
+      .in('message_id', (await supabase.from('messages').select('id').eq('conversation_id', req.params.conversationId).limit(200)).data?.map(m => m.id) || []);
+    res.json(data || []);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Add reaction to a message
+app.post('/api/social/reactions/:messageId', async (req, res) => {
+  if (!supabase) return res.status(503).json({ error: 'Not configured' });
+  const user = await authUser(req);
+  if (!user) return res.status(401).json({ error: 'Unauthorized' });
+  const { emoji } = req.body || {};
+  if (!emoji) return res.status(400).json({ error: 'Missing emoji' });
+  try {
+    // Verify user is member of the conversation this message belongs to
+    const { data: msg } = await supabase.from('messages').select('conversation_id').eq('id', req.params.messageId).single();
+    if (!msg) return res.status(404).json({ error: 'Message not found' });
+    const { data: mem } = await supabase.from('conversation_members').select('user_id').eq('conversation_id', msg.conversation_id).eq('user_id', user.id).single();
+    if (!mem) return res.status(403).json({ error: 'Not a member' });
+    const { data } = await supabase.from('message_reactions').upsert({
+      message_id: req.params.messageId, user_id: user.id, emoji,
+    }, { onConflict: 'message_id,user_id,emoji' }).select('id, message_id, user_id, emoji, created_at').single();
+    res.json(data);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Remove reaction from a message
+app.delete('/api/social/reactions/:messageId/:emoji', async (req, res) => {
+  if (!supabase) return res.status(503).json({ error: 'Not configured' });
+  const user = await authUser(req);
+  if (!user) return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    await supabase.from('message_reactions').delete()
+      .eq('message_id', req.params.messageId).eq('user_id', user.id).eq('emoji', decodeURIComponent(req.params.emoji));
+    res.json({ ok: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

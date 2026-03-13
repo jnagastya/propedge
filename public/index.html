@@ -885,6 +885,22 @@ td{padding:13px 14px;white-space:nowrap;}
 .soc-bubble{padding:10px 14px;border-radius:14px;font-size:14px;line-height:1.5;word-break:break-word;white-space:pre-wrap;}
 .soc-msg.mine .soc-bubble{background:var(--b);color:var(--b-on);border-bottom-right-radius:4px;}.soc-msg.them .soc-bubble{background:var(--bg3);color:var(--t1);border-bottom-left-radius:4px;}
 .soc-msg-time{font-size:11px;color:var(--t2);margin-top:3px;opacity:.7;}
+.soc-reactions{display:flex;gap:3px;flex-wrap:wrap;margin-top:4px;}
+.soc-rx{display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:12px;font-size:12px;cursor:pointer;border:1px solid var(--bd);background:var(--bg2);transition:all .12s;user-select:none;}
+.soc-rx:hover{border-color:var(--b);background:var(--bld);}
+.soc-rx.mine{border-color:var(--b);background:var(--bld);}
+.soc-rx-count{font-size:10px;font-weight:700;color:var(--t2);}
+.soc-rx-add{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:12px;font-size:12px;cursor:pointer;border:1px solid var(--bd);background:var(--bg2);transition:all .12s;opacity:.5;color:var(--t3);}
+.soc-rx-add:hover{opacity:1;border-color:var(--b);background:var(--bld);}
+.soc-rx-picker{position:absolute;bottom:100%;left:0;display:none;background:var(--bg1);border:1px solid var(--bd);border-radius:10px;padding:6px;box-shadow:var(--shadow-md);z-index:10;gap:2px;flex-wrap:wrap;width:180px;}
+.soc-rx-picker.open{display:flex;}
+.soc-rx-pick{font-size:18px;cursor:pointer;padding:4px;border-radius:6px;transition:background .1s;line-height:1;}
+.soc-rx-pick:hover{background:var(--bg3);}
+.soc-msg.mine .soc-rx{border-color:rgba(255,255,255,.25);background:rgba(255,255,255,.12);}
+.soc-msg.mine .soc-rx.mine{border-color:rgba(255,255,255,.5);background:rgba(255,255,255,.2);}
+.soc-msg.mine .soc-rx-add{border-color:rgba(255,255,255,.25);background:rgba(255,255,255,.08);color:rgba(255,255,255,.6);}
+.soc-msg.mine .soc-rx-add:hover{background:rgba(255,255,255,.2);}
+.soc-msg.mine .soc-rx-picker{background:var(--bg1);border-color:var(--bd);}
 .soc-line-card{background:var(--bg2);border:1px solid var(--bd2);border-radius:10px;padding:12px 14px;cursor:pointer;transition:border-color .12s,background .12s;min-width:220px;max-width:320px;}
 .soc-line-card:hover{border-color:var(--b);background:var(--bld);}
 .soc-msg.mine .soc-line-card{background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.25);}.soc-msg.mine .soc-line-card:hover{background:rgba(255,255,255,.2);}
@@ -3774,7 +3790,39 @@ setInterval(()=>loadData(),7200000);
   const h=await apiGet('/api/health');
   if(h.apis?.odds==='configured'){showSts('Backend connected, loading data…','inf');await loadData();}
   else showSts('Odds API key not configured on server. Check your environment variables.','err');
+  // Deep link: ?tab=social&conv=<id> — auto-open conversation from push notification
+  const urlParams = new URLSearchParams(window.location.search);
+  const deepTab = urlParams.get('tab');
+  const deepConv = urlParams.get('conv');
+  if (deepTab === 'social' && deepConv) {
+    switchView('social');
+    // Wait for social to init, then open the conversation
+    const waitAndOpen = () => {
+      if (_socInited && _socConversations.length) { openConversation(deepConv); window.history.replaceState({}, '', '/'); }
+      else setTimeout(waitAndOpen, 300);
+    };
+    waitAndOpen();
+  } else if (deepTab) { switchView(deepTab); }
 })();
+
+// Listen for service worker messages (e.g. navigate from notification click)
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('message', event => {
+    if (event.data?.type === 'navigate' && event.data.url) {
+      const u = new URL(event.data.url, window.location.origin);
+      const tab = u.searchParams.get('tab');
+      const conv = u.searchParams.get('conv');
+      if (tab === 'social' && conv) {
+        switchView('social');
+        const waitAndOpen = () => {
+          if (_socInited && _socConversations.length) openConversation(conv);
+          else setTimeout(waitAndOpen, 300);
+        };
+        waitAndOpen();
+      } else if (tab) { switchView(tab); }
+    }
+  });
+}
 
 // ══════════════════════════════════════════════
 // BETTING SIMULATOR
@@ -4667,6 +4715,8 @@ document.addEventListener('click', e => {
   if (panel && panel.classList.contains('open') && !panel.contains(e.target) && !btn.contains(e.target)) {
     panel.classList.remove('open');
   }
+  // Close reaction pickers when clicking outside
+  if (!e.target.closest('.soc-rx-add') && !e.target.closest('.soc-rx-picker')) closeRxPickers();
 });
 
 // Build swatches
@@ -5196,7 +5246,9 @@ async function openConversation(convId) {
   document.getElementById('socChatAv').textContent = name.slice(0, 2).toUpperCase();
   document.querySelector('.soc-layout')?.classList.add('chat-open');
   const msgs = await authGet(`/api/social/conversations/${convId}/messages`);
-  if (msgs) { _socMessages = msgs; renderSocMessages(); }
+  if (msgs) { _socMessages = msgs; }
+  await loadReactions(convId);
+  renderSocMessages();
   updateSocNotifBadge();
   _socPollTimer = setInterval(() => pollConversation(convId), 1500);
 }
@@ -5219,6 +5271,68 @@ async function pollConversation(convId) {
   } catch {}
 }
 
+const REACT_EMOJIS = ['👍','👎','🔥','💰','🎯','😂','❓','✅','❌'];
+let _socReactions = {}; // { messageId: [{emoji, user_id, id}] }
+
+async function loadReactions(convId) {
+  if (!_authToken) return;
+  try {
+    const r = await fetch(`${API}/api/social/reactions/${convId}`, { headers: { 'Authorization': `Bearer ${_authToken}` } });
+    if (!r.ok) return;
+    const data = await r.json();
+    _socReactions = {};
+    (data || []).forEach(rx => {
+      if (!_socReactions[rx.message_id]) _socReactions[rx.message_id] = [];
+      _socReactions[rx.message_id].push(rx);
+    });
+  } catch {}
+}
+
+async function toggleReaction(msgId, emoji) {
+  if (!_authToken) return;
+  const existing = (_socReactions[msgId] || []).find(r => r.user_id === _socUserId && r.emoji === emoji);
+  if (existing) {
+    await fetch(`${API}/api/social/reactions/${msgId}/${encodeURIComponent(emoji)}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${_authToken}` } });
+    _socReactions[msgId] = (_socReactions[msgId] || []).filter(r => r.id !== existing.id);
+  } else {
+    const r = await fetch(`${API}/api/social/reactions/${msgId}`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_authToken}` }, body: JSON.stringify({ emoji }) });
+    if (r.ok) {
+      const rx = await r.json();
+      if (!_socReactions[msgId]) _socReactions[msgId] = [];
+      _socReactions[msgId].push(rx);
+    }
+  }
+  renderSocMessages();
+}
+
+function renderReactions(msgId) {
+  const rxs = _socReactions[msgId] || [];
+  if (!rxs.length) return renderReactionBtn(msgId);
+  // Group by emoji
+  const groups = {};
+  rxs.forEach(r => { if (!groups[r.emoji]) groups[r.emoji] = []; groups[r.emoji].push(r); });
+  const pills = Object.entries(groups).map(([emoji, users]) => {
+    const isMine = users.some(u => u.user_id === _socUserId);
+    return `<span class="soc-rx${isMine?' mine':''}" onclick="event.stopPropagation();toggleReaction('${msgId}','${emoji}')">${emoji}<span class="soc-rx-count">${users.length}</span></span>`;
+  }).join('');
+  return `<div class="soc-reactions">${pills}${renderReactionBtn(msgId)}</div>`;
+}
+
+function renderReactionBtn(msgId) {
+  return `<span class="soc-rx-add" onclick="event.stopPropagation();toggleRxPicker('${msgId}')" title="React">+</span>
+    <div class="soc-rx-picker" id="rxp-${msgId}">${REACT_EMOJIS.map(e => `<span class="soc-rx-pick" onclick="event.stopPropagation();closeRxPickers();toggleReaction('${msgId}','${e}')">${e}</span>`).join('')}</div>`;
+}
+
+function toggleRxPicker(msgId) {
+  closeRxPickers();
+  const p = document.getElementById(`rxp-${msgId}`);
+  if (p) p.classList.toggle('open');
+}
+
+function closeRxPickers() {
+  document.querySelectorAll('.soc-rx-picker.open').forEach(p => p.classList.remove('open'));
+}
+
 function renderSocMessages() {
   const el = document.getElementById('socMessages');
   if (!el) return;
@@ -5232,10 +5346,12 @@ function renderSocMessages() {
     const timeStr = (d && !isNaN(d)) ? d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : '';
     const cls = mine ? 'mine' : 'them';
     const senderName = mine ? 'You' : (msg.sender?.displayName || msg.sender?.username || '?');
+    const rxHtml = `<div style="position:relative;">${renderReactions(msg.id)}</div>`;
     if (msg.type === 'line' && msg.line_data) {
       html += `<div class="soc-msg ${cls}">
         <div class="soc-msg-sender">${senderName}</div>
         <div class="soc-line-card" onclick="openSharedLine(${JSON.stringify(msg.line_data).replace(/"/g,'&quot;')})">${renderSocLineCard(msg.line_data)}</div>
+        ${rxHtml}
         <div class="soc-msg-time">${timeStr}</div>
       </div>`;
     } else if (msg.type === 'bet' && msg.line_data) {
@@ -5244,12 +5360,14 @@ function renderSocMessages() {
       html += `<div class="soc-msg ${cls}">
         <div class="soc-msg-sender">${senderName}</div>
         <div class="soc-line-card" ${betClick}>${renderSocBetCard(betLd)}</div>
+        ${rxHtml}
         <div class="soc-msg-time">${timeStr}</div>
       </div>`;
     } else {
       html += `<div class="soc-msg ${cls}">
         ${!mine ? `<div class="soc-msg-sender">${senderName}</div>` : ''}
         <div class="soc-bubble">${escHtml(msg.content || '')}</div>
+        ${rxHtml}
         <div class="soc-msg-time">${timeStr}</div>
       </div>`;
     }
