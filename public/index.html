@@ -4094,6 +4094,7 @@ function renderSimulator() {
             </div>
             <span class="hist-pnl ${b.pnl>=0?'pos':'neg'}" style="flex-shrink:0;">${pnlFmt}</span>
             <button class="share-btn" onclick="event.stopPropagation();openBetShareModal('${b.id}')" title="Share bet" style="flex-shrink:0;">📤</button>
+            <button class="share-btn" onclick="event.stopPropagation();deleteSettledBet('${b.id}')" title="Remove" style="flex-shrink:0;color:var(--r);opacity:.6;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.6">✕</button>
             <div id="chev-h${sid}" class="bc-chevron">▼</div>
           </div>
           <div class="bc-parlay-legs" id="pl-h${sid}" style="display:none;">${legsHtml}</div>
@@ -4111,6 +4112,7 @@ function renderSimulator() {
         <span class="hist-pnl ${b.pnl>=0?'pos':'neg'}">${pnlFmt}</span>
         <span style="font-size:11px;color:var(--t3);flex-shrink:0;">$${b.stake}</span>
         <button class="share-btn" onclick="event.stopPropagation();openBetShareModal('${b.id}')" title="Share bet" style="flex-shrink:0;">📤</button>
+        <button class="share-btn" onclick="deleteSettledBet('${b.id}')" title="Remove" style="flex-shrink:0;color:var(--r);opacity:.6;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.6">✕</button>
       </div>`;
     }).join('');
   }
@@ -4524,6 +4526,13 @@ function clearHistory() {
   if (!confirm('Clear all settled bet history?')) return;
   const sim = simLoad();
   sim.bets = sim.bets.filter(b => b.status === 'open');
+  simSave(sim);
+  renderSimulator();
+}
+
+function deleteSettledBet(betId) {
+  const sim = simLoad();
+  sim.bets = sim.bets.filter(b => b.id !== betId);
   simSave(sim);
   renderSimulator();
 }
