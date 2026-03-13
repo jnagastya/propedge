@@ -1758,20 +1758,17 @@ setInterval(()=>{
 },30000);
 
 // ── Render: Scores ──
+// Keys = abbreviations from server teamAbbr(); values = ESPN CDN codes
 const NBA_LOGOS = {
-  'Atlanta Hawks':'atl','Boston Celtics':'bos','Brooklyn Nets':'bkn',
-  'Charlotte Hornets':'cha','Chicago Bulls':'chi','Cleveland Cavaliers':'cle',
-  'Dallas Mavericks':'dal','Denver Nuggets':'den','Detroit Pistons':'det',
-  'Golden State Warriors':'gsw','Houston Rockets':'hou','Indiana Pacers':'ind',
-  'Los Angeles Clippers':'lac','Los Angeles Lakers':'lal','Memphis Grizzlies':'mem',
-  'Miami Heat':'mia','Milwaukee Bucks':'mil','Minnesota Timberwolves':'min',
-  'New Orleans Pelicans':'no','New York Knicks':'ny','Oklahoma City Thunder':'okc',
-  'Orlando Magic':'orl','Philadelphia 76ers':'phi','Phoenix Suns':'phx',
-  'Portland Trail Blazers':'por','Sacramento Kings':'sac','San Antonio Spurs':'sa',
-  'Toronto Raptors':'tor','Utah Jazz':'utah','Washington Wizards':'wsh',
+  'ATL':'atl','BOS':'bos','BKN':'bkn','CHA':'cha','CHI':'chi',
+  'CLE':'cle','DAL':'dal','DEN':'den','DET':'det','GSW':'gsw',
+  'HOU':'hou','IND':'ind','LAC':'lac','LAL':'lal','MEM':'mem',
+  'MIA':'mia','MIL':'mil','MIN':'min','NOP':'no','NYK':'ny',
+  'OKC':'okc','ORL':'orl','PHI':'phi','PHX':'phx','POR':'por',
+  'SAC':'sac','SAS':'sa','TOR':'tor','UTA':'utah','WAS':'wsh',
 };
-function teamLogo(name){
-  const c=NBA_LOGOS[name];
+function teamLogo(abbr){
+  const c=NBA_LOGOS[abbr];
   return c?`<img class="sc-logo" src="https://a.espncdn.com/i/teamlogos/nba/500/${c}.png" alt="" onerror="this.style.display='none'">`:'';
 }
 
