@@ -255,52 +255,6 @@ const BDL_PLAYER_OVERRIDES = {
   'Kasparas Jakucionis':    { id: 1057272939,   position: 'G', team: 'MIA' }, // BDL has special char: Jakučionis
 };
 
-// ── NBA Stats player map (name → NBA CDN person ID) ──────────────────────────
-// stats.nba.com/commonallplayers returns all players with their PERSON_ID,
-// which is the ID used by the NBA CDN headshot URL. BDL v1 free tier does
-// NOT return nba_player_id, so we use this as the primary headshot ID source.
-let _nbaStatsMap = null;
-let _nbaStatsMapExpiry = 0;
-
-async function getNBAStatsPlayerMap() {
-  if (_nbaStatsMap && Date.now() < _nbaStatsMapExpiry) return _nbaStatsMap;
-  try {
-    const url = 'https://stats.nba.com/stats/commonallplayers?IsOnlyCurrentSeason=0&LeagueID=00&Season=2024-25';
-    const resp = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Referer': 'https://www.nba.com/',
-        'Origin': 'https://www.nba.com',
-        'Accept': 'application/json, text/plain, */*',
-        'x-nba-stats-origin': 'stats',
-        'x-nba-stats-token': 'true',
-      }
-    });
-    if (!resp.ok) throw new Error(`NBA Stats ${resp.status}`);
-    const data = await resp.json();
-    const headers = data.resultSets[0].headers;
-    const rows = data.resultSets[0].rowSet;
-    const idIdx = headers.indexOf('PERSON_ID');
-    const nameIdx = headers.indexOf('DISPLAY_FIRST_LAST');
-    const map = {};
-    for (const row of rows) {
-      const id = row[idIdx];
-      const name = row[nameIdx];
-      if (id && name) map[name.toLowerCase()] = id;
-    }
-    _nbaStatsMap = map;
-    _nbaStatsMapExpiry = Date.now() + 24 * 3600 * 1000;
-    console.log(`NBA Stats player map loaded: ${Object.keys(map).length} players`);
-    return map;
-  } catch (e) {
-    console.warn('NBA Stats commonallplayers failed:', e.message);
-    return _nbaStatsMap || {};
-  }
-}
-
-// Warm up the map on startup (non-blocking)
-getNBAStatsPlayerMap().catch(() => {});
-
 // Search BDL for player ID + position by name, cached 24h
 // Returns { id, position } or { id: null, position: null }
 async function getBDLPlayerId(name) {
@@ -1390,11 +1344,6 @@ app.get('/api/debug/bdl', async (req, res) => {
 app.get('/api/player/nba-id/:name', async (req, res) => {
   const name = decodeURIComponent(req.params.name);
   try {
-    // Primary: NBA Stats commonallplayers map (accurate CDN IDs)
-    const nbaMap = await getNBAStatsPlayerMap();
-    const nbaId = nbaMap[name.toLowerCase()];
-    if (nbaId) return res.json({ nbaPlayerId: nbaId });
-    // Fallback: BDL nba_player_id (often null on free tier, but try anyway)
     const { nbaPlayerId } = await getBDLPlayerId(name);
     res.json({ nbaPlayerId: nbaPlayerId || null });
   } catch {
@@ -1409,9 +1358,7 @@ app.get('/api/player/nba-id/:name', async (req, res) => {
 app.get('/api/headshot/name/:name', async (req, res) => {
   const name = decodeURIComponent(req.params.name);
   try {
-    const nbaMap = await getNBAStatsPlayerMap();
-    let nbaPlayerId = nbaMap[name.toLowerCase()] || null;
-    if (!nbaPlayerId) ({ nbaPlayerId } = await getBDLPlayerId(name));
+    const { nbaPlayerId } = await getBDLPlayerId(name);
     if (!nbaPlayerId) return res.status(404).end();
     const url = `https://cdn.nba.com/headshots/nba/latest/1040x760/${nbaPlayerId}.png`;
     const resp = await fetch(url, {
