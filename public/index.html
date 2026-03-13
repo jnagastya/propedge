@@ -710,7 +710,15 @@ td{padding:13px 14px;white-space:nowrap;}
 .soc-msg.mine .soc-line-cell,.soc-msg.mine .soc-line-val{color:inherit;opacity:.85;}
 .soc-line-live{margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,.1);font-size:11px;display:flex;gap:6px;flex-wrap:wrap;}
 .soc-line-live-tag{background:var(--gd);color:var(--g);border-radius:4px;padding:1px 6px;font-weight:700;font-size:10px;}
-.soc-chat-input-row{padding:10px 12px;border-top:1px solid var(--bd);display:flex;gap:8px;align-items:flex-end;flex-shrink:0;}
+.soc-chat-input-row{padding:10px 12px;border-top:1px solid var(--bd);display:flex;gap:8px;align-items:flex-end;flex-shrink:0;position:relative;}
+.soc-attach-btn{width:36px;height:36px;border-radius:8px;background:var(--bg2);border:1px solid var(--bd);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;transition:all .12s;color:var(--t2);padding:0;}.soc-attach-btn:hover{background:var(--bg3);border-color:var(--b);color:var(--b-text);}
+.bet-pick-panel{position:absolute;bottom:calc(100% + 4px);left:12px;right:12px;background:var(--bg1);border:1px solid var(--bd);border-radius:12px;box-shadow:var(--shadow-md);z-index:20;display:flex;flex-direction:column;max-height:300px;overflow:hidden;animation:fadeUp .12s ease both;}
+.bet-pick-hdr{padding:9px 12px 8px;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;gap:8px;}
+.bet-pick-tabs{display:flex;gap:4px;}
+.bet-pick-tab{padding:4px 10px;border-radius:6px;background:var(--bg2);border:1px solid var(--bd);font-size:11px;font-weight:600;cursor:pointer;color:var(--t2);font-family:var(--sans);transition:all .12s;}.bet-pick-tab.on{background:var(--bld);color:var(--b-text);border-color:var(--bb);}
+.bet-pick-list{overflow-y:auto;flex:1;}
+.bet-pick-row{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--bd);}.bet-pick-row:last-child{border-bottom:none;}
+.bet-pick-send{padding:3px 10px;border-radius:6px;background:var(--bld);color:var(--b-text);border:1px solid var(--bb);cursor:pointer;font-size:11px;font-weight:600;font-family:var(--sans);transition:all .12s;flex-shrink:0;}.bet-pick-send:hover{background:var(--b);color:var(--b-on);}.bet-pick-send:disabled{opacity:.5;cursor:not-allowed;}
 .soc-input{flex:1;background:var(--bg2);border:1px solid var(--bd);border-radius:10px;padding:8px 12px;font-family:var(--sans);font-size:13px;color:var(--t1);resize:none;outline:none;max-height:100px;transition:border-color .15s;line-height:1.4;}.soc-input:focus{border-color:var(--b);}
 .soc-send-btn{padding:8px 16px;background:var(--b);color:var(--b-on);border:none;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--sans);transition:opacity .12s;flex-shrink:0;}.soc-send-btn:hover{opacity:.85;}
 .soc-day-sep{text-align:center;font-size:10px;color:var(--t3);margin:6px 0;font-weight:600;letter-spacing:.4px;}
@@ -1274,6 +1282,17 @@ Negative odds: |odds| / (|odds| + 100)</div>
           </div>
           <div class="soc-messages" id="socMessages"></div>
           <div class="soc-chat-input-row">
+            <div class="bet-pick-panel" id="betPickPanel" style="display:none">
+              <div class="bet-pick-hdr">
+                <div class="bet-pick-tabs">
+                  <button class="bet-pick-tab on" onclick="setBetPickTab('open',this)">Open Bets</button>
+                  <button class="bet-pick-tab" onclick="setBetPickTab('settled',this)">Recent Settled</button>
+                </div>
+                <button onclick="closeBetPicker()" style="background:none;border:none;color:var(--t3);cursor:pointer;font-size:16px;padding:0;line-height:1;">✕</button>
+              </div>
+              <div class="bet-pick-list" id="betPickList"></div>
+            </div>
+            <button class="soc-attach-btn" id="betPickBtn" onclick="toggleBetPicker()" title="Share a bet">📎</button>
             <textarea class="soc-input" id="socMsgInput" placeholder="Message…" rows="1" onkeydown="socInputKey(event)" oninput="autoResocInput(this)"></textarea>
             <button class="soc-send-btn" onclick="sendSocMessage()">Send</button>
           </div>
@@ -5118,6 +5137,81 @@ function renderSocBetCard(bd) {
     </div>`;
 }
 
+// ── In-chat bet picker ──
+let _betPickTab = 'open';
+
+function toggleBetPicker() {
+  const panel = document.getElementById('betPickPanel');
+  const showing = panel.style.display !== 'none';
+  if (showing) { panel.style.display = 'none'; return; }
+  panel.style.display = 'flex';
+  panel.style.flexDirection = 'column';
+  renderBetPickerList();
+}
+
+function closeBetPicker() {
+  const panel = document.getElementById('betPickPanel');
+  if (panel) panel.style.display = 'none';
+}
+
+function setBetPickTab(tab, btn) {
+  _betPickTab = tab;
+  document.querySelectorAll('.bet-pick-tab').forEach(t => t.classList.remove('on'));
+  if (btn) btn.classList.add('on');
+  renderBetPickerList();
+}
+
+function renderBetPickerList() {
+  const sim = simLoad();
+  const open = sim.bets.filter(b => b.status === 'open');
+  const settled = sim.bets.filter(b => b.status !== 'open').slice(0, 10);
+  const bets = _betPickTab === 'open' ? open : settled;
+  const el = document.getElementById('betPickList');
+  if (!el) return;
+  if (!bets.length) {
+    el.innerHTML = `<div style="padding:14px;text-align:center;color:var(--t3);font-size:12px;">${_betPickTab === 'open' ? 'No open bets.' : 'No settled bets yet.'}</div>`;
+    return;
+  }
+  const statusColor = { open: 'var(--b-text)', won: 'var(--g)', lost: 'var(--r)', void: 'var(--t3)' };
+  el.innerHTML = bets.map(b => {
+    const isParlay = b.type === 'parlay';
+    const name = isParlay ? `🎯 ${b.legs?.length||'?'}-Leg Parlay` : (b.player || '—');
+    const detail = isParlay
+      ? `${b.combinedOdds} · $${(b.stake||0).toFixed(2)} stake`
+      : `${b.direction==='over'?'▲':'▼'} ${b.direction?.toUpperCase()} ${b.line} ${b.marketLabel} · $${(b.stake||0).toFixed(2)}`;
+    const sc = statusColor[b.status] || 'var(--t2)';
+    return `<div class="bet-pick-row">
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:13px;font-weight:600;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${name}</div>
+        <div style="font-size:11px;color:var(--t2);margin-top:1px;">${detail} · <span style="color:${sc};font-weight:700;">${(b.status||'').toUpperCase()}</span></div>
+      </div>
+      <button class="bet-pick-send" onclick="sharePickedBet('${b.id}',this)">Send</button>
+    </div>`;
+  }).join('');
+}
+
+async function sharePickedBet(betId, btn) {
+  if (!_activeConvId || !_authToken) return;
+  const bet = simLoad().bets.find(b => b.id === betId);
+  if (!bet) return;
+  btn.disabled = true; btn.textContent = '…';
+  const r = await fetch(`${API}/api/social/conversations/${_activeConvId}/messages`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_authToken}` },
+    body: JSON.stringify({ type: 'bet', betData: bet }),
+  });
+  if (r.ok) {
+    const msg = await r.json();
+    _socMessages.push(msg);
+    renderSocMessages();
+    closeBetPicker();
+    showSts('Bet shared', 'ok');
+  } else {
+    btn.disabled = false; btn.textContent = 'Send';
+    showSts('Failed to share bet', 'err');
+  }
+}
+
 async function shareTo(mode, id, label, btn) {
   if ((!_socSharePlayer && !_socShareBet) || !_authToken) return;
   let convId = id;
@@ -5146,10 +5240,17 @@ async function shareTo(mode, id, label, btn) {
     body: JSON.stringify({ type: msgType, ...msgPayload }),
   });
   if (r2.ok) {
+    const newMsg = await r2.json();
     btn.textContent = 'Sent ✓'; btn.className = 'share-to-btn sent'; btn.disabled = true;
+    if (_activeConvId === convId) { _socMessages.push(newMsg); renderSocMessages(); }
     await loadSocialSidebar();
     updateSocNotifBadge();
+    setTimeout(closeShareModal, 800);
     showSts(`${_socShareBet ? 'Bet' : 'Line'} shared to ${label}`, 'ok');
+  } else {
+    const errData = await r2.json().catch(() => ({}));
+    btn.textContent = 'Retry'; btn.disabled = false;
+    showSts(errData.error || 'Failed to send — check console', 'err');
   }
 }
 </script>
