@@ -5574,7 +5574,7 @@ async function shareTo(mode, id, label, btn) {
     const _isOver = (p.edge || 0) > 0;
     const _dirEV = p._dirEV != null ? p._dirEV : getDirectionalEV(p);
     const _dirProb = p.modelProb != null ? (_isOver ? p.modelProb : 1 - p.modelProb) : null;
-    msgPayload = { lineData: { name: p.name, team: p.team, market: p.market, line: p.line, avg: p.avg, edge: p.edge, overOdds: p.overOdds, underOdds: p.underOdds, modelProb: _dirProb, dirEV: _dirEV, snapshotAt: new Date().toISOString() } };
+    msgPayload = { lineData: { name: p.name, team: p.team, market: p.market, line: p.line, avg: p.avg, edge: p.edge, overOdds: p.overOdds, underOdds: p.underOdds, modelProb: _dirProb, dirEV: _dirEV, gameTime: p.gameTime || null, matchup: p.matchup || null, snapshotAt: new Date().toISOString() } };
   }
   const r2 = await fetch(`${API}/api/social/conversations/${convId}/messages`, {
     method: 'POST',

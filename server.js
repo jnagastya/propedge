@@ -1813,10 +1813,12 @@ app.post('/api/social/conversations/:id/messages', async (req, res) => {
           const odds = fmtOdds(isOver ? ld.overOdds : ld.underOdds);
           const ev = fmtEV(ld.dirEV);
           const prob = fmtProb(ld.modelProb != null ? (isOver ? ld.modelProb : 1 - ld.modelProb) : null);
+          const gameTimeFmt = ld.gameTime ? (() => { try { return new Date(ld.gameTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' }) + ' ET'; } catch { return null; } })() : null;
           pushTitle = `${senderName} shared a line`;
           pushBody = [
             `${ld.name || 'Player'} ${dir} ${ld.line ?? ''} ${mkt}`,
-            [odds, ev ? `EV ${ev}` : null, prob ? `Model ${prob}` : null].filter(Boolean).join(' · ')
+            [odds, ev ? `EV ${ev}` : null, prob ? `Model ${prob}` : null].filter(Boolean).join(' · '),
+            gameTimeFmt ? `🕐 ${gameTimeFmt}` : null,
           ].filter(Boolean).join('\n');
         } else if (type === 'bet' && betData) {
           const bd = betData;
