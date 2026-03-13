@@ -338,12 +338,13 @@ async function getBDLPlayerId(name) {
   const id = resolved?.id ?? null;
   const position = resolved ? normalizeBDLPosition(resolved.position) : null;
   const team = resolved?.team?.abbreviation?.toUpperCase() ?? null;
+  const nbaPlayerId = resolved?.nba_player_id ?? null;
 
   const matchedName = resolved ? `${resolved.first_name} ${resolved.last_name}` : null;
-  if (resolved) console.log(`BDL name match: "${name}" → "${matchedName}" team=${team} pos=${resolved.position} (score=${bestScore})`);
+  if (resolved) console.log(`BDL name match: "${name}" → "${matchedName}" team=${team} pos=${resolved.position} nba_id=${nbaPlayerId} (score=${bestScore})`);
   else console.warn(`BDL name lookup failed: "${name}" (best score=${bestScore})`);
 
-  const result = { id, position, team, matchedName };
+  const result = { id, position, team, matchedName, nbaPlayerId };
   // Cache successful lookups for 24h; failures only 30min so they auto-retry
   cacheSet(ck, result, id ? 24 * 3600 : 1800);
   return result;
@@ -671,14 +672,14 @@ app.get('/api/stats/player/name/:name/games', async (req, res) => {
     const ckMem = `gl_name_${NBA_SEASON}_${name.toLowerCase().replace(/\s+/g,'_')}`;
     const memHit = cacheGet(ckMem);
     // Always look up player ID (cached 24h) so we can return team/position even on cache hit
-    const { id: nbaId, position: bdlPos, team: bdlTeam } = await getBDLPlayerId(name);
-    if (memHit) return res.json({ data: memHit, cached: true, source: 'memory', team: bdlTeam, position: bdlPos });
+    const { id: nbaId, position: bdlPos, team: bdlTeam, nbaPlayerId } = await getBDLPlayerId(name);
+    if (memHit) return res.json({ data: memHit, cached: true, source: 'memory', team: bdlTeam, position: bdlPos, nbaPlayerId });
 
     // Layer 2: Supabase persistent cache
     const sbHit = await sbGetGameLog(name);
     if (sbHit) {
       cacheSet(ckMem, sbHit, STATS_TTL);
-      return res.json({ data: sbHit, cached: true, source: 'supabase', team: bdlTeam, position: bdlPos });
+      return res.json({ data: sbHit, cached: true, source: 'supabase', team: bdlTeam, position: bdlPos, nbaPlayerId });
     }
 
     // Layer 3: Live BDL fetch
@@ -687,7 +688,7 @@ app.get('/api/stats/player/name/:name/games', async (req, res) => {
     // Only cache non-empty results; empty arrays should be retried on next request
     if (games.length) cacheSet(ckMem, games, STATS_TTL);
     await sbSetGameLog(name, nbaId, games, bdlPos); // persist for future requests
-    res.json({ data: games, cached: false, source: 'bdl', team: bdlTeam, position: bdlPos });
+    res.json({ data: games, cached: false, source: 'bdl', team: bdlTeam, position: bdlPos, nbaPlayerId });
   } catch (err) {
     console.error('Game log by name error:', err.message);
     res.status(500).json({ error: err.message });

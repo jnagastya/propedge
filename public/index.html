@@ -1127,7 +1127,10 @@ function renderFavorites() {
   el.innerHTML = html;
 }
 
-// ── NBA Player → NBA ID map (for proxied headshots) ──
+// ── Dynamic NBA ID cache — populated when stats load for any player ──
+const _nbaIdCache = {};
+
+// ── NBA Player → NBA ID map (hardcoded fallback for instant display before stats load) ──
 const NBA_IDS = {
   "LeBron James":2544,"Stephen Curry":201939,"Kevin Durant":201142,
   "Giannis Antetokounmpo":203507,"Nikola Jokic":203999,"Luka Doncic":1629029,
@@ -1156,9 +1159,9 @@ const NBA_IDS = {
   "Andrew Wiggins":203952,"Jonathan Kuminga":1630552,"Al Horford":201143,
   "Marcus Smart":203935,"Bobby Portis":1626171,"Mike Conley":201144,
 };
-// Proxied through server to bypass CORS
+// Proxied through server to bypass CORS. Dynamic cache takes priority over hardcoded map.
 function getHeadshot(name) {
-  const id = NBA_IDS[name];
+  const id = _nbaIdCache[name] || NBA_IDS[name];
   return id ? `/api/headshot/${id}` : null;
 }
 
@@ -1368,7 +1371,7 @@ function renderGamePanel(away,home){
       const ec=p.edge>3?'var(--g)':p.edge<-3?'var(--r)':'var(--t3)';
       const lean=p.edge>3?'▲ OVER':p.edge<-3?'▼ UNDER':'— EVEN';
       return`<div class="gp-player" onclick="scrollToPlayer('${p.name}')">
-        <div class="gp-av">${hs?`<img src="${hs}" onerror="this.parentElement.textContent='${initials}'" alt="">`:`<span style="font-size:10px;font-weight:700;color:var(--t3)">${initials}</span>`}</div>
+        <div class="gp-av" data-av="${p.name.replace(/"/g,'&quot;')}">${hs?`<img src="${hs}" onerror="this.parentElement.textContent='${initials}'" alt="">`:`<span style="font-size:10px;font-weight:700;color:var(--t3)">${initials}</span>`}</div>
         <div><div class="gp-pname">${p.name}</div><div class="gp-pmeta">Line ${p.line} · ${p.hitRate||0}% hit</div></div>
         <div class="gp-edge" style="color:${ec}">${lean}</div>
       </div>`;
@@ -1654,7 +1657,7 @@ function renderTable(){
     tr.onclick=()=>togDet(i,p);
     tr.innerHTML=`
       <td><div class="pc">
-        <div class="av">${avInner}</div>
+        <div class="av" data-av="${p.name.replace(/"/g,'&quot;')}">${avInner}</div>
         <div class="pi">
           <span class="pn">${p.name}${hasBoost?'<span class="scn-icon">⚡+'+p.scenarioBoost+'</span>':''}</span>
           <span class="pm"><span class="ptb">${p.team||'—'}</span><span>${p.position||''}</span>${!p.hasRealStats?`<span class="player-flag flag-est" style="font-size:9px;padding:1px 5px;margin-left:4px;">⚠ Fake Stats</span>`:''}</span>
@@ -1821,9 +1824,17 @@ async function enrichPlayerStats(i,p){
   if(p.hasRealStats) return;
   try{
     const r=await apiGet(`/api/stats/player/name/${encodeURIComponent(p.name)}/games`);
-    console.log(`[stats] ${p.name}:`,r.error||`${r.data?.length??0} games, team=${r.team}`);
+    console.log(`[stats] ${p.name}:`,r.error||`${r.data?.length??0} games, team=${r.team}, nbaPlayerId=${r.nbaPlayerId}`);
     if(r.team&&(!p.team||p.team==='???'))p.team=r.team;
     if(r.position&&!p.position)p.position=r.position;
+    // Cache NBA.com player ID for headshots — update any visible avatars immediately
+    if(r.nbaPlayerId&&!_nbaIdCache[p.name]){
+      _nbaIdCache[p.name]=r.nbaPlayerId;
+      p.nbaId=r.nbaPlayerId;
+      document.querySelectorAll(`[data-av="${CSS.escape(p.name)}"]`).forEach(el=>{
+        el.innerHTML=`<img src="/api/headshot/${r.nbaPlayerId}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" onerror="this.style.display='none'" alt="">`;
+      });
+    }
     if(r.error||!r.data||!r.data.length){
       p.statsError=r.error||'No data returned';
       if(i!=null){const el=document.getElementById(`dtc-${i}`);if(el&&window._dp===p)renderOverview(el,p);}
@@ -2740,7 +2751,7 @@ function renderAlerts(){
 
     return`<div class="va-card ${strength}${!p.hasRealStats?' fake-stats':''}" onclick="openAlertDetail(_vaAlerts[${rank}])" style="cursor:pointer;">
       <div class="va-top">
-        <div class="va-av">${avHTML}</div>
+        <div class="va-av" data-av="${p.name.replace(/"/g,'&quot;')}">${avHTML}</div>
         <div class="va-info">
           <div class="va-name">${p.name} <span style="font-size:11px;font-weight:700;color:${rankColor};margin-left:4px;">${rankLabel}</span>${showMktTag&&p.market?`<span class="va-mkt-tag">${MKT_SHORT[p.market]||p.market}</span>`:''}
             <button class="fav-btn${favorites.has(p.name)?' on':''}" data-name="${p.name.replace(/"/g,'&quot;')}" onclick="event.stopPropagation();toggleFav('${p.name.replace(/'/g,"\\'")}',event)" title="${favorites.has(p.name)?'Remove from watchlist':'Add to watchlist'}" style="font-size:13px;margin-left:2px;">${favorites.has(p.name)?'⭐':'☆'}</button>
