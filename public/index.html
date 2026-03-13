@@ -2517,9 +2517,48 @@ function placeParlayBet(){
   sim.balance-=stake;
   sim.bets.unshift(bet);
   simSave(sim);
-  closeBetModal();
-  showSts(`Parlay placed · ${bet.legs.length} legs · $${stake} to win $${toWin.toFixed(2)}`,'suc');
   if(document.getElementById('simView').classList.contains('show'))renderSimulator();
+
+  // Show confirmation screen
+  document.getElementById('betModal').querySelector('.modal-title').textContent='Bet Confirmed';
+  document.getElementById('modalBody').innerHTML=`
+    <div class="bet-confirm">
+      <div class="bet-confirm-check">✓</div>
+      <div class="bet-confirm-hero">
+        <div class="bet-confirm-dir" style="color:var(--b)">${bet.legs.length}-Leg Parlay · ${d.combAmericanStr}</div>
+        <div class="bet-confirm-line" style="margin-top:4px;">Model Prob ${(d.combModelProb*100).toFixed(1)}% · EV <span style="color:${d.evParlay>=0?'var(--g)':'var(--r)'}">${d.evParlay>=0?'+':''}${d.evParlay}%</span></div>
+      </div>
+      <div style="background:var(--bg2);border:1px solid var(--bd);border-radius:10px;padding:10px 14px;margin-bottom:14px;">
+        ${bet.legs.map(l=>{
+          const hs=getHeadshot(l.name);
+          const init=(l.name||'?').split(' ').map(n=>n[0]).join('').substring(0,2);
+          const isOv=l.direction==='over';
+          return`<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--bd);">
+            <div data-av="${l.name.replace(/"/g,'&quot;')}" style="width:34px;height:34px;border-radius:50%;background:var(--bg3);overflow:hidden;border:1px solid var(--bd);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--t3);flex-shrink:0;">${hs?`<img src="${hs}" onerror="headshotError(this,'${init}')" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" alt="">`:`<span>${init}</span>`}</div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${l.name}</div>
+              <div style="font-size:11px;color:var(--t3);">${isOv?'▲':'▼'} ${l.direction.toUpperCase()} ${l.line} ${l.marketLabel}</div>
+            </div>
+            <div style="font-size:13px;font-weight:700;color:var(--b);flex-shrink:0;">${(l.odds>0?'+':'')+l.odds}</div>
+          </div>`;
+        }).join('')}
+      </div>
+      <div class="bet-confirm-payout">
+        <div class="bet-confirm-payout-cell">
+          <div class="bet-confirm-payout-lbl">Stake</div>
+          <div class="bet-confirm-payout-val">$${stake.toFixed(2)}</div>
+        </div>
+        <div class="bet-confirm-payout-cell" style="border-color:rgba(34,197,94,.3);background:rgba(34,197,94,.06);">
+          <div class="bet-confirm-payout-lbl" style="color:var(--g);">To Win</div>
+          <div class="bet-confirm-payout-val" style="color:var(--g);">$${toWin.toFixed(2)}</div>
+        </div>
+      </div>
+      <div style="text-align:center;font-size:12px;color:var(--t3);margin-bottom:16px;">
+        Total return if won: <strong style="color:var(--t1);">$${(stake+toWin).toFixed(2)}</strong>
+        &nbsp;·&nbsp; New balance: <strong style="color:var(--t1);">$${sim.balance.toFixed(2)}</strong>
+      </div>
+      <button class="bet-confirm-done" onclick="closeBetModal()">Done</button>
+    </div>`;
 }
 function renderCustomParlay(){
   const el=document.getElementById('parlayContent');
