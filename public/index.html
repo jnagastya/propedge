@@ -254,68 +254,90 @@ table{width:100%;border-collapse:collapse;font-size:13px;}
 /* ── Small phone (≤480px) ── */
 @media(max-width:480px){
   .col-sm-hide{display:none;}
-  .app{padding:8px;}
-  .topbar{height:48px;}
-  .logo-icon svg{width:28px;height:28px;}
-  .logo-n{font-size:15px;}
-  .top-r{gap:6px;}
-  .top-notif-btn{width:30px;height:30px;font-size:14px;}
-  .settings-btn{width:30px;height:30px;font-size:14px;padding:0;}
-  .user-badge{padding:4px 8px;gap:5px;}
-  .user-avatar{width:22px;height:22px;font-size:10px;}
-  .user-name{font-size:11px;max-width:60px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-  .save-btn{font-size:10px;padding:3px 8px;}
-  .logout-btn{font-size:10px;}
-  .nav-tabs{padding:0 4px;top:48px;}
-  .nav-tab{padding:8px 8px;font-size:11px;}
-  /* Table — compact for mobile */
-  .pc{min-width:100px;gap:6px;}
-  .av{width:30px;height:30px;font-size:10px;}
-  .pn{font-size:12px;}
-  .pm{font-size:9px;}
-  .ptb{font-size:9px;padding:0 4px;}
-  thead th{padding:6px 5px;font-size:9px;}
-  td{padding:7px 5px;font-size:11px;}
-  .odd{font-size:9px;padding:2px 4px;}
-  .odds-cell{gap:2px;flex-direction:column;}
-  .et{font-size:10px;padding:2px 5px;}
+  .app{padding:6px 4px;}
+  /* ── Header: compact everything ── */
+  .topbar{height:42px;padding:0 8px;}
+  .logo-icon svg,.logo-icon{width:24px;height:24px;}
+  .logo-n{font-size:13px;}
+  .logo-g{gap:6px;}
+  .top-r{gap:4px;}
+  .api-st{gap:2px;}
+  .api-b{font-size:0;padding:3px 4px;min-width:0;} /* hide text, keep dot */
+  .api-b .d{margin:0;}
+  .live-i{font-size:9px;gap:3px;}
+  .live-d{width:5px;height:5px;}
+  .clk{display:none;}
+  .top-notif-btn{width:26px;height:26px;font-size:12px;}
+  .settings-btn{width:26px;height:26px;font-size:12px;padding:0;}
+  .user-badge{padding:3px 6px;gap:4px;}
+  .user-avatar{width:20px;height:20px;font-size:9px;}
+  .user-name{font-size:10px;max-width:50px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .save-btn{font-size:9px;padding:2px 6px;}
+  .save-wrap{gap:2px;}
+  .logout-btn{font-size:9px;padding:2px 4px;}
+  /* ── Nav tabs: smaller to fit all ── */
+  .nav-tabs{padding:0 2px;top:42px;gap:0;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;}
+  .nav-tabs::-webkit-scrollbar{display:none;}
+  .nav-tab{padding:6px 5px;font-size:9.5px;letter-spacing:-.3px;white-space:nowrap;}
+  /* ── Table: tighter columns ── */
+  table{table-layout:fixed;width:100%;}
+  .pc{min-width:0;gap:4px;}
+  .av{width:28px;height:28px;font-size:9px;flex-shrink:0;}
+  .pn{font-size:11px;}
+  .pm{font-size:8px;}
+  .ptb{font-size:8px;padding:0 3px;}
+  thead th{padding:5px 3px;font-size:8px;}
+  td{padding:5px 3px;font-size:10px;}
+  .odd{font-size:8px;padding:1px 3px;}
+  .odds-cell{gap:1px;flex-direction:column;}
+  .et{font-size:9px;padding:2px 4px;}
   .lean-wrap{min-width:65px;font-size:10px;}
-  .val-badge{font-size:9px;padding:2px 5px;}
-  .ev-pill{font-size:9px;padding:2px 5px;}
-  .bet-btn{font-size:10px;padding:5px 8px;}
-  .share-btn{font-size:12px;padding:3px;}
-  .player-flag{font-size:14px;}
-  .th-bar{padding:8px 10px;}
-  .bdg{font-size:10px;padding:3px 7px;}
+  .val-badge{font-size:8px;padding:2px 4px;}
+  .ev-pill{font-size:8px;padding:2px 4px;}
+  .bet-btn{font-size:9px;padding:4px 6px;}
+  .share-btn{font-size:11px;padding:2px;}
+  .player-flag{font-size:12px;}
+  .th-bar{padding:6px 8px;}
+  .bdg{font-size:9px;padding:2px 6px;}
   /* Score cards row */
-  .sc{min-width:140px;padding:8px 10px;}
-  .sc-t{font-size:10px;}
-  .sc-v{font-size:12px;}
-  .sc-s{font-size:9px;}
+  .sc{min-width:130px;padding:6px 8px;}
+  .sc-t{font-size:9px;}
+  .sc-v{font-size:11px;}
+  .sc-s{font-size:8px;}
   /* Controls */
-  .srch{padding:6px 9px;}
-  .srch input{font-size:12px;}
-  .sel{font-size:11px;padding:6px 8px;}
+  .srch{padding:5px 8px;}
+  .srch input{font-size:11px;}
+  .sel{font-size:10px;padding:5px 6px;}
+  .ctrls .cr{gap:4px;}
   /* Game panel */
-  .game-panel{padding:12px;}
-  .gp-title{font-size:13px;}
-  .gp-player{gap:6px;padding:4px 0;}
-  .gp-av{width:24px;height:24px;}
+  .game-panel{padding:10px;}
+  .gp-title{font-size:12px;}
+  .gp-player{gap:5px;padding:3px 0;}
+  .gp-av{width:22px;height:22px;}
   /* Value alerts */
   .va-grid{grid-template-columns:1fr;}
-  .va-card{padding:13px;}
-  .va-name{font-size:14px;}
+  .va-card{padding:12px;}
+  .va-name{font-size:13px;}
   .va-stat-grid{gap:4px;}
+  .va-stats{gap:6px;}
+  .va-stat-v{font-size:13px;}
+  .va-stat-l{font-size:8px;}
   /* Modals */
-  .modal{padding:18px;}
-  .modal-detail{padding:16px;}
+  .modal{padding:16px;}
+  .modal-detail{padding:14px;}
   /* Social chat */
   .soc-msg{max-width:88%;}
   .soc-line-card{min-width:0;max-width:100%;}
   .soc-line-grid{grid-template-columns:repeat(3,1fr);gap:4px;}
   /* Bet slip & parlay */
-  .p-leg{padding:12px;gap:8px;}
-  .parlay-title{font-size:18px;}
+  .p-leg{padding:10px;gap:6px;}
+  .parlay-title{font-size:16px;}
+  /* Scores ribbon & VA ribbon */
+  .scs{gap:6px;margin-bottom:10px;}
+  .var-outer{height:60px;margin-bottom:10px;}
+  .var-card{width:150px;padding:6px 8px;gap:6px;border-radius:8px;}
+  .var-label-text{font-size:9px;}
+  .var-label-icon{font-size:13px;}
   .parlay-stats{gap:8px;}
   .parlay-stat{padding:10px;min-width:0;}
   .bet-card{padding:12px 14px;}
