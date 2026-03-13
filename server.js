@@ -1076,7 +1076,7 @@ app.get('/api/cron/refresh-stats', async (req, res) => {
       const rec = recordMap.get(name);
       if (rec?.bdl_id) {
         // Skip if already updated within last 12 hours
-        if (rec.last_fetched && (now - new Date(rec.last_fetched)) < 12 * 60 * 60 * 1000) {
+        if (rec.last_fetched && (now - new Date(rec.last_fetched)) < 0) { // TEMP: force refresh for team field backfill
           results.skipped.push(name);
           continue;
         }
