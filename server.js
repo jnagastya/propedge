@@ -1002,7 +1002,7 @@ app.get('/api/cache/clear', (req, res) => {
 // ============================================================
 app.get('/api/cron/refresh-stats', async (req, res) => {
   // Accept secret via header (Vercel Cron) or query param (manual browser trigger)
-  const secret = req.headers['x-cron-secret'] || req.query.secret;
+  const secret = (req.headers.authorization || '').replace('Bearer ', '') || req.headers['x-cron-secret'] || req.query.secret;
   if (process.env.CRON_SECRET && secret !== process.env.CRON_SECRET) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
@@ -1144,7 +1144,7 @@ async function getActualStat(playerName, gameDate, market) {
 }
 
 app.get('/api/cron/grade-bets', async (req, res) => {
-  const secret = req.headers['x-cron-secret'] || req.query.secret;
+  const secret = (req.headers.authorization || '').replace('Bearer ', '') || req.headers['x-cron-secret'] || req.query.secret;
   if (process.env.CRON_SECRET && secret !== process.env.CRON_SECRET) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
@@ -1231,7 +1231,7 @@ app.get('/api/cron/grade-bets', async (req, res) => {
 // Runs on schedule so users never hit the Odds API directly
 // ============================================================
 app.get('/api/cron/refresh-odds', async (req, res) => {
-  const secret = req.headers['x-cron-secret'] || req.query.secret;
+  const secret = (req.headers.authorization || '').replace('Bearer ', '') || req.headers['x-cron-secret'] || req.query.secret;
   if (process.env.CRON_SECRET && secret !== process.env.CRON_SECRET) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
@@ -2139,7 +2139,7 @@ function serverComputeStats(gameLog, line, market, overOdds, underOdds) {
 // CRON: Place agent bets — runs daily at 3:30 PM PST
 // ============================================================
 app.get('/api/cron/agent-bet', async (req, res) => {
-  const secret = req.headers['x-cron-secret'] || req.query.secret;
+  const secret = (req.headers.authorization || '').replace('Bearer ', '') || req.headers['x-cron-secret'] || req.query.secret;
   if (process.env.CRON_SECRET && secret !== process.env.CRON_SECRET) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
@@ -2236,7 +2236,7 @@ app.get('/api/cron/agent-bet', async (req, res) => {
 // CRON: Grade agent bets — runs after games complete
 // ============================================================
 app.get('/api/cron/grade-agent-bets', async (req, res) => {
-  const secret = req.headers['x-cron-secret'] || req.query.secret;
+  const secret = (req.headers.authorization || '').replace('Bearer ', '') || req.headers['x-cron-secret'] || req.query.secret;
   if (process.env.CRON_SECRET && secret !== process.env.CRON_SECRET) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
@@ -2297,7 +2297,7 @@ app.get('/api/cron/grade-agent-bets', async (req, res) => {
 // CRON: Send daily newsletter — runs morning after games
 // ============================================================
 app.get('/api/cron/newsletter', async (req, res) => {
-  const secret = req.headers['x-cron-secret'] || req.query.secret;
+  const secret = (req.headers.authorization || '').replace('Bearer ', '') || req.headers['x-cron-secret'] || req.query.secret;
   if (process.env.CRON_SECRET && secret !== process.env.CRON_SECRET) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
@@ -2540,7 +2540,7 @@ app.get('/api/ping', (req, res) => {
 
 // ---- TEST: Send sample Discord messages ----
 app.get('/api/test-discord', async (req, res) => {
-  const secret = req.headers['x-cron-secret'] || req.query.secret;
+  const secret = (req.headers.authorization || '').replace('Bearer ', '') || req.headers['x-cron-secret'] || req.query.secret;
   if (process.env.CRON_SECRET && secret !== process.env.CRON_SECRET) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
