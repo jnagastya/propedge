@@ -254,6 +254,14 @@ const BDL_PLAYER_OVERRIDES = {
   'Brandon Williams': { id: 24489167,   position: 'G', team: 'DAL' },
   'Moe Wagner':             { id: 462,          position: 'C', team: 'ORL' }, // listed as "Moritz Wagner"
   'Kasparas Jakucionis':    { id: 1057272939,   position: 'G', team: 'MIA' }, // BDL has special char: Jakučionis
+  'Will Richard':           { id: 1057395872,   position: 'G', team: 'GSW' },
+  'Kobe Sanders':           { id: 1057396055,   position: 'G', team: 'LAC' },
+  'Brook Lopez':            { id: 283,           position: 'C', team: 'LAC' },
+  'Derrick Jones':          { id: 247,           position: 'F', team: 'LAC' }, // BDL: "Derrick Jones Jr."
+  'Trey Murphy III':        { id: 18677986,      position: 'F', team: 'NOP' },
+  'Anthony Edwards':        { id: 3547238,       position: 'G', team: 'MIN' },
+  'Ty Jerome':              { id: 666676,        position: 'G', team: 'MEM' },
+  'Scoot Henderson':        { id: 56677747,      position: 'G', team: 'POR' },
 };
 
 // Search BDL for player ID + position by name, cached 24h
