@@ -1698,14 +1698,26 @@ app.post('/api/social/conversations/:id/messages', async (req, res) => {
   try {
     const { data: mem } = await supabase.from('conversation_members').select('user_id').eq('conversation_id', req.params.id).eq('user_id', user.id).single();
     if (!mem) return res.status(403).json({ error: 'Not a member' });
-    const { content, type = 'text', lineData } = req.body || {};
-    if (!content?.trim() && !lineData) return res.status(400).json({ error: 'Empty message' });
+    const { content, type = 'text', lineData, betData } = req.body || {};
+    if (!content?.trim() && !lineData && !betData) return res.status(400).json({ error: 'Empty message' });
     const msg = { conversation_id: req.params.id, sender_id: user.id, type };
     if (content?.trim()) msg.content = content.trim();
-    if (lineData) msg.line_data = lineData;
+    if (lineData || betData) msg.line_data = lineData || betData;
     const { data } = await supabase.from('messages').insert(msg).select('id, conversation_id, sender_id, content, type, line_data, created_at').single();
     const pm = await socProfiles([user.id]);
     res.json({ ...data, sender: pm[user.id] || {} });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/api/social/conversations/:id', async (req, res) => {
+  if (!supabase) return res.status(503).json({ error: 'Not configured' });
+  const user = await authUser(req);
+  if (!user) return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    await supabase.from('conversation_members').delete().eq('conversation_id', req.params.id).eq('user_id', user.id);
+    const { count } = await supabase.from('conversation_members').select('user_id', { count: 'exact', head: true }).eq('conversation_id', req.params.id);
+    if (!count) await supabase.from('conversations').delete().eq('id', req.params.id);
+    res.json({ ok: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

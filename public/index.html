@@ -482,6 +482,7 @@ td{padding:13px 14px;white-space:nowrap;}
 .bet-act.lost{background:var(--rd);color:var(--r);border:1px solid var(--rb);}
 .bet-act.void{background:var(--bg3);color:var(--t2);border:1px solid var(--bd);}
 .bet-act.auto{background:var(--bld);color:#818cf8;border:1px solid var(--bb);}
+.bet-act.share{background:var(--bg3);color:var(--t2);border:1px solid var(--bd);}.bet-act.share:hover{border-color:var(--b);color:var(--b);background:var(--bld);}
 .hist-row{display:flex;align-items:center;gap:10px;padding:12px 16px;font-size:12px;background:var(--bg1);border:1px solid var(--bd);border-radius:var(--radius-lg);margin-bottom:16px;box-shadow:var(--shadow);}
 .hist-row:last-child{margin-bottom:0;}
 .hist-status{font-weight:700;font-size:11px;padding:2px 8px;border-radius:20px;text-align:center;}
@@ -677,8 +678,9 @@ td{padding:13px 14px;white-space:nowrap;}
 .soc-friend-item{display:flex;align-items:center;gap:10px;padding:9px 14px;cursor:pointer;transition:background .1s;}.soc-friend-item:hover{background:var(--bgh);}.soc-remove-btn{display:none;background:none;border:none;color:var(--t3);cursor:pointer;font-size:13px;padding:2px 5px;border-radius:4px;transition:color .12s;flex-shrink:0;}.soc-friend-item:hover .soc-remove-btn{display:block;}.soc-remove-btn:hover{color:var(--r);}
 .soc-av{width:30px;height:30px;border-radius:50%;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--b);flex-shrink:0;}
 .soc-friend-info{flex:1;min-width:0;}.soc-friend-name{font-size:13px;font-weight:600;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}.soc-friend-user{font-size:11px;color:var(--t3);}
-.soc-conv-item{display:flex;align-items:center;gap:10px;padding:9px 14px;cursor:pointer;transition:background .1s;}.soc-conv-item:hover{background:var(--bgh);}.soc-conv-item.active{background:var(--bld);}
-.soc-conv-info{flex:1;min-width:0;}.soc-conv-name{font-size:13px;font-weight:600;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}.soc-conv-last{font-size:11px;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px;}
+.soc-conv-item{display:flex;align-items:center;gap:10px;padding:9px 14px;cursor:pointer;transition:background .1s;position:relative;}.soc-conv-item:hover{background:var(--bgh);}.soc-conv-item.active{background:var(--bld);}
+.soc-conv-info{flex:1;min-width:0;}.soc-conv-name{font-size:13px;font-weight:600;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}.soc-conv-last{font-size:11px;color:var(--t2);opacity:.7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px;}
+.soc-conv-del-btn{display:none;background:none;border:none;color:var(--t3);cursor:pointer;font-size:13px;padding:2px 5px;border-radius:4px;transition:color .12s;flex-shrink:0;}.soc-conv-item:hover .soc-conv-del-btn{display:block;}.soc-conv-del-btn:hover{color:var(--r);}
 .soc-unread-dot{width:8px;height:8px;border-radius:50%;background:var(--b);flex-shrink:0;}
 .soc-chat{display:flex;flex-direction:column;overflow:hidden;}
 .soc-chat-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:var(--t3);padding:24px;}
@@ -688,10 +690,10 @@ td{padding:13px 14px;white-space:nowrap;}
 .soc-chat-hd-info{flex:1;min-width:0;}.soc-chat-hd-name{font-size:14px;font-weight:700;color:var(--t1);}.soc-chat-hd-sub{font-size:11px;color:var(--t3);}
 .soc-messages{flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:6px;}
 .soc-msg{display:flex;flex-direction:column;max-width:76%;}.soc-msg.mine{align-self:flex-end;align-items:flex-end;}.soc-msg.them{align-self:flex-start;align-items:flex-start;}
-.soc-msg-sender{font-size:10px;color:var(--t3);margin-bottom:2px;font-weight:600;}
+.soc-msg-sender{font-size:10px;color:var(--t2);margin-bottom:2px;font-weight:600;}
 .soc-bubble{padding:8px 12px;border-radius:14px;font-size:13px;line-height:1.45;word-break:break-word;}
 .soc-msg.mine .soc-bubble{background:var(--b);color:#fff;border-bottom-right-radius:4px;}.soc-msg.them .soc-bubble{background:var(--bg3);color:var(--t1);border-bottom-left-radius:4px;}
-.soc-msg-time{font-size:10px;color:var(--t3);margin-top:2px;}
+.soc-msg-time{font-size:10px;color:var(--t2);margin-top:2px;opacity:.7;}
 .soc-line-card{background:var(--bg2);border:1px solid var(--bd2);border-radius:10px;padding:10px 12px;cursor:pointer;transition:border-color .12s,background .12s;min-width:190px;max-width:260px;}
 .soc-line-card:hover{border-color:var(--b);background:var(--bld);}
 .soc-msg.mine .soc-line-card{background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.25);color:#fff;}.soc-msg.mine .soc-line-card:hover{background:rgba(255,255,255,.2);}
@@ -699,8 +701,8 @@ td{padding:13px 14px;white-space:nowrap;}
 .soc-line-mkt{font-size:9px;font-weight:700;background:var(--bld);color:var(--b);padding:1px 5px;border-radius:4px;text-transform:uppercase;}
 .soc-msg.mine .soc-line-mkt{background:rgba(255,255,255,.2);color:#fff;}
 .soc-line-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-top:6px;}
-.soc-line-cell{font-size:10px;color:var(--t3);}.soc-line-val{font-size:12px;font-weight:700;color:var(--t1);}
-.soc-msg.mine .soc-line-cell,.soc-msg.mine .soc-line-val{color:rgba(255,255,255,.75);}
+.soc-line-cell{font-size:10px;color:var(--t2);opacity:.75;}.soc-line-val{font-size:12px;font-weight:700;color:var(--t1);}
+.soc-msg.mine .soc-line-cell,.soc-msg.mine .soc-line-val{color:rgba(255,255,255,.85);opacity:1;}
 .soc-line-live{margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,.1);font-size:11px;display:flex;gap:6px;flex-wrap:wrap;}
 .soc-line-live-tag{background:var(--gd);color:var(--g);border-radius:4px;padding:1px 6px;font-weight:700;font-size:10px;}
 .soc-chat-input-row{padding:10px 12px;border-top:1px solid var(--bd);display:flex;gap:8px;align-items:flex-end;flex-shrink:0;}
@@ -3997,6 +3999,7 @@ function renderSimulator() {
             <button class="bet-act won" onclick="settleBet('${b.id}','won')">✓ All Hit (Won)</button>
             <button class="bet-act lost" onclick="settleBet('${b.id}','lost')">✗ Lost</button>
             <button class="bet-act void" onclick="settleBet('${b.id}','void')">— Void</button>
+            <button class="bet-act share" onclick="openBetShareModal('${b.id}')">📤 Share</button>
           </div>
         </div>`;
       }
@@ -4023,6 +4026,7 @@ function renderSimulator() {
           <button class="bet-act won" onclick="settleBet('${b.id}','won')">✓ Won</button>
           <button class="bet-act lost" onclick="settleBet('${b.id}','lost')">✗ Lost</button>
           <button class="bet-act void" onclick="settleBet('${b.id}','void')">— Void</button>
+          <button class="bet-act share" onclick="openBetShareModal('${b.id}')">📤 Share</button>
         </div>
       </div>`;
     }).join('');
@@ -4063,6 +4067,7 @@ function renderSimulator() {
               <div style="font-size:11px;color:var(--t3);">${new Date(b.placedAt).toLocaleDateString()} · $${b.stake} staked</div>
             </div>
             <span class="hist-pnl ${b.pnl>=0?'pos':'neg'}" style="flex-shrink:0;">${pnlFmt}</span>
+            <button class="share-btn" onclick="event.stopPropagation();openBetShareModal('${b.id}')" title="Share bet" style="flex-shrink:0;">📤</button>
             <div id="chev-h${sid}" class="bc-chevron">▼</div>
           </div>
           <div class="bc-parlay-legs" id="pl-h${sid}" style="display:none;">${legsHtml}</div>
@@ -4079,6 +4084,7 @@ function renderSimulator() {
         </div>
         <span class="hist-pnl ${b.pnl>=0?'pos':'neg'}">${pnlFmt}</span>
         <span style="font-size:11px;color:var(--t3);flex-shrink:0;">$${b.stake}</span>
+        <button class="share-btn" onclick="event.stopPropagation();openBetShareModal('${b.id}')" title="Share bet" style="flex-shrink:0;">📤</button>
       </div>`;
     }).join('');
   }
@@ -4624,6 +4630,7 @@ function renderSocConvs() {
       : 'No messages yet';
     const unread = conv.hasUnread ? '<div class="soc-unread-dot"></div>' : '';
     const active = _activeConvId === conv.id ? ' active' : '';
+    const safeName = name.replace(/'/g,"\\'");
     return `<div class="soc-conv-item${active}" onclick="openConversation('${conv.id}')">
       <div class="soc-av">${initials}</div>
       <div class="soc-conv-info">
@@ -4631,6 +4638,7 @@ function renderSocConvs() {
         <div class="soc-conv-last">${lastTxt}</div>
       </div>
       ${unread}
+      <button class="soc-conv-del-btn" onclick="event.stopPropagation();deleteConversation('${conv.id}','${safeName}')" title="Leave conversation">✕</button>
     </div>`;
   }).join('');
 }
@@ -4686,6 +4694,12 @@ function renderSocMessages() {
       html += `<div class="soc-msg ${cls}">
         <div class="soc-msg-sender">${senderName}</div>
         <div class="soc-line-card" onclick="openSharedLine(${JSON.stringify(msg.line_data).replace(/"/g,'&quot;')})">${renderSocLineCard(msg.line_data)}</div>
+        <div class="soc-msg-time">${timeStr}</div>
+      </div>`;
+    } else if (msg.type === 'bet' && msg.line_data) {
+      html += `<div class="soc-msg ${cls}">
+        <div class="soc-msg-sender">${senderName}</div>
+        <div class="soc-line-card">${renderSocBetCard(msg.line_data)}</div>
         <div class="soc-msg-time">${timeStr}</div>
       </div>`;
     } else {
@@ -4747,6 +4761,18 @@ function closeSocChat() {
   document.getElementById('socChatEmpty').style.display = '';
   document.getElementById('socChatActive').style.display = 'none';
   renderSocConvs();
+}
+
+async function deleteConversation(convId, name) {
+  if (!confirm(`Leave conversation "${name}"?`)) return;
+  const r = await fetch(`${API}/api/social/conversations/${convId}`, {
+    method: 'DELETE', headers: { 'Authorization': `Bearer ${_authToken}` },
+  });
+  if (r.ok) {
+    if (_activeConvId === convId) closeSocChat();
+    await loadSocialSidebar();
+    showSts('Left conversation', 'ok');
+  }
 }
 
 async function sendSocMessage() {
@@ -4956,13 +4982,15 @@ async function createNewConv() {
   } catch { errEl.textContent = 'Network error.'; }
 }
 
-// ── Share line modal ──
+// ── Share modal (lines + bets) ──
 let _shareConvSentSet = new Set();
+let _socShareBet = null;
 function openShareModal(p) {
   if (!_authToken) return;
   if (!_socUsername) { showUsernameModal(); return; }
-  _socSharePlayer = p;
+  _socSharePlayer = p; _socShareBet = null;
   _shareConvSentSet = new Set();
+  document.querySelector('#shareModal .modal-title').textContent = 'Share Line';
   const mktLabels = { player_points: 'Points', player_rebounds: 'Rebounds', player_assists: 'Assists', player_threes: '3-Pointers', player_steals: 'Steals', player_blocks: 'Blocks', player_turnovers: 'Turnovers', player_points_rebounds_assists: 'PRA' };
   const mkt = mktLabels[p.market] || p.market || '';
   const edge = p.edge ?? 0;
@@ -4995,7 +5023,81 @@ function openShareModal(p) {
   document.getElementById('shareModal').classList.add('show');
 }
 
-function closeShareModal() { document.getElementById('shareModal').classList.remove('show'); _socSharePlayer = null; }
+function closeShareModal() { document.getElementById('shareModal').classList.remove('show'); _socSharePlayer = null; _socShareBet = null; }
+
+function openBetShareModal(betId) {
+  if (!_authToken) return;
+  if (!_socUsername) { showUsernameModal(); return; }
+  const bet = simLoad().bets.find(b => b.id === betId);
+  if (!bet) return;
+  _socShareBet = bet; _socSharePlayer = null;
+  _shareConvSentSet = new Set();
+  document.querySelector('#shareModal .modal-title').textContent = 'Share Bet';
+  const statusColors = { open: 'var(--b)', won: 'var(--g)', lost: 'var(--r)', void: 'var(--t3)' };
+  const sc = statusColors[bet.status] || 'var(--t2)';
+  let previewHtml;
+  if (bet.type === 'parlay') {
+    previewHtml = `<div class="share-preview-name">🎯 ${bet.legs?.length}-Leg Parlay <span style="color:var(--b);font-size:13px;">${bet.combinedOdds}</span></div>
+      <div class="share-preview-detail">$${bet.stake?.toFixed(2)} stake · To Win <strong style="color:var(--g)">$${bet.toWin?.toFixed(2)}</strong> · <span style="color:${sc};font-weight:700;">${bet.status?.toUpperCase()}</span></div>`;
+  } else {
+    const oddsStr = (bet.odds > 0 ? '+' : '') + bet.odds;
+    previewHtml = `<div class="share-preview-name">${bet.player} <span style="font-size:11px;color:var(--t3);">· ${bet.marketLabel}</span></div>
+      <div class="share-preview-detail">${bet.direction === 'over' ? '▲ OVER' : '▼ UNDER'} ${bet.line} · ${oddsStr} · Edge: <span style="color:${bet.edge>=0?'var(--g)':'var(--r)'};font-weight:700;">${bet.edge>=0?'+':''}${bet.edge?.toFixed(1)}%</span> · <span style="color:${sc};font-weight:700;">${bet.status?.toUpperCase()}</span></div>`;
+  }
+  document.getElementById('sharePreview').innerHTML = previewHtml;
+  // Same friend/conv list as line share
+  const friends = [...(_socFriends.sent||[]).filter(f=>f.status==='accepted'), ...(_socFriends.received||[]).filter(f=>f.status==='accepted')];
+  let listHtml = '';
+  if (friends.length) {
+    listHtml += friends.map(f => `
+      <div class="soc-result-row">
+        <div><div class="soc-result-name">${f.displayName || f.username}</div><div class="soc-result-dn">@${f.username}</div></div>
+        <button class="share-to-btn" id="sto-f-${f.userId}" onclick="shareTo('friend','${f.userId}','${(f.displayName||f.username).replace(/'/g,"\\'")}',this)">Send</button>
+      </div>`).join('');
+  }
+  if (_socConversations.length) {
+    listHtml += _socConversations.map(c => {
+      const othersInConv = c.members.filter(m => m.userId !== _socUserId);
+      const name = c.name || othersInConv.map(m => m.displayName||m.username).join(', ') || 'Chat';
+      return `<div class="soc-result-row">
+        <div><div class="soc-result-name">${name}</div><div class="soc-result-dn">${c.type === 'group' ? `Group · ${c.members.length} members` : 'DM'}</div></div>
+        <button class="share-to-btn" id="sto-c-${c.id}" onclick="shareTo('conv','${c.id}','${name.replace(/'/g,"\\'")}',this)">Send</button>
+      </div>`;
+    }).join('');
+  }
+  document.getElementById('shareFriendList').innerHTML = listHtml || '<div style="font-size:12px;color:var(--t3);">Add friends first to share bets.</div>';
+  document.getElementById('shareModal').classList.add('show');
+}
+
+function renderSocBetCard(bd) {
+  const statusColors = { open: 'var(--b)', won: 'var(--g)', lost: 'var(--r)', void: 'var(--t3)' };
+  const sc = statusColors[bd.status] || 'var(--t2)';
+  if (bd.type === 'parlay') {
+    const legsHtml = (bd.legs || []).slice(0, 4).map(l =>
+      `<div style="font-size:11px;margin-top:3px;display:flex;gap:5px;align-items:center;">
+        <span style="color:${l.direction==='over'?'var(--g)':'var(--r)'};font-size:10px;">${l.direction==='over'?'▲':'▼'}</span>
+        <span style="font-weight:600;">${l.name}</span>
+        <span style="opacity:.7;">${l.line} ${l.marketLabel}</span>
+      </div>`).join('') + (bd.legs?.length > 4 ? `<div style="font-size:10px;opacity:.6;margin-top:2px;">+${bd.legs.length-4} more</div>` : '');
+    return `<div class="soc-line-name">🎯 ${bd.legs?.length}-Leg Parlay <span class="soc-line-mkt">${bd.combinedOdds}</span></div>
+      ${legsHtml}
+      <div class="soc-line-grid" style="margin-top:8px;">
+        <div><div class="soc-line-cell">Stake</div><div class="soc-line-val">$${(bd.stake||0).toFixed(2)}</div></div>
+        <div><div class="soc-line-cell">To Win</div><div class="soc-line-val" style="color:var(--g);">$${(bd.toWin||0).toFixed(2)}</div></div>
+        <div><div class="soc-line-cell">Status</div><div class="soc-line-val" style="color:${sc};">${(bd.status||'').toUpperCase()}</div></div>
+      </div>`;
+  }
+  const oddsStr = (bd.odds > 0 ? '+' : '') + bd.odds;
+  const dirColor = bd.direction === 'over' ? 'var(--g)' : 'var(--r)';
+  return `<div class="soc-line-name">${bd.player || '?'} <span class="soc-line-mkt">${bd.marketLabel||''}</span> <span style="color:${dirColor};font-size:11px;">${bd.direction==='over'?'▲ OVER':'▼ UNDER'}</span></div>
+    <div class="soc-line-grid">
+      <div><div class="soc-line-cell">Line</div><div class="soc-line-val">${bd.line ?? '—'}</div></div>
+      <div><div class="soc-line-cell">Odds</div><div class="soc-line-val" style="color:var(--b);">${oddsStr}</div></div>
+      <div><div class="soc-line-cell">Edge</div><div class="soc-line-val" style="color:${(bd.edge||0)>=0?'var(--g)':'var(--r)'};">${(bd.edge||0)>=0?'+':''}${(bd.edge||0).toFixed(1)}%</div></div>
+      <div><div class="soc-line-cell">Stake</div><div class="soc-line-val">$${(bd.stake||0).toFixed(2)}</div></div>
+      <div><div class="soc-line-cell">To Win</div><div class="soc-line-val" style="color:var(--g);">$${(bd.toWin||0).toFixed(2)}</div></div>
+      <div><div class="soc-line-cell">Status</div><div class="soc-line-val" style="color:${sc};">${(bd.status||'').toUpperCase()}</div></div>
+    </div>`;
 
 async function shareTo(mode, id, label, btn) {
   if (!_socSharePlayer || !_authToken) return;
@@ -5010,22 +5112,25 @@ async function shareTo(mode, id, label, btn) {
     const data = await r.json();
     convId = data.id;
   }
-  const p = _socSharePlayer;
-  const lineData = {
-    name: p.name, team: p.team, market: p.market, line: p.line, avg: p.avg,
-    edge: p.edge, overOdds: p.overOdds, underOdds: p.underOdds,
-    snapshotAt: new Date().toISOString(),
-  };
+  let msgType, msgPayload;
+  if (_socShareBet) {
+    msgType = 'bet';
+    msgPayload = { betData: _socShareBet };
+  } else {
+    const p = _socSharePlayer;
+    msgType = 'line';
+    msgPayload = { lineData: { name: p.name, team: p.team, market: p.market, line: p.line, avg: p.avg, edge: p.edge, overOdds: p.overOdds, underOdds: p.underOdds, snapshotAt: new Date().toISOString() } };
+  }
   const r2 = await fetch(`${API}/api/social/conversations/${convId}/messages`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_authToken}` },
-    body: JSON.stringify({ type: 'line', lineData }),
+    body: JSON.stringify({ type: msgType, ...msgPayload }),
   });
   if (r2.ok) {
     btn.textContent = 'Sent ✓'; btn.className = 'share-to-btn sent'; btn.disabled = true;
     await loadSocialSidebar();
     updateSocNotifBadge();
-    showSts(`Line shared to ${label}`, 'ok');
+    showSts(`${_socShareBet ? 'Bet' : 'Line'} shared to ${label}`, 'ok');
   }
 }
 </script>
