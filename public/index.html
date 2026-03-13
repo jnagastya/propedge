@@ -36,12 +36,12 @@ body{background:var(--bg0);background-image:radial-gradient(ellipse at 20% 0%,rg
 ::-webkit-scrollbar{width:4px;height:4px;}::-webkit-scrollbar-track{background:transparent;}::-webkit-scrollbar-thumb{background:var(--b);opacity:.5;border-radius:4px;}
 @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
-@keyframes bell-ring{0%,70%,100%{transform:rotate(0deg)}73%{transform:rotate(-15deg)}77%{transform:rotate(15deg)}81%{transform:rotate(-11deg)}85%{transform:rotate(11deg)}89%{transform:rotate(-6deg)}93%{transform:rotate(6deg)}97%{transform:rotate(0deg)}}
-@keyframes wave-pulse{0%,68%,100%{opacity:0}74%,90%{opacity:.7}}
-.logo-icon{animation:bell-ring 7s ease-in-out infinite;transform-origin:50% 18%;transform-box:fill-box;}
-.logo-icon .bell-wave{animation:wave-pulse 7s ease-in-out infinite;}
-.login-logo svg{animation:bell-ring 7s ease-in-out 1.5s infinite;transform-origin:50% 16%;transform-box:fill-box;}
-.login-logo svg .bell-wave{animation:wave-pulse 7s ease-in-out 1.5s infinite;}
+.logo-icon{transform-origin:50% 18%;transform-box:fill-box;}
+.logo-icon .bell-wave{opacity:0;transition:opacity .25s;}
+.logo-icon.ringing .bell-wave{opacity:.75;}
+.login-logo svg{transform-origin:50% 16%;transform-box:fill-box;}
+.login-logo svg .bell-wave{opacity:0;transition:opacity .25s;}
+.login-logo svg.ringing .bell-wave{opacity:.75;}
 @keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
 @keyframes cardIn{from{opacity:0;transform:scale(.97)}to{opacity:1;transform:scale(1)}}
 
@@ -810,6 +810,16 @@ td{padding:13px 14px;white-space:nowrap;}
       <div style="margin-top:14px;">
         <div class="settings-row-label"><span>Intensity</span><span id="bgTintVal">10%</span></div>
         <input type="range" class="settings-slider" id="bgTintSlider" min="0" max="30" value="10" oninput="setBgTintOpacity(this.value/100,true)">
+      </div>
+      <div style="margin-top:12px;">
+        <div class="settings-row-label">
+          <span>Gradient color</span>
+          <label style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--t2);cursor:pointer;">
+            <input type="checkbox" id="bgGradMatchTint" checked onchange="toggleGradMatchTint(true)" style="accent-color:var(--b);cursor:pointer;">
+            Match tint
+          </label>
+        </div>
+        <input type="color" id="bgGradColorInp" value="#6366f1" disabled oninput="setBgGradientColor(this.value,true)" style="width:100%;height:32px;border-radius:8px;border:1px solid var(--bd);background:var(--bg2);cursor:not-allowed;padding:2px 4px;">
       </div>
       <div style="margin-top:12px;">
         <div class="settings-sec-title" style="margin-bottom:0;">Mode</div>
@@ -3812,15 +3822,22 @@ let _bgTintRgb = DEFAULT_BG_TINT;
 let _bgTintOpacity = 0.10;
 let _bgMode = 'radial';
 let _bgGradientIntensity = 0.15;
+let _bgGradientColor = DEFAULT_BG_TINT; // RGB string
+let _bgGradMatchTint = true;
+
+function rgbStrToHex(rgb) {
+  return '#' + rgb.split(',').map(v => parseInt(v.trim()).toString(16).padStart(2,'0')).join('');
+}
 
 function updateBgImage() {
+  const color = _bgGradMatchTint ? _bgTintRgb : _bgGradientColor;
   const a1 = _bgTintOpacity, a2 = (_bgTintOpacity * 0.7).toFixed(3);
   let img;
   if (_bgMode === 'linear') {
     const a = _bgGradientIntensity, a3 = (_bgGradientIntensity * 0.6).toFixed(3);
-    img = `linear-gradient(135deg,rgba(${_bgTintRgb},${a}) 0%,transparent 45%,rgba(${_bgTintRgb},${a3}) 100%)`;
+    img = `linear-gradient(135deg,rgba(${color},${a}) 0%,transparent 45%,rgba(${color},${a3}) 100%)`;
   } else {
-    img = `radial-gradient(ellipse at 20% 0%,rgba(${_bgTintRgb},${a1}) 0%,transparent 60%),radial-gradient(ellipse at 80% 100%,rgba(${_bgTintRgb},${a2}) 0%,transparent 50%)`;
+    img = `radial-gradient(ellipse at 20% 0%,rgba(${color},${a1}) 0%,transparent 60%),radial-gradient(ellipse at 80% 100%,rgba(${color},${a2}) 0%,transparent 50%)`;
   }
   document.body.style.backgroundImage = img;
 }
@@ -3831,8 +3848,33 @@ function applyBgTint(rgb, save = false) {
   document.querySelectorAll('.bg-swatch').forEach(sw => {
     sw.classList.toggle('active', sw.dataset.rgb === rgb);
   });
+  // sync gradient color picker if match-tint is on
+  if (_bgGradMatchTint) {
+    const inp = document.getElementById('bgGradColorInp');
+    if (inp) inp.value = rgbStrToHex(rgb);
+  }
   updateBgImage();
   if (save) localStorage.setItem('pe_bg_tint', rgb);
+}
+
+function setBgGradientColor(hex, save = false) {
+  _bgGradientColor = hexToRgb(hex);
+  updateBgImage();
+  if (save) localStorage.setItem('pe_bg_grad_color', hex);
+}
+
+function toggleGradMatchTint(save = false) {
+  const cb = document.getElementById('bgGradMatchTint');
+  _bgGradMatchTint = cb ? cb.checked : true;
+  const inp = document.getElementById('bgGradColorInp');
+  if (inp) {
+    inp.disabled = _bgGradMatchTint;
+    inp.style.cursor = _bgGradMatchTint ? 'not-allowed' : 'pointer';
+    inp.style.opacity = _bgGradMatchTint ? '.5' : '1';
+    if (_bgGradMatchTint) inp.value = rgbStrToHex(_bgTintRgb);
+  }
+  updateBgImage();
+  if (save) localStorage.setItem('pe_bg_grad_match', _bgGradMatchTint ? '1' : '0');
 }
 
 function setBgTintOpacity(val, save = false) {
@@ -3993,7 +4035,62 @@ document.addEventListener('click', e => {
     const s = document.getElementById('bgGradSlider'); if (s) s.value = Math.round(_bgGradientIntensity * 100);
     const l = document.getElementById('bgGradVal'); if (l) l.textContent = Math.round(_bgGradientIntensity * 100) + '%';
   }
+  // gradient color + match
+  const savedGradColor = localStorage.getItem('pe_bg_grad_color');
+  if (savedGradColor) { _bgGradientColor = hexToRgb(savedGradColor); }
+  const savedGradMatch = localStorage.getItem('pe_bg_grad_match');
+  if (savedGradMatch !== null) {
+    _bgGradMatchTint = savedGradMatch === '1';
+    const cb = document.getElementById('bgGradMatchTint'); if (cb) cb.checked = _bgGradMatchTint;
+    const inp = document.getElementById('bgGradColorInp');
+    if (inp) {
+      inp.disabled = _bgGradMatchTint;
+      inp.style.cursor = _bgGradMatchTint ? 'not-allowed' : 'pointer';
+      inp.style.opacity = _bgGradMatchTint ? '.5' : '1';
+      inp.value = _bgGradMatchTint ? rgbStrToHex(_bgTintRgb) : (savedGradColor || rgbStrToHex(_bgTintRgb));
+    }
+  }
   updateBgImage();
+})();
+
+// ── Bell animation (JS-driven for compound motion) ──
+(function() {
+  const SWAY_AMP    = 4;     // gentle constant sway amplitude (degrees)
+  const SWAY_PERIOD = 1900;  // ms per full gentle-sway cycle
+  const BIG_AMP     = 20;    // big-ring peak amplitude (degrees)
+  const BIG_DECAY   = 2800;  // ms for big ring to fully damp out
+  const BIG_FREQ    = 190;   // ms per half-swing during big ring
+
+  let bigRingStart = -BIG_DECAY - 1;
+  let nextBigRing  = performance.now() + 30000 + Math.random() * 30000; // 30–60s
+
+  function tick(now) {
+    // Gentle constant sway
+    const sway = SWAY_AMP * Math.sin((now / SWAY_PERIOD) * Math.PI * 2);
+
+    // Schedule + trigger big ring
+    if (now >= nextBigRing) {
+      bigRingStart = now;
+      nextBigRing  = now + 30000 + Math.random() * 30000;
+    }
+
+    let extra = 0;
+    const elapsed = now - bigRingStart;
+    const ringing = elapsed >= 0 && elapsed < BIG_DECAY;
+    if (ringing) {
+      const decay = Math.pow(1 - elapsed / BIG_DECAY, 1.8);
+      extra = BIG_AMP * decay * Math.sin((elapsed / BIG_FREQ) * Math.PI);
+    }
+
+    const rot = sway + extra;
+    document.querySelectorAll('.logo-icon, .login-logo svg').forEach(el => {
+      el.style.transform = `rotate(${rot.toFixed(2)}deg)`;
+      el.classList.toggle('ringing', ringing);
+    });
+
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
 })();
 
 function toggleParlayExpand(id) {
