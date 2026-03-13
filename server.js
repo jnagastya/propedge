@@ -14,6 +14,7 @@ const express = require('express');
 const cors = require('cors');
 const fetch = require('node-fetch');
 const webpush = require('web-push');
+const sharp = require('sharp');
 const ESPN_PLAYERS = require('./data/espn-players.json'); // name → ESPN athlete ID
 // Odds API name aliases → ESPN file names
 const ESPN_ALIASES = {
@@ -34,6 +35,18 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
+
+// ---- PWA ICON ROUTES (SVG → PNG for iOS apple-touch-icon) ----
+const ICON_SVG = `<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="512" height="512" rx="114" fill="url(#lg)"/><line x1="212" y1="72" x2="179" y2="33" stroke="rgba(255,255,255,.55)" stroke-width="18" stroke-linecap="round"/><line x1="300" y1="72" x2="333" y2="33" stroke="rgba(255,255,255,.55)" stroke-width="18" stroke-linecap="round"/><rect x="223" y="67" width="66" height="55" rx="33" fill="rgba(255,255,255,.55)"/><path d="M256 122C178 122 112 178 112 268L112 301Q112 346 145 346L367 346Q400 346 400 301L400 268C400 178 334 122 256 122Z" fill="white" opacity=".9"/><circle cx="256" cy="395" r="33" fill="rgba(255,255,255,.7)"/><path d="M83 178Q45 256 83 334" stroke="rgba(255,255,255,.65)" stroke-width="20" stroke-linecap="round" fill="none"/><path d="M429 178Q467 256 429 334" stroke="rgba(255,255,255,.65)" stroke-width="20" stroke-linecap="round" fill="none"/><defs><linearGradient id="lg" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#4f46e5"/><stop offset="100%" stop-color="#7c3aed"/></linearGradient></defs></svg>`;
+let _iconCache = {};
+async function serveIconPng(size, res) {
+  if (!_iconCache[size]) {
+    _iconCache[size] = await sharp(Buffer.from(ICON_SVG)).resize(size, size).png().toBuffer();
+  }
+  res.set('Content-Type', 'image/png').set('Cache-Control', 'public, max-age=86400').send(_iconCache[size]);
+}
+app.get('/icon-192.png', (req, res) => serveIconPng(192, res).catch(() => res.status(500).end()));
+app.get('/icon-512.png', (req, res) => serveIconPng(512, res).catch(() => res.status(500).end()));
 
 // ---- CACHE SETUP ----
 const cache = new NodeCache({
@@ -1813,7 +1826,7 @@ app.post('/api/social/conversations/:id/messages', async (req, res) => {
           const odds = fmtOdds(isOver ? ld.overOdds : ld.underOdds);
           const ev = fmtEV(ld.dirEV);
           const prob = fmtProb(ld.modelProb != null ? (isOver ? ld.modelProb : 1 - ld.modelProb) : null);
-          const gameTimeFmt = ld.gameTime ? (() => { try { return new Date(ld.gameTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' }) + ' ET'; } catch { return null; } })() : null;
+          const gameTimeFmt = ld.gameTime ? (() => { try { return new Date(ld.gameTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Los_Angeles' }) + ' PT'; } catch { return null; } })() : null;
           pushTitle = `${senderName} shared a line`;
           pushBody = [
             `${ld.name || 'Player'} ${dir} ${ld.line ?? ''} ${mkt}`,
