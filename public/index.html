@@ -451,6 +451,24 @@ td{padding:9px 11px;white-space:nowrap;}
 .payout-preview{display:flex;justify-content:space-between;background:var(--bg2);border-radius:var(--radius);padding:10px 12px;margin-bottom:16px;font-size:12px;border:1px solid var(--bd);}
 .place-btn{width:100%;padding:12px;background:var(--b);border:none;border-radius:var(--radius);color:#fff;font-family:var(--sans);font-size:14px;font-weight:700;cursor:pointer;transition:background .12s;box-shadow:0 2px 8px rgba(99,102,241,.3);}
 .place-btn:hover{background:#818cf8;}.place-btn:disabled{background:var(--bg4);color:var(--t3);cursor:not-allowed;box-shadow:none;}
+/* -- Bet confirmation -- */
+.bet-confirm{padding:4px 0;}
+.bet-confirm-check{width:48px;height:48px;border-radius:50%;background:var(--gd);border:2px solid var(--g);display:flex;align-items:center;justify-content:center;font-size:22px;margin:0 auto 14px;}
+.bet-confirm-hero{background:linear-gradient(135deg,rgba(99,102,241,.1),rgba(139,92,246,.07));border:1px solid rgba(99,102,241,.3);border-radius:12px;padding:16px 18px;margin-bottom:14px;text-align:center;}
+.bet-confirm-dir{font-size:13px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;margin-bottom:6px;}
+.bet-confirm-line{font-size:28px;font-weight:800;color:var(--t1);line-height:1.1;}
+.bet-confirm-player{font-size:14px;font-weight:600;color:var(--t2);margin-top:6px;}
+.bet-confirm-game{font-size:12px;color:var(--t3);margin-top:3px;}
+.bet-confirm-payout{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;}
+.bet-confirm-payout-cell{background:var(--bg2);border:1px solid var(--bd);border-radius:8px;padding:10px 12px;text-align:center;}
+.bet-confirm-payout-lbl{font-size:11px;color:var(--t3);font-weight:600;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px;}
+.bet-confirm-payout-val{font-size:18px;font-weight:800;color:var(--t1);}
+.bet-confirm-stats{background:var(--bg2);border:1px solid var(--bd);border-radius:8px;padding:10px 14px;margin-bottom:16px;}
+.bet-confirm-stat{display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:12px;border-bottom:1px solid var(--bd);}
+.bet-confirm-stat:last-child{border-bottom:none;}
+.bet-confirm-stat-lbl{color:var(--t3);font-weight:600;}
+.bet-confirm-done{width:100%;padding:11px;background:var(--g);border:none;border-radius:var(--radius);color:#fff;font-family:var(--sans);font-size:14px;font-weight:700;cursor:pointer;transition:opacity .12s;}
+.bet-confirm-done:hover{opacity:.88;}
 .bal-edit{display:flex;align-items:center;gap:8px;}
 .bal-inp{width:120px;padding:6px 10px;background:var(--bg2);border:1.5px solid var(--bd);border-radius:8px;font-family:var(--sans);font-size:14px;font-weight:700;outline:none;color:var(--t1);}
 .bal-inp:focus{border-color:var(--b);}
@@ -2917,7 +2935,11 @@ function openBetModal(p) {
   document.getElementById('betModal').classList.add('show');
   updatePayoutPreview();
 }
-function closeBetModal() { document.getElementById('betModal').classList.remove('show'); _betPlayer = null; }
+function closeBetModal() {
+  document.getElementById('betModal').classList.remove('show');
+  document.getElementById('betModal').querySelector('.modal-title').textContent = 'Place Bet';
+  _betPlayer = null;
+}
 function setBetDir(dir, btn) {
   _betDir = dir;
   btn.parentElement.querySelectorAll('.dir-btn').forEach(b => b.classList.remove('on'));
@@ -2940,6 +2962,7 @@ function placeBet() {
   const odds = _betDir === 'over' ? (_betPlayer.overOdds || -110) : (_betPlayer.underOdds || -110);
   const toWin = calcPayout(stake, odds);
   const mktLabels = {player_points:'PTS',player_rebounds:'REB',player_assists:'AST',player_threes:'3PM',player_points_rebounds_assists:'PRA'};
+  const mktFull = {player_points:'Points',player_rebounds:'Rebounds',player_assists:'Assists',player_threes:'3-Pointers',player_points_rebounds_assists:'Pts+Reb+Ast'};
   const edge = _betPlayer.edge || 0;
   const isValue = (_betPlayer.confidence||0) >= 55 && Math.abs(edge) > 4;
   const bet = {
@@ -2951,7 +2974,7 @@ function placeBet() {
     marketLabel: mktLabels[_betPlayer.market || S.market] || 'Stat',
     line: _betPlayer.line, direction: _betDir, odds,
     stake, toWin,
-    edge: edge, confidence: _betPlayer.confidence || 0,
+    edge, confidence: _betPlayer.confidence || 0,
     isValue, nbaId: _betPlayer.nbaId || null,
     gameTime: _betPlayer.gameTime || null,
     status: 'open', settledAt: null, actualResult: null, pnl: null,
@@ -2959,9 +2982,37 @@ function placeBet() {
   sim.balance -= stake;
   sim.bets.unshift(bet);
   simSave(sim);
-  closeBetModal();
-  showSts(`Bet placed: ${_betPlayer.name} ${_betDir.toUpperCase()} ${_betPlayer.line} · $${stake} to win $${toWin.toFixed(2)}`,'suc');
   if (document.getElementById('simView').classList.contains('show')) renderSimulator();
+
+  // Show confirmation screen inside the same modal
+  const isOver = _betDir === 'over';
+  const oddsStr = (odds > 0 ? '+' : '') + odds;
+  const mktName = mktFull[_betPlayer.market || S.market] || 'Stats';
+  document.getElementById('betModal').querySelector('.modal-title').textContent = 'Bet Confirmed';
+  document.getElementById('modalBody').innerHTML = `
+    <div class="bet-confirm">
+      <div class="bet-confirm-check">✓</div>
+      <div class="bet-confirm-hero">
+        <div class="bet-confirm-dir" style="color:${isOver?'var(--g)':'var(--r)'}">${isOver?'▲ OVER':'▼ UNDER'} · ${oddsStr}</div>
+        <div class="bet-confirm-line">${_betPlayer.line} ${mktName}</div>
+        <div class="bet-confirm-player">${_betPlayer.name}${_betPlayer.team?' · '+_betPlayer.team:''}</div>
+      </div>
+      <div class="bet-confirm-payout">
+        <div class="bet-confirm-payout-cell">
+          <div class="bet-confirm-payout-lbl">Stake</div>
+          <div class="bet-confirm-payout-val">$${stake.toFixed(2)}</div>
+        </div>
+        <div class="bet-confirm-payout-cell" style="border-color:rgba(34,197,94,.3);background:rgba(34,197,94,.06);">
+          <div class="bet-confirm-payout-lbl" style="color:var(--g);">To Win</div>
+          <div class="bet-confirm-payout-val" style="color:var(--g);">$${toWin.toFixed(2)}</div>
+        </div>
+      </div>
+      <div style="text-align:center;font-size:12px;color:var(--t3);margin-bottom:16px;">
+        Total return if won: <strong style="color:var(--t1);">$${(stake+toWin).toFixed(2)}</strong>
+        &nbsp;·&nbsp; New balance: <strong style="color:var(--t1);">$${sim.balance.toFixed(2)}</strong>
+      </div>
+      <button class="bet-confirm-done" onclick="closeBetModal()">Done</button>
+    </div>`;
 }
 
 // ── Settle bets ──
