@@ -662,6 +662,10 @@ td{padding:13px 14px;white-space:nowrap;}
 .save-btn:hover{border-color:var(--g);color:var(--g);}
 .save-btn.saved{border-color:var(--g);color:var(--g);}
 .save-btn:disabled{opacity:.6;cursor:default;}
+.save-wrap{display:flex;flex-direction:column;align-items:center;gap:1px;}
+.save-status{font-size:9px;color:var(--t3);white-space:nowrap;transition:color .2s;letter-spacing:.1px;}
+.save-status.ok{color:var(--g);}
+.save-status.syncing{color:var(--t3);}
 </style>
 </head>
 <body>
@@ -764,7 +768,10 @@ td{padding:13px 14px;white-space:nowrap;}
     <div class="user-badge" id="userBadge" style="display:none;">
       <div class="user-avatar" id="userAvatar">?</div>
       <span class="user-name" id="userName"></span>
-      <button class="save-btn" id="saveBtn" onclick="saveNow()" title="Save bets & watchlist">Save</button>
+      <div class="save-wrap">
+        <button class="save-btn" id="saveBtn" onclick="saveNow()" title="Save bets & watchlist">Save</button>
+        <span class="save-status" id="saveStatus"></span>
+      </div>
       <button class="logout-btn" onclick="doLogout()" title="Sign out">Sign out</button>
     </div>
     <button class="settings-btn" onclick="toggleSettings()" title="Appearance settings">⚙️</button>
@@ -1164,6 +1171,21 @@ async function authGet(path) {
 
 // Debounced profile sync — saves balance+bets to server after 1.5s idle
 let _syncTimer = null;
+let _lastSyncTime = null;
+
+function updateLastSaved() {
+  const el = document.getElementById('saveStatus');
+  if (!el) return;
+  if (!_lastSyncTime) { el.textContent = ''; return; }
+  const s = Math.floor((Date.now() - _lastSyncTime) / 1000);
+  const txt = s < 15  ? 'Saved · just now'
+            : s < 60  ? `Saved · ${s}s ago`
+            : s < 3600 ? `Saved · ${Math.floor(s / 60)}m ago`
+            : `Saved · ${Math.floor(s / 3600)}h ago`;
+  el.textContent = txt;
+  el.className = 'save-status ok';
+}
+
 function scheduleProfileSync() {
   clearTimeout(_syncTimer);
   _syncTimer = setTimeout(syncProfile, 1500);
@@ -1171,13 +1193,18 @@ function scheduleProfileSync() {
 async function syncProfile() {
   if (!_authToken) return;
   const sim = simLoad();
+  const el = document.getElementById('saveStatus');
+  if (el && _lastSyncTime) { el.textContent = 'Syncing…'; el.className = 'save-status syncing'; }
   try {
-    await fetch(`${API}/api/user/profile`, {
+    const r = await fetch(`${API}/api/user/profile`, {
       method:'PUT',
       headers:{ 'Content-Type':'application/json', 'Authorization': `Bearer ${_authToken}` },
       body: JSON.stringify({ balance: sim.balance, bets: sim.bets, preferences: { favorites: [...favorites] } }),
     });
-  } catch(e) {}
+    if (r.ok) { _lastSyncTime = Date.now(); updateLastSaved(); }
+  } catch(e) {
+    if (el) { el.textContent = '⚠ Sync failed'; el.className = 'save-status'; }
+  }
 }
 async function saveNow() {
   const btn = document.getElementById('saveBtn');
@@ -1190,6 +1217,9 @@ async function saveNow() {
     setTimeout(() => { btn.textContent = 'Save'; btn.classList.remove('saved'); btn.disabled = false; }, 2000);
   }
 }
+
+// Periodic safety-net auto-save every 5 minutes
+setInterval(() => { if (_authToken) syncProfile(); }, 5 * 60 * 1000);
 
 // ══════════════════════════════════════════════
 // WATCHLIST / FAVORITES
@@ -1751,10 +1781,12 @@ function leanInfo(edge){
 // ── Refresh timer ──
 let _lastRefreshAt=null;
 setInterval(()=>{
-  if(!_lastRefreshAt) return;
-  const mins=Math.floor((Date.now()-_lastRefreshAt)/60000);
-  const el=document.getElementById('dAge');
-  if(el) el.textContent=mins<1?'Just now':mins===1?'1 min ago':`${mins} mins ago`;
+  if(_lastRefreshAt){
+    const mins=Math.floor((Date.now()-_lastRefreshAt)/60000);
+    const el=document.getElementById('dAge');
+    if(el) el.textContent=mins<1?'Just now':mins===1?'1 min ago':`${mins} mins ago`;
+  }
+  updateLastSaved();
 },30000);
 
 // ── Render: Scores ──
