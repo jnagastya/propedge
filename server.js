@@ -1780,7 +1780,7 @@ app.get('/api/social/unread', async (req, res) => {
 const { Resend } = require('resend');
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 const NEWSLETTER_TO = process.env.NEWSLETTER_EMAIL || '';
-const NEWSLETTER_FROM = process.env.NEWSLETTER_FROM || 'PropEdge Agent <agent@propedge.app>';
+const NEWSLETTER_FROM = process.env.NEWSLETTER_FROM || 'Value Alert Agent <agent@propedge.app>';
 const DISCORD_PICKS_WEBHOOK = process.env.DISCORD_PICKS_WEBHOOK || '';
 const DISCORD_RESULTS_WEBHOOK = process.env.DISCORD_RESULTS_WEBHOOK || '';
 
@@ -1810,7 +1810,7 @@ async function sendDiscordPicks(betsInserted, date) {
 
   // Main summary embed
   const embeds = [{
-    title: `🏀 PropEdge Agent — ${dateStr}`,
+    title: `🏀 Value Alert Agent — ${dateStr}`,
     description: `Placed **${valueBets.length} value picks** and **${controlBets.length} control picks** for today's slate.`,
     color: 0x6366f1,
     fields: [
@@ -1867,7 +1867,7 @@ async function sendDiscordPicks(betsInserted, date) {
   }
 
   await postDiscord(DISCORD_PICKS_WEBHOOK, {
-    content: '@everyone 🚨 **New picks are in!** The PropEdge agent has locked in today\'s bets.',
+    content: '@everyone 🚨 **New picks are in!** The Value Alert agent has locked in today\'s bets.',
     embeds,
   });
 }
@@ -1910,22 +1910,29 @@ async function sendDiscordResults(allBets, latestDate) {
     ],
   }];
 
-  // Pick-by-pick results
+  // Pick-by-pick results — split wins and losses
   const settled = yesterdayValue.filter(b => b.status === 'won' || b.status === 'lost');
-  if (settled.length) {
-    const pickLines = settled.sort((a, b) => (b.pnl || 0) - (a.pnl || 0)).map(b => {
-      const icon = b.status === 'won' ? '✅' : '❌';
-      const actual = b.actual_result != null ? b.actual_result : '—';
-      const margin = b.actual_result != null && b.line ? ((b.actual_result - b.line) / b.line * 100).toFixed(1) : '—';
-      const marginDir = b.direction === 'under' ? (b.actual_result != null ? (-(b.actual_result - b.line) / b.line * 100).toFixed(1) : '—') : margin;
-      return `${icon} **${b.player_name}** ${b.direction.toUpperCase()} ${b.line} ${b.market_label}\n` +
-        `　Actual: \`${actual}\` · Margin: \`${marginDir}%\` · ${fmtOdds(b.odds)} → **${pnlFmt(b.pnl || 0)}**`;
-    }).join('\n\n');
-
+  const fmtPick = b => {
+    const actual = b.actual_result != null ? b.actual_result : '—';
+    const margin = b.actual_result != null && b.line ? ((b.actual_result - b.line) / b.line * 100).toFixed(1) : '—';
+    const marginDir = b.direction === 'under' ? (b.actual_result != null ? (-(b.actual_result - b.line) / b.line * 100).toFixed(1) : '—') : margin;
+    return `**${b.player_name}** ${b.direction.toUpperCase()} ${b.line} ${b.market_label}\n` +
+      `　Actual: \`${actual}\` · Margin: \`${marginDir}%\` · ${fmtOdds(b.odds)} → **${pnlFmt(b.pnl || 0)}**`;
+  };
+  const wins = settled.filter(b => b.status === 'won').sort((a, b) => (b.pnl || 0) - (a.pnl || 0));
+  const losses = settled.filter(b => b.status === 'lost').sort((a, b) => (a.pnl || 0) - (b.pnl || 0));
+  if (wins.length) {
     embeds.push({
-      title: '📊 Pick-by-Pick Breakdown',
-      description: pickLines.slice(0, 4000),
-      color: 0x6366f1,
+      title: `✅ Wins (${wins.length})`,
+      description: wins.map(b => fmtPick(b)).join('\n\n').slice(0, 4000),
+      color: 0x10b981,
+    });
+  }
+  if (losses.length) {
+    embeds.push({
+      title: `❌ Losses (${losses.length})`,
+      description: losses.map(b => fmtPick(b)).join('\n\n').slice(0, 4000),
+      color: 0xf43f5e,
     });
   }
 
@@ -2364,7 +2371,7 @@ app.get('/api/cron/newsletter', async (req, res) => {
 
   <!-- HEADER -->
   <div style="background:linear-gradient(135deg,#1e293b,#0f172a);padding:32px 24px;text-align:center;">
-    <div style="font-size:28px;font-weight:800;color:#fff;letter-spacing:-0.5px;">PropEdge Daily Report</div>
+    <div style="font-size:28px;font-weight:800;color:#fff;letter-spacing:-0.5px;">Value Alert Daily Report</div>
     <div style="color:#94a3b8;font-size:14px;margin-top:6px;">${dateStr}</div>
   </div>
 
@@ -2463,7 +2470,7 @@ app.get('/api/cron/newsletter', async (req, res) => {
 
   <!-- FOOTER -->
   <div style="padding:24px;background:#0f172a;text-align:center;">
-    <div style="color:#64748b;font-size:11px;">PropEdge Agent · Automated Value Alert Tracking</div>
+    <div style="color:#64748b;font-size:11px;">Value Alert Agent · Automated Tracking</div>
     <div style="color:#475569;font-size:10px;margin-top:4px;">Flat $${STAKE} units · All bets placed at 3:30 PM PST daily</div>
   </div>
 
@@ -2473,7 +2480,7 @@ app.get('/api/cron/newsletter', async (req, res) => {
     const { error: emailErr } = await resend.emails.send({
       from: NEWSLETTER_FROM,
       to: NEWSLETTER_TO,
-      subject: `PropEdge Daily: ${yValStats.won}-${yValStats.lost} (${pnlFmt(yValStats.pnl)}) — ${dateStr}`,
+      subject: `Value Alert Daily: ${yValStats.won}-${yValStats.lost} (${pnlFmt(yValStats.pnl)}) — ${dateStr}`,
       html,
     });
 
@@ -2506,9 +2513,9 @@ app.get('/api/test-discord', async (req, res) => {
   if (DISCORD_PICKS_WEBHOOK) {
     try {
       await postDiscord(DISCORD_PICKS_WEBHOOK, {
-        content: '🧪 **Test message from PropEdge Agent**',
+        content: '🧪 **Test message from Value Alert Agent**',
         embeds: [{
-          title: '🏀 PropEdge Agent — Test',
+          title: '🏀 Value Alert Agent — Test',
           description: 'Placed **4 value picks** and **2 control picks** for today\'s slate.',
           color: 0x6366f1,
           fields: [
@@ -2540,7 +2547,7 @@ app.get('/api/test-discord', async (req, res) => {
   if (DISCORD_RESULTS_WEBHOOK) {
     try {
       await postDiscord(DISCORD_RESULTS_WEBHOOK, {
-        content: '🧪 🟢 **Test results from PropEdge Agent** — 3-1 today (+$18.50)',
+        content: '🧪 🟢 **Test results from Value Alert Agent** — 3-1 today (+$18.50)',
         embeds: [{
           title: '📈 Daily Results — Test',
           description: '**3-1** (75.0%) · P&L: **+$18.50**',
@@ -2550,18 +2557,40 @@ app.get('/api/test-discord', async (req, res) => {
             { name: 'All-Time Control', value: '19-22 (46.3%)\n-$31.20 · ROI -4.8%', inline: true },
           ],
         }, {
-          title: '📊 Pick-by-Pick Breakdown',
+          title: '✅ Wins (3)',
           description:
-            '✅ **LeBron James** OVER 25.5 PTS\n　Actual: `31` · Margin: `+21.6%` · -110 → **+$9.09**\n\n' +
-            '✅ **Nikola Jokic** OVER 9.5 AST\n　Actual: `12` · Margin: `+26.3%` · +105 → **+$10.50**\n\n' +
-            '✅ **Jayson Tatum** UNDER 4.5 3PM\n　Actual: `3` · Margin: `+33.3%` · -125 → **+$8.00**\n\n' +
-            '❌ **Anthony Davis** OVER 11.5 REB\n　Actual: `9` · Margin: `-21.7%` · -115 → **-$10.00**',
-          color: 0x6366f1,
+            '**Nikola Jokic** OVER 9.5 AST\n　Actual: `12` · Margin: `+26.3%` · +105 → **+$10.50**\n\n' +
+            '**LeBron James** OVER 25.5 PTS\n　Actual: `31` · Margin: `+21.6%` · -110 → **+$9.09**\n\n' +
+            '**Jayson Tatum** UNDER 4.5 3PM\n　Actual: `3` · Margin: `+33.3%` · -125 → **+$8.00**',
+          color: 0x10b981,
+        }, {
+          title: '❌ Losses (1)',
+          description:
+            '**Anthony Davis** OVER 11.5 REB\n　Actual: `9` · Margin: `-21.7%` · -115 → **-$10.00**',
+          color: 0xf43f5e,
+        }, {
+          title: '🎯 Model Calibration',
+          description:
+            '✅ **50-60%**: 57% actual (8/14)\n' +
+            '🔥 **60-70%**: 71% actual (12/17)\n' +
+            '🔥 **70-80%**: 78% actual (7/9)\n\n' +
+            '🔥 Model is outperforming in some brackets — edge is real!',
+          color: 0xa78bfa,
+        }, {
+          title: '📈 Market Performance',
+          description:
+            '🟢 **PTS**: 12-6 (67%) · +$41.20\n' +
+            '🟢 **AST**: 8-5 (62%) · +$28.50\n' +
+            '🟢 **3PM**: 5-3 (63%) · +$18.40\n' +
+            '🔴 **REB**: 3-5 (38%) · -$12.80\n' +
+            '🟢 **PRA**: 4-2 (67%) · +$19.00',
+          color: 0x3b82f6,
         }, {
           title: '💡 Recommendations & Insights',
           description:
-            '📊 **Best market**: PTS at 68% win rate — consider increasing exposure\n\n' +
-            '🔥 **Elite confidence (75+)**: 72% hit rate — model excels at high conviction\n\n' +
+            '📊 **Best market**: PTS at 67% win rate — consider increasing exposure\n\n' +
+            '⚠️ **Weakest market**: REB at 38% — consider raising threshold\n\n' +
+            '🔥 **Elite confidence (75+)**: 78% hit rate — model excels at high conviction\n\n' +
             '📈 **7-day trend**: 65% vs 58% prior — model improving\n\n' +
             '💰 **ROI at 12.1%** — edge is holding up across 45 bets',
           color: 0xf59e0b,
