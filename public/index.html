@@ -809,14 +809,14 @@ td{padding:13px 14px;white-space:nowrap;}
       <div class="swatches" id="bgSwatches" style="gap:10px;margin-top:10px;"></div>
       <div style="margin-top:14px;">
         <div class="settings-row-label"><span>Intensity</span><span id="bgTintVal">10%</span></div>
-        <input type="range" class="settings-slider" id="bgTintSlider" min="0" max="30" value="10" oninput="setBgTintOpacity(this.value/100,true)">
+        <input type="range" class="settings-slider" id="bgTintSlider" min="0" max="80" value="10" oninput="setBgTintOpacity(this.value/100,true)">
       </div>
       <div style="margin-top:12px;">
         <div class="settings-row-label">
           <span>Gradient color</span>
           <label style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--t2);cursor:pointer;">
             <input type="checkbox" id="bgGradMatchTint" checked onchange="toggleGradMatchTint(true)" style="accent-color:var(--b);cursor:pointer;">
-            Match tint
+            Match accent
           </label>
         </div>
         <input type="color" id="bgGradColorInp" value="#6366f1" disabled oninput="setBgGradientColor(this.value,true)" style="width:100%;height:32px;border-radius:8px;border:1px solid var(--bd);background:var(--bg2);cursor:not-allowed;padding:2px 4px;">
@@ -3850,11 +3850,6 @@ function applyBgTint(rgb, save = false) {
   document.querySelectorAll('.bg-swatch').forEach(sw => {
     sw.classList.toggle('active', sw.dataset.rgb === rgb);
   });
-  // sync gradient color picker if match-tint is on
-  if (_bgGradMatchTint) {
-    const inp = document.getElementById('bgGradColorInp');
-    if (inp) inp.value = rgbStrToHex(rgb);
-  }
   updateBgImage();
   if (save) localStorage.setItem('pe_bg_tint', rgb);
 }
@@ -3873,7 +3868,10 @@ function toggleGradMatchTint(save = false) {
     inp.disabled = _bgGradMatchTint;
     inp.style.cursor = _bgGradMatchTint ? 'not-allowed' : 'pointer';
     inp.style.opacity = _bgGradMatchTint ? '.5' : '1';
-    if (_bgGradMatchTint) inp.value = rgbStrToHex(_bgTintRgb);
+    if (_bgGradMatchTint) {
+      _bgGradientColor = hexToRgb(_accentHex);
+      inp.value = _accentHex;
+    }
   }
   updateBgImage();
   if (save) localStorage.setItem('pe_bg_grad_match', _bgGradMatchTint ? '1' : '0');
@@ -3920,7 +3918,10 @@ function darkenHex(hex, amount = 0.25) {
   return '#' + [r,g,b].map(v => v.toString(16).padStart(2,'0')).join('');
 }
 
+let _accentHex = DEFAULT_ACCENT;
+
 function applyAccent(hex, save = false) {
+  _accentHex = hex;
   const rgb = hexToRgb(hex);
   const dark = darkenHex(hex, 0.2);
   const root = document.documentElement;
@@ -3944,6 +3945,13 @@ function applyAccent(hex, save = false) {
     sw.classList.toggle('active', sw.dataset.hex === hex);
   });
   document.getElementById('customColorInp').value = hex;
+  // Sync gradient to accent if match is on
+  if (_bgGradMatchTint) {
+    _bgGradientColor = rgb;
+    const inp = document.getElementById('bgGradColorInp');
+    if (inp) inp.value = hex;
+    updateBgImage();
+  }
   if (save) localStorage.setItem('pe_accent', hex);
 }
 
@@ -4049,7 +4057,7 @@ document.addEventListener('click', e => {
       inp.disabled = _bgGradMatchTint;
       inp.style.cursor = _bgGradMatchTint ? 'not-allowed' : 'pointer';
       inp.style.opacity = _bgGradMatchTint ? '.5' : '1';
-      inp.value = _bgGradMatchTint ? rgbStrToHex(_bgTintRgb) : (savedGradColor || rgbStrToHex(_bgTintRgb));
+      inp.value = _bgGradMatchTint ? _accentHex : (savedGradColor || _accentHex);
     }
   }
   updateBgImage();
@@ -4066,16 +4074,29 @@ function _getACtx() {
 function playClick() {
   try {
     const ctx = _getACtx();
+    const t = ctx.currentTime;
+    // Noise transient (~20ms)
+    const bufLen = Math.ceil(ctx.sampleRate * 0.02);
+    const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < bufLen; i++) data[i] = (Math.random() * 2 - 1);
+    const noise = ctx.createBufferSource();
+    noise.buffer = buf;
+    const ng = ctx.createGain();
+    noise.connect(ng); ng.connect(ctx.destination);
+    ng.gain.setValueAtTime(0.07, t);
+    ng.gain.exponentialRampToValueAtTime(0.001, t + 0.02);
+    noise.start(t); noise.stop(t + 0.02);
+    // Tonal tick (~25ms, triangle, fast decay)
     const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain); gain.connect(ctx.destination);
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(900, ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(540, ctx.currentTime + 0.065);
-    gain.gain.setValueAtTime(0.13, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.065);
-    osc.start(ctx.currentTime);
-    osc.stop(ctx.currentTime + 0.065);
+    const og = ctx.createGain();
+    osc.connect(og); og.connect(ctx.destination);
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(1400, t);
+    osc.frequency.exponentialRampToValueAtTime(700, t + 0.025);
+    og.gain.setValueAtTime(0.10, t);
+    og.gain.exponentialRampToValueAtTime(0.001, t + 0.025);
+    osc.start(t); osc.stop(t + 0.025);
   } catch(e) {}
 }
 
@@ -4111,7 +4132,7 @@ document.addEventListener('click', e => {
 (function() {
   const SWAY_AMP    = 4;     // gentle constant sway amplitude (degrees)
   const SWAY_PERIOD = 1900;  // ms per full gentle-sway cycle
-  const BIG_AMP     = 20;    // big-ring peak amplitude (degrees)
+  const BIG_AMP     = 30;    // big-ring peak amplitude (degrees)
   const BIG_DECAY   = 2800;  // ms for big ring to fully damp out
   const BIG_FREQ    = 190;   // ms per half-swing during big ring
 
