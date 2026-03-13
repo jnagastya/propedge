@@ -1331,6 +1331,31 @@ app.get('/api/cron/refresh-odds', async (req, res) => {
     for (const book of books) {
       const players = aggregatePlayers(rawProps, book);
       if (players.length) {
+        // Preserve previous lines for movement tracking
+        const prevPlayers = await sbGetOdds(book);
+        if (prevPlayers && prevPlayers.length) {
+          const prevMap = {};
+          for (const pp of prevPlayers) {
+            prevMap[`${pp.name}|${pp.market}`] = pp;
+          }
+          for (const p of players) {
+            const prev = prevMap[`${p.name}|${p.market}`];
+            if (prev) {
+              // Use the previous snapshot's own prev data if line hasn't changed since then
+              // Otherwise record the previous line as the movement reference
+              if (prev.line !== p.line || prev.overOdds !== p.overOdds || prev.underOdds !== p.underOdds) {
+                p.prev_line = prev.line;
+                p.prev_overOdds = prev.overOdds;
+                p.prev_underOdds = prev.underOdds;
+              } else if (prev.prev_line != null) {
+                // Line didn't change this refresh — carry forward the previous movement data
+                p.prev_line = prev.prev_line;
+                p.prev_overOdds = prev.prev_overOdds;
+                p.prev_underOdds = prev.prev_underOdds;
+              }
+            }
+          }
+        }
         await sbSetOdds(book, players);
         stored.push({ book, players: players.length });
       }
