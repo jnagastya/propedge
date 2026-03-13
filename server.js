@@ -1799,27 +1799,50 @@ app.post('/api/social/conversations/:id/messages', async (req, res) => {
         const { data: members } = await supabase.from('conversation_members').select('user_id').eq('conversation_id', req.params.id).neq('user_id', user.id);
         if (!members?.length) return;
         const senderName = pm[user.id]?.displayName || pm[user.id]?.username || 'Someone';
+        const MKT_SHORT = { player_points:'Pts', player_rebounds:'Reb', player_assists:'Ast', player_threes:'3PM', player_steals:'Stl', player_blocks:'Blk', player_turnovers:'TO', player_points_rebounds_assists:'PRA' };
+        const fmtOdds = o => o != null ? (o > 0 ? '+' : '') + o : null;
+        const fmtEV = v => v != null ? (v >= 0 ? '+' : '') + Number(v).toFixed(1) + '%' : null;
+        const fmtProb = v => v != null ? Math.round(v * 100) + '%' : null;
+        let pushTitle = '';
         let pushBody = '';
         if (type === 'line' && lineData) {
           const ld = lineData;
-          const dir = (ld.edge || 0) >= 0 ? 'Over' : 'Under';
-          const ev = ld.dirEV != null ? (ld.dirEV >= 0 ? '+' : '') + ld.dirEV.toFixed(1) + '%' : '';
-          pushBody = `${ld.name || 'Player'} ${dir} ${ld.line ?? ''} ${ld.market || ''} ${ev ? '(EV ' + ev + ')' : ''}`.trim();
+          const isOver = (ld.edge || 0) >= 0;
+          const dir = isOver ? '▲ OVER' : '▼ UNDER';
+          const mkt = MKT_SHORT[ld.market] || ld.market || '';
+          const odds = fmtOdds(isOver ? ld.overOdds : ld.underOdds);
+          const ev = fmtEV(ld.dirEV);
+          const prob = fmtProb(ld.modelProb != null ? (isOver ? ld.modelProb : 1 - ld.modelProb) : null);
+          const conf = ld.confidence != null ? `Conf ${ld.confidence}` : null;
+          pushTitle = `${senderName} shared a line`;
+          pushBody = [
+            `${ld.name || 'Player'} ${dir} ${ld.line ?? ''} ${mkt}`,
+            [odds, ev ? `EV ${ev}` : null, prob ? `Model ${prob}` : null, conf].filter(Boolean).join(' · ')
+          ].filter(Boolean).join('\n');
         } else if (type === 'bet' && betData) {
           const bd = betData;
           if (bd.type === 'parlay') {
-            pushBody = `${bd.legs?.length || 0}-Leg Parlay · ${bd.combinedOdds || ''}`;
+            const legs = (bd.legs || []).slice(0, 3).map(l => `${l.name} ${l.direction === 'over' ? '▲' : '▼'} ${l.line}`).join(', ');
+            pushTitle = `${senderName} shared a parlay`;
+            pushBody = `${bd.legs?.length || 0}-Leg · ${bd.combinedOdds || ''}\n${legs}`;
           } else {
-            // Skip closed bets
             if (bd.status && bd.status !== 'open') return;
-            const dir = bd.direction === 'over' ? 'Over' : 'Under';
-            pushBody = `${bd.player || 'Player'} ${dir} ${bd.line ?? ''} · $${(bd.stake || 0).toFixed(2)}`;
+            const dir = bd.direction === 'over' ? '▲ OVER' : '▼ UNDER';
+            const odds = fmtOdds(bd.odds);
+            const ev = fmtEV(bd.evParlay ?? (bd.edge != null ? bd.edge : null));
+            const prob = fmtProb(bd.modelProb);
+            pushTitle = `${senderName} shared a bet`;
+            pushBody = [
+              `${bd.player || 'Player'} ${dir} ${bd.line ?? ''}`,
+              [odds, ev ? `EV ${ev}` : null, prob ? `Model ${prob}` : null].filter(Boolean).join(' · ')
+            ].filter(Boolean).join('\n');
           }
         } else {
-          pushBody = content?.trim()?.substring(0, 100) || 'New message';
+          pushTitle = `${senderName} sent a message`;
+          pushBody = content?.trim()?.substring(0, 120) || 'New message';
         }
         const payload = {
-          title: `${senderName} shared a ${type === 'line' ? 'line' : type === 'bet' ? 'bet' : 'message'}`,
+          title: pushTitle,
           body: pushBody,
           tag: `conv-${req.params.id}`,
           url: '/?tab=social',
