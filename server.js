@@ -1338,6 +1338,33 @@ app.get('/api/debug/bdl', async (req, res) => {
 });
 
 // ============================================================
+// ROUTE: GET /api/headshot/name/:name — resolve player name → NBA CDN headshot
+// Must be registered BEFORE /api/headshot/:id so "name" isn't treated as an ID
+// ============================================================
+app.get('/api/headshot/name/:name', async (req, res) => {
+  const name = decodeURIComponent(req.params.name);
+  try {
+    const { nbaPlayerId } = await getBDLPlayerId(name);
+    if (!nbaPlayerId) return res.status(404).end();
+    const url = `https://cdn.nba.com/headshots/nba/latest/1040x760/${nbaPlayerId}.png`;
+    const resp = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+        'Referer': 'https://www.nba.com/',
+        'Accept': 'image/png,image/*,*/*',
+      },
+    });
+    if (!resp.ok) return res.status(404).end();
+    const buf = await resp.buffer();
+    res.set('Content-Type', 'image/png');
+    res.set('Cache-Control', 'public, max-age=86400');
+    res.send(buf);
+  } catch {
+    res.status(404).end();
+  }
+});
+
+// ============================================================
 // ROUTE: GET /api/headshot/:id — proxy NBA CDN to avoid CORS
 // ============================================================
 app.get('/api/headshot/:id', async (req, res) => {

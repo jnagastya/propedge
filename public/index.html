@@ -1160,9 +1160,11 @@ const NBA_IDS = {
   "Marcus Smart":203935,"Bobby Portis":1626171,"Mike Conley":201144,
 };
 // Proxied through server to bypass CORS. Dynamic cache takes priority over hardcoded map.
+// Hardcoded map = instant (no extra request). Name endpoint = fallback for everyone else.
 function getHeadshot(name) {
   const id = _nbaIdCache[name] || NBA_IDS[name];
-  return id ? `/api/headshot/${id}` : null;
+  if (id) return `/api/headshot/${id}`;
+  return `/api/headshot/name/${encodeURIComponent(name)}`;
 }
 
 // ── State ──
