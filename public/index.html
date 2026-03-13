@@ -346,7 +346,10 @@ table{width:100%;border-collapse:collapse;font-size:13px;}
   .hist-row{padding:8px 10px;font-size:10px;gap:6px;margin-bottom:8px;}
   /* Modals */
   .modal{padding:16px;}
-  .modal-detail{padding:14px;}
+  .modal-detail{padding:14px;width:100%;max-width:100vw;}
+  .shared-modal-tabs{margin:-4px -14px 10px;padding:0 14px;}
+  .shared-modal-tab{padding:7px 12px;font-size:12px;}
+  .shared-stats-body{max-height:55vh;}
   /* Social chat */
   .soc-msg{max-width:88%;}
   .soc-line-card{min-width:0;max-width:100%;}
@@ -674,6 +677,13 @@ td{padding:13px 14px;white-space:nowrap;}
 .modal-overlay.show{display:flex;}
 .modal{background:var(--bg1);border:1px solid var(--bd);border-radius:var(--radius-lg);padding:24px;width:380px;max-width:95vw;box-shadow:var(--shadow-md);animation:cardIn .2s ease both;}
 .modal-detail{width:700px;max-width:96vw;max-height:88vh;overflow-y:auto;}
+.shared-modal-tabs{display:flex;gap:2px;border-bottom:1px solid var(--bd);margin:-8px -24px 14px;padding:0 24px;}
+.shared-modal-tab{padding:9px 16px;border:none;background:none;color:var(--t2);font-family:var(--sans);font-size:13px;font-weight:500;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .12s;}
+.shared-modal-tab:hover{color:var(--t1);}.shared-modal-tab.on{color:var(--b);border-bottom-color:var(--b);font-weight:600;}
+.shared-stats-body{max-height:60vh;overflow-y:auto;}
+.shared-stats-body .di-grid{gap:12px;}
+.shared-stats-body .dc{margin-bottom:0;}
+.shared-stats-body .di-tabs{margin-top:4px;}
 .modal-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;}
 .modal-title{font-size:16px;font-weight:700;}
 .modal-close{background:none;border:none;font-size:20px;color:var(--t3);cursor:pointer;line-height:1;}
@@ -3801,9 +3811,12 @@ function openBetModal(p) {
   updatePayoutPreview();
 }
 function closeBetModal() {
-  document.getElementById('betModal').classList.remove('show');
-  document.getElementById('betModal').querySelector('.modal-title').textContent = 'Place Bet';
+  const modal = document.getElementById('betModal');
+  modal.classList.remove('show');
+  modal.querySelector('.modal-title').textContent = 'Place Bet';
+  modal.querySelector('.modal').classList.remove('modal-detail');
   _betPlayer = null;
+  _sharedModalPlayer = null;
 }
 function setBetDir(dir, btn) {
   _betDir = dir;
@@ -5184,9 +5197,11 @@ function renderSocMessages() {
         <div class="soc-msg-time">${timeStr}</div>
       </div>`;
     } else if (msg.type === 'bet' && msg.line_data) {
+      const betLd = msg.line_data;
+      const betClick = betLd.type !== 'parlay' && betLd.player ? `onclick="openSharedBet(${JSON.stringify(betLd).replace(/"/g,'&quot;')})"` : '';
       html += `<div class="soc-msg ${cls}">
         <div class="soc-msg-sender">${senderName}</div>
-        <div class="soc-line-card">${renderSocBetCard(msg.line_data)}</div>
+        <div class="soc-line-card" ${betClick}>${renderSocBetCard(betLd)}</div>
         <div class="soc-msg-time">${timeStr}</div>
       </div>`;
     } else {
@@ -5234,14 +5249,159 @@ function renderSocLineCard(ld) {
     </div>${liveHtml}`;
 }
 
+let _sharedModalPlayer = null;
 function openSharedLine(ld) {
-  // Find live player data and open detail modal, or open bet modal
+  // Find live player data, or use snapshot
+  let p = ld;
   if (typeof S !== 'undefined' && S.data?.length) {
-    const live = S.data.find(p => p.name === ld.name && (p.market === ld.market || !ld.market));
-    if (live) { openBetModal(live); return; }
+    const live = S.data.find(lp => lp.name === ld.name && (lp.market === ld.market || !ld.market));
+    if (live) p = live;
   }
-  // Fallback: open bet modal with snapshot data
-  openBetModal(ld);
+  _sharedModalPlayer = p;
+  // Build tabbed modal
+  const modal = document.getElementById('betModal');
+  const mEl = modal.querySelector('.modal');
+  mEl.classList.remove('modal-detail');
+  modal.querySelector('.modal-title').textContent = p.name || 'Shared Line';
+  document.getElementById('modalBody').innerHTML = `
+    <div class="shared-modal-tabs">
+      <button class="shared-modal-tab on" onclick="showSharedTab('bet',this)">Place Bet</button>
+      <button class="shared-modal-tab" onclick="showSharedTab('stats',this)">Player Stats</button>
+    </div>
+    <div id="sharedTabBet"></div>
+    <div id="sharedTabStats" class="shared-stats-body" style="display:none;"></div>`;
+  modal.classList.add('show');
+  renderSharedBetTab(p);
+}
+
+function showSharedTab(tab, btn) {
+  btn.parentElement.querySelectorAll('.shared-modal-tab').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+  const betEl = document.getElementById('sharedTabBet');
+  const statsEl = document.getElementById('sharedTabStats');
+  const mEl = document.getElementById('betModal').querySelector('.modal');
+  if (tab === 'bet') {
+    betEl.style.display = '';
+    statsEl.style.display = 'none';
+    mEl.classList.remove('modal-detail');
+  } else {
+    betEl.style.display = 'none';
+    statsEl.style.display = '';
+    mEl.classList.add('modal-detail');
+    renderSharedStatsTab(_sharedModalPlayer, statsEl);
+  }
+}
+
+function renderSharedBetTab(p) {
+  _betPlayer = p;
+  const lean = (p.edge || 0) >= 0 ? 'over' : 'under';
+  _betDir = lean;
+  const sim = simLoad();
+  const mktLabels = {player_points:'Points',player_rebounds:'Rebounds',player_assists:'Assists',player_threes:'3-Pointers',player_points_rebounds_assists:'PRA'};
+  const mktLabel = mktLabels[p.market || S.market] || 'Stats';
+  const edge = p.edge || 0;
+  const isValue = (p.confidence||0) >= 55 && Math.abs(edge) > 4;
+  const rawModelProb = p.modelProb!=null ? p.modelProb : (p.hitRate||50)/100;
+  const modelProb = lean === 'over' ? rawModelProb : 1 - rawModelProb;
+  const activeOdds = lean === 'over' ? (p.overOdds||-110) : (p.underOdds||-110);
+  const fullKelly = computeKelly(modelProb, activeOdds);
+  const quarterKelly = fullKelly * 0.25;
+  const kellySuggest = Math.max(1, Math.floor(sim.balance * quarterKelly));
+  const kellyPct = (quarterKelly * 100).toFixed(1);
+  const kellyColor = fullKelly > 0.05 ? 'var(--g)' : fullKelly > 0 ? 'var(--a)' : 'var(--r)';
+  document.getElementById('sharedTabBet').innerHTML = `
+    <div class="modal-row"><span class="modal-lbl">Player</span><span class="modal-val">${p.name}</span></div>
+    <div class="modal-row"><span class="modal-lbl">Matchup</span><span class="modal-val">${p.matchup||'—'}</span></div>
+    <div class="modal-row"><span class="modal-lbl">Line</span><span class="modal-val">${p.line} ${mktLabel}</span></div>
+    <div class="modal-row"><span class="modal-lbl">Edge</span><span class="modal-val" style="color:${edge>0?'var(--g)':'var(--r)'}">${edge>0?'+':''}${edge.toFixed(1)}%${isValue?' ⚡':''}</span></div>
+    <div class="modal-row"><span class="modal-lbl">Model Prob</span><span class="modal-val">${(modelProb*100).toFixed(0)}% <span style="font-size:10px;color:var(--t3);">(weighted: L5×35%+L10×40%+Season×25%)</span></span></div>
+    <div class="modal-row" style="background:${kellyColor}10;border-radius:6px;padding:8px 4px;">
+      <span class="modal-lbl">¼ Kelly Stake</span>
+      <span class="modal-val" style="color:${kellyColor}">
+        ${kellyPct}% of bankroll = <strong>$${kellySuggest}</strong>
+        <button onclick="document.getElementById('stakeInp').value=${kellySuggest};updatePayoutPreview();" style="margin-left:8px;padding:2px 8px;border-radius:5px;border:1px solid ${kellyColor};background:${kellyColor}20;color:${kellyColor};font-size:10px;font-weight:700;cursor:pointer;">Use</button>
+      </span>
+    </div>
+    <div class="modal-row"><span class="modal-lbl">Balance</span><span class="modal-val">$${sim.balance.toFixed(2)}</span></div>
+    <div class="dir-toggle">
+      <button class="dir-btn over${_betDir==='over'?' on':''}" onclick="setBetDir('over',this)">▲ OVER ${p.overOdds?(p.overOdds>0?'+':'')+p.overOdds:''}</button>
+      <button class="dir-btn under${_betDir==='under'?' on':''}" onclick="setBetDir('under',this)">▼ UNDER ${p.underOdds?(p.underOdds>0?'+':'')+p.underOdds:''}</button>
+    </div>
+    <div class="stake-row">
+      <div class="stake-lbl">Stake ($)</div>
+      <input class="stake-input" type="number" id="stakeInp" min="1" max="${sim.balance.toFixed(0)}" step="5" value="${kellySuggest}" oninput="updatePayoutPreview()"/>
+    </div>
+    <div class="payout-preview" id="payoutPreview">
+      <span>To Win: <strong id="toWinAmt">—</strong></span>
+      <span>Total Return: <strong id="totalRetAmt">—</strong></span>
+    </div>
+    <button class="place-btn" onclick="placeBet()">Place Bet</button>
+    <button class="add-parlay-btn" onclick="addToCustomParlay(_betPlayer,_betDir)">➕ Add to Custom Parlay${customParlayLegs.length>0?' ('+customParlayLegs.length+' legs)':''}</button>`;
+  updatePayoutPreview();
+}
+
+function renderSharedStatsTab(p, el) {
+  if (el._rendered && el._renderedFor === p.name) return;
+  el._renderedFor = p.name;
+  el._rendered = true;
+  // Build player header + stat tabs
+  const _dhs = getHeadshot(p.name);
+  const _dinit = (p.name||'?').split(' ').map(n=>n[0]).join('').substring(0,2);
+  const mktLabel = ({'player_points':'Points','player_rebounds':'Rebounds','player_assists':'Assists','player_threes':'3-Pointers','player_steals':'Steals','player_blocks':'Blocks','player_turnovers':'Turnovers','player_points_rebounds_assists':'PRA'})[p.market||S.market]||'Stats';
+  const booksTab = p.bookLines && Object.keys(p.bookLines).length > 1 ? `<button class="di-tab" onclick="showSharedDTab('books',this)">📊 Books</button>` : '';
+  el.innerHTML = `<div class="di-player-hdr">
+    <div class="di-player-hdr-av" data-av="${p.name.replace(/"/g,'&quot;')}">${_dhs?`<img src="${_dhs}" onerror="headshotError(this,'${_dinit}')" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" alt="">`:`<span>${_dinit}</span>`}</div>
+    <div>
+      <div class="di-player-hdr-name">${p.name}</div>
+      <div class="di-player-hdr-meta">${[p.team, p.position, p.matchup, mktLabel+' · Line '+p.line].filter(Boolean).join(' · ')}</div>
+    </div>
+  </div>
+  <div class="di-tabs">
+    <button class="di-tab on" onclick="showSharedDTab('overview',this)">Overview</button>
+    <button class="di-tab" onclick="showSharedDTab('splits',this)">Splits</button>
+    <button class="di-tab" onclick="showSharedDTab('gamelog',this)">Game Log</button>
+    ${booksTab}
+    <button class="di-tab" onclick="showSharedDTab('simulator',this)">⚡ Line Sim</button>
+  </div>
+  <div id="sharedDtc"></div>`;
+  window._dp = p;
+  showSharedDTab('overview', el.querySelector('.di-tab'));
+  // Fetch real stats if not loaded
+  if (!p.hasRealStats) {
+    enrichPlayerStats(null, p).then(() => {
+      const activeTab = el.querySelector('.di-tab.on');
+      if (activeTab && activeTab.textContent.trim() === 'Overview') {
+        renderOverview(document.getElementById('sharedDtc'), p);
+      }
+    });
+  }
+}
+
+async function showSharedDTab(tab, btn) {
+  const p = _sharedModalPlayer;
+  const el = document.getElementById('sharedDtc');
+  if (!p || !el) return;
+  btn.parentElement.querySelectorAll('.di-tab').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+  window._dp = p;
+  if (tab === 'overview') renderOverview(el, p);
+  else if (tab === 'splits') await loadAndRenderSplits(el, p);
+  else if (tab === 'gamelog') await loadAndRenderGameLog(el, p);
+  else if (tab === 'books') renderBookComparison(el, p);
+  else if (tab === 'simulator') renderLineSimulator(el, p);
+}
+
+function openSharedBet(bd) {
+  // Build a player-like object from bet data for the tabbed modal
+  const ld = {
+    name: bd.player, market: bd.market || null, marketLabel: bd.marketLabel,
+    line: bd.line, matchup: bd.matchup || null, team: bd.team || null,
+    overOdds: bd.direction === 'over' ? bd.odds : null,
+    underOdds: bd.direction === 'under' ? bd.odds : null,
+    edge: bd.edge || 0, confidence: bd.confidence || 0,
+    modelProb: bd.confidence != null ? bd.confidence / 100 : null,
+  };
+  openSharedLine(ld);
 }
 
 function escHtml(str) {
