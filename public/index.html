@@ -2575,6 +2575,7 @@ function applyPlayerStats(p, games){
   if(!played.length){p.statsError='No games with minutes played found';return false;}
   const vals=played.map(g=>getStatVal(g));
   const l10=vals.slice(0,10);
+  const l20=vals.slice(0,20);
   const firstPlayedIdx=sorted.findIndex(g=>parseInt(g.min||'0')>0);
   const returnFromInjury=firstPlayedIdx>=2?firstPlayedIdx:0;
   const minVals=played.map(g=>parseFloat(g.min)||0).filter(m=>m>0);
@@ -2589,14 +2590,17 @@ function applyPlayerStats(p, games){
   const hitRate=p.line?Math.round(vals.filter(v=>v>=p.line).length/vals.length*100):50;
   const edge=p.line?+((avg-p.line)/p.line*100).toFixed(1):0;
   const l10avg=l10.reduce((a,b)=>a+b,0)/l10.length;
-  const stdDev=+(Math.sqrt(l10.reduce((s,v)=>s+Math.pow(v-l10avg,2),0)/l10.length)).toFixed(1);
+  const l20avg=l20.reduce((a,b)=>a+b,0)/l20.length;
+  const stdDev=+(Math.sqrt(l20.reduce((s,v)=>s+Math.pow(v-l20avg,2),0)/l20.length)).toFixed(1);
   const cv=avg?stdDev/avg:0.4;
   const l10HitRate=p.line&&l10.length?Math.round(l10.filter(v=>v>=p.line).length/l10.length*100):hitRate;
   const l5=vals.slice(0,5);
   const l5HitRate=(l5.length>=3&&p.line)?Math.round(l5.filter(v=>v>=p.line).length/l5.length*100):l10HitRate;
-  // Weighted blend of L5/L10/season hit rates, then Bayesian shrinkage toward 0.5
+  // Statistical probability via normal distribution (captures margin of safety)
+  const statProb=p.line!=null&&stdDev>0?normalCDF((avg-p.line)/stdDev):0.5;
+  // Weighted blend of L5/L10/season hit rates + statProb, then Bayesian shrinkage toward 0.5
   // Prior = 10 games at 50% — prevents small samples from producing extreme probabilities
-  const rawProb=(l5HitRate*0.35+l10HitRate*0.40+hitRate*0.25)/100;
+  const rawProb=(l5HitRate*0.25+l10HitRate*0.30+hitRate*0.25)/100+statProb*0.20;
   const modelProb=Math.min(0.97,Math.max(0.03,(rawProb*vals.length+5)/(vals.length+10)));
   const evOver=calcEV(modelProb,p.overOdds);
   const evUnder=calcEV(1-modelProb,p.underOdds);
@@ -2743,9 +2747,14 @@ function renderOverview(el,p){
         const curEV=getDirectionalEV(p);const prevEV=getDirectionalEV(prevP);const evDelta=curEV-prevEV;
         const rawMP=p.modelProb??(p.hitRate||50)/100;
         const curMP=Math.round((_isOv?rawMP:1-rawMP)*100);
-        // Estimate prev MP: model prob doesn't change with line, but direction might
+        // Re-estimate prev MP using statProb with old line (hit rates stay same, but statistical prob changes)
         const prevIsOv=prevEdge>0;
-        const prevMP=Math.round((prevIsOv?rawMP:1-rawMP)*100);
+        const prevStatProb=p.avg!=null&&(p.stdDev||0)>0?normalCDF((p.avg-p.prev_line)/(p.stdDev)):0.5;
+        const curStatProb=p.avg!=null&&(p.stdDev||0)>0?normalCDF((p.avg-p.line)/(p.stdDev)):0.5;
+        const statDelta=curStatProb-prevStatProb;
+        // Adjust raw model prob by the statistical delta to estimate prev MP
+        const prevRawMP=Math.min(0.97,Math.max(0.03,rawMP-statDelta*0.20));
+        const prevMP=Math.round((prevIsOv?prevRawMP:1-prevRawMP)*100);
         const mpDelta=curMP-prevMP;
         const prevImplO=p.prev_overOdds?impliedProb(p.prev_overOdds):null;
         const prevImplU=p.prev_underOdds?impliedProb(p.prev_underOdds):null;
@@ -2765,10 +2774,19 @@ function renderOverview(el,p){
             <span>↕ Line Change Impact</span>
             <span style="font-size:11px;font-weight:800;color:${betterOrWorse.col};padding:3px 10px;border-radius:6px;background:${betterOrWorse.col}15;">${betterOrWorse.icon} ${betterOrWorse.label}</span>
           </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
+          ${(()=>{
+            const fmtOdds=o=>o?(o>0?'+':'')+o:'—';
+            const curOverO=p.overOdds,curUnderO=p.underOdds;
+            const prevOverO=p.prev_overOdds||curOverO,prevUnderO=p.prev_underOdds||curUnderO;
+            const oddsChanged=prevOverO!==curOverO||prevUnderO!==curUnderO;
+            return`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
             <div style="padding:8px 10px;background:var(--bg2);border-radius:6px;border:1px solid var(--bd);">
               <div style="font-size:9px;font-weight:600;color:var(--b-text);text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px;">Line</div>
               <div style="font-size:14px;font-weight:800;">${p.prev_line} <span style="color:var(--t3);">→</span> ${p.line} <span style="font-size:11px;color:${lineDiff>0?'var(--r)':'var(--g)'};">(${fD(lineDiff)})</span></div>
+            </div>
+            <div style="padding:8px 10px;background:var(--bg2);border-radius:6px;border:1px solid var(--bd);">
+              <div style="font-size:9px;font-weight:600;color:var(--b-text);text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px;">Odds${oddsChanged?' (changed)':''}</div>
+              <div style="font-size:14px;font-weight:800;">${oddsChanged?`O: ${fmtOdds(prevOverO)} → ${fmtOdds(curOverO)} · U: ${fmtOdds(prevUnderO)} → ${fmtOdds(curUnderO)}`:`O: ${fmtOdds(curOverO)} · U: ${fmtOdds(curUnderO)}`}</div>
             </div>
             <div style="padding:8px 10px;background:var(--bg2);border-radius:6px;border:1px solid var(--bd);">
               <div style="font-size:9px;font-weight:600;color:var(--b-text);text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px;">Expected Value</div>
@@ -2782,7 +2800,8 @@ function renderOverview(el,p){
               <div style="font-size:9px;font-weight:600;color:var(--b-text);text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px;">Value Score</div>
               <div style="font-size:14px;font-weight:800;color:${curVS>=40?'var(--g)':curVS>=25?'var(--a)':'var(--r)'};">${curVS} <span style="font-size:11px;color:${vsDelta>=0?'var(--g)':'var(--r)'};">(was ${prevVS}, ${vsDelta>0?'+':''}${vsDelta})</span></div>
             </div>
-          </div>
+          </div>`;
+          })()}
           <div style="margin-top:8px;display:flex;gap:8px;">
             <div style="flex:1;padding:8px 10px;background:var(--bg2);border-radius:6px;border:1px solid var(--bd);">
               <div style="font-size:9px;font-weight:600;color:var(--b-text);text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px;">Before Line Change</div>
@@ -3744,13 +3763,14 @@ function renderAlerts(){
       prevP.edge=prevEdge;
       const prevVS=valueScore(prevP);
       const prevDirEV=getDirectionalEV(prevP);
+      const evIncrease=dirEV-prevDirEV;
       const rec=vs>=40?(isOver?'BET OVER':'BET UNDER'):'MONITOR';
       const prevRec=prevVS>=40?(prevEdge>0?'BET OVER':'BET UNDER'):'MONITOR';
       return {...p,_lineDiff:ld,_absMove:absMove,_oddsDiffO:od,_oddsDiffU:ud,
-        _vs:vs,_prevVS:prevVS,_dirEV:dirEV,_prevDirEV:prevDirEV,
+        _vs:vs,_prevVS:prevVS,_dirEV:dirEV,_prevDirEV:prevDirEV,_evIncrease:evIncrease,
         _probPct:probPct,_rec:rec,_prevRec:prevRec,_isOver:isOver};
     })
-    .sort((a,b)=>b._absMove-a._absMove);
+    .sort((a,b)=>b._evIncrease-a._evIncrease);
   window._lmMovers=movers;
 
   // Render rotating ribbon
@@ -3774,10 +3794,12 @@ function renderAlerts(){
         const lineStr=m._lineDiff!==0?`${m.prev_line} → ${m.line} ${dir}${Math.abs(m._lineDiff).toFixed(1)}`:`${m.line} (odds moved)`;
         const evCls=evDelta>=0?'up':'dn';const evArr=evDelta>=0?'↑':'↓';
         const vsCls=vsDelta>=0?'up':'dn';const vsArr=vsDelta>=0?'↑':'↓';
+        const rankColor=i===0?'#f59e0b':i===1?'#94a3b8':i===2?'#b45309':'var(--t3)';
+        const rankLabel=i===0?'🥇':i===1?'🥈':i===2?'🥉':`#${i+1}`;
         return `<div class="lmr-card" onclick="openAlertDetail(_lmMovers[${i}])">
           <div class="lmr-av" data-av="${m.name.replace(/"/g,'&quot;')}">${av}</div>
           <div class="lmr-body">
-            <div class="lmr-top"><span class="lmr-nm">${m.name}</span></div>
+            <div class="lmr-top"><span class="lmr-nm">${m.name}</span> <span style="font-size:10px;font-weight:700;color:${rankColor};margin-left:3px;">${rankLabel}</span></div>
             <div class="lmr-ln">${dirLabel} ${lineStr} ${mktS}</div>
             <div class="lmr-st">EV: <span class="lmr-ev" style="color:${m._dirEV>=0?'var(--g)':'var(--r)'}">${fmtD(m._dirEV)}%</span> <span class="lmr-delta ${evCls}">${evArr}${Math.abs(evDelta).toFixed(1)}</span> · MP: ${m._probPct}%</div>
             <div class="lmr-st2">VS: ${m._vs} <span class="lmr-delta ${vsCls}">${vsArr}${Math.abs(vsDelta)}</span>${recChanged?` · <span style="color:#c084fc;font-weight:700;">→ ${m._rec}</span>`:''}</div>
@@ -3811,7 +3833,7 @@ function renderAlerts(){
     const reasons=[];
     // Use directional stats: for UNDER bets flip the hit rate perspective
     const dirHR=isOver?(p.hitRate||50):(100-(p.hitRate||50));
-    // Weighted model probability (L5×35% + L10×40% + Season×25%), directional
+    // Weighted model probability (L5×25% + L10×30% + Season×25% + StatProb×20%), directional
     const rawModelProb=p.modelProb!=null?p.modelProb:(p.hitRate||50)/100;
     const dirModelProb=isOver?rawModelProb:1-rawModelProb;
     const dirModelProbPct=Math.round(dirModelProb*100);
