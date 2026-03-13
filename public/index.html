@@ -5138,28 +5138,41 @@ function formatBetAsText(bet) {
 function renderSocBetCard(bd) {
   const statusColors = { open: 'var(--b)', won: 'var(--g)', lost: 'var(--r)', void: 'var(--t3)' };
   const sc = statusColors[bd.status] || 'var(--t2)';
+  const fmtEVCard = e => e != null ? (e >= 0 ? '+' : '') + e.toFixed(1) + '%' : '—';
   if (bd.type === 'parlay') {
-    const legsHtml = (bd.legs || []).slice(0, 4).map(l =>
-      `<div style="font-size:11px;margin-top:3px;display:flex;gap:5px;align-items:center;">
+    const legsHtml = (bd.legs || []).slice(0, 4).map(l => {
+      const lo = l.odds != null ? ` · <span style="color:var(--b);font-weight:700;">${(l.odds>0?'+':'')+l.odds}</span>` : '';
+      return `<div style="font-size:11px;margin-top:3px;display:flex;gap:5px;align-items:center;">
         <span style="color:${l.direction==='over'?'var(--g)':'var(--r)'};font-size:10px;">${l.direction==='over'?'▲':'▼'}</span>
         <span style="font-weight:600;">${l.name}</span>
-        <span style="opacity:.7;">${l.line} ${l.marketLabel}</span>
-      </div>`).join('') + (bd.legs?.length > 4 ? `<div style="font-size:10px;opacity:.6;margin-top:2px;">+${bd.legs.length-4} more</div>` : '');
+        <span style="opacity:.7;">${l.line} ${l.marketLabel}</span>${lo}
+      </div>`;
+    }).join('') + (bd.legs?.length > 4 ? `<div style="font-size:10px;opacity:.6;margin-top:2px;">+${bd.legs.length-4} more</div>` : '');
+    const mp = bd.modelProb != null ? (bd.modelProb * 100).toFixed(1) + '%' : '—';
+    const ev = fmtEVCard(bd.evParlay);
+    const evColor = (bd.evParlay||0) >= 0 ? 'var(--g)' : 'var(--r)';
     return `<div class="soc-line-name">🎯 ${bd.legs?.length}-Leg Parlay <span class="soc-line-mkt">${bd.combinedOdds}</span></div>
       ${legsHtml}
       <div class="soc-line-grid" style="margin-top:8px;">
         <div><div class="soc-line-cell">Stake</div><div class="soc-line-val">$${(bd.stake||0).toFixed(2)}</div></div>
         <div><div class="soc-line-cell">To Win</div><div class="soc-line-val" style="color:var(--g);">$${(bd.toWin||0).toFixed(2)}</div></div>
+        <div><div class="soc-line-cell">Model Prob</div><div class="soc-line-val">${mp}</div></div>
+        <div><div class="soc-line-cell">EV</div><div class="soc-line-val" style="color:${evColor};">${ev}</div></div>
         <div><div class="soc-line-cell">Status</div><div class="soc-line-val" style="color:${sc};">${(bd.status||'').toUpperCase()}</div></div>
       </div>`;
   }
   const oddsStr = (bd.odds > 0 ? '+' : '') + bd.odds;
   const dirColor = bd.direction === 'over' ? 'var(--g)' : 'var(--r)';
+  const mp = bd.confidence != null ? bd.confidence.toFixed(0) + '%' : '—';
+  const evVal = calcEV((bd.confidence || 0) / 100, bd.odds);
+  const ev = fmtEVCard(evVal);
+  const evColor = (evVal||0) >= 0 ? 'var(--g)' : 'var(--r)';
   return `<div class="soc-line-name">${bd.player || '?'} <span class="soc-line-mkt">${bd.marketLabel||''}</span> <span style="color:${dirColor};font-size:11px;">${bd.direction==='over'?'▲ OVER':'▼ UNDER'}</span></div>
     <div class="soc-line-grid">
       <div><div class="soc-line-cell">Line</div><div class="soc-line-val">${bd.line ?? '—'}</div></div>
       <div><div class="soc-line-cell">Odds</div><div class="soc-line-val" style="color:var(--b);">${oddsStr}</div></div>
-      <div><div class="soc-line-cell">Edge</div><div class="soc-line-val" style="color:${(bd.edge||0)>=0?'var(--g)':'var(--r)'};">${(bd.edge||0)>=0?'+':''}${(bd.edge||0).toFixed(1)}%</div></div>
+      <div><div class="soc-line-cell">Model Prob</div><div class="soc-line-val">${mp}</div></div>
+      <div><div class="soc-line-cell">EV</div><div class="soc-line-val" style="color:${evColor};">${ev}</div></div>
       <div><div class="soc-line-cell">Stake</div><div class="soc-line-val">$${(bd.stake||0).toFixed(2)}</div></div>
       <div><div class="soc-line-cell">To Win</div><div class="soc-line-val" style="color:var(--g);">$${(bd.toWin||0).toFixed(2)}</div></div>
       <div><div class="soc-line-cell">Status</div><div class="soc-line-val" style="color:${sc};">${(bd.status||'').toUpperCase()}</div></div>
@@ -5227,7 +5240,7 @@ async function sharePickedBet(betId, btn) {
   const r = await fetch(`${API}/api/social/conversations/${_activeConvId}/messages`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_authToken}` },
-    body: JSON.stringify({ type: 'text', content: formatBetAsText(bet) }),
+    body: JSON.stringify({ type: 'bet', betData: bet }),
   });
   if (r.ok) {
     const msg = await r.json();
@@ -5256,8 +5269,8 @@ async function shareTo(mode, id, label, btn) {
   }
   let msgType, msgPayload;
   if (_socShareBet) {
-    msgType = 'text';
-    msgPayload = { content: formatBetAsText(_socShareBet) };
+    msgType = 'bet';
+    msgPayload = { betData: _socShareBet };
   } else {
     const p = _socSharePlayer;
     msgType = 'line';

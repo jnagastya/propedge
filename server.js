@@ -1498,7 +1498,7 @@ app.put('/api/user/profile', async (req, res) => {
 //     conversation_id UUID NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
 //     sender_id UUID NOT NULL REFERENCES user_profiles(id) ON DELETE CASCADE,
 //     content TEXT,
-//     type TEXT NOT NULL DEFAULT 'text' CHECK (type IN ('text','line')),
+//     type TEXT NOT NULL DEFAULT 'text' CHECK (type IN ('text','line','bet')),
 //     line_data JSONB,
 //     created_at TIMESTAMPTZ DEFAULT now()
 //   );
