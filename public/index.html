@@ -161,17 +161,17 @@ tbody tr.exp{background:rgba(99,102,241,.04);}
 tbody tr.value-row{border-left:3px solid var(--gold);}
 tbody tr.scn-row{background:rgba(167,139,250,.04);}
 tbody tr.scn-row td:first-child{border-left:3px solid var(--p);}
-td{padding:9px 11px;white-space:nowrap;}
+td{padding:13px 14px;white-space:nowrap;}
 
 /* -- Player cell -- */
-.pc{display:flex;align-items:center;gap:10px;min-width:185px;}
-.av{width:38px;height:38px;border-radius:50%;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--t3);flex-shrink:0;border:2px solid var(--bd);overflow:hidden;}
+.pc{display:flex;align-items:center;gap:11px;min-width:210px;}
+.av{width:48px;height:48px;border-radius:50%;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--t3);flex-shrink:0;border:2px solid var(--bd);overflow:hidden;}
 .av img{width:100%;height:100%;object-fit:cover;border-radius:50%;}
 .pi{display:flex;flex-direction:column;}
-.pn{font-weight:700;font-size:13px;display:flex;align-items:center;gap:5px;}
+.pn{font-weight:700;font-size:15px;display:flex;align-items:center;gap:5px;}
 .scn-icon{font-size:10px;background:var(--pd);color:var(--p);border-radius:4px;padding:1px 4px;font-weight:700;}
-.pm{font-size:10px;color:var(--t3);display:flex;gap:5px;align-items:center;margin-top:1px;}
-.ptb{font-size:10px;font-weight:600;padding:1px 6px;border-radius:4px;background:var(--bg3);color:var(--t2);}
+.pm{font-size:12px;color:var(--t3);display:flex;gap:5px;align-items:center;margin-top:2px;}
+.ptb{font-size:11px;font-weight:600;padding:1px 6px;border-radius:4px;background:var(--bg3);color:var(--t2);}
 .odds-cell{display:flex;gap:5px;align-items:center;}
 .odd{padding:3px 8px;border-radius:6px;font-size:11px;font-weight:700;}
 .odd.over{background:var(--gd);color:var(--g);}
@@ -305,7 +305,14 @@ td{padding:9px 11px;white-space:nowrap;}
 .p-leg:hover{border-color:rgba(99,102,241,.3);}
 .p-leg.removed{opacity:.35;text-decoration:line-through;}
 .p-leg-num{width:26px;height:26px;border-radius:50%;background:var(--b);color:#fff;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 2px 6px rgba(99,102,241,.3);}
+.p-leg-av{width:36px;height:36px;border-radius:50%;background:var(--bg3);overflow:hidden;border:2px solid var(--bd);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--t3);}
+.p-leg-av img{width:100%;height:100%;object-fit:cover;border-radius:50%;}
 .p-leg-info{flex:1;}
+.di-player-hdr{display:flex;align-items:center;gap:14px;padding:16px 20px 12px;border-bottom:1px solid var(--bd);}
+.di-player-hdr-av{width:54px;height:54px;border-radius:50%;background:var(--bg3);overflow:hidden;border:2px solid var(--bd);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:var(--t3);}
+.di-player-hdr-av img{width:100%;height:100%;object-fit:cover;border-radius:50%;}
+.di-player-hdr-name{font-size:17px;font-weight:700;color:var(--t1);}
+.di-player-hdr-meta{font-size:12px;color:var(--t3);margin-top:2px;}
 .p-leg-name{font-size:13px;font-weight:700;}
 .p-leg-meta{font-size:11px;color:var(--t3);margin-top:2px;}
 .p-leg-odds{font-size:13px;font-weight:700;margin-left:auto;}
@@ -373,11 +380,11 @@ td{padding:9px 11px;white-space:nowrap;}
 .va-card.risky::before{background:linear-gradient(90deg,var(--r),var(--a));}
 .va-card.fake-stats{box-shadow:0 0 0 1px rgba(239,68,68,.35),0 0 14px rgba(239,68,68,.18);}
 .va-top{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
-.va-av{width:44px;height:44px;border-radius:50%;background:var(--bg3);overflow:hidden;border:2px solid var(--bd);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:var(--t3);}
+.va-av{width:58px;height:58px;border-radius:50%;background:var(--bg3);overflow:hidden;border:2px solid var(--bd);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:var(--t3);}
 .va-av img{width:100%;height:100%;object-fit:cover;}
 .va-info{flex:1;}
-.va-name{font-size:14px;font-weight:700;}
-.va-meta{font-size:11px;color:var(--t3);}
+.va-name{font-size:17px;font-weight:700;}
+.va-meta{font-size:13px;color:var(--t3);}
 .va-right{text-align:right;}
 .va-edge-big{font-size:22px;font-weight:800;}
 .va-edge-big.pos{color:var(--g);}.va-edge-big.neg{color:var(--r);}
@@ -386,7 +393,7 @@ td{padding:9px 11px;white-space:nowrap;}
 .va-direction.under{background:var(--rb);color:var(--r);}
 .va-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-bottom:10px;}
 .va-stat{text-align:center;padding:7px;background:var(--bg2);border-radius:6px;border:1px solid var(--bd);}
-.va-stat-v{font-size:14px;font-weight:700;}
+.va-stat-v{font-size:17px;font-weight:700;}
 .va-stat-l{font-size:9px;font-weight:600;color:var(--t3);text-transform:uppercase;margin-top:2px;letter-spacing:.4px;}
 .va-reason{font-size:11px;color:var(--t2);background:var(--bg2);padding:9px 11px;border-radius:6px;line-height:1.55;border:1px solid var(--bd);}
 .va-reason b{color:var(--t1);}
@@ -1754,7 +1761,16 @@ function renderDet(i,p){
   const c=document.getElementById(`di-${i}`);window._dp=p;
   const scnTab=S.scnOn?`<button class="di-tab" onclick="showDTab('${i}','scenario',this)">Scenario</button>`:'';
   const booksTab=p.bookLines&&Object.keys(p.bookLines).length>1?`<button class="di-tab" onclick="showDTab('${i}','books',this)">📊 Books</button>`:'';
-  c.innerHTML=`<div class="di-tabs">
+  const _dhs=getHeadshot(p.name);const _dinit=(p.name||'?').split(' ').map(n=>n[0]).join('').substring(0,2);
+  const mktLabel=({'player_points':'Points','player_rebounds':'Rebounds','player_assists':'Assists','player_threes':'3-Pointers','player_steals':'Steals','player_blocks':'Blocks','player_turnovers':'Turnovers','player_points_rebounds_assists':'PRA'})[p.market||S.market]||'Stats';
+  c.innerHTML=`<div class="di-player-hdr">
+    <div class="di-player-hdr-av" data-av="${p.name.replace(/"/g,'&quot;')}">${_dhs?`<img src="${_dhs}" onerror="headshotError(this,'${_dinit}')" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" alt="">`:`<span>${_dinit}</span>`}</div>
+    <div>
+      <div class="di-player-hdr-name">${p.name}</div>
+      <div class="di-player-hdr-meta">${[p.team,p.position,p.matchup,mktLabel+' · Line '+p.line].filter(Boolean).join(' · ')}</div>
+    </div>
+  </div>
+  <div class="di-tabs">
     <button class="di-tab on" onclick="showDTab('${i}','overview',this)">Overview</button>
     <button class="di-tab" onclick="showDTab('${i}','splits',this)">Splits</button>
     <button class="di-tab" onclick="showDTab('${i}','gamelog',this)">Game Log</button>
@@ -2540,8 +2556,9 @@ function renderCustomParlay(){
         const oddsStr=(l.odds>0?'+':'')+l.odds;
         const ec=l.edge>3?'var(--g)':l.edge<-3?'var(--r)':'var(--t2)';
         const dirHR=isOver?l.hitRate:(100-l.hitRate);
+        const _clegHs=getHeadshot(l.name);const _clegInit=(l.name||'?').split(' ').map(n=>n[0]).join('').substring(0,2);
         return`<div class="p-leg">
-          <div class="p-leg-num">${i+1}</div>
+          <div class="p-leg-av" data-av="${l.name.replace(/"/g,'&quot;')}">${_clegHs?`<img src="${_clegHs}" onerror="headshotError(this,'${_clegInit}')" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" alt="">`:`<span>${_clegInit}</span>`}</div>
           <div class="p-leg-info">
             <div class="p-leg-name">${l.name} <span class="p-leg-dir ${l.direction}">${isOver?'▲':'▼'} ${l.direction.toUpperCase()} ${l.line} ${l.marketLabel}</span></div>
             <div class="p-leg-meta">${l.team||'—'} · ${(l.matchup||'—').substring(0,25)} · ${isOver?'Over':'Under'} Rate ${dirHR}% · Conf ${l.confidence} · Edge <span style="color:${ec}">${l.edge>=0?'+':''}${(l.edge).toFixed(1)}%</span></div>
@@ -2658,8 +2675,9 @@ function renderParlay(){
         const evPct=(p._legEV*100).toFixed(1);
         const ec=p._legEV>0.03?'var(--g)':p._legEV<-0.03?'var(--r)':'var(--t2)';
         const pName=p.name.replace(/'/g,"\\'");
+        const _legHs=getHeadshot(p.name);const _legInit=(p.name||'?').split(' ').map(n=>n[0]).join('').substring(0,2);
         return`<div class="p-leg">
-          <div class="p-leg-num">${i+1}</div>
+          <div class="p-leg-av" data-av="${p.name.replace(/"/g,'&quot;')}">${_legHs?`<img src="${_legHs}" onerror="headshotError(this,'${_legInit}')" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" alt="">`:`<span>${_legInit}</span>`}</div>
           <div class="p-leg-info">
             <div class="p-leg-name">${p.name} <span style="font-size:10px;font-weight:600;color:${isOver?'var(--g)':'var(--r)'}">${isOver?'▲':'▼'} ${p._dir.toUpperCase()} ${p.line} ${MKT_LABEL_MAP[p.market||S.market]||'PTS'}</span></div>
             <div class="p-leg-meta">${p.team||'—'} · ${p.matchup||'—'} · Model ${(p._dirMP*100).toFixed(0)}% · Conf ${p.confidence||0} · Leg EV <span style="color:${ec}">${p._legEV>=0?'+':''}${evPct}%</span></div>
@@ -2999,14 +3017,20 @@ function placeBet() {
   const isOver = _betDir === 'over';
   const oddsStr = (odds > 0 ? '+' : '') + odds;
   const mktName = mktFull[_betPlayer.market || S.market] || 'Stats';
+  const _bcHs=getHeadshot(_betPlayer.name);const _bcInit=(_betPlayer.name||'?').split(' ').map(n=>n[0]).join('').substring(0,2);
   document.getElementById('betModal').querySelector('.modal-title').textContent = 'Bet Confirmed';
   document.getElementById('modalBody').innerHTML = `
     <div class="bet-confirm">
       <div class="bet-confirm-check">✓</div>
       <div class="bet-confirm-hero">
-        <div class="bet-confirm-dir" style="color:${isOver?'var(--g)':'var(--r)'}">${isOver?'▲ OVER':'▼ UNDER'} · ${oddsStr}</div>
+        <div style="display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:6px;">
+          <div data-av="${_betPlayer.name.replace(/"/g,'&quot;')}" style="width:52px;height:52px;border-radius:50%;background:var(--bg3);overflow:hidden;border:2px solid var(--bd);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:var(--t3);flex-shrink:0;">${_bcHs?`<img src="${_bcHs}" onerror="headshotError(this,'${_bcInit}')" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" alt="">`:`<span>${_bcInit}</span>`}</div>
+          <div>
+            <div class="bet-confirm-player" style="margin-top:0;">${_betPlayer.name}${_betPlayer.team?' · '+_betPlayer.team:''}</div>
+            <div class="bet-confirm-dir" style="color:${isOver?'var(--g)':'var(--r)'};margin-top:2px;">${isOver?'▲ OVER':'▼ UNDER'} · ${oddsStr}</div>
+          </div>
+        </div>
         <div class="bet-confirm-line">${_betPlayer.line} ${mktName}</div>
-        <div class="bet-confirm-player">${_betPlayer.name}${_betPlayer.team?' · '+_betPlayer.team:''}</div>
       </div>
       <div class="bet-confirm-payout">
         <div class="bet-confirm-payout-cell">
