@@ -3083,7 +3083,7 @@ app.get('/api/cron/agent-bet', async (req, res) => {
   const DAILY_ALLOCATION = 1.00; // 100% of bankroll per day
   const MIN_BET = 2;
   const CONTROL_STAKE = 5; // flat small stake for control bets
-  const today = new Date().toISOString().slice(0, 10);
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
 
   // Idempotency: skip if we already placed bets today
   const { count: existing } = await supabase.from('agent_bets').select('id', { count: 'exact', head: true }).eq('game_date', today);
@@ -3568,7 +3568,7 @@ app.get('/api/discord/resend-picks', async (req, res) => {
     return res.status(401).json({ error: 'Unauthorized' });
   }
   if (!supabase) return res.status(503).json({ error: 'Supabase not configured' });
-  const date = req.query.date || new Date().toISOString().slice(0, 10);
+  const date = req.query.date || new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
   const { data: bets, error } = await supabase.from('agent_bets').select('*').eq('game_date', date);
   if (error) return res.status(500).json({ error: error.message });
   if (!bets || !bets.length) return res.status(404).json({ error: `No bets found for ${date}` });
