@@ -1372,6 +1372,18 @@ td{padding:13px 14px;white-space:nowrap;}
       <button class="lmr-arrow lmr-arrow-r" onclick="lmrScroll(1)" aria-label="Scroll right">›</button>
     </div>
     <div class="alert-mkt-bar" id="alertMktBar"></div>
+    <div class="va-adj-bar" style="display:flex;gap:14px;align-items:center;padding:6px 0;flex-wrap:wrap;">
+      <label style="display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:var(--t2);cursor:pointer;user-select:none;">
+        <input type="checkbox" id="smartMinToggle" onchange="toggleSmartMin()" style="accent-color:#8b5cf6;cursor:pointer;">
+        <span>Smart Minutes</span>
+        <span style="font-size:9px;color:var(--t3);font-weight:400;">L3 avg for flagged players</span>
+      </label>
+      <label style="display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:var(--t2);cursor:pointer;user-select:none;">
+        <input type="checkbox" id="dnpAdjToggle" onchange="toggleDnpAdj()" style="accent-color:#ef4444;cursor:pointer;">
+        <span>DNP Adjusted</span>
+        <span style="font-size:9px;color:var(--t3);font-weight:400;">markdown minutes for DNP players</span>
+      </label>
+    </div>
     <div class="risk-ctrl">
       <span class="risk-label">Risk Profile:</span>
       <input type="range" min="1" max="3" step="1" value="2" class="risk-slider" id="riskSlider" oninput="updateRisk(this.value)"/>
@@ -3610,6 +3622,53 @@ const ALERT_MARKETS=[
 const MKT_SHORT={player_points:'PTS',player_rebounds:'REB',player_assists:'AST',player_threes:'3PM',player_points_rebounds_assists:'PRA',player_rebounds_assists:'R+A'};
 let alertMkt='all';
 let alertMktCache={}; // {market_key: enriched player array}
+let _smartMinOn=false, _dnpAdjOn=false;
+
+function toggleSmartMin(){ _smartMinOn=document.getElementById('smartMinToggle').checked; renderAlerts(); }
+function toggleDnpAdj(){ _dnpAdjOn=document.getElementById('dnpAdjToggle').checked; renderAlerts(); }
+
+// Smart Minutes: for minutes-flagged players, recalculate stats using L3 avg minutes
+function applySmartMinutes(p){
+  if(!p.minutesFlag || !p.hasRealStats || !p.gameLog) return p;
+  const games=p.gameLog.filter(g=>parseInt(g.min||'0')>0);
+  if(games.length<3) return p;
+  const l3=games.slice(0,3);
+  const l3avg=Math.round(l3.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/l3.length);
+  return _applyMinAdj(p, l3avg, 'min');
+}
+
+// DNP Adjusted: for players with 5+ DNPs, markdown season avg minutes proportionally
+// 5/10 DNP = 20% decrease, scales linearly to 10/10 DNP = 40% decrease
+function applyDnpAdjustment(p){
+  if(!p.dnpCount || p.dnpCount<5 || !p.hasRealStats || !p.gameLog) return p;
+  const games=p.gameLog.filter(g=>parseInt(g.min||'0')>0);
+  if(!games.length) return p;
+  const seasonAvg=games.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/games.length;
+  // 5 DNPs = 20% cut, 10 DNPs = 40% cut, linear between
+  const dnpRatio=Math.min(p.dnpCount, 10);
+  const markdownPct=0.20 + (dnpRatio - 5) * (0.20 / 5); // 20% at 5, 40% at 10
+  const adjMin=Math.round(seasonAvg * (1 - markdownPct));
+  return _applyMinAdj(p, adjMin, 'dnp');
+}
+
+// Shared: recalculate model prob, edge, EV for a given projected minutes value
+function _applyMinAdj(p, projMin, tag){
+  const adj={...p};
+  const prob=computeMinutesAdjustedProb(p, projMin);
+  adj.modelProb=prob;
+  // Recalculate edge from adjusted probability
+  const adjAvgFromProb=p.line + (prob - 0.5) * p.line * 2; // approximate avg from prob
+  adj.edge=p.line>0?+((adjAvgFromProb - p.line) / p.line * 100).toFixed(1):0;
+  // Recalculate directional hit rate from adjusted prob
+  const isOver=adj.edge>=0;
+  adj.hitRate=Math.round((isOver?prob:1-prob)*100);
+  // Recalculate EV
+  adj.evOver=calcEV(prob, p.overOdds);
+  adj.evUnder=calcEV(1-prob, p.underOdds);
+  adj._adjTag=tag;
+  adj._adjMin=projMin;
+  return adj;
+}
 
 function renderAlertMktBar(){
   document.getElementById('alertMktBar').innerHTML=ALERT_MARKETS.map(m=>
@@ -4045,7 +4104,13 @@ function renderAlerts(){
   const _now=new Date();
   let alerts=getAlertData()
     .filter(p=>!p.gameTime||new Date(p.gameTime)>_now)
-    .map(p=>({...p,vs:valueScore(p),_dirEV:getDirectionalEV(p)}))
+    .map(p=>{
+      let adj=p, tags=[];
+      if(_smartMinOn){ const a=applySmartMinutes(adj); if(a._adjTag){ adj=a; tags.push('min:'+a._adjMin); } }
+      if(_dnpAdjOn){ const a=applyDnpAdjustment(adj); if(a._adjTag){ adj=a; tags.push('dnp:'+a._adjMin); } }
+      if(tags.length) adj._adjTags=tags;
+      return {...adj,vs:valueScore(adj),_dirEV:getDirectionalEV(adj)};
+    })
     .filter(p=>p.vs>=effectiveMinVS&&Math.abs(p.edge||0)>=2&&p._dirEV>0)
     .sort((a,b)=>b.vs-a.vs);
 
@@ -4176,7 +4241,7 @@ function renderAlerts(){
           </div>
           <div class="va-meta">${p.team||''} · ${(p.matchup||'').substring(0,25)}</div>
           ${!p.hasRealStats?`<div style="margin-top:3px;"><span class="player-flag flag-est" style="font-size:9px;">⚠ Fake Stats — EV may be inaccurate</span></div>`:''}
-          ${(()=>{const hasMove=p.prev_line!=null&&(p.prev_line!==p.line||p.prev_overOdds!==p.overOdds||p.prev_underOdds!==p.underOdds);const hasFlags=p.returnFromInjury>=2||p.minutesFlag||(p.dnpCount>=5)||hasMove;if(!hasFlags)return'';return`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;">${hasMove?`<span class="player-flag flag-mover">↕ Line Moved${p.prev_line!==p.line?' '+((p.line-p.prev_line)>0?'+':'')+((p.line-p.prev_line).toFixed(1)):' (odds)'}</span>`:''}${p.returnFromInjury>=2?`<span class="player-flag flag-injury">⚠ Back after ${p.returnFromInjury} games missed</span>`:''}${p.minutesFlag?`<span class="player-flag ${p.minutesFlag>0?'flag-minutes-up':'flag-minutes-down'}">⏱ ${Math.abs(Math.round(p.minutesFlag*100))}% ${p.minutesFlag>0?'↑ more':'↓ fewer'} minutes</span>`:''}${p.dnpCount>=5?`<span class="player-flag flag-dnp">✗ ${p.dnpCount} DNPs/10</span>`:''}</div>`;})()}</div>
+          ${(()=>{const hasMove=p.prev_line!=null&&(p.prev_line!==p.line||p.prev_overOdds!==p.overOdds||p.prev_underOdds!==p.underOdds);const hasFlags=p.returnFromInjury>=2||p.minutesFlag||(p.dnpCount>=5)||hasMove||(p._adjTags&&p._adjTags.length);if(!hasFlags)return'';return`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;">${(p._adjTags||[]).map(t=>{const[type,min]=t.split(':');return type==='min'?`<span class="player-flag" style="background:rgba(139,92,246,.12);color:#a78bfa;border:1px solid rgba(139,92,246,.3);">⏱ Smart Min → ${min}m</span>`:`<span class="player-flag" style="background:rgba(239,68,68,.12);color:#ef4444;border:1px solid rgba(239,68,68,.3);">⚠ DNP Adj → ${min}m</span>`;}).join('')}${hasMove?`<span class="player-flag flag-mover">↕ Line Moved${p.prev_line!==p.line?' '+((p.line-p.prev_line)>0?'+':'')+((p.line-p.prev_line).toFixed(1)):' (odds)'}</span>`:''}${p.returnFromInjury>=2?`<span class="player-flag flag-injury">⚠ Back after ${p.returnFromInjury} games missed</span>`:''}${p.minutesFlag?`<span class="player-flag ${p.minutesFlag>0?'flag-minutes-up':'flag-minutes-down'}">⏱ ${Math.abs(Math.round(p.minutesFlag*100))}% ${p.minutesFlag>0?'↑ more':'↓ fewer'} minutes</span>`:''}${p.dnpCount>=5?`<span class="player-flag flag-dnp">✗ ${p.dnpCount} DNPs/10</span>`:''}</div>`;})()}</div>
         <div class="va-right">
           <div class="va-edge-big ${evPct>0?'pos':'neg'}">${evPct>0?'+':''}${evPct}%</div>
           <div class="va-direction ${isOver?'over':'under'}">${isOver?'▲':'▼'} BET ${dir}</div>
