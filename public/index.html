@@ -2407,8 +2407,14 @@ function updateMinutesProjection(projMin){
     +(l10r.length?l10r.reduce((a,b)=>a+b,0)/l10r.length:0)*0.375
     +(rates2.length?rates2.reduce((a,b)=>a+b,0)/rates2.length:0)*0.3125;
   const adjAvg=+((blendRate*projMin)).toFixed(1);
+  const origProb=computeMinutesAdjustedProb(p,avgMin);
+  const origDirProb=isOver?origProb:1-origProb;
+  const origEV=calcEV(origDirProb,isOver?p.overOdds:p.underOdds);
   const origHR=Math.round((p.modelProb||0.5)*100);
   const evCol=adjEV>0?'var(--g)':'var(--r)';
+  const evDelta=+(adjEV-origEV).toFixed(1);
+  const evDeltaCol=evDelta>0?'var(--g)':evDelta<0?'var(--r)':'var(--t2)';
+  const evDeltaFmt=evDelta>0?`+${evDelta}`:evDelta.toString();
   const dir=projMin>avgMin?'↑':'↓';
   adjEl.innerHTML=`<div style="background:var(--bg1);border:1px solid rgba(139,92,246,.35);border-radius:7px;padding:9px 11px;margin-top:6px;">
     <div style="font-size:10px;color:#a78bfa;font-weight:700;margin-bottom:6px;letter-spacing:.4px;">⏱ ADJUSTED FOR ${projMin} MIN (${dir}${Math.abs(projMin-avgMin)} from avg)</div>
@@ -2416,6 +2422,7 @@ function updateMinutesProjection(projMin){
       <div class="sb2"><div class="sb2-l">Adj Avg</div><div class="sb2-v">${adjAvg}</div><div class="sb2-s">was ${p.avg}</div></div>
       <div class="sb2"><div class="sb2-l">Hit Rate</div><div class="sb2-v">${adjHR}%</div><div class="sb2-s">was ${origHR}%</div></div>
       <div class="sb2"><div class="sb2-l">Adj EV</div><div class="sb2-v" style="color:${evCol}">${adjEV>0?'+':''}${adjEV}%</div><div class="sb2-s">${isOver?'Over':'Under'} ${p.line}</div></div>
+      <div class="sb2"><div class="sb2-l">EV Delta</div><div class="sb2-v" style="color:${evDeltaCol}">${evDeltaFmt}%</div><div class="sb2-s">vs ${origEV>0?'+':''}${origEV}% default</div></div>
     </div>
   </div>`;
   drawEvMinutesChart(projMin);
