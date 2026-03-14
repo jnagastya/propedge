@@ -176,6 +176,7 @@ body.light .theme-toggle::after{transform:translateX(20px);background:var(--b);}
 .sc-s.lv{color:var(--g);font-weight:600;}
 .sc-hint{font-size:9px;color:var(--b-text);text-align:center;margin-top:2px;font-weight:700;display:none;}
 .sc:hover .sc-hint,.sc.active .sc-hint{display:block;}
+.sc-inj{text-align:center;margin-top:1px;}
 
 /* -- CONTROLS -- */
 .ctrls{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;gap:8px;flex-wrap:wrap;}
@@ -1277,6 +1278,7 @@ td{padding:13px 14px;white-space:nowrap;}
         <button class="gp-close" onclick="clearGameFilter()">✕ Clear filter</button>
       </div>
       <div class="gp-teams" id="gpTeams"></div>
+      <div id="gpInjuries" style="margin-top:8px;"></div>
     </div>
 
 
@@ -2002,6 +2004,51 @@ async function apiGet(path) {
   try { const r = await fetch(`${API}${path}`); return await r.json(); }
   catch(e) { return { error: e.message }; }
 }
+// Injury report cache (client-side)
+let _injCache={data:null,ts:0};
+async function getInjuries(){
+  const now=Date.now();
+  if(_injCache.data&&(now-_injCache.ts)<30*60*1000) return _injCache.data;
+  try{
+    const r=await apiGet('/api/injuries');
+    if(r.data){_injCache={data:r.data,ts:now};return r.data;}
+  }catch(e){console.warn('[injuries]',e);}
+  return _injCache.data||[];
+}
+function getTeamInjuries(allInjuries,team){
+  if(!team||!allInjuries) return [];
+  return allInjuries.filter(inj=>inj.team===team);
+}
+function renderInjurySection(injuries,playerName){
+  if(!injuries||!injuries.length) return '';
+  const statusColor={'Out':'var(--r)','Doubtful':'#f59e0b','Questionable':'var(--a)','Probable':'var(--g)','Available':'var(--g)'};
+  const statusIcon={'Out':'✗','Doubtful':'?','Questionable':'?','Probable':'✓','Available':'✓'};
+  // Sort: Out first, then Doubtful, Questionable, Probable, Available
+  const order={'Out':0,'Doubtful':1,'Questionable':2,'Probable':3,'Available':4};
+  const sorted=[...injuries].sort((a,b)=>(order[a.status]||5)-(order[b.status]||5));
+  const rows=sorted.map(inj=>{
+    const isSelf=inj.player&&playerName&&inj.player.toLowerCase()===playerName.toLowerCase();
+    const col=statusColor[inj.status]||'var(--t3)';
+    const icon=statusIcon[inj.status]||'';
+    const reason=inj.reason||'';
+    // Clean up reason: remove "Injury/Illness - " prefix for brevity
+    const shortReason=reason.replace(/^Injury\/Illness\s*-\s*/i,'').replace(/;\s*$/,'');
+    return`<tr${isSelf?' style="background:rgba(139,92,246,.1);"':''}>
+      <td style="font-weight:${isSelf?'800':'600'};white-space:nowrap;padding:4px 8px;font-size:11px;">${inj.player}${isSelf?' <span style="font-size:8px;color:#a78bfa;font-weight:700;">THIS PLAYER</span>':''}</td>
+      <td style="padding:4px 8px;font-size:11px;font-weight:700;color:${col};white-space:nowrap;">${icon} ${inj.status}</td>
+      <td style="padding:4px 8px;font-size:10px;color:var(--t3);">${shortReason}</td>
+    </tr>`;
+  }).join('');
+  const outCount=injuries.filter(i=>i.status==='Out').length;
+  const gtdCount=injuries.filter(i=>i.status==='Questionable'||i.status==='Doubtful').length;
+  return`<div class="dc full"><div class="dc-t"><span class="dt" style="background:var(--r)"></span>Team Injury Report <span style="font-size:10px;color:var(--t3);font-weight:400;margin-left:4px;">${outCount} out · ${gtdCount} game-time decisions</span></div>
+    <div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;"><thead><tr>
+      <th style="text-align:left;padding:4px 8px;font-size:9px;font-weight:700;color:var(--t3);text-transform:uppercase;border-bottom:1px solid var(--bd);">Player</th>
+      <th style="text-align:left;padding:4px 8px;font-size:9px;font-weight:700;color:var(--t3);text-transform:uppercase;border-bottom:1px solid var(--bd);">Status</th>
+      <th style="text-align:left;padding:4px 8px;font-size:9px;font-weight:700;color:var(--t3);text-transform:uppercase;border-bottom:1px solid var(--bd);">Reason</th>
+    </tr></thead><tbody>${rows}</tbody></table></div>
+  </div>`;
+}
 async function loadData() {
   setApi('odds','ld');setApi('stats','ld');setApi('scores','ld');
   showSts('Fetching live data…','inf');
@@ -2156,6 +2203,30 @@ function renderGamePanel(away,home){
     return`<div class="gp-team"><div class="gp-team-name">${teamAbbr} (${players.length})</div>${rows}</div>`;
   };
   document.getElementById('gpTeams').innerHTML=renderTeam(awayPlayers,away)+renderTeam(homePlayers,home);
+  // Async: load injury data for both teams
+  const gpInj=document.getElementById('gpInjuries');
+  gpInj.innerHTML='<div style="font-size:11px;color:var(--t3);padding:8px;">Loading injury report…</div>';
+  getInjuries().then(allInj=>{
+    if(!allInj||!allInj.length){gpInj.innerHTML='';return;}
+    const awayInj=getTeamInjuries(allInj,away);
+    const homeInj=getTeamInjuries(allInj,home);
+    if(!awayInj.length&&!homeInj.length){gpInj.innerHTML='<div style="font-size:11px;color:var(--t3);padding:8px 0;">No injuries reported for either team.</div>';return;}
+    const renderTeamInj=(injuries,teamAbbr)=>{
+      if(!injuries.length) return`<div style="margin-bottom:8px;"><div style="font-size:12px;font-weight:700;color:var(--t1);margin-bottom:4px;">${teamAbbr} — No injuries</div></div>`;
+      const statusColor={'Out':'var(--r)','Doubtful':'#f59e0b','Questionable':'var(--a)','Probable':'var(--g)','Available':'var(--g)'};
+      const order={'Out':0,'Doubtful':1,'Questionable':2,'Probable':3,'Available':4};
+      const sorted=[...injuries].sort((a,b)=>(order[a.status]||5)-(order[b.status]||5));
+      const outCt=injuries.filter(i=>i.status==='Out').length;
+      const gtdCt=injuries.filter(i=>i.status==='Questionable'||i.status==='Doubtful').length;
+      const rows=sorted.map(inj=>{
+        const col=statusColor[inj.status]||'var(--t3)';
+        const reason=(inj.reason||'').replace(/^Injury\/Illness\s*-\s*/i,'').replace(/;\s*$/,'');
+        return`<tr><td style="padding:3px 6px;font-size:11px;font-weight:600;white-space:nowrap;">${inj.player}</td><td style="padding:3px 6px;font-size:11px;font-weight:700;color:${col};white-space:nowrap;">${inj.status}</td><td style="padding:3px 6px;font-size:10px;color:var(--t3);">${reason}</td></tr>`;
+      }).join('');
+      return`<div style="margin-bottom:8px;"><div style="font-size:12px;font-weight:700;color:var(--t1);margin-bottom:4px;">${teamAbbr} Injuries <span style="font-size:10px;color:var(--t3);font-weight:400;">${outCt} out · ${gtdCt} GTD</span></div><table style="width:100%;border-collapse:collapse;"><thead><tr><th style="text-align:left;padding:3px 6px;font-size:9px;font-weight:700;color:var(--t3);text-transform:uppercase;border-bottom:1px solid var(--bd);">Player</th><th style="text-align:left;padding:3px 6px;font-size:9px;font-weight:700;color:var(--t3);text-transform:uppercase;border-bottom:1px solid var(--bd);">Status</th><th style="text-align:left;padding:3px 6px;font-size:9px;font-weight:700;color:var(--t3);text-transform:uppercase;border-bottom:1px solid var(--bd);">Reason</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+    };
+    gpInj.innerHTML=`<div style="border-top:1px solid var(--bd);padding-top:8px;margin-top:4px;"><div style="font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;margin-bottom:6px;">🏥 Injury Report</div>${renderTeamInj(awayInj,away)}${renderTeamInj(homeInj,home)}</div>`;
+  }).catch(()=>{gpInj.innerHTML='';});
 }
 function scrollToPlayer(name){
   // Filter table to show only this player
@@ -2511,13 +2582,29 @@ function renderScores(data){
     const active=S.gameFilter===key;
     const aS=g.awayScore||'—',hS=g.homeScore||'—';
     const lv=g.live,st=g.completed?'Final':(lv?'LIVE':new Date(g.commence).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}));
-    return`<div class="sc${lv?' lv':''}${active?' active':''}" onclick="filterGame('${g.away}','${g.home}')">
+    return`<div class="sc${lv?' lv':''}${active?' active':''}" onclick="filterGame('${g.away}','${g.home}')" data-away="${g.away}" data-home="${g.home}">
       <div class="sc-r"><div class="sc-team">${teamLogo(g.away)}<span class="sc-t">${g.away}</span></div><span class="sc-v">${aS}</span></div>
       <div class="sc-r"><div class="sc-team">${teamLogo(g.home)}<span class="sc-t">${g.home}</span></div><span class="sc-v">${hS}</span></div>
       <div class="sc-s${lv?' lv':''}">${st}</div>
+      <div class="sc-inj" id="scInj-${g.away}-${g.home}" style="display:none;"></div>
       <div class="sc-hint">${active?'✓ Filtered':'Click for players'}</div>
     </div>`;
   }).join('');
+  // Async: annotate with injury counts
+  getInjuries().then(allInj=>{
+    if(!allInj||!allInj.length) return;
+    sorted.forEach(g=>{
+      const awayInj=allInj.filter(i=>i.team===g.away);
+      const homeInj=allInj.filter(i=>i.team===g.home);
+      const awayOut=awayInj.filter(i=>i.status==='Out').length;
+      const homeOut=homeInj.filter(i=>i.status==='Out').length;
+      const el2=document.getElementById(`scInj-${g.away}-${g.home}`);
+      if(el2&&(awayOut+homeOut)>0){
+        el2.style.display='';
+        el2.innerHTML=`<span style="color:var(--r);font-size:8px;font-weight:700;">🏥 ${awayOut+homeOut} out</span>`;
+      }
+    });
+  });
 }
 
 // ── Render: Table ──
@@ -3104,6 +3191,25 @@ function renderOverview(el,p){
   </div>`;
   // Draw EV vs Minutes chart after DOM is ready
   if(p.hasRealStats) setTimeout(()=>drawEvMinutesChart(),0);
+  // Load injury report async and inject into the grid
+  (async()=>{
+    try{
+      const allInj=await getInjuries();
+      const teamInj=getTeamInjuries(allInj,p.team);
+      if(teamInj.length){
+        const injHtml=renderInjurySection(teamInj,p.name);
+        const grid=el.querySelector('.di-grid');
+        if(grid){
+          const injDiv=document.createElement('div');
+          injDiv.innerHTML=injHtml;
+          // Insert before Book Comparison or Recommendation (after chart/minutes)
+          const bookComp=grid.querySelector('.dc.full table.spt');
+          if(bookComp) grid.insertBefore(injDiv.firstElementChild,bookComp.closest('.dc.full'));
+          else grid.appendChild(injDiv.firstElementChild);
+        }
+      }
+    }catch(e){console.warn('[injuries UI]',e);}
+  })();
 }
 
 function renderLineSimulator(el,p){

@@ -1061,6 +1061,207 @@ function guessTeam(name) {
 
 
 // ============================================================
+// INJURY REPORT — fetch & parse NBA official PDF
+// ============================================================
+const { PDFParse } = require('pdf-parse');
+
+// NBA team name → abbreviation map
+const NBA_TEAM_ABBR = {
+  'Atlanta Hawks':'ATL','Boston Celtics':'BOS','Brooklyn Nets':'BKN','Charlotte Hornets':'CHA',
+  'Chicago Bulls':'CHI','Cleveland Cavaliers':'CLE','Dallas Mavericks':'DAL','Denver Nuggets':'DEN',
+  'Detroit Pistons':'DET','Golden State Warriors':'GSW','Houston Rockets':'HOU','Indiana Pacers':'IND',
+  'LA Clippers':'LAC','Los Angeles Clippers':'LAC','Los Angeles Lakers':'LAL','Memphis Grizzlies':'MEM',
+  'Miami Heat':'MIA','Milwaukee Bucks':'MIL','Minnesota Timberwolves':'MIN','New Orleans Pelicans':'NOP',
+  'New York Knicks':'NYK','Oklahoma City Thunder':'OKC','Orlando Magic':'ORL','Philadelphia 76ers':'PHI',
+  'Phoenix Suns':'PHX','Portland Trail Blazers':'POR','Sacramento Kings':'SAC','San Antonio Spurs':'SAS',
+  'Toronto Raptors':'TOR','Utah Jazz':'UTA','Washington Wizards':'WAS',
+};
+const NBA_TEAM_NAMES = Object.keys(NBA_TEAM_ABBR);
+const INJURY_STATUSES = ['Out','Questionable','Doubtful','Probable','Available'];
+
+function generateInjuryPdfUrl() {
+  // NBA publishes reports at various times; try the most recent 5:00 PM ET report for today
+  const now = new Date();
+  // Use ET offset (UTC-4 or UTC-5 depending on DST)
+  const et = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));
+  const y = et.getFullYear(), m = String(et.getMonth()+1).padStart(2,'0'), d = String(et.getDate()).padStart(2,'0');
+  const dateStr = `${y}-${m}-${d}`;
+  // Try multiple report times (most recent first)
+  const times = ['05_00PM','04_00PM','03_00PM','02_00PM','01_00PM','12_00PM'];
+  return times.map(t => `https://ak-static.cms.nba.com/referee/injury/Injury-Report_${dateStr}_${t}.pdf`);
+}
+
+function parseInjuryText(text) {
+  const injuries = [];
+  // Pre-process: split lines that contain embedded matchup patterns from page breaks
+  // e.g. "Washington, P.J. Doubtful ... MEM@DET Memphis Grizzlies Aldama, Santi Out ..."
+  const rawLines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  const lines = [];
+  for (const raw of rawLines) {
+    // Check for embedded matchup (3-letter@3-letter) mid-line that indicates a page break merge
+    const embeddedMatch = raw.match(/^(.+?)\s+([A-Z]{2,4}@[A-Z]{2,4})\s+(.+)$/);
+    if (embeddedMatch && !raw.match(/^\d{2}\/\d{2}\/\d{4}/) && !raw.match(/^\d{2}:\d{2}\s*\(ET\)/)) {
+      // Split into two lines: the part before the matchup, and matchup onward
+      lines.push(embeddedMatch[1].trim());
+      lines.push(embeddedMatch[2] + ' ' + embeddedMatch[3].trim());
+    } else {
+      lines.push(raw);
+    }
+  }
+  let currentTeam = null;
+  let currentTeamAbbr = null;
+  let currentMatchup = null;
+  let currentGameDate = null;
+  let currentGameTime = null;
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i];
+    // Skip page headers
+    if (line.startsWith('Injury Report:') || line.startsWith('Page ') || line.startsWith('Game Date')) { i++; continue; }
+    if (/^-- \d+ of \d+ --$/.test(line)) { i++; continue; }
+    // Game date line: 03/13/2026
+    const dateMatch = line.match(/^(\d{2}\/\d{2}\/\d{4})\s+(\d{2}:\d{2}\s*\(ET\))\s+(\S+@\S+)\s+(.*)/);
+    if (dateMatch) {
+      currentGameDate = dateMatch[1];
+      currentGameTime = dateMatch[2].replace(/\s*\(ET\)/, '');
+      currentMatchup = dateMatch[3];
+      // Rest of line is the first team name — find it
+      const rest = dateMatch[4].trim();
+      const foundTeam = NBA_TEAM_NAMES.find(t => rest.startsWith(t));
+      if (foundTeam) {
+        currentTeam = foundTeam;
+        currentTeamAbbr = NBA_TEAM_ABBR[foundTeam];
+        // After team name, there may be player data on same line
+        const afterTeam = rest.substring(foundTeam.length).trim();
+        if (afterTeam) {
+          const parsed = parsePlayerEntry(afterTeam);
+          if (parsed) injuries.push({ ...parsed, team: currentTeamAbbr, teamFull: currentTeam, matchup: currentMatchup, gameDate: currentGameDate, gameTime: currentGameTime });
+        }
+      }
+      i++; continue;
+    }
+    // Time-only line for same date: 08:00 (ET) NOP@HOU ...
+    const timeMatch = line.match(/^(\d{2}:\d{2}\s*\(ET\))\s+(\S+@\S+)\s+(.*)/);
+    if (timeMatch) {
+      currentGameTime = timeMatch[1].replace(/\s*\(ET\)/, '');
+      currentMatchup = timeMatch[2];
+      const rest = timeMatch[3].trim();
+      const foundTeam = NBA_TEAM_NAMES.find(t => rest.startsWith(t));
+      if (foundTeam) {
+        currentTeam = foundTeam;
+        currentTeamAbbr = NBA_TEAM_ABBR[foundTeam];
+        const afterTeam = rest.substring(foundTeam.length).trim();
+        if (afterTeam) {
+          const parsed = parsePlayerEntry(afterTeam);
+          if (parsed) injuries.push({ ...parsed, team: currentTeamAbbr, teamFull: currentTeam, matchup: currentMatchup, gameDate: currentGameDate, gameTime: currentGameTime });
+        }
+      }
+      i++; continue;
+    }
+    // Matchup-only line (from page break splits): MEM@DET Memphis Grizzlies ...
+    const matchupOnly = line.match(/^([A-Z]{2,4}@[A-Z]{2,4})\s+(.*)/);
+    if (matchupOnly) {
+      currentMatchup = matchupOnly[1];
+      const rest = matchupOnly[2].trim();
+      const ft = NBA_TEAM_NAMES.find(t => rest.startsWith(t));
+      if (ft) {
+        currentTeam = ft;
+        currentTeamAbbr = NBA_TEAM_ABBR[ft];
+        const afterTeam = rest.substring(ft.length).trim();
+        if (afterTeam) {
+          const parsed = parsePlayerEntry(afterTeam);
+          if (parsed) injuries.push({ ...parsed, team: currentTeamAbbr, teamFull: currentTeam, matchup: currentMatchup, gameDate: currentGameDate, gameTime: currentGameTime });
+        }
+      }
+      i++; continue;
+    }
+    // Team name line (standalone)
+    const foundTeam = NBA_TEAM_NAMES.find(t => line.startsWith(t));
+    if (foundTeam) {
+      currentTeam = foundTeam;
+      currentTeamAbbr = NBA_TEAM_ABBR[foundTeam];
+      const afterTeam = line.substring(foundTeam.length).trim();
+      if (afterTeam) {
+        const parsed = parsePlayerEntry(afterTeam);
+        if (parsed) injuries.push({ ...parsed, team: currentTeamAbbr, teamFull: currentTeam, matchup: currentMatchup, gameDate: currentGameDate, gameTime: currentGameTime });
+      }
+      i++; continue;
+    }
+    // Player entry line: "LastName, FirstName Status Reason..."
+    if (currentTeam) {
+      const parsed = parsePlayerEntry(line);
+      if (parsed) {
+        injuries.push({ ...parsed, team: currentTeamAbbr, teamFull: currentTeam, matchup: currentMatchup, gameDate: currentGameDate, gameTime: currentGameTime });
+      }
+      // else: continuation line (multi-line reason) — skip
+    }
+    i++;
+  }
+  return injuries;
+}
+
+function parsePlayerEntry(text) {
+  // Pattern: "LastName, FirstName Status Reason"
+  // Status is one of: Out, Questionable, Doubtful, Probable, Available
+  for (const status of INJURY_STATUSES) {
+    const idx = text.indexOf(' ' + status + ' ');
+    if (idx === -1) continue;
+    const name = text.substring(0, idx).trim();
+    const reason = text.substring(idx + status.length + 2).trim();
+    if (!name || !name.includes(',')) continue;
+    // Convert "Last, First" → "First Last"
+    const parts = name.split(',').map(s => s.trim());
+    const displayName = parts.length >= 2 ? `${parts[1]} ${parts[0]}` : name;
+    return { player: displayName, playerRaw: name, status, reason };
+  }
+  return null;
+}
+
+// In-memory cache for injury data
+let _injuryCache = { data: null, fetchedAt: 0 };
+const INJURY_CACHE_TTL = 2 * 60 * 60 * 1000; // 2 hours
+
+async function fetchInjuryReport() {
+  const now = Date.now();
+  if (_injuryCache.data && (now - _injuryCache.fetchedAt) < INJURY_CACHE_TTL) {
+    return _injuryCache.data;
+  }
+  const urls = generateInjuryPdfUrl();
+  for (const url of urls) {
+    try {
+      const resp = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }, timeout: 15000 });
+      if (!resp.ok) continue;
+      const buf = await resp.buffer();
+      const parser = new PDFParse({ data: buf });
+      const result = await parser.getText();
+      const injuries = parseInjuryText(result.text);
+      if (injuries.length > 0) {
+        _injuryCache = { data: injuries, fetchedAt: now };
+        console.log(`[injuries] Parsed ${injuries.length} entries from ${url.split('/').pop()}`);
+        return injuries;
+      }
+    } catch (e) {
+      console.warn(`[injuries] Failed ${url.split('/').pop()}: ${e.message}`);
+    }
+  }
+  // Return stale cache if available
+  if (_injuryCache.data) return _injuryCache.data;
+  return [];
+}
+
+app.get('/api/injuries', async (req, res) => {
+  try {
+    const injuries = await fetchInjuryReport();
+    const team = req.query.team; // optional filter
+    const filtered = team ? injuries.filter(inj => inj.team === team.toUpperCase()) : injuries;
+    res.json({ data: filtered, total: injuries.length, filtered: filtered.length });
+  } catch (e) {
+    console.error('[injuries] Error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ============================================================
 // ROUTE: GET /api/cache/clear — manual cache flush
 // ============================================================
 app.get('/api/cache/clear', (req, res) => {
