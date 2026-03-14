@@ -1514,6 +1514,11 @@ app.get('/api/injury-impact', async (req, res) => {
         else tmPlayedDates.add(g.date);
       }
 
+      // Skip if teammate has been out long enough that recent stats already reflect it
+      const l10 = playerPlayed.slice(0, 10);
+      const l10Without = l10.filter(g => tmDnpDates.has(g.date)).length;
+      if (l10Without >= 7) continue; // 7+ of last 10 already without → impact baked in
+
       const wo = [], wi = [];
       for (const g of playerPlayed) {
         if (tmDnpDates.has(g.date)) wo.push(g);
@@ -1567,6 +1572,11 @@ app.get('/api/injury-impact', async (req, res) => {
         if (!tmLog?.length) { debug.push({ name: inj.player, skip: 'no game log in DB' }); continue; }
         const tmPlayed = tmLog.filter(g => parseInt(g.min || '0') > 0);
         if (tmPlayed.length < 5) { debug.push({ name: inj.player, skip: `only ${tmPlayed.length} games played (need 5)` }); continue; }
+        // Check if already reflected in recent stats
+        const tmDnp = new Set();
+        for (const g of tmLog) { if (g.team && g.team !== teamFilter) continue; if (parseInt(g.min || '0') === 0) tmDnp.add(g.date); }
+        const l10wo = playerPlayed.slice(0, 10).filter(g => tmDnp.has(g.date)).length;
+        if (l10wo >= 7) { debug.push({ name: inj.player, skip: `already reflected in recent stats (${l10wo}/10 recent games without)` }); continue; }
         debug.push({ name: inj.player, skip: 'insufficient split data or ratio < 3%' });
       }
       return res.json({ impact: false, reason: 'no teammate with sufficient data', outTeammates: outTeammates.map(t => t.player), debug });
@@ -3164,6 +3174,12 @@ function serverApplyInjuryImpact(playerName, playerGameLog, playerTeam, market, 
       if (parseInt(g.min || '0') === 0) tmDnpDates.add(g.date);
       else tmPlayedDates.add(g.date);
     }
+
+    // Skip if teammate has been out long enough that recent stats already reflect it
+    // Check how many of the player's last 10 games were without this teammate
+    const l10 = playerPlayed.slice(0, 10);
+    const l10Without = l10.filter(g => tmDnpDates.has(g.date)).length;
+    if (l10Without >= 7) continue; // 7+ of last 10 already without → impact baked in
 
     // Split player's games into with/without this teammate
     const wo = [], wi = [];
