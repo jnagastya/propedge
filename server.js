@@ -1412,7 +1412,18 @@ app.get('/api/injury-impact', async (req, res) => {
       }
     }
 
-    if (!teammateImpacts.length) return res.json({ impact: false, reason: 'no teammate with sufficient data' });
+    if (!teammateImpacts.length) {
+      // Return debug info: which teammates were found and why they were skipped
+      const debug = [];
+      for (const inj of outTeammates) {
+        const tmLog = tmLogMap.get(inj.player);
+        if (!tmLog?.length) { debug.push({ name: inj.player, skip: 'no game log in DB' }); continue; }
+        const tmPlayed = tmLog.filter(g => parseInt(g.min || '0') > 0);
+        if (tmPlayed.length < 5) { debug.push({ name: inj.player, skip: `only ${tmPlayed.length} games played (need 5)` }); continue; }
+        debug.push({ name: inj.player, skip: 'insufficient split data or ratio < 3%' });
+      }
+      return res.json({ impact: false, reason: 'no teammate with sufficient data', outTeammates: outTeammates.map(t => t.player), debug });
+    }
 
     // Multiply all individual ratios, cap combined at ±40%
     const combinedRatio = Math.max(0.60, Math.min(1.40,
