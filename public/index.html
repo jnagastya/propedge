@@ -3212,7 +3212,7 @@ function renderOverview(el,p){
         </div>
       </div>
     </div>
-    ${p.hasRealStats?(()=>{const pg=(p.gameLog||[]).filter(g=>parseInt(g.min||'0')>0);const am=pg.length?Math.round(pg.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/pg.length):30;const l3min=pg.slice(0,3);const l3avg=l3min.length>=3?Math.round(l3min.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/l3min.length):am;const l5min=pg.slice(0,5);const l5avg=l5min.length?Math.round(l5min.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/l5min.length):am;const l10min=pg.slice(0,10);const l10avg=l10min.length?Math.round(l10min.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/l10min.length):am;const hasFlag=p.minutesFlag||p.dnpCount>=5;const presets=`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px;">
+    ${p.hasRealStats?(()=>{const pg=(p.gameLog||[]).filter(g=>parseInt(g.min||'0')>0);const am=pg.length?Math.round(pg.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/pg.length):30;const l3min=pg.slice(0,3);const l3avg=l3min.length>=3?Math.round(l3min.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/l3min.length):am;const l5min=pg.slice(0,5);const l5avg=l5min.length?Math.round(l5min.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/l5min.length):am;const l10min=pg.slice(0,10);const l10avg=l10min.length?Math.round(l10min.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/l10min.length):am;const hasFlag=p.minutesFlag||p.dnpCount>=5;const initMin=p._adjMin||am;const presets=`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px;">
           <button onclick="setMinPreset(${am})" style="font-size:9px;padding:3px 8px;border-radius:5px;border:1px solid var(--bd);background:var(--bg2);color:var(--t2);cursor:pointer;font-weight:600;">Season Avg (${am})</button>
           <button onclick="setMinPreset(${l10avg})" style="font-size:9px;padding:3px 8px;border-radius:5px;border:1px solid var(--bd);background:var(--bg2);color:var(--t2);cursor:pointer;font-weight:600;">L10 Avg (${l10avg})</button>
           <button onclick="setMinPreset(${l5avg})" style="font-size:9px;padding:3px 8px;border-radius:5px;border:1px solid ${hasFlag?'rgba(139,92,246,.5)':'var(--bd)'};background:${hasFlag?'rgba(139,92,246,.15)':'var(--bg2)'};color:${hasFlag?'#a78bfa':'var(--t2)'};cursor:pointer;font-weight:700;">${hasFlag?'❗ ':''}L5 Avg (${l5avg})</button>
@@ -3222,11 +3222,11 @@ function renderOverview(el,p){
         ${presets}
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
           <span style="font-size:11px;color:var(--t3);min-width:16px;">0</span>
-          <input type="range" min="0" max="48" value="${am}" step="1" id="minSlider" style="flex:1;cursor:pointer;accent-color:#8b5cf6;" oninput="updateMinutesProjection(this.value)">
+          <input type="range" min="0" max="48" value="${initMin}" step="1" id="minSlider" style="flex:1;cursor:pointer;accent-color:#8b5cf6;" oninput="updateMinutesProjection(this.value)">
           <span style="font-size:11px;color:var(--t3);min-width:20px;">48</span>
-          <span id="minSliderVal" style="font-size:13px;font-weight:700;color:#a78bfa;min-width:52px;text-align:right;">${am} min</span>
+          <span id="minSliderVal" style="font-size:13px;font-weight:700;color:#a78bfa;min-width:52px;text-align:right;">${initMin} min</span>
         </div>
-        <div id="minAdjStats" style="font-size:11px;color:var(--t3);text-align:center;">Season avg: ${am} min/game — slide to adjust</div>
+        <div id="minAdjStats" style="font-size:11px;color:var(--t3);text-align:center;">Season avg: ${am} min/game${initMin!==am?' — adjusted by filter':' — slide to adjust'}</div>
       </div>
     </div>`})():''}
     <div class="dc"><div class="dc-t"><span class="dt" style="background:var(--g)"></span>Last 10 Calendar Games <span style="font-size:10px;color:var(--t3);font-weight:400;margin-left:4px;">(DNPs shown but excluded from averages)</span></div>
@@ -3249,7 +3249,8 @@ function renderOverview(el,p){
   </div>`;
   // Draw EV vs Minutes chart after DOM is laid out
   if(p.hasRealStats){
-    const _tryDraw=(n)=>{const c=document.getElementById('evMinutesChart');if(c&&c.offsetWidth>0)drawEvMinutesChart();else if(n<5)setTimeout(()=>_tryDraw(n+1),100);};
+    const _adjMinInit=p._adjMin;
+    const _tryDraw=(n)=>{const c=document.getElementById('evMinutesChart');if(c&&c.offsetWidth>0){drawEvMinutesChart(_adjMinInit);if(_adjMinInit)updateMinutesProjection(_adjMinInit);}else if(n<5)setTimeout(()=>_tryDraw(n+1),100);};
     setTimeout(()=>_tryDraw(0),50);
   }
   // Load injury report async and inject into the grid
