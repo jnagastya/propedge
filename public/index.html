@@ -176,6 +176,10 @@ body.light .theme-toggle::after{transform:translateX(20px);background:var(--b);}
 .sc-s.lv{color:var(--g);font-weight:600;}
 .sc-hint{font-size:9px;color:var(--b-text);text-align:center;margin-top:2px;font-weight:700;display:none;}
 .sc:hover .sc-hint,.sc.active .sc-hint{display:block;}
+.sc-day-div{flex-shrink:0;display:flex;align-items:center;padding:0 2px;}
+.sc-day-div span{writing-mode:vertical-lr;text-orientation:mixed;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:var(--t3);padding:6px 2px;border-left:2px solid var(--bd2);white-space:nowrap;}
+.sc.sc-tmrw{border-color:rgba(139,92,246,.2);background:rgba(139,92,246,.04);}
+.sc.sc-tmrw .sc-s{color:#a78bfa;}
 
 /* -- CONTROLS -- */
 .ctrls{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;gap:8px;flex-wrap:wrap;}
@@ -2607,12 +2611,29 @@ function renderScores(data){
     if(ra!==rb)return ra-rb;
     return new Date(a.commence)-new Date(b.commence);
   });
+  const now=new Date();
+  const todayStr=now.toLocaleDateString('en-US',{year:'numeric',month:'2-digit',day:'2-digit'});
+  let lastDay=null;
   el.innerHTML=sorted.map(g=>{
     const key=`${g.away} @ ${g.home}`;
     const active=S.gameFilter===key;
     const aS=g.awayScore||'—',hS=g.homeScore||'—';
-    const lv=g.live,st=g.completed?'Final':(lv?'LIVE':new Date(g.commence).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}));
-    return`<div class="sc${lv?' lv':''}${active?' active':''}" onclick="filterGame('${g.away}','${g.home}')" data-away="${g.away}" data-home="${g.home}">
+    const gd=new Date(g.commence);
+    const gdStr=gd.toLocaleDateString('en-US',{year:'numeric',month:'2-digit',day:'2-digit'});
+    const isToday=gdStr===todayStr;
+    const dayLabel=isToday?'Today':'Tomorrow';
+    const dateFmt=gd.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+    const lv=g.live;
+    const st=g.completed?'Final':(lv?'LIVE':`${gd.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})} · ${dateFmt}`);
+    // Insert divider when day changes
+    let divider='';
+    if(lastDay!==null&&gdStr!==lastDay){
+      divider=`<div class="sc-day-div"><span>${dayLabel}</span></div>`;
+    } else if(lastDay===null){
+      divider=`<div class="sc-day-div"><span>${dayLabel}</span></div>`;
+    }
+    lastDay=gdStr;
+    return`${divider}<div class="sc${lv?' lv':''}${active?' active':''}${!isToday?' sc-tmrw':''}" onclick="filterGame('${g.away}','${g.home}')" data-away="${g.away}" data-home="${g.home}">
       <div class="sc-r"><div class="sc-team">${teamLogo(g.away)}<span class="sc-t">${g.away}</span></div><span class="sc-v">${aS}</span></div>
       <div class="sc-r"><div class="sc-team">${teamLogo(g.home)}<span class="sc-t">${g.home}</span></div><span class="sc-v">${hS}</span></div>
       <div class="sc-s${lv?' lv':''}">${st}</div>
