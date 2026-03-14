@@ -2722,7 +2722,75 @@ function serverComputeStats(gameLog, line, market, overOdds, underOdds) {
   const returnFromInjury = firstPlayedIdx >= 2 ? firstPlayedIdx : 0;
   const hasFlags = dnpCount >= 5 || Math.abs(minutesFlag) >= 0.20 || returnFromInjury >= 2;
 
-  return { avg, hitRate, edge, modelProb, confidence, evOver, evUnder, direction, odds, dirEV, vs, stdDev, gamesPlayed: vals.length, hasFlags };
+  return { avg, hitRate, edge, modelProb, confidence, evOver, evUnder, direction, odds, dirEV, vs, stdDev, gamesPlayed: vals.length, hasFlags, minutesFlag, dnpCount };
+}
+
+// Server-side Smart Minutes adjustment (mirrors client applySmartMinutes)
+// Recalculates stats as if player will play their L3 avg minutes instead of season avg
+function serverApplySmartMinutes(gameLog, line, market, overOdds, underOdds, baseStats) {
+  if (!baseStats.minutesFlag) return baseStats;
+  const sorted = [...gameLog].sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+  const played = sorted.filter(g => parseInt(g.min || '0') > 0);
+  if (played.length < 3) return baseStats;
+
+  const l3 = played.slice(0, 3);
+  const l3avg = Math.round(l3.reduce((s, g) => s + (parseFloat(g.min) || 0), 0) / l3.length);
+  const minVals = played.map(g => parseFloat(g.min) || 0).filter(m => m > 0);
+  const seasonAvg = minVals.reduce((a, b) => a + b, 0) / minVals.length;
+  if (!seasonAvg || Math.abs(l3avg - seasonAvg) < 1) return baseStats;
+
+  const ratio = l3avg / seasonAvg;
+  const statKey = STAT_KEYS[market] || 'pts';
+  const getVal = g => statKey === 'pra' ? (+g.pts || 0) + (+g.reb || 0) + (+g.ast || 0)
+    : statKey === 'ra' ? (+g.reb || 0) + (+g.ast || 0) : +(g[statKey] || 0);
+
+  // Compute per-minute rates and blend for adjusted avg
+  const rates = played.map(g => { const m = parseFloat(g.min) || 1; return getVal(g) / m; });
+  const l5r = rates.slice(0, 5), l10r = rates.slice(0, 10);
+  const blendRate = (l5r.length ? l5r.reduce((a, b) => a + b, 0) / l5r.length : 0) * 0.3125
+    + (l10r.length ? l10r.reduce((a, b) => a + b, 0) / l10r.length : 0) * 0.375
+    + (rates.length ? rates.reduce((a, b) => a + b, 0) / rates.length : 0) * 0.3125;
+  const adjAvg = +(blendRate * l3avg).toFixed(1);
+
+  // Recompute model probability with adjusted projection
+  const vals = played.map(g => getVal(g));
+  const l20 = vals.slice(0, 20);
+  const l20avg = l20.reduce((a, b) => a + b, 0) / l20.length;
+  const stdDev = Math.sqrt(l20.reduce((s, v) => s + Math.pow(v - l20avg, 2), 0) / l20.length);
+
+  // Adjust hit rates by ratio
+  const adjHR = line ? Math.round(vals.filter(v => v * ratio >= line).length / vals.length * 100) : 50;
+  const l10vals = vals.slice(0, 10);
+  const l10HR = line && l10vals.length ? Math.round(l10vals.filter(v => v * ratio >= line).length / l10vals.length * 100) : adjHR;
+  const l5vals = vals.slice(0, 5);
+  const l5HR = l5vals.length >= 3 && line ? Math.round(l5vals.filter(v => v * ratio >= line).length / l5vals.length * 100) : l10HR;
+
+  const adjStdDev = stdDev * ratio;
+  const statProb = line != null && adjStdDev > 0 ? normalCDF((adjAvg - line) / adjStdDev) : 0.5;
+  const rawProb = (l5HR * 0.25 + l10HR * 0.30 + adjHR * 0.25) / 100 + statProb * 0.20;
+  const modelProb = Math.min(0.97, Math.max(0.03, (rawProb * vals.length + 5) / (vals.length + 10)));
+
+  const evOver = calcEV(modelProb, overOdds);
+  const evUnder = calcEV(1 - modelProb, underOdds);
+  const edge = line ? +((adjAvg - line) / line * 100).toFixed(1) : 0;
+
+  const isOverBet = edge >= 0;
+  const dirModelProb = isOverBet ? modelProb : 1 - modelProb;
+  const dirImplied = isOverBet ? impliedProb(overOdds) : impliedProb(underOdds);
+  const evEdge = dirModelProb - dirImplied;
+  const cv = adjAvg ? adjStdDev / adjAvg : 0.4;
+  const edgePts = Math.min(40, Math.max(0, evEdge / 0.15 * 20 + 20));
+  const dirHR = Math.round(dirModelProb * 100);
+  const hrPts = Math.min(40, Math.max(0, (dirHR - 25) * 0.8));
+  const cvPts = Math.min(20, Math.max(0, (0.6 - Math.min(cv, 0.6)) / 0.4 * 20));
+  const confidence = Math.max(0, Math.min(100, Math.round(edgePts + hrPts + cvPts)));
+
+  const direction = isOverBet ? 'over' : 'under';
+  const odds = isOverBet ? overOdds : underOdds;
+  const dirEV = isOverBet ? evOver : evUnder;
+  const vs = serverValueScore(edge, adjHR, confidence, dirEV);
+
+  return { ...baseStats, avg: adjAvg, hitRate: adjHR, edge, modelProb, confidence, evOver, evUnder, direction, odds, dirEV, vs, stdDev: adjStdDev, _smartMin: true, _adjMin: l3avg };
 }
 
 // ============================================================
@@ -2792,8 +2860,11 @@ app.get('/api/cron/agent-bet', async (req, res) => {
         const gameLog = gameLogMap.get(p.name);
         if (!gameLog?.length) { summary.skipped++; continue; }
 
-        const stats = serverComputeStats(gameLog, p.line, p.market, p.overOdds, p.underOdds);
-        if (!stats || stats.gamesPlayed < 5) { summary.skipped++; continue; }
+        const rawStats = serverComputeStats(gameLog, p.line, p.market, p.overOdds, p.underOdds);
+        if (!rawStats || rawStats.gamesPlayed < 5) { summary.skipped++; continue; }
+
+        // Apply Smart Minutes: recalculate flagged players using L3 avg minutes
+        const stats = serverApplySmartMinutes(gameLog, p.line, p.market, p.overOdds, p.underOdds, rawStats);
 
         const isValue = stats.vs >= 30 && Math.abs(stats.edge) > 4 && stats.confidence >= 55 && stats.dirEV > 3;
         const isControl = !isValue && stats.vs >= 20 && Math.abs(stats.edge) > 2 && stats.dirEV > 0;
