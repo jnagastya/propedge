@@ -329,7 +329,7 @@ const BDL_PLAYER_OVERRIDES = {
   'Coby White':              { id: 666956,        position: 'G', team: 'CHI' },
   'Marcus Smart':            { id: 420,           position: 'G', team: 'LAL' },
   'Adem Bona':               { id: 1028034846,    position: 'F', team: 'PHI' },
-  'Nolan Traore':            { id: 1028217445,    position: 'F', team: 'BKN' },
+  'Nolan Traore':            { id: 1057275262,    position: 'G', team: 'BKN' },
   'Norman Powell':           { id: 380,           position: 'F', team: 'MIA' },
   'Jonas Valanciunas':       { id: 455,           position: 'C', team: 'DEN' },
   'Jalen Wilson':            { id: 56677722,      position: 'F', team: 'BKN' },
