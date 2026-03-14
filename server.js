@@ -27,6 +27,102 @@ const ESPN_ALIASES = {
   'Jabari Smith Jr': 'Jabari Smith Jr.',
 };
 Object.entries(ESPN_ALIASES).forEach(([alias, real]) => { if (ESPN_PLAYERS[real]) ESPN_PLAYERS[alias] = ESPN_PLAYERS[real]; });
+
+// ---- PLAYER NAME NORMALIZATION & ALIAS MAP ----
+// Normalize: lowercase, strip suffixes/periods/accents, collapse whitespace
+function normalizeName(name) {
+  return (name || '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // strip accents
+    .replace(/\b(jr\.?|sr\.?|ii|iii|iv)\b/gi, '')     // strip suffixes
+    .replace(/\./g, '')                                  // strip periods
+    .replace(/\s+/g, ' ')                               // collapse spaces
+    .trim().toLowerCase();
+}
+
+// Alias map: injury report name → canonical DB/odds name
+// Add entries when the PDF parser produces a different name than what's in Supabase
+const INJURY_NAME_ALIASES = {
+  'Moritz Wagner': 'Moe Wagner',
+  'Ronald Holland II': 'Ron Holland',
+  'Ronald Holland': 'Ron Holland',
+  'GG Jackson': 'G.G. Jackson',
+  'G.G. Jackson II': 'G.G. Jackson',
+  'GG Jackson II': 'G.G. Jackson',
+  'Herbert Jones': 'Herb Jones',
+  'RJ Barrett': 'R.J. Barrett',
+  'Robert Williams III': 'Robert Williams',
+  'Derrick Jones Jr.': 'Derrick Jones',
+  'Derrick Jones Jr': 'Derrick Jones',
+  'Kevin Porter Jr': 'Kevin Porter Jr.',
+  'Jabari Smith': 'Jabari Smith Jr.',
+  'Jabari Smith Jr': 'Jabari Smith Jr.',
+  'Michael Porter Jr': 'Michael Porter Jr.',
+  'Marcus Morris Sr': 'Marcus Morris Sr.',
+  'Marcus Morris': 'Marcus Morris Sr.',
+  'Larry Nance': 'Larry Nance Jr.',
+  'Larry Nance Jr': 'Larry Nance Jr.',
+  'Gary Trent': 'Gary Trent Jr.',
+  'Gary Trent Jr': 'Gary Trent Jr.',
+  'Kelly Oubre': 'Kelly Oubre Jr.',
+  'Kelly Oubre Jr': 'Kelly Oubre Jr.',
+  'Wendell Carter': 'Wendell Carter Jr.',
+  'Wendell Carter Jr': 'Wendell Carter Jr.',
+  'Tim Hardaway': 'Tim Hardaway Jr.',
+  'Tim Hardaway Jr': 'Tim Hardaway Jr.',
+  'Kenyon Martin': 'Kenyon Martin Jr.',
+  'Kenyon Martin Jr': 'Kenyon Martin Jr.',
+  'Troy Brown': 'Troy Brown Jr.',
+  'Troy Brown Jr': 'Troy Brown Jr.',
+  'Dennis Smith': 'Dennis Smith Jr.',
+  'Dennis Smith Jr': 'Dennis Smith Jr.',
+  'Jaren Jackson': 'Jaren Jackson Jr.',
+  'Jaren Jackson Jr': 'Jaren Jackson Jr.',
+  'Dereck Lively': 'Dereck Lively II',
+  'Trey Murphy': 'Trey Murphy III',
+  'Jaime Jaquez': 'Jaime Jaquez Jr.',
+  'Jaime Jaquez Jr': 'Jaime Jaquez Jr.',
+  'Bogdan Bogdanovic': 'Bogdan Bogdanovic',
+  'Jonas Valanciunas': 'Jonas Valanciunas',
+  'Nikola Jokic': 'Nikola Jokic',
+  'Luka Doncic': 'Luka Doncic',
+  'Kristaps Porzingis': 'Kristaps Porzingis',
+  'Alperen Sengun': 'Alperen Sengun',
+  'Naz Reid': 'Naz Reid',
+};
+
+// Build a normalized lookup index for fuzzy matching
+const _normalizedPlayerIndex = new Map(); // normName → canonical name
+function _buildNormalizedIndex(names) {
+  for (const name of names) {
+    const norm = normalizeName(name);
+    if (!_normalizedPlayerIndex.has(norm)) _normalizedPlayerIndex.set(norm, name);
+  }
+}
+
+// Resolve an injury report name to a canonical DB name
+// Priority: exact → alias → normalized match → original
+let _indexBuilt = false;
+function resolvePlayerName(injuryName) {
+  // Lazy-build normalized index from known player names
+  if (!_indexBuilt) {
+    _buildNormalizedIndex(Object.keys(_playerTeamCache));
+    _buildNormalizedIndex(Object.keys(BDL_PLAYER_OVERRIDES));
+    _buildNormalizedIndex(Object.keys(ESPN_PLAYERS));
+    _indexBuilt = true;
+  }
+  // 1. Exact alias match
+  if (INJURY_NAME_ALIASES[injuryName]) return INJURY_NAME_ALIASES[injuryName];
+  // 2. Normalized alias match (handles case/suffix variations)
+  const normInj = normalizeName(injuryName);
+  for (const [alias, canonical] of Object.entries(INJURY_NAME_ALIASES)) {
+    if (normalizeName(alias) === normInj) return canonical;
+  }
+  // 3. Normalized match against known player names in DB
+  if (_normalizedPlayerIndex.has(normInj)) return _normalizedPlayerIndex.get(normInj);
+  // 4. Return original
+  return injuryName;
+}
+
 const NodeCache = require('node-cache');
 const path = require('path');
 const { createClient } = require('@supabase/supabase-js');
@@ -1328,51 +1424,76 @@ app.get('/api/injury-impact', async (req, res) => {
   if (!player || !team || !market) return res.status(400).json({ error: 'player, team, market required' });
   try {
     const injuries = await fetchInjuryReport();
-    const outTeammates = injuries.filter(inj => inj.team === team.toUpperCase() && inj.status === 'Out' && inj.player.toLowerCase() !== player.toLowerCase());
+    // Resolve injury report names through alias system
+    const resolvedPlayer = resolvePlayerName(player);
+    const outTeammates = injuries
+      .filter(inj => inj.team === team.toUpperCase() && inj.status === 'Out' && inj.player.toLowerCase() !== player.toLowerCase() && inj.player.toLowerCase() !== resolvedPlayer.toLowerCase())
+      .map(inj => ({ ...inj, resolvedName: resolvePlayerName(inj.player) }));
     if (!outTeammates.length) return res.json({ impact: false, reason: 'no OUT teammates' });
 
     // Fetch player game log (memory → Supabase → live BDL)
-    const ckMem = `gl_name_${NBA_SEASON}_${player.toLowerCase().replace(/\s+/g,'_')}`;
-    let playerLog = cacheGet(ckMem);
+    // Try both original name and resolved name
+    const playerNames = [resolvedPlayer, player].filter((v, i, a) => a.indexOf(v) === i);
+    let playerLog = null;
+    for (const pn of playerNames) {
+      const ckMem = `gl_name_${NBA_SEASON}_${pn.toLowerCase().replace(/\s+/g,'_')}`;
+      playerLog = cacheGet(ckMem);
+      if (playerLog) break;
+      playerLog = await sbGetGameLog(pn);
+      if (playerLog) { cacheSet(ckMem, playerLog, STATS_TTL); break; }
+    }
     if (!playerLog) {
-      playerLog = await sbGetGameLog(player);
-      if (!playerLog) {
+      for (const pn of playerNames) {
         try {
-          const { id: bdlId, position: bdlPos } = await getBDLPlayerId(player);
+          const { id: bdlId, position: bdlPos } = await getBDLPlayerId(pn);
           if (bdlId) {
             playerLog = await fetchBDLGameLog(bdlId);
             if (playerLog?.length) {
+              const ckMem = `gl_name_${NBA_SEASON}_${pn.toLowerCase().replace(/\s+/g,'_')}`;
               cacheSet(ckMem, playerLog, STATS_TTL);
-              await sbSetGameLog(player, bdlId, playerLog, bdlPos);
+              await sbSetGameLog(pn, bdlId, playerLog, bdlPos);
+              break;
             }
           }
         } catch (e) { console.warn('[injury-impact] BDL fetch for player failed:', e.message); }
-      } else {
-        cacheSet(ckMem, playerLog, STATS_TTL);
       }
     }
     if (!playerLog?.length) return res.json({ impact: false, reason: 'no player game log' });
 
     // Fetch game logs for out teammates (Supabase → live BDL fallback)
-    const tmNames = outTeammates.map(i => i.player);
-    const tmLogMap = new Map();
+    // Use resolved names for DB/BDL lookups, map back by injury report name
+    const tmLogMap = new Map(); // injury report name → game log
     if (supabase) {
-      const { data } = await supabase.from('player_stats').select('player_name, game_log, season').eq('season', NBA_SEASON).in('player_name', tmNames);
-      if (data) data.forEach(r => tmLogMap.set(r.player_name, r.game_log));
+      // Try both original and resolved names
+      const allTmNames = [];
+      const tmNameMapping = new Map(); // resolved/original → injury report name
+      for (const inj of outTeammates) {
+        const names = [inj.resolvedName, inj.player].filter((v, i, a) => a.indexOf(v) === i);
+        names.forEach(n => { allTmNames.push(n); tmNameMapping.set(n, inj.player); });
+      }
+      const { data } = await supabase.from('player_stats').select('player_name, game_log, season').eq('season', NBA_SEASON).in('player_name', allTmNames);
+      if (data) data.forEach(r => {
+        const injName = tmNameMapping.get(r.player_name) || r.player_name;
+        tmLogMap.set(injName, r.game_log);
+      });
     }
-    // For any teammate not in Supabase, try live BDL fetch
-    for (const tmName of tmNames) {
-      if (tmLogMap.has(tmName)) continue;
-      try {
-        const { id: tmBdlId, position: tmPos } = await getBDLPlayerId(tmName);
-        if (tmBdlId) {
-          const tmGames = await fetchBDLGameLog(tmBdlId);
-          if (tmGames?.length) {
-            tmLogMap.set(tmName, tmGames);
-            await sbSetGameLog(tmName, tmBdlId, tmGames, tmPos); // persist for next time
+    // For any teammate not found, try live BDL fetch
+    for (const inj of outTeammates) {
+      if (tmLogMap.has(inj.player)) continue;
+      const names = [inj.resolvedName, inj.player].filter((v, i, a) => a.indexOf(v) === i);
+      for (const tmName of names) {
+        try {
+          const { id: tmBdlId, position: tmPos } = await getBDLPlayerId(tmName);
+          if (tmBdlId) {
+            const tmGames = await fetchBDLGameLog(tmBdlId);
+            if (tmGames?.length) {
+              tmLogMap.set(inj.player, tmGames);
+              await sbSetGameLog(tmName, tmBdlId, tmGames, tmPos);
+              break;
+            }
           }
-        }
-      } catch (e) { console.warn(`[injury-impact] BDL fetch for teammate ${tmName} failed:`, e.message); }
+        } catch (e) { console.warn(`[injury-impact] BDL fetch for teammate ${tmName} failed:`, e.message); }
+      }
     }
 
     // Stack ALL out teammates — compute independent rate ratios and multiply
@@ -3028,7 +3149,9 @@ function serverApplyInjuryImpact(playerName, playerGameLog, playerTeam, market, 
   const teammateImpacts = [];
 
   for (const inj of outTeammates) {
-    const tmLog = allGameLogs.get(inj.player);
+    // Try resolved name, then original injury report name
+    const resolved = resolvePlayerName(inj.player);
+    const tmLog = allGameLogs.get(resolved) || allGameLogs.get(inj.player);
     if (!tmLog?.length) continue;
     const tmPlayed = tmLog.filter(g => parseInt(g.min || '0') > 0);
     if (tmPlayed.length < 5) continue;
