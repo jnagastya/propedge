@@ -1331,22 +1331,48 @@ app.get('/api/injury-impact', async (req, res) => {
     const outTeammates = injuries.filter(inj => inj.team === team.toUpperCase() && inj.status === 'Out' && inj.player.toLowerCase() !== player.toLowerCase());
     if (!outTeammates.length) return res.json({ impact: false, reason: 'no OUT teammates' });
 
-    // Fetch player game log
+    // Fetch player game log (memory → Supabase → live BDL)
     const ckMem = `gl_name_${NBA_SEASON}_${player.toLowerCase().replace(/\s+/g,'_')}`;
     let playerLog = cacheGet(ckMem);
     if (!playerLog) {
       playerLog = await sbGetGameLog(player);
-      if (playerLog) cacheSet(ckMem, playerLog, STATS_TTL);
+      if (!playerLog) {
+        try {
+          const { id: bdlId, position: bdlPos } = await getBDLPlayerId(player);
+          if (bdlId) {
+            playerLog = await fetchBDLGameLog(bdlId);
+            if (playerLog?.length) {
+              cacheSet(ckMem, playerLog, STATS_TTL);
+              await sbSetGameLog(player, bdlId, playerLog, bdlPos);
+            }
+          }
+        } catch (e) { console.warn('[injury-impact] BDL fetch for player failed:', e.message); }
+      } else {
+        cacheSet(ckMem, playerLog, STATS_TTL);
+      }
     }
     if (!playerLog?.length) return res.json({ impact: false, reason: 'no player game log' });
 
-    // Fetch game logs for out teammates
+    // Fetch game logs for out teammates (Supabase → live BDL fallback)
     const tmNames = outTeammates.map(i => i.player);
     const tmLogMap = new Map();
-    // Try supabase batch
     if (supabase) {
       const { data } = await supabase.from('player_stats').select('player_name, game_log, season').eq('season', NBA_SEASON).in('player_name', tmNames);
       if (data) data.forEach(r => tmLogMap.set(r.player_name, r.game_log));
+    }
+    // For any teammate not in Supabase, try live BDL fetch
+    for (const tmName of tmNames) {
+      if (tmLogMap.has(tmName)) continue;
+      try {
+        const { id: tmBdlId, position: tmPos } = await getBDLPlayerId(tmName);
+        if (tmBdlId) {
+          const tmGames = await fetchBDLGameLog(tmBdlId);
+          if (tmGames?.length) {
+            tmLogMap.set(tmName, tmGames);
+            await sbSetGameLog(tmName, tmBdlId, tmGames, tmPos); // persist for next time
+          }
+        }
+      } catch (e) { console.warn(`[injury-impact] BDL fetch for teammate ${tmName} failed:`, e.message); }
     }
 
     // Stack ALL out teammates — compute independent rate ratios and multiply
