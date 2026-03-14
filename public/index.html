@@ -2563,21 +2563,29 @@ function positionTip(tip,rect){
 function lmrScroll(dir){
   const scroll=document.getElementById('lmRibbonScroll');
   if(!scroll) return;
-  scroll.scrollBy({left:260*dir,behavior:'smooth'});
-  // Pause auto-scroll briefly after manual click
   window._lmrPaused=true;
   clearTimeout(window._lmrPauseTimer);
-  window._lmrPauseTimer=setTimeout(()=>{window._lmrPaused=false;},4000);
+  // Normalize position into first-half before jumping so the seam is never visible
+  const half=scroll.scrollWidth/2;
+  if(half>0&&scroll.scrollLeft>=half) scroll.scrollLeft-=half;
+  if(half>0&&scroll.scrollLeft<0) scroll.scrollLeft+=half;
+  scroll.scrollBy({left:260*dir,behavior:'smooth'});
+  // After smooth scroll completes (~400ms), normalize again, then resume after pause
+  window._lmrPauseTimer=setTimeout(()=>{
+    if(half>0){
+      if(scroll.scrollLeft>=half) scroll.scrollLeft-=half;
+      if(scroll.scrollLeft<0) scroll.scrollLeft+=half;
+    }
+    window._lmrPaused=false;
+  },4000);
 }
 function lmrAutoScroll(){
   const scroll=document.getElementById('lmRibbonScroll');
   if(!scroll||window._lmrPaused||!scroll.scrollWidth) return;
-  // If hovered, don't scroll
   if(scroll.matches(':hover')) return;
   scroll.scrollLeft+=1;
-  // Loop: when we've scrolled past half (duplicated content), reset to start
   const half=scroll.scrollWidth/2;
-  if(scroll.scrollLeft>=half) scroll.scrollLeft-=half;
+  if(half>0&&scroll.scrollLeft>=half) scroll.scrollLeft-=half;
 }
 if(!window._lmrAutoInterval) window._lmrAutoInterval=setInterval(lmrAutoScroll,30);
 function openAlertDetail(p){
