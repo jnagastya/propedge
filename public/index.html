@@ -843,6 +843,17 @@ td{padding:13px 14px;white-space:nowrap;}
 /* -- RESPONSIVE -- */
 @media(max-width:900px){.sr{grid-template-columns:repeat(2,1fr);}.di-grid{grid-template-columns:1fr;}.va-grid{grid-template-columns:1fr;}.an-summary{grid-template-columns:repeat(3,1fr);}.an-grid{grid-template-columns:1fr;}}
 @media(max-width:600px){.app{padding:12px;}.ctrls{flex-direction:column;align-items:flex-start;}.glossary{display:none;}}
+/* Mobile detail modal cleanup */
+@media(max-width:900px){
+  .mob-hide{display:none!important;}
+  .rec-formulas{display:none!important;}
+}
+/* Custom range slider */
+input[type=range].min-slider{-webkit-appearance:none;appearance:none;width:100%;height:6px;border-radius:3px;background:linear-gradient(90deg,var(--bd),rgba(139,92,246,.3));outline:none;cursor:pointer;}
+input[type=range].min-slider::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:22px;height:22px;border-radius:50%;background:linear-gradient(135deg,#a78bfa,#8b5cf6);border:2px solid rgba(255,255,255,.2);box-shadow:0 0 8px rgba(139,92,246,.4);cursor:pointer;transition:transform .15s,box-shadow .15s;}
+input[type=range].min-slider::-webkit-slider-thumb:active{transform:scale(1.2);box-shadow:0 0 14px rgba(139,92,246,.6);}
+input[type=range].min-slider::-moz-range-thumb{width:22px;height:22px;border-radius:50%;background:linear-gradient(135deg,#a78bfa,#8b5cf6);border:2px solid rgba(255,255,255,.2);box-shadow:0 0 8px rgba(139,92,246,.4);cursor:pointer;}
+input[type=range].min-slider::-moz-range-track{height:6px;border-radius:3px;background:linear-gradient(90deg,var(--bd),rgba(139,92,246,.3));}
 
 /* -- VIEW TRANSITIONS -- */
 .view-pane{display:none;}
@@ -3120,7 +3131,7 @@ function renderOverview(el,p){
         <div class="sb2"><div class="sb2-l">Std Dev</div><div class="sb2-v">${p.stdDev||'—'}</div><div class="sb2-s">Floor ${floor} · Ceil ${ceil}</div></div>
         <div class="sb2"><div class="sb2-l">Confidence</div><div class="sb2-v" style="color:${(p.confidence||0)>=70?'var(--g)':(p.confidence||0)>=50?'var(--a)':'var(--r)'}">${p.confidence||0}</div><div class="sb2-s">${(p.confidence||0)>=70?'High':(p.confidence||0)>=50?'Med':'Low'}</div></div>
       </div>
-      ${p.hasRealStats?`<div style="margin-top:10px;padding:9px 11px;background:var(--bg1);border-radius:7px;border:1px solid var(--bd);font-size:11px;">
+      ${p.hasRealStats?`<div class="mob-hide" style="margin-top:10px;padding:9px 11px;background:var(--bg1);border-radius:7px;border:1px solid var(--bd);font-size:11px;">
         <div style="font-weight:700;color:var(--b-text);margin-bottom:6px;">Model Probability Breakdown</div>
         ${(()=>{
           const _isOv=(p.edge||0)>=0;
@@ -3146,7 +3157,7 @@ function renderOverview(el,p){
           </div>`;
         })()}
       </div>`:''}
-      <div style="margin-top:10px;padding:9px 11px;background:var(--bg1);border-radius:7px;border:1px solid var(--bd);font-size:11px;">
+      <div class="mob-hide" style="margin-top:10px;padding:9px 11px;background:var(--bg1);border-radius:7px;border:1px solid var(--bd);font-size:11px;">
         <div style="font-weight:700;color:var(--b-text);margin-bottom:6px;">Value Score Breakdown</div>
         ${(()=>{
           const _isOv2=(p.edge||0)>=0;
@@ -3272,7 +3283,7 @@ function renderOverview(el,p){
           </div>
           <div style="font-size:12px;color:var(--t2);margin-top:4px;">Based on ${(p.edge||0).toFixed(1)}% edge · ${(p.edge||0)>=0?(p.hitRate||0):(100-(p.hitRate||0))}% ${(p.edge||0)>=0?'over':'under'} hit rate · ${p.confidence||0}/100 confidence</div>
         </div>
-        <div style="font-size:11px;color:var(--t2);line-height:1.7;flex:2;background:var(--bg2);padding:10px 12px;border-radius:8px;border:1px solid var(--bd);">
+        <div class="rec-formulas" style="font-size:11px;color:var(--t2);line-height:1.7;flex:2;background:var(--bg2);padding:10px 12px;border-radius:8px;border:1px solid var(--bd);">
           ${(()=>{
             const isOverBet=(p.edge||0)>=0;
             const betOddsVal=isOverBet?(p.overOdds||0):(p.underOdds||0);
@@ -3292,30 +3303,28 @@ function renderOverview(el,p){
         </div>
       </div>
     </div>
-    ${p.hasRealStats?(()=>{const pg=(p.gameLog||[]).filter(g=>parseInt(g.min||'0')>0);const am=pg.length?Math.round(pg.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/pg.length):30;const l3min=pg.slice(0,3);const l3avg=l3min.length>=3?Math.round(l3min.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/l3min.length):am;const l5min=pg.slice(0,5);const l5avg=l5min.length?Math.round(l5min.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/l5min.length):am;const l10min=pg.slice(0,10);const l10avg=l10min.length?Math.round(l10min.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/l10min.length):am;const hasFlag=p.minutesFlag||p.dnpCount>=5;const initMin=p._adjMin||am;const presets=`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px;">
-          <button onclick="setMinPreset(${am})" style="font-size:9px;padding:3px 8px;border-radius:5px;border:1px solid var(--bd);background:var(--bg2);color:var(--t2);cursor:pointer;font-weight:600;">Season Avg (${am})</button>
-          <button onclick="setMinPreset(${l10avg})" style="font-size:9px;padding:3px 8px;border-radius:5px;border:1px solid var(--bd);background:var(--bg2);color:var(--t2);cursor:pointer;font-weight:600;">L10 Avg (${l10avg})</button>
-          <button onclick="setMinPreset(${l5avg})" style="font-size:9px;padding:3px 8px;border-radius:5px;border:1px solid ${hasFlag?'rgba(139,92,246,.5)':'var(--bd)'};background:${hasFlag?'rgba(139,92,246,.15)':'var(--bg2)'};color:${hasFlag?'#a78bfa':'var(--t2)'};cursor:pointer;font-weight:700;">${hasFlag?'❗ ':''}L5 Avg (${l5avg})</button>
-          <button onclick="setMinPreset(${l3avg})" style="font-size:9px;padding:3px 8px;border-radius:5px;border:1px solid ${hasFlag?'rgba(139,92,246,.5)':'var(--bd)'};background:${hasFlag?'rgba(139,92,246,.15)':'var(--bg2)'};color:${hasFlag?'#a78bfa':'var(--t2)'};cursor:pointer;font-weight:700;">${hasFlag?'❗ ':''}L3 Avg (${l3avg})</button>
-        </div>`;return`<div class="dc full"><div class="dc-t"><span class="dt" style="background:#8b5cf6"></span>Minutes Projection <span style="font-size:10px;color:var(--t3);font-weight:400;margin-left:4px;">Adjust model for expected playing time</span></div>
-      <div style="padding:6px 0 2px;">
-        ${presets}
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
-          <span style="font-size:11px;color:var(--t3);min-width:16px;">0</span>
-          <input type="range" min="0" max="48" value="${initMin}" step="1" id="minSlider" style="flex:1;cursor:pointer;accent-color:#8b5cf6;" oninput="updateMinutesProjection(this.value)">
-          <span style="font-size:11px;color:var(--t3);min-width:20px;">48</span>
-          <span id="minSliderVal" style="font-size:13px;font-weight:700;color:#a78bfa;min-width:52px;text-align:right;">${initMin} min</span>
-        </div>
-        <div id="minAdjStats" style="font-size:11px;color:var(--t3);text-align:center;">Season avg: ${am} min/game${initMin!==am?' — adjusted by filter':' — slide to adjust'}</div>
-      </div>
-    </div>`})():''}
     <div class="dc full"><div class="dc-t"><span class="dt" style="background:var(--g)"></span>Last 10 Calendar Games <span style="font-size:10px;color:var(--t3);font-weight:400;margin-left:4px;">(DNPs shown but excluded from averages)</span></div>
       <div class="chb"><div class="lref" style="top:${lP}%"><span class="lref-l">LINE ${p.line}</span></div><div class="bars">${bars}</div></div>
     </div>
-    ${p.hasRealStats?`<div class="dc full"><div class="dc-t"><span class="dt" style="background:#8b5cf6"></span>EV vs Minutes <span style="font-size:10px;color:var(--t3);font-weight:400;margin-left:4px;">How playing time affects expected value</span></div>
+    ${p.hasRealStats?(()=>{const pg=(p.gameLog||[]).filter(g=>parseInt(g.min||'0')>0);const am=pg.length?Math.round(pg.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/pg.length):30;const l3min=pg.slice(0,3);const l3avg=l3min.length>=3?Math.round(l3min.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/l3min.length):am;const l5min=pg.slice(0,5);const l5avg=l5min.length?Math.round(l5min.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/l5min.length):am;const l10min=pg.slice(0,10);const l10avg=l10min.length?Math.round(l10min.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/l10min.length):am;const hasFlag=p.minutesFlag||p.dnpCount>=5;const initMin=p._adjMin||am;return`<div class="dc full"><div class="dc-t"><span class="dt" style="background:#8b5cf6"></span>EV vs Minutes <span style="font-size:10px;color:var(--t3);font-weight:400;margin-left:4px;">Adjust playing time to see EV impact</span></div>
       <canvas id="evMinutesChart" width="400" height="220" style="width:100%;height:220px;display:block;"></canvas>
       <div id="evMinutesLegend" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;"></div>
-    </div>`:''}
+      <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--bd);">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+          <span style="font-size:11px;color:var(--t3);min-width:16px;">0</span>
+          <input type="range" min="0" max="48" value="${initMin}" step="1" id="minSlider" class="min-slider" style="flex:1;" oninput="updateMinutesProjection(this.value)">
+          <span style="font-size:11px;color:var(--t3);min-width:20px;">48</span>
+          <span id="minSliderVal" style="font-size:14px;font-weight:700;color:#a78bfa;min-width:52px;text-align:right;">${initMin} min</span>
+        </div>
+        <div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:center;">
+          <button onclick="setMinPreset(${am})" style="font-size:10px;padding:4px 10px;border-radius:6px;border:1px solid var(--bd);background:var(--bg2);color:var(--t2);cursor:pointer;font-weight:600;">Season (${am})</button>
+          <button onclick="setMinPreset(${l10avg})" style="font-size:10px;padding:4px 10px;border-radius:6px;border:1px solid var(--bd);background:var(--bg2);color:var(--t2);cursor:pointer;font-weight:600;">L10 (${l10avg})</button>
+          <button onclick="setMinPreset(${l5avg})" style="font-size:10px;padding:4px 10px;border-radius:6px;border:1px solid ${hasFlag?'rgba(139,92,246,.5)':'var(--bd)'};background:${hasFlag?'rgba(139,92,246,.15)':'var(--bg2)'};color:${hasFlag?'#a78bfa':'var(--t2)'};cursor:pointer;font-weight:700;">${hasFlag?'❗ ':''}L5 (${l5avg})</button>
+          <button onclick="setMinPreset(${l3avg})" style="font-size:10px;padding:4px 10px;border-radius:6px;border:1px solid ${hasFlag?'rgba(139,92,246,.5)':'var(--bd)'};background:${hasFlag?'rgba(139,92,246,.15)':'var(--bg2)'};color:${hasFlag?'#a78bfa':'var(--t2)'};cursor:pointer;font-weight:700;">${hasFlag?'❗ ':''}L3 (${l3avg})</button>
+        </div>
+        <div id="minAdjStats" style="font-size:11px;color:var(--t3);text-align:center;margin-top:6px;">Season avg: ${am} min/game${initMin!==am?' — adjusted by filter':' — slide to adjust'}</div>
+      </div>
+    </div>`;})():''}
     ${p.bookLines&&Object.keys(p.bookLines).length>1?`<div class="dc full">
       <div class="dc-t"><span class="dt" style="background:var(--c)"></span>Book Comparison — Consensus Line: ${p.line}</div>
       <table class="spt"><thead><tr><th>Sportsbook</th><th>Line</th><th>Over Odds</th><th>Under Odds</th></tr></thead>
