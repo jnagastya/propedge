@@ -984,6 +984,15 @@ function calcEV(modelProb, odds) {
   return +((modelProb * payout - (1 - modelProb)) * 100).toFixed(1);
 }
 
+// Standard normal CDF approximation (Abramowitz & Stegun)
+function normalCDF(z) {
+  const s = z < 0 ? -1 : 1; z = Math.abs(z);
+  const k = 1 / (1 + 0.2316419 * z);
+  const poly = k * (0.319381530 + k * (-0.356563782 + k * (1.781477937 + k * (-1.821255978 + k * 1.330274429))));
+  const cdf = 1 - (1 / Math.sqrt(2 * Math.PI)) * Math.exp(-0.5 * z * z) * poly;
+  return s === 1 ? cdf : 1 - cdf;
+}
+
 function guessTeam(name) {
   const map = {
     // ATL
@@ -2434,25 +2443,30 @@ function serverValueScore(edge, hitRate, confidence, dirEV) {
 
 function serverComputeStats(gameLog, line, market, overOdds, underOdds) {
   const statKey = STAT_KEYS[market] || 'pts';
-  const getVal = g => statKey === 'pra' ? (+g.pts || 0) + (+g.reb || 0) + (+g.ast || 0) : +(g[statKey] || 0);
+  const getVal = g => statKey === 'pra' ? (+g.pts || 0) + (+g.reb || 0) + (+g.ast || 0)
+    : statKey === 'ra' ? (+g.reb || 0) + (+g.ast || 0)
+    : +(g[statKey] || 0);
   const sorted = [...gameLog].sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
   const played = sorted.filter(g => parseInt(g.min || '0') > 0);
   if (!played.length) return null;
 
   const vals = played.map(g => getVal(g));
   const l10 = vals.slice(0, 10);
+  const l20 = vals.slice(0, 20);
   const l5 = vals.slice(0, 5);
   const avg = +(vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1);
   const hitRate = line ? Math.round(vals.filter(v => v >= line).length / vals.length * 100) : 50;
   const edge = line ? +((avg - line) / line * 100).toFixed(1) : 0;
-  const l10avg = l10.reduce((a, b) => a + b, 0) / l10.length;
-  const stdDev = +(Math.sqrt(l10.reduce((s, v) => s + Math.pow(v - l10avg, 2), 0) / l10.length)).toFixed(1);
+  const l20avg = l20.reduce((a, b) => a + b, 0) / l20.length;
+  const stdDev = +(Math.sqrt(l20.reduce((s, v) => s + Math.pow(v - l20avg, 2), 0) / l20.length)).toFixed(1);
   const cv = avg ? stdDev / avg : 0.4;
 
   const l10HitRate = line && l10.length ? Math.round(l10.filter(v => v >= line).length / l10.length * 100) : hitRate;
   const l5HitRate = (l5.length >= 3 && line) ? Math.round(l5.filter(v => v >= line).length / l5.length * 100) : l10HitRate;
 
-  const rawProb = (l5HitRate * 0.35 + l10HitRate * 0.40 + hitRate * 0.25) / 100;
+  // Statistical probability via normal distribution (matches client-side formula)
+  const statProb = line != null && stdDev > 0 ? normalCDF((avg - line) / stdDev) : 0.5;
+  const rawProb = (l5HitRate * 0.25 + l10HitRate * 0.30 + hitRate * 0.25) / 100 + statProb * 0.20;
   const modelProb = Math.min(0.97, Math.max(0.03, (rawProb * vals.length + 5) / (vals.length + 10)));
 
   const evOver = calcEV(modelProb, overOdds);
