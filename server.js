@@ -1322,14 +1322,16 @@ app.get('/api/injury-impact', async (req, res) => {
     }
     if (!bestTeammate) return res.json({ impact: false, reason: 'no teammate game logs found' });
 
-    // Compute without/with splits
+    // Compute without/with splits (same team only — handles mid-season trades)
+    const teamFilter = team.toUpperCase();
     const tmDnpDates = new Set(), tmPlayedDates = new Set();
     for (const g of bestLog) {
+      if (g.team && g.team !== teamFilter) continue;
       if (parseInt(g.min || '0') === 0) tmDnpDates.add(g.date);
       else tmPlayedDates.add(g.date);
     }
 
-    const playerPlayed = playerLog.filter(g => parseInt(g.min || '0') > 0);
+    const playerPlayed = playerLog.filter(g => parseInt(g.min || '0') > 0 && (!g.team || g.team === teamFilter));
     const withoutGames = [], withGames = [];
     for (const g of playerPlayed) {
       if (tmDnpDates.has(g.date)) withoutGames.push(g);
@@ -2938,26 +2940,26 @@ function serverApplyInjuryImpact(playerName, playerGameLog, playerTeam, market, 
 
   if (!bestTeammate || !bestTeammateLog) return baseStats;
 
-  // 3. Build a set of dates when the best teammate did NOT play
+  // 3. Build a set of dates when the best teammate did NOT play (same team only)
   const tmDnpDates = new Set();
   const tmPlayedDates = new Set();
-  // Include all games from teammate's log: DNP = min 0 or absent
   const tmAllSorted = [...(allGameLogs.get(bestTeammate) || [])].sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
   for (const g of tmAllSorted) {
+    // Only count games where teammate was on the same team (handles mid-season trades)
+    if (g.team && g.team !== playerTeam) continue;
     if (parseInt(g.min || '0') === 0) tmDnpDates.add(g.date);
     else tmPlayedDates.add(g.date);
   }
 
-  // 4. Split player's games into "with" and "without" the teammate
+  // 4. Split player's games into "with" and "without" the teammate (same team only)
   const playerSorted = [...playerGameLog].sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
-  const playerPlayed = playerSorted.filter(g => parseInt(g.min || '0') > 0);
+  const playerPlayed = playerSorted.filter(g => parseInt(g.min || '0') > 0 && (!g.team || g.team === playerTeam));
 
   const withoutGames = [];
   const withGames = [];
   for (const g of playerPlayed) {
     if (tmDnpDates.has(g.date)) withoutGames.push(g);
     else if (tmPlayedDates.has(g.date)) withGames.push(g);
-    // Games where teammate wasn't on roster yet (no entry) are excluded
   }
 
   // Need minimum 3 "without" games for a reliable signal
