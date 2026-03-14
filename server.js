@@ -2145,74 +2145,47 @@ async function sendDiscordPicks(betsInserted, date) {
   if (!DISCORD_PICKS_WEBHOOK || !betsInserted.length) return;
 
   const valueBets = betsInserted.filter(b => !b.is_control).sort((a, b) => b.value_score - a.value_score);
-  const controlBets = betsInserted.filter(b => b.is_control);
+  const top20 = valueBets.slice(0, 20);
   const fmtOdds = o => o > 0 ? `+${o}` : `${o}`;
   const dateStr = new Date(date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+  const dirIcon = d => d === 'over' ? '🟢 OVER' : '🔴 UNDER';
+  const mktLabel = m => MKT_LABELS[m] || m;
 
-  // Main summary embed
+  // Summary embed
   const embeds = [{
     title: `🏀 Value Alert Agent — ${dateStr}`,
-    description: `Placed **${valueBets.length} value picks** and **${controlBets.length} control picks** for today's slate.`,
+    description: `Showing **top 20** of ${valueBets.length} value picks (sorted by Value Score).`,
     color: 0x6366f1,
-    fields: [
-      { name: 'Total Picks', value: `${betsInserted.length}`, inline: true },
-      { name: 'Value Alerts', value: `${valueBets.length}`, inline: true },
-      { name: 'Control Group', value: `${controlBets.length}`, inline: true },
-    ],
     timestamp: new Date().toISOString(),
   }];
 
-  const dirIcon = d => d === 'over' ? '🟢 OVER' : '🔴 UNDER';
-  const evFmt = v => v > 0 ? `🟢 +${v}%` : `🔴 ${v}%`;
-  const mktLabel = m => MKT_LABELS[m] || m;
+  // Top 20 picks split into two embeds (10 each) to stay within Discord limits
+  const pickLines = (picks, startRank) => picks.map((b, i) => {
+    const rank = startRank + i + 1;
+    const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `**#${rank}**`;
+    return `${medal} **${b.player_name}** — ${dirIcon(b.direction)} ${b.line} ${mktLabel(b.market)}\n` +
+      `　VS: \`${b.value_score}\` · EV: \`${b.dir_ev > 0 ? '+' : ''}${b.dir_ev}%\` · MP: \`${(b.model_prob * 100).toFixed(0)}%\` · Odds: \`${fmtOdds(b.odds)}\``;
+  }).join('\n\n');
 
-  // Top picks by value score (favorites)
-  if (valueBets.length) {
-    const topPicks = valueBets.slice(0, 5);
-    const favLines = topPicks.map((b, i) => {
-      const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '▸';
-      return `${medal} **${b.player_name}** — ${dirIcon(b.direction)} ${b.line} ${mktLabel(b.market)}\n` +
-        `　Odds: \`${fmtOdds(b.odds)}\` · Model: \`${(b.model_prob * 100).toFixed(0)}%\` · EV: ${evFmt(b.dir_ev)} · VS: \`${b.value_score}\``;
-    }).join('\n\n');
+  const first10 = top20.slice(0, 10);
+  const second10 = top20.slice(10, 20);
 
+  embeds.push({
+    title: '⭐ Top Picks #1–10',
+    description: pickLines(first10, 0),
+    color: 0xf59e0b,
+  });
+
+  if (second10.length) {
     embeds.push({
-      title: '⭐ Favorite Picks (by Value Score)',
-      description: favLines,
+      title: '⭐ Top Picks #11–20',
+      description: pickLines(second10, 10),
       color: 0xf59e0b,
     });
   }
 
-  // Best EV picks
-  if (valueBets.length) {
-    const bestEV = [...valueBets].sort((a, b) => b.dir_ev - a.dir_ev).slice(0, 3);
-    const evLines = bestEV.map(b =>
-      `💎 **${b.player_name}** — ${dirIcon(b.direction)} ${b.line} ${mktLabel(b.market)}\n` +
-      `　EV: ${evFmt(b.dir_ev)} · Odds: \`${fmtOdds(b.odds)}\` · Edge: ${b.edge > 0 ? '🟢' : '🔴'} \`${b.edge > 0 ? '+' : ''}${b.edge.toFixed(1)}%\``
-    ).join('\n\n');
-
-    embeds.push({
-      title: '💰 Best Value (by Expected Value)',
-      description: evLines,
-      color: 0x10b981,
-    });
-  }
-
-  // Full pick list (compact)
-  if (valueBets.length > 5) {
-    const remaining = valueBets.slice(5);
-    const listLines = remaining.map(b =>
-      `${b.direction === 'over' ? '🟢' : '🔴'} ${b.player_name} — ${b.direction.toUpperCase()} ${b.line} ${mktLabel(b.market)} (${fmtOdds(b.odds)}, EV ${evFmt(b.dir_ev)})`
-    ).join('\n');
-
-    embeds.push({
-      title: '📋 All Other Value Picks',
-      description: listLines,
-      color: 0x64748b,
-    });
-  }
-
   await postDiscord(DISCORD_PICKS_WEBHOOK, {
-    content: '@everyone 🚨 **New picks are in!** The Value Alert agent has locked in today\'s bets.',
+    content: '@everyone 🚨 **New picks are in!** Top 20 value plays for today.',
     embeds,
   });
 }
@@ -2255,33 +2228,33 @@ async function sendDiscordResults(allBets, latestDate) {
     ],
   }];
 
-  // Pick-by-pick results — split wins and losses
+  // Top 20 pick-by-pick results (by VS)
   const settled = yesterdayValue.filter(b => b.status === 'won' || b.status === 'lost');
+  const top20 = [...settled].sort((a, b) => b.value_score - a.value_score).slice(0, 20);
   const dirIcon = d => d === 'over' ? '🟢 OVER' : '🔴 UNDER';
   const pnlIcon = v => v >= 0 ? `🟢 ${pnlFmt(v)}` : `🔴 ${pnlFmt(v)}`;
-  const fmtPick = b => {
+  const fmtPick = (b, i) => {
     const actual = b.actual_result != null ? b.actual_result : '—';
-    const margin = b.actual_result != null && b.line ? ((b.actual_result - b.line) / b.line * 100).toFixed(1) : '—';
-    const marginDir = b.direction === 'under' ? (b.actual_result != null ? (-(b.actual_result - b.line) / b.line * 100).toFixed(1) : '—') : margin;
-    const marginIcon = parseFloat(marginDir) >= 0 ? '🟢' : '🔴';
-    return `**${b.player_name}** ${dirIcon(b.direction)} ${b.line} ${(MKT_LABELS[b.market]||b.market)}\n` +
-      `　Actual: \`${actual}\` · Margin: ${marginIcon} \`${marginDir}%\` · ${fmtOdds(b.odds)} → **${pnlIcon(b.pnl || 0)}**`;
+    const resultIcon = b.status === 'won' ? '✅' : '❌';
+    return `${resultIcon} **#${i+1} ${b.player_name}** — ${dirIcon(b.direction)} ${b.line} ${(MKT_LABELS[b.market]||b.market)}\n` +
+      `　VS: \`${b.value_score}\` · Actual: \`${actual}\` · ${fmtOdds(b.odds)} → **${pnlIcon(b.pnl || 0)}**`;
   };
-  const wins = settled.filter(b => b.status === 'won').sort((a, b) => (b.pnl || 0) - (a.pnl || 0));
-  const losses = settled.filter(b => b.status === 'lost').sort((a, b) => (a.pnl || 0) - (b.pnl || 0));
-  if (wins.length) {
+  if (top20.length) {
+    const first10 = top20.slice(0, 10);
+    const second10 = top20.slice(10, 20);
+    const top20Won = top20.filter(b => b.status === 'won').length;
+    const top20Pnl = top20.reduce((s, b) => s + (b.pnl || 0), 0);
     embeds.push({
-      title: `✅ Wins (${wins.length})`,
-      description: wins.map(b => fmtPick(b)).join('\n\n').slice(0, 4000),
-      color: 0x10b981,
+      title: `🏆 Top 20 Picks — ${top20Won}-${top20.length - top20Won} (${pnlFmt(top20Pnl)})`,
+      description: first10.map((b, i) => fmtPick(b, i)).join('\n\n'),
+      color: 0xf59e0b,
     });
-  }
-  if (losses.length) {
-    embeds.push({
-      title: `❌ Losses (${losses.length})`,
-      description: losses.map(b => fmtPick(b)).join('\n\n').slice(0, 4000),
-      color: 0xf43f5e,
-    });
+    if (second10.length) {
+      embeds.push({
+        description: second10.map((b, i) => fmtPick(b, i + 10)).join('\n\n'),
+        color: 0xf59e0b,
+      });
+    }
   }
 
   // Model insights — calibration analysis
