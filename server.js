@@ -659,7 +659,7 @@ app.get('/api/odds/scores', async (req, res) => {
       commence: g.commence_time,
     }));
 
-    cacheSet(ck, scores, parseInt(process.env.CACHE_TTL_SCORES) || 30);
+    cacheSet(ck, scores, parseInt(process.env.CACHE_TTL_SCORES) || 900);
     res.json({ data: scores, cached: false });
   } catch (err) {
     console.error('Scores error:', err.message);
