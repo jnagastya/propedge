@@ -2164,7 +2164,7 @@ async function sendDiscordPicks(betsInserted, date) {
     const rank = startRank + i + 1;
     const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `**#${rank}**`;
     return `${medal} **${b.player_name}** — ${dirIcon(b.direction)} ${b.line} ${mktLabel(b.market)}\n` +
-      `　VS: \`${b.value_score}\` · EV: \`${b.dir_ev > 0 ? '+' : ''}${b.dir_ev}%\` · MP: \`${(b.model_prob * 100).toFixed(0)}%\` · Odds: \`${fmtOdds(b.odds)}\``;
+      `　VS: \`${b.value_score}\` · EV: \`${b.dir_ev > 0 ? '+' : ''}${b.dir_ev}%\` · Odds: \`${fmtOdds(b.odds)}\` · Stake: \`$${b.stake.toFixed(2)}\``;
   }).join('\n\n');
 
   const first10 = top20.slice(0, 10);
@@ -2501,16 +2501,32 @@ app.get('/api/cron/agent-bet', async (req, res) => {
   }
   if (!supabase) return res.status(503).json({ error: 'Supabase not configured' });
 
-  const STAKE = 10;
+  const STARTING_BANKROLL = parseFloat(process.env.AGENT_BANKROLL) || 1000;
+  const DAILY_ALLOCATION = 1.00; // 100% of bankroll per day
+  const MIN_BET = 2;
+  const CONTROL_STAKE = 5; // flat small stake for control bets
   const today = new Date().toISOString().slice(0, 10);
 
   // Idempotency: skip if we already placed bets today
   const { count: existing } = await supabase.from('agent_bets').select('id', { count: 'exact', head: true }).eq('game_date', today);
   if (existing > 0) return res.json({ skipped: true, message: `Already placed ${existing} agent bets for ${today}` });
 
-  const summary = { value: 0, control: 0, skipped: 0, errors: [] };
+  const summary = { value: 0, control: 0, skipped: 0, errors: [], bankroll: 0 };
 
   try {
+    // 0. Compute current bankroll from settled bets
+    const { data: settledBets } = await supabase.from('agent_bets').select('result, stake, to_win, is_control').not('result', 'is', null);
+    let totalPnl = 0;
+    for (const b of (settledBets || [])) {
+      if (b.result === 'won') totalPnl += (b.to_win || 0);
+      else if (b.result === 'lost') totalPnl -= b.stake;
+      // void = 0
+    }
+    const currentBankroll = STARTING_BANKROLL + totalPnl;
+    const dailyBudget = currentBankroll * DAILY_ALLOCATION;
+    const maxBet = currentBankroll * 0.05;
+    summary.bankroll = +currentBankroll.toFixed(2);
+
     // 1. Get today's odds from cache (combined book)
     const allPlayers = await sbGetOdds('combined');
     if (!allPlayers?.length) return res.status(404).json({ error: 'No odds data in cache' });
@@ -2529,7 +2545,8 @@ app.get('/api/cron/agent-bet', async (req, res) => {
     }
 
     // 4. For each player/market combo, compute stats and value score
-    const betsToInsert = [];
+    const valueCandidates = [];
+    const controlCandidates = [];
     const processedKeys = new Set();
 
     for (const p of upcoming) {
@@ -2545,53 +2562,93 @@ app.get('/api/cron/agent-bet', async (req, res) => {
         if (!stats || stats.gamesPlayed < 5) { summary.skipped++; continue; }
 
         const isValue = stats.vs >= 30 && Math.abs(stats.edge) > 4 && stats.confidence >= 55 && stats.dirEV > 3;
-        // Control group: nearly qualified but didn't make the cut
         const isControl = !isValue && stats.vs >= 20 && Math.abs(stats.edge) > 2 && stats.dirEV > 0;
 
         if (!isValue && !isControl) { summary.skipped++; continue; }
 
-        const payout = stats.odds > 0 ? +(STAKE * stats.odds / 100).toFixed(2) : +(STAKE * 100 / Math.abs(stats.odds)).toFixed(2);
-
-        betsToInsert.push({
-          placed_at: today,
-          player_name: p.name,
-          team: guessTeam(p.name) || p.homeTeam || null,
-          opponent: p.matchup || null,
-          market: p.market,
-          line: p.line,
-          direction: stats.direction,
-          odds: stats.odds,
-          model_prob: +stats.modelProb.toFixed(4),
-          confidence: stats.confidence,
-          edge: stats.edge,
-          dir_ev: +stats.dirEV.toFixed(1),
-          value_score: stats.vs,
-          is_control: isControl,
-          has_flags: stats.hasFlags,
-          stake: STAKE,
-          to_win: payout,
-          result: null,
-          game_date: today,
-          game_time: p.gameTime || null,
-        });
-
-        if (isValue) summary.value++;
-        else summary.control++;
+        const entry = { p, stats, isControl };
+        if (isValue) valueCandidates.push(entry);
+        else controlCandidates.push(entry);
       } catch (e) {
         summary.errors.push(`${p.name}: ${e.message}`);
       }
     }
 
-    // 4. Bulk insert
+    // 5. Size value bets proportionally by VS
+    const totalVS = valueCandidates.reduce((s, c) => s + c.stats.vs, 0);
+    const betsToInsert = [];
+
+    for (const c of valueCandidates) {
+      const proportion = c.stats.vs / (totalVS || 1);
+      const rawStake = +(dailyBudget * proportion).toFixed(2);
+      const stake = Math.min(maxBet, Math.max(MIN_BET, rawStake));
+      const payout = c.stats.odds > 0 ? +(stake * c.stats.odds / 100).toFixed(2) : +(stake * 100 / Math.abs(c.stats.odds)).toFixed(2);
+
+      betsToInsert.push({
+        placed_at: today,
+        player_name: c.p.name,
+        team: guessTeam(c.p.name) || c.p.homeTeam || null,
+        opponent: c.p.matchup || null,
+        market: c.p.market,
+        line: c.p.line,
+        direction: c.stats.direction,
+        odds: c.stats.odds,
+        model_prob: +c.stats.modelProb.toFixed(4),
+        confidence: c.stats.confidence,
+        edge: c.stats.edge,
+        dir_ev: +c.stats.dirEV.toFixed(1),
+        value_score: c.stats.vs,
+        is_control: false,
+        has_flags: c.stats.hasFlags,
+        stake,
+        to_win: payout,
+        result: null,
+        game_date: today,
+        game_time: c.p.gameTime || null,
+      });
+      summary.value++;
+    }
+
+    // 6. Control bets get flat small stake
+    for (const c of controlCandidates) {
+      const payout = c.stats.odds > 0 ? +(CONTROL_STAKE * c.stats.odds / 100).toFixed(2) : +(CONTROL_STAKE * 100 / Math.abs(c.stats.odds)).toFixed(2);
+
+      betsToInsert.push({
+        placed_at: today,
+        player_name: c.p.name,
+        team: guessTeam(c.p.name) || c.p.homeTeam || null,
+        opponent: c.p.matchup || null,
+        market: c.p.market,
+        line: c.p.line,
+        direction: c.stats.direction,
+        odds: c.stats.odds,
+        model_prob: +c.stats.modelProb.toFixed(4),
+        confidence: c.stats.confidence,
+        edge: c.stats.edge,
+        dir_ev: +c.stats.dirEV.toFixed(1),
+        value_score: c.stats.vs,
+        is_control: true,
+        has_flags: c.stats.hasFlags,
+        stake: CONTROL_STAKE,
+        to_win: payout,
+        result: null,
+        game_date: today,
+        game_time: c.p.gameTime || null,
+      });
+      summary.control++;
+    }
+
+    // 7. Bulk insert
     if (betsToInsert.length) {
       const { error: insertErr } = await supabase.from('agent_bets').insert(betsToInsert);
       if (insertErr) return res.status(500).json({ error: insertErr.message, summary });
     }
 
-    // 5. Send Discord notification
+    // 8. Send Discord notification
     await sendDiscordPicks(betsToInsert, today);
 
-    res.json({ success: true, date: today, ...summary, total: betsToInsert.length });
+    const totalStaked = betsToInsert.filter(b => !b.is_control).reduce((s, b) => s + b.stake, 0);
+    res.json({ success: true, date: today, ...summary, total: betsToInsert.length, bankroll: +currentBankroll.toFixed(2), dailyBudget: +dailyBudget.toFixed(2), totalStaked: +totalStaked.toFixed(2) });
   } catch (err) {
     res.status(500).json({ error: err.message, ...summary });
   }
