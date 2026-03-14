@@ -3107,7 +3107,8 @@ function renderOverview(el,p){
         const pctChg=p._injPctChange||0;
         const pctCol=pctChg>0?'var(--g)':'var(--r)';
         const pctFmt=pctChg>0?`+${pctChg}%`:`${pctChg}%`;
-        return`<span style="display:inline-flex;align-items:center;gap:4px;flex-wrap:wrap;">🏥 <strong>Injury Impact:</strong> w/o ${val} <span style="color:${pctCol};font-weight:700;">(${pctFmt} per-min rate)</span></span>`;
+        const specTag=p._injSpeculative?` <span style="color:#f59e0b;font-size:10px;font-weight:600;opacity:.8;" title="Estimated from production share — not enough with/without game data">(speculative)</span>`:'';
+        return`<span style="display:inline-flex;align-items:center;gap:4px;flex-wrap:wrap;">🏥 <strong>Injury Impact:</strong> w/o ${val} <span style="color:${pctCol};font-weight:700;">(${pctFmt} per-min rate)</span>${specTag}</span>`;
       }
       const adjMin=parseInt(val);
       const diff=adjMin-seasonAvg;
@@ -3823,6 +3824,7 @@ function applyInjuryImpact(p){
   adj._injTeammate=impact.teammate;
   adj._injPctChange=impact.pctChange;
   adj._injTeammates=impact.teammates||[];
+  adj._injSpeculative=impact.speculative||false;
   return adj;
 }
 
@@ -4442,7 +4444,7 @@ function renderAlerts(){
           </div>
           <div class="va-meta">${p.team||''} · ${(p.matchup||'').substring(0,25)}${getInjuryBadge(p.name)}</div>
           ${!p.hasRealStats?`<div style="margin-top:3px;"><span class="player-flag flag-est" style="font-size:9px;">⚠ Fake Stats — EV may be inaccurate</span></div>`:''}
-          ${(()=>{const hasMove=p.prev_line!=null&&(p.prev_line!==p.line||p.prev_overOdds!==p.overOdds||p.prev_underOdds!==p.underOdds);const hasFlags=p.returnFromInjury>=2||p.minutesFlag||(p.dnpCount>=5)||hasMove||(p._adjTags&&p._adjTags.length);if(!hasFlags)return'';return`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;">${(p._adjTags||[]).map(t=>{const[type,val]=t.split(':');return type==='min'?`<span class="player-flag" style="background:rgba(139,92,246,.12);color:#a78bfa;border:1px solid rgba(139,92,246,.3);">⏱ Smart Min → ${val}m</span>`:type==='inj'?`<span class="player-flag" style="background:rgba(245,158,11,.12);color:#f59e0b;border:1px solid rgba(245,158,11,.3);">🏥 w/o ${val} (${p._injPctChange>0?'+':''}${p._injPctChange||0}%)</span>`:`<span class="player-flag" style="background:rgba(239,68,68,.12);color:#ef4444;border:1px solid rgba(239,68,68,.3);">⚠ DNP Adj → ${val}m</span>`;}).join('')}${hasMove?`<span class="player-flag flag-mover">↕ Line Moved${p.prev_line!==p.line?' '+((p.line-p.prev_line)>0?'+':'')+((p.line-p.prev_line).toFixed(1)):' (odds)'}</span>`:''}${p.returnFromInjury>=2?`<span class="player-flag flag-injury">⚠ Back after ${p.returnFromInjury} games missed</span>`:''}${p.minutesFlag?`<span class="player-flag ${p.minutesFlag>0?'flag-minutes-up':'flag-minutes-down'}">⏱ ${Math.abs(Math.round(p.minutesFlag*100))}% ${p.minutesFlag>0?'↑ more':'↓ fewer'} minutes</span>`:''}${p.dnpCount>=5?`<span class="player-flag flag-dnp">✗ ${p.dnpCount} DNPs/10</span>`:''}</div>`;})()}</div>
+          ${(()=>{const hasMove=p.prev_line!=null&&(p.prev_line!==p.line||p.prev_overOdds!==p.overOdds||p.prev_underOdds!==p.underOdds);const hasFlags=p.returnFromInjury>=2||p.minutesFlag||(p.dnpCount>=5)||hasMove||(p._adjTags&&p._adjTags.length);if(!hasFlags)return'';return`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;">${(p._adjTags||[]).map(t=>{const[type,val]=t.split(':');return type==='min'?`<span class="player-flag" style="background:rgba(139,92,246,.12);color:#a78bfa;border:1px solid rgba(139,92,246,.3);">⏱ Smart Min → ${val}m</span>`:type==='inj'?`<span class="player-flag" style="background:rgba(245,158,11,.12);color:#f59e0b;border:1px solid rgba(245,158,11,.3);">🏥 w/o ${val} (${p._injPctChange>0?'+':''}${p._injPctChange||0}%)${p._injSpeculative?' ~est':''}  </span>`:`<span class="player-flag" style="background:rgba(239,68,68,.12);color:#ef4444;border:1px solid rgba(239,68,68,.3);">⚠ DNP Adj → ${val}m</span>`;}).join('')}${hasMove?`<span class="player-flag flag-mover">↕ Line Moved${p.prev_line!==p.line?' '+((p.line-p.prev_line)>0?'+':'')+((p.line-p.prev_line).toFixed(1)):' (odds)'}</span>`:''}${p.returnFromInjury>=2?`<span class="player-flag flag-injury">⚠ Back after ${p.returnFromInjury} games missed</span>`:''}${p.minutesFlag?`<span class="player-flag ${p.minutesFlag>0?'flag-minutes-up':'flag-minutes-down'}">⏱ ${Math.abs(Math.round(p.minutesFlag*100))}% ${p.minutesFlag>0?'↑ more':'↓ fewer'} minutes</span>`:''}${p.dnpCount>=5?`<span class="player-flag flag-dnp">✗ ${p.dnpCount} DNPs/10</span>`:''}</div>`;})()}</div>
         <div class="va-right">
           <div class="va-edge-big ${evPct>0?'pos':'neg'}">${evPct>0?'+':''}${evPct}%</div>
           <div class="va-direction ${isOver?'over':'under'}">${isOver?'▲':'▼'} BET ${dir}</div>

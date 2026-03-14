@@ -1372,34 +1372,61 @@ app.get('/api/injury-impact', async (req, res) => {
         if (tmDnpDates.has(g.date)) wo.push(g);
         else if (tmPlayedDates.has(g.date)) wi.push(g);
       }
-      if (wo.length < 3 || wi.length < 3) continue;
-
-      const wiRates = wi.map(g => _statVal(g, market) / (parseFloat(g.min) || 1));
-      const woRates = wo.map(g => _statVal(g, market) / (parseFloat(g.min) || 1));
-      const avgWi = wiRates.reduce((a, b) => a + b, 0) / wiRates.length;
-      const avgWo = woRates.reduce((a, b) => a + b, 0) / woRates.length;
-      if (avgWi === 0) continue;
-
-      const ratio = Math.max(0.70, Math.min(1.30, avgWo / avgWi));
-      if (Math.abs(ratio - 1.0) < 0.03) continue;
 
       const tmAvg = tmPlayed.reduce((s, g) => s + _statVal(g, market), 0) / tmPlayed.length;
-      teammateImpacts.push({ name: inj.player, ratio: +ratio.toFixed(3), tmAvg: +tmAvg.toFixed(1), wo: wo.length, wi: wi.length });
+
+      if (wo.length >= 3 && wi.length >= 3) {
+        // Enough split data — use actual with/without rate comparison
+        const wiRates = wi.map(g => _statVal(g, market) / (parseFloat(g.min) || 1));
+        const woRates = wo.map(g => _statVal(g, market) / (parseFloat(g.min) || 1));
+        const avgWi = wiRates.reduce((a, b) => a + b, 0) / wiRates.length;
+        const avgWo = woRates.reduce((a, b) => a + b, 0) / woRates.length;
+        if (avgWi === 0) continue;
+
+        const ratio = Math.max(0.70, Math.min(1.30, avgWo / avgWi));
+        if (Math.abs(ratio - 1.0) < 0.03) continue;
+
+        teammateImpacts.push({ name: inj.player, ratio: +ratio.toFixed(3), tmAvg: +tmAvg.toFixed(1), wo: wo.length, wi: wi.length, speculative: false });
+      } else {
+        // Fallback: production share estimate (speculative)
+        const playerAvg = playerPlayed.reduce((s, g) => s + _statVal(g, market), 0) / playerPlayed.length;
+        if (!tmAvg || !playerAvg) continue;
+
+        // Estimate team total from all available teammate logs
+        let teamTotal = playerAvg;
+        for (const [tmName, tmGl] of tmLogMap) {
+          const played = (tmGl || []).filter(g => parseInt(g.min || '0') > 0);
+          if (!played.length) continue;
+          const avg = played.reduce((s, g) => s + _statVal(g, market), 0) / played.length;
+          if (avg > 0) teamTotal += avg;
+        }
+
+        const remainingTotal = teamTotal - tmAvg;
+        const playerShare = remainingTotal > 0 ? playerAvg / remainingTotal : 0;
+        const boost = tmAvg * 0.35 * playerShare;
+        const ratio = (playerAvg + boost) / playerAvg;
+        const capped = Math.max(0.70, Math.min(1.20, ratio));
+        if (Math.abs(capped - 1.0) < 0.03) continue;
+
+        teammateImpacts.push({ name: inj.player, ratio: +capped.toFixed(3), tmAvg: +tmAvg.toFixed(1), wo: wo.length, wi: wi.length, speculative: true });
+      }
     }
 
-    if (!teammateImpacts.length) return res.json({ impact: false, reason: 'no teammate with sufficient split data' });
+    if (!teammateImpacts.length) return res.json({ impact: false, reason: 'no teammate with sufficient data' });
 
     // Multiply all individual ratios, cap combined at ±40%
     const combinedRatio = Math.max(0.60, Math.min(1.40,
       teammateImpacts.reduce((prod, t) => prod * t.ratio, 1)
     ));
 
+    const hasSpeculative = teammateImpacts.some(t => t.speculative);
     res.json({
       impact: Math.abs(combinedRatio - 1.0) >= 0.03,
       teammate: teammateImpacts.map(t => t.name).join(' + '),
       teammates: teammateImpacts,
       ratio: +combinedRatio.toFixed(3),
       pctChange: +((combinedRatio - 1) * 100).toFixed(1),
+      speculative: hasSpeculative,
     });
   } catch (e) {
     console.error('[injury-impact] Error:', e.message);
@@ -2984,19 +3011,46 @@ function serverApplyInjuryImpact(playerName, playerGameLog, playerTeam, market, 
       if (tmDnpDates.has(g.date)) wo.push(g);
       else if (tmPlayedDates.has(g.date)) wi.push(g);
     }
-    if (wo.length < 3 || wi.length < 3) continue;
 
-    const wiRates = wi.map(g => _statVal(g, market) / (parseFloat(g.min) || 1));
-    const woRates = wo.map(g => _statVal(g, market) / (parseFloat(g.min) || 1));
-    const avgWi = wiRates.reduce((a, b) => a + b, 0) / wiRates.length;
-    const avgWo = woRates.reduce((a, b) => a + b, 0) / woRates.length;
-    if (avgWi === 0) continue;
+    if (wo.length >= 3 && wi.length >= 3) {
+      // Enough split data — use actual with/without rate comparison
+      const wiRates = wi.map(g => _statVal(g, market) / (parseFloat(g.min) || 1));
+      const woRates = wo.map(g => _statVal(g, market) / (parseFloat(g.min) || 1));
+      const avgWi = wiRates.reduce((a, b) => a + b, 0) / wiRates.length;
+      const avgWo = woRates.reduce((a, b) => a + b, 0) / woRates.length;
+      if (avgWi === 0) continue;
 
-    const ratio = avgWo / avgWi;
-    const capped = Math.max(0.70, Math.min(1.30, ratio));
-    if (Math.abs(capped - 1.0) < 0.03) continue;
+      const ratio = avgWo / avgWi;
+      const capped = Math.max(0.70, Math.min(1.30, ratio));
+      if (Math.abs(capped - 1.0) < 0.03) continue;
 
-    teammateImpacts.push({ name: inj.player, ratio: capped, withoutGames: wo.length, withGames: wi.length });
+      teammateImpacts.push({ name: inj.player, ratio: capped, withoutGames: wo.length, withGames: wi.length, speculative: false });
+    } else {
+      // Fallback: production share estimate (speculative)
+      const tmAvg = tmPlayed.reduce((s, g) => s + _statVal(g, market), 0) / tmPlayed.length;
+      const playerAvg = playerPlayed.reduce((s, g) => s + _statVal(g, market), 0) / playerPlayed.length;
+      if (!tmAvg || !playerAvg) continue;
+
+      // Estimate team total from all available game logs on same team
+      let teamTotal = 0, teamCount = 0;
+      for (const [, gl] of allGameLogs) {
+        const played = gl.filter(g => parseInt(g.min || '0') > 0 && (!g.team || g.team === playerTeam));
+        if (!played.length) continue;
+        const avg = played.reduce((s, g) => s + _statVal(g, market), 0) / played.length;
+        if (avg > 0) { teamTotal += avg; teamCount++; }
+      }
+      if (!teamTotal) continue;
+
+      // ~35% of missing production redistributes, weighted by player's share
+      const remainingTotal = teamTotal - tmAvg;
+      const playerShare = remainingTotal > 0 ? playerAvg / remainingTotal : 0;
+      const boost = tmAvg * 0.35 * playerShare;
+      const ratio = (playerAvg + boost) / playerAvg;
+      const capped = Math.max(0.70, Math.min(1.20, ratio)); // tighter cap for speculative
+      if (Math.abs(capped - 1.0) < 0.03) continue;
+
+      teammateImpacts.push({ name: inj.player, ratio: capped, withoutGames: wo.length, withGames: wi.length, speculative: true });
+    }
   }
 
   if (!teammateImpacts.length) return baseStats;
@@ -3055,7 +3109,8 @@ function serverApplyInjuryImpact(playerName, playerGameLog, playerTeam, market, 
     _injuryTeammates: teammateImpacts.map(t => t.name),
     _injuryTeammate: teammateImpacts.map(t => t.name).join(' + '),
     _injuryRatio: +cappedRatio.toFixed(3),
-    _injuryBreakdown: teammateImpacts.map(t => ({ name: t.name, ratio: +t.ratio.toFixed(3), wo: t.withoutGames, wi: t.withGames })),
+    _injuryBreakdown: teammateImpacts.map(t => ({ name: t.name, ratio: +t.ratio.toFixed(3), wo: t.withoutGames, wi: t.withGames, speculative: t.speculative })),
+    _injurySpeculative: teammateImpacts.some(t => t.speculative),
   };
 }
 
