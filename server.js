@@ -3085,9 +3085,12 @@ app.get('/api/cron/agent-bet', async (req, res) => {
   const CONTROL_STAKE = 5; // flat small stake for control bets
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
 
-  // Idempotency: skip if we already placed bets today
-  const { count: existing } = await supabase.from('agent_bets').select('id', { count: 'exact', head: true }).eq('game_date', today);
-  if (existing > 0) return res.json({ skipped: true, message: `Already placed ${existing} agent bets for ${today}` });
+  // Idempotency: skip if we already placed bets today (bypass with ?force=true)
+  const force = req.query.force === 'true';
+  if (!force) {
+    const { count: existing } = await supabase.from('agent_bets').select('id', { count: 'exact', head: true }).eq('game_date', today);
+    if (existing > 0) return res.json({ skipped: true, message: `Already placed ${existing} agent bets for ${today}` });
+  }
 
   const summary = { value: 0, control: 0, skipped: 0, errors: [], bankroll: 0 };
 
