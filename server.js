@@ -2459,7 +2459,7 @@ app.get('/api/cron/agent-bet', async (req, res) => {
   const today = new Date().toISOString().slice(0, 10);
 
   // Idempotency: skip if we already placed bets today
-  const { count: existing } = await supabase.from('agent_bets').select('id', { count: 'exact', head: true }).eq('placed_at', today);
+  const { count: existing } = await supabase.from('agent_bets').select('id', { count: 'exact', head: true }).eq('game_date', today);
   if (existing > 0) return res.json({ skipped: true, message: `Already placed ${existing} agent bets for ${today}` });
 
   const summary = { value: 0, control: 0, skipped: 0, errors: [] };
@@ -2523,7 +2523,7 @@ app.get('/api/cron/agent-bet', async (req, res) => {
           is_control: isControl,
           stake: STAKE,
           to_win: payout,
-          result: 'open',
+          result: null,
           game_date: today,
           game_time: p.gameTime || null,
         });
@@ -2568,7 +2568,7 @@ app.get('/api/cron/grade-agent-bets', async (req, res) => {
     const { data: openBets, error: fetchErr } = await supabase
       .from('agent_bets')
       .select('*')
-      .eq('result', 'open');
+      .is('result', null);
     if (fetchErr) return res.status(500).json({ error: fetchErr.message });
 
     for (const bet of (openBets || [])) {
@@ -2623,7 +2623,7 @@ app.get('/api/cron/newsletter', async (req, res) => {
 
   try {
     // Get all graded bets
-    const { data: rawBets } = await supabase.from('agent_bets').select('*').neq('result', 'open').order('placed_at', { ascending: false });
+    const { data: rawBets } = await supabase.from('agent_bets').select('*').not('result', 'is', null).order('placed_at', { ascending: false });
     // Compute pnl from result/stake/to_win since table doesn't store it
     const allBets = (rawBets || []).map(b => ({...b, status: b.result, actual_result: b.actual_stat, pnl: b.result === 'won' ? (b.to_win || 0) : b.result === 'lost' ? -b.stake : 0}));
     if (!allBets?.length) return res.json({ message: 'No graded bets yet' });
