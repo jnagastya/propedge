@@ -2590,29 +2590,28 @@ function drawEvMinutesChart(currentMin){
     ctx.beginPath();ctx.moveTo(cx,pad.t);ctx.lineTo(cx,H-pad.b);ctx.stroke();ctx.setLineDash([]);
     drawDot(curMin,'#c084fc',6);
   }
-  // Legend (top-right corner)
+  // Legend — rendered as HTML below the canvas for readability
   const getEv=min=>evs[Math.round(Math.min(48,Math.max(0,min)))];
   const fmtEv=v=>(v>0?'+':'')+v.toFixed(1)+'%';
   const legendItems=[
-    {label:'Season ('+seasonMin+'m)',color:'rgba(255,255,255,.6)',ev:getEv(seasonMin)},
-    {label:'L10 ('+l10a+'m)',color:'#60a5fa',ev:getEv(l10a)},
-    {label:'L5 ('+l5a+'m)',color:'#34d399',ev:getEv(l5a)},
-    {label:'L3 ('+l3a+'m)',color:'#fbbf24',ev:getEv(l3a)},
+    {label:'Season',min:seasonMin,color:'rgba(255,255,255,.6)',ev:getEv(seasonMin)},
+    {label:'L10',min:l10a,color:'#60a5fa',ev:getEv(l10a)},
+    {label:'L5',min:l5a,color:'#34d399',ev:getEv(l5a)},
+    {label:'L3',min:l3a,color:'#fbbf24',ev:getEv(l3a)},
   ];
-  if(curMin!==seasonMin) legendItems.push({label:'Selected ('+curMin+'m)',color:'#c084fc',ev:getEv(curMin)});
-  const lx=W-pad.r-6, ly=pad.t+2;
-  ctx.textAlign='right';
-  legendItems.forEach((item,idx)=>{
-    const iy=ly+idx*13;
-    // Dot
-    ctx.beginPath();ctx.arc(lx-ctx.measureText(item.label+' '+fmtEv(item.ev)).width-10,iy,3,0,Math.PI*2);ctx.fillStyle=item.color;ctx.fill();
-    // Text
-    ctx.fillStyle='rgba(255,255,255,.5)';ctx.font='bold 8px system-ui';
-    ctx.fillText(item.label,lx-45,iy+3);
-    // EV value
-    ctx.fillStyle=item.ev>=0?'#22c55e':'#ef4444';ctx.font='bold 9px system-ui';
-    ctx.fillText(fmtEv(item.ev),lx,iy+3);
-  });
+  if(curMin!==seasonMin) legendItems.push({label:'Selected',min:curMin,color:'#c084fc',ev:getEv(curMin)});
+  const legendEl=document.getElementById('evMinutesLegend');
+  if(legendEl){
+    legendEl.innerHTML=legendItems.map(it=>{
+      const evCol=it.ev>=0?'#22c55e':'#ef4444';
+      return`<div style="display:flex;align-items:center;gap:6px;padding:4px 10px;background:var(--bg2);border-radius:6px;border:1px solid var(--bd);">
+        <span style="width:8px;height:8px;border-radius:50%;background:${it.color};flex-shrink:0;"></span>
+        <span style="font-size:11px;font-weight:600;color:var(--b-text);">${it.label}</span>
+        <span style="font-size:10px;color:var(--t3);">${it.min}m</span>
+        <span style="font-size:11px;font-weight:700;color:${evCol};margin-left:auto;">${fmtEv(it.ev)}</span>
+      </div>`;
+    }).join('');
+  }
   // Axis labels
   ctx.fillStyle='rgba(255,255,255,.3)';ctx.font='bold 8px system-ui';
   ctx.save();ctx.translate(10,pad.t+ch/2);ctx.rotate(-Math.PI/2);ctx.textAlign='center';ctx.fillText('EV %',0,0);ctx.restore();
@@ -3315,6 +3314,7 @@ function renderOverview(el,p){
     </div>
     ${p.hasRealStats?`<div class="dc full"><div class="dc-t"><span class="dt" style="background:#8b5cf6"></span>EV vs Minutes <span style="font-size:10px;color:var(--t3);font-weight:400;margin-left:4px;">How playing time affects expected value</span></div>
       <canvas id="evMinutesChart" width="400" height="220" style="width:100%;height:220px;display:block;"></canvas>
+      <div id="evMinutesLegend" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;"></div>
     </div>`:''}
     ${p.bookLines&&Object.keys(p.bookLines).length>1?`<div class="dc full">
       <div class="dc-t"><span class="dt" style="background:var(--c)"></span>Book Comparison — Consensus Line: ${p.line}</div>
