@@ -2365,6 +2365,34 @@ async function sendDiscordResults(allBets, latestDate) {
     }
   }
 
+  // Flagged vs clean player breakdown
+  if (settledValue.length >= 10) {
+    const flagged = settledValue.filter(b => b.has_flags);
+    const clean = settledValue.filter(b => !b.has_flags);
+    const bucketLine = (label, bets, emoji) => {
+      if (!bets.length) return null;
+      const won = bets.filter(b => b.status === 'won').length;
+      const lost = bets.length - won;
+      const wr = (won / bets.length * 100).toFixed(1);
+      const bPnl = bets.reduce((s, b) => s + (b.pnl || 0), 0);
+      const bStaked = bets.reduce((s, b) => s + b.stake, 0);
+      const roi = bStaked ? (bPnl / bStaked * 100).toFixed(1) : '0.0';
+      const icon = parseFloat(roi) >= 0 ? '🟢' : '🔴';
+      return `${emoji} **${label}**: ${won}-${lost} (${wr}%) · ROI ${roi}% · ${pnlFmt(bPnl)}`;
+    };
+    const lines = [
+      bucketLine('Clean Players', clean, '✅'),
+      bucketLine('Flagged Players', flagged, '⚠️'),
+    ].filter(Boolean).join('\n');
+    if (lines) {
+      embeds.push({
+        title: '🚩 Clean vs Flagged Players',
+        description: lines + '\n\n_Flags: 5+ DNPs in last 10, ±20% minutes shift, or returning from injury_',
+        color: 0xef4444,
+      });
+    }
+  }
+
   // Recommendations based on data
   if (settledValue.length >= 20) {
     const recs = [];
@@ -2472,7 +2500,22 @@ function serverComputeStats(gameLog, line, market, overOdds, underOdds) {
   const dirEV = isOverBet ? evOver : evUnder;
   const vs = serverValueScore(edge, hitRate, confidence, dirEV);
 
-  return { avg, hitRate, edge, modelProb, confidence, evOver, evUnder, direction, odds, dirEV, vs, stdDev, gamesPlayed: vals.length };
+  // Detect alert flags: DNPs in last 10, minutes deviation, return from injury
+  const rawL10 = sorted.slice(0, 10);
+  const dnpCount = rawL10.filter(g => parseInt(g.min || '0') === 0).length;
+  const minVals = played.map(g => parseFloat(g.min) || 0).filter(m => m > 0);
+  let minutesFlag = 0;
+  if (minVals.length >= 5) {
+    const seasonAvgMin = minVals.reduce((a, b) => a + b, 0) / minVals.length;
+    const recent5Min = minVals.slice(0, 5).reduce((a, b) => a + b, 0) / 5;
+    const minDiff = (recent5Min - seasonAvgMin) / seasonAvgMin;
+    if (Math.abs(minDiff) >= 0.20) minutesFlag = minDiff;
+  }
+  const firstPlayedIdx = sorted.findIndex(g => parseInt(g.min || '0') > 0);
+  const returnFromInjury = firstPlayedIdx >= 2 ? firstPlayedIdx : 0;
+  const hasFlags = dnpCount >= 5 || Math.abs(minutesFlag) >= 0.20 || returnFromInjury >= 2;
+
+  return { avg, hitRate, edge, modelProb, confidence, evOver, evUnder, direction, odds, dirEV, vs, stdDev, gamesPlayed: vals.length, hasFlags };
 }
 
 // ============================================================
@@ -2551,6 +2594,7 @@ app.get('/api/cron/agent-bet', async (req, res) => {
           dir_ev: +stats.dirEV.toFixed(1),
           value_score: stats.vs,
           is_control: isControl,
+          has_flags: stats.hasFlags,
           stake: STAKE,
           to_win: payout,
           result: null,
