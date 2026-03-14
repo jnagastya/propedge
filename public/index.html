@@ -638,9 +638,9 @@ td{padding:13px 14px;white-space:nowrap;}
 .lmr-arrow:hover{opacity:1;background:var(--bg3);}
 .lmr-arrow-l{left:48px;}
 .lmr-arrow-r{right:4px;}
-.lmr-scroll{flex:1;height:130px;display:flex;align-items:center;overflow:hidden;mask-image:linear-gradient(90deg,transparent 0%,#000 3%,#000 92%,transparent 100%);-webkit-mask-image:linear-gradient(90deg,transparent 0%,#000 3%,#000 92%,transparent 100%);}
-.lmr-track{display:flex;gap:8px;width:max-content;animation:var-scroll 50s linear infinite;}
-.lmr-track:hover{animation-play-state:paused;}
+.lmr-scroll{flex:1;height:130px;display:flex;align-items:center;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;-ms-overflow-style:none;mask-image:linear-gradient(90deg,transparent 0%,#000 3%,#000 92%,transparent 100%);-webkit-mask-image:linear-gradient(90deg,transparent 0%,#000 3%,#000 92%,transparent 100%);}
+.lmr-scroll::-webkit-scrollbar{display:none;}
+.lmr-track{display:flex;gap:8px;width:max-content;}
 .lmr-card{flex-shrink:0;width:250px;background:var(--bg1);border:1px solid rgba(168,85,247,.15);border-radius:10px;padding:12px 14px;cursor:pointer;display:flex;gap:10px;align-items:flex-start;user-select:none;transition:border-color .15s,box-shadow .15s,transform .15s;}
 .lmr-card:hover{border-color:rgba(168,85,247,.45);box-shadow:0 0 14px rgba(168,85,247,.13),0 2px 8px rgba(0,0,0,.3);transform:translateY(-1px);}
 .lmr-av{width:36px;height:36px;border-radius:50%;overflow:hidden;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--t3);flex-shrink:0;margin-top:2px;}
@@ -2561,28 +2561,25 @@ function positionTip(tip,rect){
 }
 
 function lmrScroll(dir){
-  const track=document.getElementById('lmRibbonTrack');
-  if(!track) return;
-  // Pause auto-scroll, capture current visual position
-  const cs=getComputedStyle(track);
-  const matrix=cs.transform||cs.webkitTransform;
-  let curX=0;
-  if(matrix&&matrix!=='none'){const m=matrix.match(/matrix.*\((.+)\)/);if(m){const v=m[1].split(',');curX=parseFloat(v[4])||0;}}
-  track.style.animation='none';
-  track.style.transform=`translateX(${curX}px)`;
-  // Scroll by ~260px (one card width + gap)
-  const step=260*dir;
-  const newX=curX-step;
-  track.style.transition='transform .35s ease';
-  track.style.transform=`translateX(${newX}px)`;
-  // After transition, resume auto-scroll from new position
-  clearTimeout(window._lmrResumeTimer);
-  window._lmrResumeTimer=setTimeout(()=>{
-    track.style.transition='';
-    track.style.transform='';
-    track.style.animation='';
-  },3000);
+  const scroll=document.getElementById('lmRibbonScroll');
+  if(!scroll) return;
+  scroll.scrollBy({left:260*dir,behavior:'smooth'});
+  // Pause auto-scroll briefly after manual click
+  window._lmrPaused=true;
+  clearTimeout(window._lmrPauseTimer);
+  window._lmrPauseTimer=setTimeout(()=>{window._lmrPaused=false;},4000);
 }
+function lmrAutoScroll(){
+  const scroll=document.getElementById('lmRibbonScroll');
+  if(!scroll||window._lmrPaused||!scroll.scrollWidth) return;
+  // If hovered, don't scroll
+  if(scroll.matches(':hover')) return;
+  scroll.scrollLeft+=1;
+  // Loop: when we've scrolled past half (duplicated content), reset to start
+  const half=scroll.scrollWidth/2;
+  if(scroll.scrollLeft>=half) scroll.scrollLeft-=half;
+}
+if(!window._lmrAutoInterval) window._lmrAutoInterval=setInterval(lmrAutoScroll,30);
 function openAlertDetail(p){
   const modal=document.getElementById('playerDetailModal');
   const MKT=p.market||S.market;
@@ -3906,8 +3903,10 @@ function renderAlerts(){
       };
       const html=movers.map((m,i)=>makeCard(m,i)).join('');
       lmTrack.innerHTML=html+html;
-      lmTrack.style.animationDuration=Math.max(35,movers.length*7)+'s';
       prefetchHeadshots(movers.map(m=>m.name));
+      // Reset scroll position for fresh render
+      const lmScroll=document.getElementById('lmRibbonScroll');
+      if(lmScroll) lmScroll.scrollLeft=0;
     }
   }
 
