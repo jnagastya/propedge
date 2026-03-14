@@ -2164,14 +2164,15 @@ async function sendDiscordPicks(betsInserted, date) {
 
   const dirIcon = d => d === 'over' ? '🟢 OVER' : '🔴 UNDER';
   const evFmt = v => v > 0 ? `🟢 +${v}%` : `🔴 ${v}%`;
+  const mktLabel = m => MKT_LABELS[m] || m;
 
   // Top picks by value score (favorites)
   if (valueBets.length) {
     const topPicks = valueBets.slice(0, 5);
     const favLines = topPicks.map((b, i) => {
       const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '▸';
-      return `${medal} **${b.player_name}** — ${dirIcon(b.direction)} ${b.line} ${b.market_label}\n` +
-        `　Odds: \`${fmtOdds(b.odds)}\` · Model: \`${(b.model_prob * 100).toFixed(0)}%\` · EV: ${evFmt(b.ev)} · VS: \`${b.value_score}\``;
+      return `${medal} **${b.player_name}** — ${dirIcon(b.direction)} ${b.line} ${mktLabel(b.market)}\n` +
+        `　Odds: \`${fmtOdds(b.odds)}\` · Model: \`${(b.model_prob * 100).toFixed(0)}%\` · EV: ${evFmt(b.dir_ev)} · VS: \`${b.value_score}\``;
     }).join('\n\n');
 
     embeds.push({
@@ -2183,10 +2184,10 @@ async function sendDiscordPicks(betsInserted, date) {
 
   // Best EV picks
   if (valueBets.length) {
-    const bestEV = [...valueBets].sort((a, b) => b.ev - a.ev).slice(0, 3);
+    const bestEV = [...valueBets].sort((a, b) => b.dir_ev - a.dir_ev).slice(0, 3);
     const evLines = bestEV.map(b =>
-      `💎 **${b.player_name}** — ${dirIcon(b.direction)} ${b.line} ${b.market_label}\n` +
-      `　EV: ${evFmt(b.ev)} · Odds: \`${fmtOdds(b.odds)}\` · Edge: ${b.edge > 0 ? '🟢' : '🔴'} \`${b.edge > 0 ? '+' : ''}${b.edge.toFixed(1)}%\``
+      `💎 **${b.player_name}** — ${dirIcon(b.direction)} ${b.line} ${mktLabel(b.market)}\n` +
+      `　EV: ${evFmt(b.dir_ev)} · Odds: \`${fmtOdds(b.odds)}\` · Edge: ${b.edge > 0 ? '🟢' : '🔴'} \`${b.edge > 0 ? '+' : ''}${b.edge.toFixed(1)}%\``
     ).join('\n\n');
 
     embeds.push({
@@ -2200,7 +2201,7 @@ async function sendDiscordPicks(betsInserted, date) {
   if (valueBets.length > 5) {
     const remaining = valueBets.slice(5);
     const listLines = remaining.map(b =>
-      `${b.direction === 'over' ? '🟢' : '🔴'} ${b.player_name} — ${b.direction.toUpperCase()} ${b.line} ${b.market_label} (${fmtOdds(b.odds)}, EV ${evFmt(b.ev)})`
+      `${b.direction === 'over' ? '🟢' : '🔴'} ${b.player_name} — ${b.direction.toUpperCase()} ${b.line} ${mktLabel(b.market)} (${fmtOdds(b.odds)}, EV ${evFmt(b.dir_ev)})`
     ).join('\n');
 
     embeds.push({
@@ -2263,7 +2264,7 @@ async function sendDiscordResults(allBets, latestDate) {
     const margin = b.actual_result != null && b.line ? ((b.actual_result - b.line) / b.line * 100).toFixed(1) : '—';
     const marginDir = b.direction === 'under' ? (b.actual_result != null ? (-(b.actual_result - b.line) / b.line * 100).toFixed(1) : '—') : margin;
     const marginIcon = parseFloat(marginDir) >= 0 ? '🟢' : '🔴';
-    return `**${b.player_name}** ${dirIcon(b.direction)} ${b.line} ${b.market_label}\n` +
+    return `**${b.player_name}** ${dirIcon(b.direction)} ${b.line} ${(MKT_LABELS[b.market]||b.market)}\n` +
       `　Actual: \`${actual}\` · Margin: ${marginIcon} \`${marginDir}%\` · ${fmtOdds(b.odds)} → **${pnlIcon(b.pnl || 0)}**`;
   };
   const wins = settled.filter(b => b.status === 'won').sort((a, b) => (b.pnl || 0) - (a.pnl || 0));
@@ -2314,7 +2315,7 @@ async function sendDiscordResults(allBets, latestDate) {
   // Market performance insights
   const mktMap = {};
   for (const b of settledValue) {
-    const mk = b.market_label || 'PTS';
+    const mk = (MKT_LABELS[b.market]||b.market) || 'PTS';
     if (!mktMap[mk]) mktMap[mk] = { total: 0, won: 0, pnl: 0 };
     mktMap[mk].total++;
     if (b.status === 'won') mktMap[mk].won++;
@@ -2509,21 +2510,21 @@ app.get('/api/cron/agent-bet', async (req, res) => {
           placed_at: today,
           player_name: p.name,
           team: guessTeam(p.name) || p.homeTeam || null,
-          matchup: p.matchup || null,
+          opponent: p.matchup || null,
           market: p.market,
-          market_label: MKT_LABELS[p.market] || p.market,
           line: p.line,
           direction: stats.direction,
           odds: stats.odds,
           model_prob: +stats.modelProb.toFixed(4),
           confidence: stats.confidence,
           edge: stats.edge,
-          ev: +stats.dirEV.toFixed(1),
+          dir_ev: +stats.dirEV.toFixed(1),
           value_score: stats.vs,
-          hit_rate: stats.hitRate,
           is_control: isControl,
           stake: STAKE,
-          status: 'open',
+          to_win: payout,
+          result: 'open',
+          game_date: today,
           game_time: p.gameTime || null,
         });
 
@@ -2567,7 +2568,7 @@ app.get('/api/cron/grade-agent-bets', async (req, res) => {
     const { data: openBets, error: fetchErr } = await supabase
       .from('agent_bets')
       .select('*')
-      .eq('status', 'open');
+      .eq('result', 'open');
     if (fetchErr) return res.status(500).json({ error: fetchErr.message });
 
     for (const bet of (openBets || [])) {
@@ -2591,9 +2592,8 @@ app.get('/api/cron/grade-agent-bets', async (req, res) => {
         }
 
         const { error: updateErr } = await supabase.from('agent_bets').update({
-          status: outcome,
-          actual_result: status === 'dnp' ? null : value,
-          pnl,
+          result: outcome,
+          actual_stat: status === 'dnp' ? null : value,
           graded_at: new Date().toISOString(),
         }).eq('id', bet.id);
 
@@ -2623,7 +2623,9 @@ app.get('/api/cron/newsletter', async (req, res) => {
 
   try {
     // Get all graded bets
-    const { data: allBets } = await supabase.from('agent_bets').select('*').neq('status', 'open').order('placed_at', { ascending: false });
+    const { data: rawBets } = await supabase.from('agent_bets').select('*').neq('result', 'open').order('placed_at', { ascending: false });
+    // Compute pnl from result/stake/to_win since table doesn't store it
+    const allBets = (rawBets || []).map(b => ({...b, status: b.result, actual_result: b.actual_stat, pnl: b.result === 'won' ? (b.to_win || 0) : b.result === 'lost' ? -b.stake : 0}));
     if (!allBets?.length) return res.json({ message: 'No graded bets yet' });
 
     // Yesterday's bets (most recent placed_at with graded results)
@@ -2672,7 +2674,7 @@ app.get('/api/cron/newsletter', async (req, res) => {
     // By market breakdown
     const mktMap = {};
     for (const b of allValue.filter(b => b.status === 'won' || b.status === 'lost')) {
-      const mk = b.market_label || 'PTS';
+      const mk = (MKT_LABELS[b.market]||b.market) || 'PTS';
       if (!mktMap[mk]) mktMap[mk] = { total: 0, won: 0, pnl: 0 };
       mktMap[mk].total++;
       if (b.status === 'won') mktMap[mk].won++;
@@ -2706,7 +2708,7 @@ app.get('/api/cron/newsletter', async (req, res) => {
       const actual = b.actual_result != null ? b.actual_result : '—';
       return `<tr>
         <td style="padding:6px 12px;border-bottom:1px solid #e2e8f0;">${icon} ${b.player_name}</td>
-        <td style="padding:6px 12px;border-bottom:1px solid #e2e8f0;">${b.direction === 'over' ? '▲' : '▼'} ${b.line} ${b.market_label}</td>
+        <td style="padding:6px 12px;border-bottom:1px solid #e2e8f0;">${b.direction === 'over' ? '▲' : '▼'} ${b.line} ${(MKT_LABELS[b.market]||b.market)}</td>
         <td style="padding:6px 12px;border-bottom:1px solid #e2e8f0;text-align:center;">${fmtOdds(b.odds)}</td>
         <td style="padding:6px 12px;border-bottom:1px solid #e2e8f0;text-align:center;">${(b.model_prob * 100).toFixed(0)}%</td>
         <td style="padding:6px 12px;border-bottom:1px solid #e2e8f0;text-align:center;">${actual}</td>
