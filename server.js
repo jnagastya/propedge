@@ -2335,6 +2335,36 @@ async function sendDiscordResults(allBets, latestDate) {
     });
   }
 
+  // Value Score tier breakdown
+  if (settledValue.length >= 10) {
+    const vsTiers = [
+      { label: 'VS 50+', min: 50, max: Infinity },
+      { label: 'VS 40–49', min: 40, max: 49 },
+      { label: 'VS 30–39', min: 30, max: 39 },
+    ];
+    const tierLines = vsTiers.map(t => {
+      const inTier = settledValue.filter(b => b.value_score >= t.min && b.value_score <= t.max);
+      if (!inTier.length) return null;
+      const won = inTier.filter(b => b.status === 'won').length;
+      const lost = inTier.length - won;
+      const wr = (won / inTier.length * 100).toFixed(1);
+      const tierPnl = inTier.reduce((s, b) => s + (b.pnl || 0), 0);
+      const tierStaked = inTier.reduce((s, b) => s + b.stake, 0);
+      const roi = tierStaked ? (tierPnl / tierStaked * 100).toFixed(1) : '0.0';
+      const icon = parseFloat(roi) >= 0 ? '🟢' : '🔴';
+      return `${icon} **${t.label}**: ${won}-${lost} (${wr}%) · ROI ${roi}% · ${pnlFmt(tierPnl)}`;
+    }).filter(Boolean).join('\n');
+
+    if (tierLines) {
+      embeds.push({
+        title: '📊 Value Score Tiers',
+        description: tierLines,
+        color: 0x8b5cf6,
+        footer: { text: 'Higher VS tiers should show stronger edge over time' },
+      });
+    }
+  }
+
   // Recommendations based on data
   if (settledValue.length >= 20) {
     const recs = [];
