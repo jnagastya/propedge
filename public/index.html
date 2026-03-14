@@ -2148,6 +2148,73 @@ function renderInjurySection(injuries,playerName){
     </tr></thead><tbody>${rows}</tbody></table></div>
   </div>`;
 }
+function renderInjuryBreakdown(p){
+  const pre=p._injPre||{};
+  const pct=p._injPctChange||0;
+  const pctCol=pct>0?'var(--g)':'var(--r)';
+  const pctFmt=pct>0?`+${pct}%`:`${pct}%`;
+  const specNote=p._injSpeculative?'<div style="margin-top:6px;padding:6px 8px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);border-radius:6px;font-size:10px;color:#f59e0b;">⚠ Speculative — estimated from production share redistribution (insufficient with/without game data)</div>':'';
+  // Per-teammate breakdown rows
+  const tmRows=(p._injTeammates||[]).map(t=>{
+    const r=t.ratio||1;
+    const tPct=+((r-1)*100).toFixed(1);
+    const tCol=tPct>0?'var(--g)':'var(--r)';
+    const tFmt=tPct>0?`+${tPct}%`:`${tPct}%`;
+    const spec=t.speculative?` <span style="color:#f59e0b;font-size:9px;">~est</span>`:'';
+    return`<tr>
+      <td style="padding:4px 8px;font-size:11px;font-weight:600;">${t.name}${spec}</td>
+      <td style="padding:4px 8px;font-size:11px;font-weight:700;color:${tCol};">${tFmt}</td>
+      <td style="padding:4px 8px;font-size:10px;color:var(--t3);">${t.wo||'?'} games w/o, ${t.wi||'?'} w/</td>
+    </tr>`;
+  }).join('');
+  // Compute deltas
+  const fD=(v,dec=1)=>{const d=+(v).toFixed(dec);return(d>0?'+':'')+d;};
+  const postVS=valueScore(p);
+  const postDirEV=getDirectionalEV(p);
+  const preVS=pre.vs||0;
+  const preDirEV=pre.dirEV||0;
+  const preDir=pre.edge>=0?'OVER':'UNDER';
+  const postDir=p.edge>=0?'OVER':'UNDER';
+  const preRec=preVS>=40?preDir:'NEUTRAL';
+  const postRec=postVS>=40?postDir:'NEUTRAL';
+  const recChanged=preRec!==postRec;
+  const recCol=postRec==='OVER'?'var(--g)':postRec==='UNDER'?'var(--r)':'var(--t3)';
+  return`<div class="dc full"><div class="dc-t"><span class="dt" style="background:#f59e0b"></span>Injury Impact Breakdown <span style="font-size:11px;font-weight:700;color:${pctCol};margin-left:6px;">${pctFmt} combined</span></div>
+    ${tmRows?`<div style="overflow-x:auto;margin-bottom:8px;"><table style="width:100%;border-collapse:collapse;"><thead><tr>
+      <th style="text-align:left;padding:4px 8px;font-size:9px;font-weight:700;color:var(--t3);text-transform:uppercase;border-bottom:1px solid var(--bd);">OUT Player</th>
+      <th style="text-align:left;padding:4px 8px;font-size:9px;font-weight:700;color:var(--t3);text-transform:uppercase;border-bottom:1px solid var(--bd);">Impact</th>
+      <th style="text-align:left;padding:4px 8px;font-size:9px;font-weight:700;color:var(--t3);text-transform:uppercase;border-bottom:1px solid var(--bd);">Sample</th>
+    </tr></thead><tbody>${tmRows}</tbody></table></div>`:''}
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;">
+      <div style="background:var(--bg2);border-radius:8px;padding:8px 10px;border:1px solid var(--bd);">
+        <div style="font-size:9px;color:var(--t3);text-transform:uppercase;font-weight:700;margin-bottom:2px;">Avg</div>
+        <div style="font-size:13px;font-weight:700;color:var(--t1);">${p.avg} <span style="font-size:10px;color:var(--t3);">(${fD(p.avg-(pre.avg||0))})</span></div>
+      </div>
+      <div style="background:var(--bg2);border-radius:8px;padding:8px 10px;border:1px solid var(--bd);">
+        <div style="font-size:9px;color:var(--t3);text-transform:uppercase;font-weight:700;margin-bottom:2px;">Model Prob</div>
+        <div style="font-size:13px;font-weight:700;color:var(--t1);">${Math.round((p.modelProb||0)*100)}% <span style="font-size:10px;color:var(--t3);">(${fD(((p.modelProb||0)-(pre.modelProb||0))*100)})</span></div>
+      </div>
+      <div style="background:var(--bg2);border-radius:8px;padding:8px 10px;border:1px solid var(--bd);">
+        <div style="font-size:9px;color:var(--t3);text-transform:uppercase;font-weight:700;margin-bottom:2px;">Edge</div>
+        <div style="font-size:13px;font-weight:700;color:var(--t1);">${p.edge>0?'+':''}${p.edge}% <span style="font-size:10px;color:var(--t3);">(${fD(p.edge-(pre.edge||0))})</span></div>
+      </div>
+      <div style="background:var(--bg2);border-radius:8px;padding:8px 10px;border:1px solid var(--bd);">
+        <div style="font-size:9px;color:var(--t3);text-transform:uppercase;font-weight:700;margin-bottom:2px;">Dir EV</div>
+        <div style="font-size:13px;font-weight:700;color:${postDirEV>=0?'var(--g)':'var(--r)'};">${fD(postDirEV)}% <span style="font-size:10px;color:var(--t3);">(${fD(postDirEV-preDirEV)})</span></div>
+      </div>
+      <div style="background:var(--bg2);border-radius:8px;padding:8px 10px;border:1px solid var(--bd);">
+        <div style="font-size:9px;color:var(--t3);text-transform:uppercase;font-weight:700;margin-bottom:2px;">Value Score</div>
+        <div style="font-size:13px;font-weight:700;color:var(--t1);">${postVS} <span style="font-size:10px;color:var(--t3);">(${fD(postVS-preVS,0)})</span></div>
+      </div>
+      <div style="background:var(--bg2);border-radius:8px;padding:8px 10px;border:1px solid var(--bd);">
+        <div style="font-size:9px;color:var(--t3);text-transform:uppercase;font-weight:700;margin-bottom:2px;">Recommendation</div>
+        <div style="font-size:13px;font-weight:700;color:${recCol};">${postRec}${recChanged?` <span style="font-size:10px;color:#c084fc;">← ${preRec}</span>`:''}</div>
+      </div>
+    </div>
+    ${specNote}
+  </div>`;
+}
+
 async function loadData() {
   setApi('odds','ld');setApi('stats','ld');setApi('scores','ld');
   showSts('Fetching live data…','inf');
@@ -3107,8 +3174,8 @@ function renderOverview(el,p){
         const pctChg=p._injPctChange||0;
         const pctCol=pctChg>0?'var(--g)':'var(--r)';
         const pctFmt=pctChg>0?`+${pctChg}%`:`${pctChg}%`;
-        const specTag=p._injSpeculative?` <span style="color:#f59e0b;font-size:10px;font-weight:600;opacity:.8;" title="Estimated from production share — not enough with/without game data">(speculative)</span>`:'';
-        return`<span style="display:inline-flex;align-items:center;gap:4px;flex-wrap:wrap;">🏥 <strong>Injury Impact:</strong> w/o ${val} <span style="color:${pctCol};font-weight:700;">(${pctFmt} per-min rate)</span>${specTag}</span>`;
+        const specTag=p._injSpeculative?' <span style="color:#f59e0b;font-size:10px;font-weight:600;opacity:.8;" title="Estimated — not enough split data">~est</span>':'';
+        return`<span style="display:inline-flex;align-items:center;gap:4px;">🏥 <strong>Injury Impact:</strong> <span style="color:${pctCol};font-weight:700;">${pctFmt}</span>${specTag}</span>`;
       }
       const adjMin=parseInt(val);
       const diff=adjMin-seasonAvg;
@@ -3355,10 +3422,17 @@ function renderOverview(el,p){
         if(grid){
           const injDiv=document.createElement('div');
           injDiv.innerHTML=injHtml;
-          // Insert before Book Comparison or Recommendation (after chart/minutes)
           const bookComp=grid.querySelector('.dc.full table.spt');
           if(bookComp) grid.insertBefore(injDiv.firstElementChild,bookComp.closest('.dc.full'));
           else grid.appendChild(injDiv.firstElementChild);
+          // Add injury impact breakdown if active
+          if(p._injImpact&&p._injPre){
+            const bkDiv=document.createElement('div');
+            bkDiv.innerHTML=renderInjuryBreakdown(p);
+            const inserted=injDiv.parentElement?grid.querySelector('.dc.full:last-of-type'):null;
+            if(inserted&&inserted.nextSibling) grid.insertBefore(bkDiv.firstElementChild,inserted.nextSibling);
+            else grid.appendChild(bkDiv.firstElementChild);
+          }
         }
       }
     }catch(e){console.warn('[injuries UI]',e);}
@@ -3825,6 +3899,9 @@ function applyInjuryImpact(p){
   adj._injPctChange=impact.pctChange;
   adj._injTeammates=impact.teammates||[];
   adj._injSpeculative=impact.speculative||false;
+  // Store pre-adjustment values for delta display
+  adj._injPre={avg:p.avg,edge:p.edge,modelProb:p.modelProb,hitRate:p.hitRate,evOver:p.evOver,evUnder:p.evUnder,vs:valueScore(p),dirEV:getDirectionalEV(p)};
+  adj._injPost={avg:adj.avg,edge:adj.edge,modelProb:adj.modelProb,hitRate:adj.hitRate,evOver:adj.evOver,evUnder:adj.evUnder};
   return adj;
 }
 
@@ -4448,7 +4525,7 @@ function renderAlerts(){
           </div>
           <div class="va-meta">${p.team||''} · ${(p.matchup||'').substring(0,25)}${getInjuryBadge(p.name)}</div>
           ${!p.hasRealStats?`<div style="margin-top:3px;"><span class="player-flag flag-est" style="font-size:9px;">⚠ Fake Stats — EV may be inaccurate</span></div>`:''}
-          ${(()=>{const hasMove=p.prev_line!=null&&(p.prev_line!==p.line||p.prev_overOdds!==p.overOdds||p.prev_underOdds!==p.underOdds);const hasFlags=p.returnFromInjury>=2||p.minutesFlag||(p.dnpCount>=5)||hasMove||(p._adjTags&&p._adjTags.length);if(!hasFlags)return'';return`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;">${(p._adjTags||[]).map(t=>{const[type,val]=t.split(':');return type==='min'?`<span class="player-flag" style="background:rgba(139,92,246,.12);color:#a78bfa;border:1px solid rgba(139,92,246,.3);">⏱ Smart Min → ${val}m</span>`:type==='inj'?`<span class="player-flag" style="background:rgba(245,158,11,.12);color:#f59e0b;border:1px solid rgba(245,158,11,.3);">🏥 w/o ${val} (${p._injPctChange>0?'+':''}${p._injPctChange||0}%)${p._injSpeculative?' ~est':''}  </span>`:`<span class="player-flag" style="background:rgba(239,68,68,.12);color:#ef4444;border:1px solid rgba(239,68,68,.3);">⚠ DNP Adj → ${val}m</span>`;}).join('')}${hasMove?`<span class="player-flag flag-mover">↕ Line Moved${p.prev_line!==p.line?' '+((p.line-p.prev_line)>0?'+':'')+((p.line-p.prev_line).toFixed(1)):' (odds)'}</span>`:''}${p.returnFromInjury>=2?`<span class="player-flag flag-injury">⚠ Back after ${p.returnFromInjury} games missed</span>`:''}${p.minutesFlag?`<span class="player-flag ${p.minutesFlag>0?'flag-minutes-up':'flag-minutes-down'}">⏱ ${Math.abs(Math.round(p.minutesFlag*100))}% ${p.minutesFlag>0?'↑ more':'↓ fewer'} minutes</span>`:''}${p.dnpCount>=5?`<span class="player-flag flag-dnp">✗ ${p.dnpCount} DNPs/10</span>`:''}</div>`;})()}</div>
+          ${(()=>{const hasMove=p.prev_line!=null&&(p.prev_line!==p.line||p.prev_overOdds!==p.overOdds||p.prev_underOdds!==p.underOdds);const hasFlags=p.returnFromInjury>=2||p.minutesFlag||(p.dnpCount>=5)||hasMove||(p._adjTags&&p._adjTags.length);if(!hasFlags)return'';return`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;">${(p._adjTags||[]).map(t=>{const[type,val]=t.split(':');return type==='min'?`<span class="player-flag" style="background:rgba(139,92,246,.12);color:#a78bfa;border:1px solid rgba(139,92,246,.3);">⏱ Smart Min → ${val}m</span>`:type==='inj'?`<span class="player-flag" style="background:rgba(245,158,11,.12);color:#f59e0b;border:1px solid rgba(245,158,11,.3);">🏥 ${p._injPctChange>0?'+':''}${p._injPctChange||0}%${p._injSpeculative?' ~est':''}</span>`:`<span class="player-flag" style="background:rgba(239,68,68,.12);color:#ef4444;border:1px solid rgba(239,68,68,.3);">⚠ DNP Adj → ${val}m</span>`;}).join('')}${hasMove?`<span class="player-flag flag-mover">↕ Line Moved${p.prev_line!==p.line?' '+((p.line-p.prev_line)>0?'+':'')+((p.line-p.prev_line).toFixed(1)):' (odds)'}</span>`:''}${p.returnFromInjury>=2?`<span class="player-flag flag-injury">⚠ Back after ${p.returnFromInjury} games missed</span>`:''}${p.minutesFlag?`<span class="player-flag ${p.minutesFlag>0?'flag-minutes-up':'flag-minutes-down'}">⏱ ${Math.abs(Math.round(p.minutesFlag*100))}% ${p.minutesFlag>0?'↑ more':'↓ fewer'} minutes</span>`:''}${p.dnpCount>=5?`<span class="player-flag flag-dnp">✗ ${p.dnpCount} DNPs/10</span>`:''}</div>`;})()}</div>
         <div class="va-right">
           <div class="va-edge-big ${evPct>0?'pos':'neg'}">${evPct>0?'+':''}${evPct}%</div>
           <div class="va-direction ${isOver?'over':'under'}">${isOver?'▲':'▼'} BET ${dir}</div>
