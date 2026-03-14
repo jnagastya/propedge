@@ -62,7 +62,7 @@ const _playerTeamCache = {
   'Derik Queen':'HOU','Jeremiah Fears':'OKC','Mohamed Diawara':'ATL',
   'Ivica Zubac':'IND','Gui Santos':'GSW','Marcus Sasser':'DET',
   'Cody Williams':'UTA','Mitchell Robinson':'NYK','Brice Sensabaugh':'TOR',
-  'Ace Bailey':'BKN','Sandro Mamukelashvili':'SAS','Matas Buzelis':'CHI',
+  'Ace Bailey':'UTA','Sandro Mamukelashvili':'SAS','Matas Buzelis':'CHI',
   'Keon Ellis':'SAC','Olivier-Maxence Prosper':'DAL','Isaiah Collier':'UTA',
   'Kyle Filipowski':'UTA','Jaylon Tyson':'CLE','Dennis Schroder':'BKN',
   'Taylor Hendricks':'UTA','G.G. Jackson':'MEM','Royce O\'Neale':'PHX',
@@ -1004,7 +1004,7 @@ function guessTeam(name) {
     // CHA
     'lamelo ball':'CHA','brandon miller':'CHA','miles bridges':'CHA','mark williams':'CHA','grant williams':'CHA','josh green':'CHA',
     // CHI
-    'zach lavine':'CHI','nikola vucevic':'CHI','coby white':'CHI','josh giddey':'CHI','patrick williams':'CHI','ayo dosunmu':'CHI',
+    'zach lavine':'CHI','nikola vucevic':'CHI','coby white':'CHI','josh giddey':'CHI','patrick williams':'CHI','ayo dosunmu':'CHI','tre jones':'CHI',
     // CLE
     'donovan mitchell':'CLE','darius garland':'CLE','evan mobley':'CLE','jarrett allen':'CLE','max strus':'CLE','isaac okoro':'CLE',
     // DAL
@@ -1048,7 +1048,7 @@ function guessTeam(name) {
     // SAC
     "de'aaron fox":'SAC','domantas sabonis':'SAC','keegan murray':'SAC','malik monk':'SAC','harrison barnes':'SAC',
     // SAS
-    'victor wembanyama':'SAS','keldon johnson':'SAS','devin vassell':'SAS','jeremy sochan':'SAS','stephon castle':'SAS','tre jones':'SAS',
+    'victor wembanyama':'SAS','keldon johnson':'SAS','devin vassell':'SAS','jeremy sochan':'SAS','stephon castle':'SAS',
     // TOR
     'scottie barnes':'TOR','rj barrett':'TOR','immanuel quickley':'TOR','gradey dick':'TOR','jakob poeltl':'TOR',
     // UTA

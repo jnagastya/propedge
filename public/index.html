@@ -366,7 +366,9 @@ table{width:100%;border-collapse:collapse;font-size:13px;}
   .var-label-icon{font-size:13px;}
   .lmr-outer{height:110px;margin-bottom:10px;}
   .lmr-card{width:220px;padding:10px 12px;gap:8px;border-radius:8px;}
-  .lmr-label-text{font-size:7px;}
+  .lmr-label-text{font-size:6px;}
+  .lmr-label-icon{width:26px;height:26px;}
+  .lmr-label-icon svg{width:14px;height:14px;}
   .lmr-arrow{width:24px;height:24px;font-size:15px;}
   .lmr-arrow-l{left:42px;}
   .lmr-av{width:28px;height:28px;}
@@ -630,10 +632,14 @@ td{padding:13px 14px;white-space:nowrap;}
 .flag-mover{background:rgba(168,85,247,.15);color:#c084fc;border:1px solid rgba(168,85,247,.3);}
 .lmr-outer{position:relative;margin-bottom:14px;height:130px;overflow:hidden;display:flex;align-items:center;}
 .lmr-outer::after{content:'';position:absolute;top:0;bottom:0;right:0;width:40px;z-index:2;pointer-events:none;background:linear-gradient(-90deg,var(--bg0) 30%,transparent);}
-.lmr-label{flex-shrink:0;width:52px;z-index:3;display:flex;align-items:center;justify-content:center;pointer-events:none;}
-.lmr-label-inner{display:flex;flex-direction:column;align-items:center;gap:2px;white-space:nowrap;}
-.lmr-label-icon{font-size:16px;line-height:1;}
-.lmr-label-text{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:#c084fc;}
+.lmr-label{flex-shrink:0;width:58px;z-index:3;display:flex;align-items:center;justify-content:center;pointer-events:none;}
+.lmr-label-inner{display:flex;flex-direction:column;align-items:center;gap:3px;white-space:nowrap;}
+.lmr-label-icon{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#7c3aed 0%,#a855f7 50%,#c084fc 100%);display:flex;align-items:center;justify-content:center;box-shadow:0 0 12px rgba(168,85,247,.35),0 0 24px rgba(168,85,247,.15);position:relative;overflow:hidden;}
+.lmr-label-icon::after{content:'';position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle at 30% 30%,rgba(255,255,255,.2),transparent 60%);}
+.lmr-label-icon svg{width:18px;height:18px;position:relative;z-index:1;}
+@keyframes lmrPulse{0%,100%{box-shadow:0 0 12px rgba(168,85,247,.35),0 0 24px rgba(168,85,247,.15);}50%{box-shadow:0 0 16px rgba(168,85,247,.55),0 0 32px rgba(168,85,247,.25);}}
+.lmr-label-icon{animation:lmrPulse 2.5s ease-in-out infinite;}
+.lmr-label-text{font-size:7px;font-weight:800;text-transform:uppercase;letter-spacing:1.2px;color:#c084fc;line-height:1.25;text-align:center;}
 .lmr-arrow{position:absolute;top:50%;transform:translateY(-50%);z-index:4;width:28px;height:28px;border-radius:50%;border:1px solid var(--bd2);background:var(--bg2);color:var(--t1);font-size:18px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;opacity:.7;transition:opacity .15s,background .15s;}
 .lmr-arrow:hover{opacity:1;background:var(--bg3);}
 .lmr-arrow-l{left:48px;}
@@ -1363,7 +1369,7 @@ td{padding:13px 14px;white-space:nowrap;}
     <!-- LINE MOVERS RIBBON -->
     <div class="lmr-outer" id="lmRibbonOuter" style="display:none;">
       <div class="lmr-label">
-        <div class="lmr-label-inner"><span class="lmr-label-icon">↕</span><span class="lmr-label-text">Line<br>Movers</span></div>
+        <div class="lmr-label-inner"><span class="lmr-label-icon"><svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3,17 8,11 13,14 21,6"/><polyline points="16,6 21,6 21,11"/></svg></span><span class="lmr-label-text">LINE<br>MOVERS</span></div>
       </div>
       <button class="lmr-arrow lmr-arrow-l" onclick="lmrScroll(-1)" aria-label="Scroll left">‹</button>
       <div class="lmr-scroll" id="lmRibbonScroll">
@@ -1398,7 +1404,7 @@ td{padding:13px 14px;white-space:nowrap;}
     <div class="vs-slider-wrap">
       <span style="font-size:10px;color:var(--t2);font-weight:600;">Custom Value Threshold:</span>
       <input type="range" min="5" max="80" step="1" value="40" id="vsCustomSlider" oninput="updateCustomVS(this.value)"/>
-      <input type="number" min="5" max="80" step="1" value="40" id="vsCustomNum" oninput="updateCustomVS(this.value)" style="width:42px;padding:2px 4px;background:var(--bg2);border:1px solid var(--bd);border-radius:4px;color:var(--t1);font-size:11px;font-weight:700;text-align:center;font-family:inherit;"/>
+      <input type="number" min="5" max="80" step="1" value="40" id="vsCustomNum" onchange="updateCustomVS(this.value,true)" onkeydown="if(event.key==='Enter'){this.blur();}" style="width:42px;padding:2px 4px;background:var(--bg2);border:1px solid var(--bd);border-radius:4px;color:var(--t1);font-size:11px;font-weight:700;text-align:center;font-family:inherit;"/>
     </div>
     <div class="wt-panel" id="wtPanel">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
@@ -1980,6 +1986,7 @@ const TEAM_MAP = {
   "Kyle Kuzma":"WAS","Deni Avdija":"POR","Coby White":"CHI",
   "Zach LaVine":"CHI","Nikola Vucevic":"CHI","DeMar DeRozan":"SAC",
   "Andrew Wiggins":"GSW","Jonathan Kuminga":"GSW","Al Horford":"BOS",
+  "Ace Bailey":"UTA","Tre Jones":"CHI",
 };
 
 const TEAMMATES = {
@@ -3589,23 +3596,24 @@ function updateRisk(v){
   S.customMinVS=l.vs;localStorage.setItem('va_customMinVS',l.vs);
   renderAlerts();
 }
-function updateCustomVS(v){
+let _vsDebounce=null;
+function updateCustomVS(v,fromNum){
   const val=Math.min(80,Math.max(5,parseInt(v)||40));
   S.customMinVS=val;
-  // Sync slider + number input
   const cs=document.getElementById('vsCustomSlider');
   const cn=document.getElementById('vsCustomNum');
   if(cs)cs.value=val;
-  if(cn)cn.value=val;
+  // Only sync number input if change came from slider (avoid clobbering typing)
+  if(!fromNum&&cn)cn.value=val;
   localStorage.setItem('va_customMinVS',val);
-  // Map to nearest preset and move the risk slider
   const el=document.getElementById('riskVal');
   const rs=document.getElementById('riskSlider');
   if(val>=50){S.risk=1;if(rs)rs.value=1;if(el){el.textContent='Conservative';el.style.color='var(--g)';}}
   else if(val>=40){S.risk=2;if(rs)rs.value=2;if(el){el.textContent='Balanced';el.style.color='var(--a)';}}
   else if(val>=30){S.risk=3;if(rs)rs.value=3;if(el){el.textContent='Aggressive';el.style.color='var(--r)';}}
   else{if(el){el.textContent=`Custom (${val}+)`;el.style.color='var(--t2)';}}
-  renderAlerts();
+  clearTimeout(_vsDebounce);
+  _vsDebounce=setTimeout(()=>renderAlerts(),120);
 }
 
 // ── Parlay Builder ──
