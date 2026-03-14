@@ -2781,7 +2781,7 @@ function renderOverview(el,p){
   const flagsHTML=flags.length?`<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:4px;">${flags.join('')}</div>`:'';
   el.innerHTML=`<div class="di-grid">
     ${p.hasRealStats?`<div class="dc full" style="background:var(--g)15;border:1px solid var(--g)40;padding:8px 12px;border-radius:8px;font-size:11px;color:var(--g);">✓ Stats from NBA.com — ${p.gamesPlayed} games this season${flagsHTML}</div>`:p.statsError?`<div class="dc full" style="background:var(--r)15;border:1px solid var(--r)40;padding:8px 12px;border-radius:8px;font-size:11px;color:var(--r);">⚠ Stats unavailable: ${p.statsError}</div>`:`<div class="dc full" style="background:var(--a)15;border:1px solid var(--a)40;padding:8px 12px;border-radius:8px;font-size:11px;color:var(--a);">⏳ Loading real stats from NBA.com…</div>`}
-    <div class="dc"><div class="dc-t"><span class="dt" style="background:var(--b)"></span>Stats vs Line</div>
+    ${(()=>{const _hlc=p.prev_line!=null&&(p.prev_line!==p.line||p.prev_overOdds!==p.overOdds||p.prev_underOdds!==p.underOdds);return`<div class="dc${_hlc?'':' full'}"><div class="dc-t"><span class="dt" style="background:var(--b)"></span>Stats vs Line</div>
       <div class="sr">
         <div class="sb2"><div class="sb2-l">L10 Avg</div><div class="sb2-v">${p.avg}</div><div class="sb2-s">Line ${p.line} <span class="${p.avg>p.line?'up':'dn'}">${p.avg>p.line?'▲':'▼'} ${Math.abs(p.avg-p.line).toFixed(1)}</span></div></div>
         <div class="sb2"><div class="sb2-l">Last 5 Avg</div><div class="sb2-v">${l5a}</div><div class="sb2-s">${parseFloat(l5a||0)>p.avg?'<span class="up">▲ Hot</span>':'<span class="dn">▼ Cold</span>'}</div></div>
@@ -2814,7 +2814,43 @@ function renderOverview(el,p){
           </div>`;
         })()}
       </div>`:''}
-      ${(()=>{
+      <div style="margin-top:10px;padding:9px 11px;background:var(--bg1);border-radius:7px;border:1px solid var(--bd);font-size:11px;">
+        <div style="font-weight:700;color:var(--b-text);margin-bottom:6px;">Value Score Breakdown</div>
+        ${(()=>{
+          const _isOv2=(p.edge||0)>=0;
+          const _dirEV2=getDirectionalEV(p);
+          const _evScore2=Math.min(Math.max(_dirEV2,-20),20);
+          const _dirHR2=_isOv2?(p.hitRate||50):(100-(p.hitRate||50));
+          const _tot2=vsWeights.edge+vsWeights.hr+vsWeights.conf+vsWeights.ev||1;
+          const _we2=vsWeights.edge/_tot2, _wh2=vsWeights.hr/_tot2, _wc2=vsWeights.conf/_tot2, _wv2=vsWeights.ev/_tot2;
+          const edgePts2=Math.abs(p.edge||0)*_we2;
+          const hrPts2=Math.max(0,_dirHR2-50)*_wh2;
+          const confPts2=(p.confidence||0)*_wc2;
+          const evPts2=(_evScore2+20)*_wv2;
+          const total2=Math.round(edgePts2+hrPts2+confPts2+evPts2);
+          const vsC2=total2>=40?'var(--g)':total2>=25?'var(--a)':'var(--r)';
+          return`<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+            <span style="color:var(--b-text);">Edge:</span><strong>${Math.abs(p.edge||0).toFixed(1)}</strong>
+            <span style="color:var(--t2)">×${Math.round(_we2*100)}%</span>
+            <span style="color:var(--b-text);margin-left:4px;">= ${edgePts2.toFixed(1)}</span>
+            <span style="color:var(--bd2);margin:0 2px;">|</span>
+            <span style="color:var(--b-text);">HR:</span><strong>${Math.max(0,_dirHR2-50)}</strong>
+            <span style="color:var(--t2)">×${Math.round(_wh2*100)}%</span>
+            <span style="color:var(--b-text);margin-left:4px;">= ${hrPts2.toFixed(1)}</span>
+            <span style="color:var(--bd2);margin:0 2px;">|</span>
+            <span style="color:var(--b-text);">Conf:</span><strong>${p.confidence||0}</strong>
+            <span style="color:var(--t2)">×${Math.round(_wc2*100)}%</span>
+            <span style="color:var(--b-text);margin-left:4px;">= ${confPts2.toFixed(1)}</span>
+            <span style="color:var(--bd2);margin:0 2px;">|</span>
+            <span style="color:var(--b-text);">EV:</span><strong>${(_evScore2+20).toFixed(1)}</strong>
+            <span style="color:var(--t2)">×${Math.round(_wv2*100)}%</span>
+            <span style="color:var(--b-text);margin-left:4px;">= ${evPts2.toFixed(1)}</span>
+            <span style="margin-left:6px;padding:2px 8px;border-radius:8px;background:${vsC2}20;color:${vsC2};font-weight:800;">= ${total2}</span>
+          </div>`;
+        })()}
+      </div>
+    </div>`;})()}
+    ${(()=>{
         if(p.prev_line==null||(p.prev_line===p.line&&p.prev_overOdds===p.overOdds&&p.prev_underOdds===p.underOdds))return'';
         const _isOv=(p.edge||0)>=0;
         const prevP={...p,line:p.prev_line,overOdds:p.prev_overOdds||p.overOdds,underOdds:p.prev_underOdds||p.underOdds};
@@ -2846,7 +2882,7 @@ function renderOverview(el,p){
         const lineDiff=+(p.line-p.prev_line).toFixed(1);
         // Overall assessment
         const betterOrWorse=vsDelta>0?{label:'BET GOT BETTER',col:'var(--g)',icon:'↑'}:vsDelta<0?{label:'BET GOT WORSE',col:'var(--r)',icon:'↓'}:{label:'NO CHANGE',col:'var(--a)',icon:'→'};
-        return`<div class="lm-impact">
+        return`<div class="dc"><div class="lm-impact" style="margin:0;border:none;padding:0;">
           <div class="lm-impact-hdr" style="display:flex;justify-content:space-between;align-items:center;">
             <span>↕ Line Change Impact</span>
             <span style="font-size:11px;font-weight:800;color:${betterOrWorse.col};padding:3px 10px;border-radius:6px;background:${betterOrWorse.col}15;">${betterOrWorse.icon} ${betterOrWorse.label}</span>
@@ -2856,26 +2892,29 @@ function renderOverview(el,p){
             const curOverO=p.overOdds,curUnderO=p.underOdds;
             const prevOverO=p.prev_overOdds||curOverO,prevUnderO=p.prev_underOdds||curUnderO;
             const oddsChanged=prevOverO!==curOverO||prevUnderO!==curUnderO;
-            return`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
+            return`<div style="display:grid;grid-template-columns:1fr;gap:8px;margin-top:8px;">
             <div style="padding:8px 10px;background:var(--bg2);border-radius:6px;border:1px solid var(--bd);">
               <div style="font-size:9px;font-weight:600;color:var(--b-text);text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px;">Line</div>
               <div style="font-size:14px;font-weight:800;">${p.prev_line} <span style="color:var(--t3);">→</span> ${p.line} <span style="font-size:11px;color:${lineDiff>0?'var(--r)':'var(--g)'};">(${fD(lineDiff)})</span></div>
             </div>
             <div style="padding:8px 10px;background:var(--bg2);border-radius:6px;border:1px solid var(--bd);">
               <div style="font-size:9px;font-weight:600;color:var(--b-text);text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px;">Odds${oddsChanged?' (changed)':''}</div>
-              <div style="font-size:14px;font-weight:800;">${oddsChanged?`O: ${fmtOdds(prevOverO)} → ${fmtOdds(curOverO)} · U: ${fmtOdds(prevUnderO)} → ${fmtOdds(curUnderO)}`:`O: ${fmtOdds(curOverO)} · U: ${fmtOdds(curUnderO)}`}</div>
+              <div style="font-size:13px;font-weight:800;">${oddsChanged?`O: ${fmtOdds(prevOverO)} → ${fmtOdds(curOverO)}<br>U: ${fmtOdds(prevUnderO)} → ${fmtOdds(curUnderO)}`:`O: ${fmtOdds(curOverO)} · U: ${fmtOdds(curUnderO)}`}</div>
             </div>
             <div style="padding:8px 10px;background:var(--bg2);border-radius:6px;border:1px solid var(--bd);">
               <div style="font-size:9px;font-weight:600;color:var(--b-text);text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px;">Expected Value</div>
-              <div style="font-size:14px;font-weight:800;color:${curEV>=0?'var(--g)':'var(--r)'};">${fD(curEV)}% <span style="font-size:11px;color:${evDelta>=0?'var(--g)':'var(--r)'};">(was ${fD(prevEV)}%, ${fD(evDelta)})</span></div>
+              <div style="font-size:14px;font-weight:800;color:${curEV>=0?'var(--g)':'var(--r)'};">${fD(curEV)}%</div>
+              <div style="font-size:10px;color:var(--t3);margin-top:2px;">was ${fD(prevEV)}% (${fD(evDelta)})</div>
             </div>
             <div style="padding:8px 10px;background:var(--bg2);border-radius:6px;border:1px solid var(--bd);">
               <div style="font-size:9px;font-weight:600;color:var(--b-text);text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px;">Model Probability</div>
-              <div style="font-size:14px;font-weight:800;">${curMP}% <span style="font-size:11px;color:${mpDelta>=0?'var(--g)':'var(--r)'};">(was ${prevMP}%${mpDelta!==0?', '+fD(mpDelta):''})</span></div>
+              <div style="font-size:14px;font-weight:800;">${curMP}%</div>
+              <div style="font-size:10px;color:var(--t3);margin-top:2px;">was ${prevMP}%${mpDelta!==0?' ('+fD(mpDelta)+')':''}</div>
             </div>
             <div style="padding:8px 10px;background:var(--bg2);border-radius:6px;border:1px solid var(--bd);">
               <div style="font-size:9px;font-weight:600;color:var(--b-text);text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px;">Value Score</div>
-              <div style="font-size:14px;font-weight:800;color:${curVS>=40?'var(--g)':curVS>=25?'var(--a)':'var(--r)'};">${curVS} <span style="font-size:11px;color:${vsDelta>=0?'var(--g)':'var(--r)'};">(was ${prevVS}, ${vsDelta>0?'+':''}${vsDelta})</span></div>
+              <div style="font-size:14px;font-weight:800;color:${curVS>=40?'var(--g)':curVS>=25?'var(--a)':'var(--r)'};">${curVS}</div>
+              <div style="font-size:10px;color:var(--t3);margin-top:2px;">was ${prevVS} (${vsDelta>0?'+':''}${vsDelta})</div>
             </div>
           </div>`;
           })()}
@@ -2890,44 +2929,8 @@ function renderOverview(el,p){
               <div style="font-size:13px;font-weight:800;color:${recCol(curRec)};">${curRec}</div>
             </div>
           </div>
-        </div>`;
+        </div></div>`;
       })()}
-      <div style="margin-top:10px;padding:9px 11px;background:var(--bg1);border-radius:7px;border:1px solid var(--bd);font-size:11px;">
-        <div style="font-weight:700;color:var(--b-text);margin-bottom:6px;">Value Score Breakdown</div>
-        ${(()=>{
-          const _isOv=(p.edge||0)>=0;
-          const _dirEV=getDirectionalEV(p);
-          const _evScore=Math.min(Math.max(_dirEV,-20),20);
-          const _dirHR=_isOv?(p.hitRate||50):(100-(p.hitRate||50));
-          const _tot=vsWeights.edge+vsWeights.hr+vsWeights.conf+vsWeights.ev||1;
-          const _we=vsWeights.edge/_tot, _wh=vsWeights.hr/_tot, _wc=vsWeights.conf/_tot, _wv=vsWeights.ev/_tot;
-          const edgePts=Math.abs(p.edge||0)*_we;
-          const hrPts=Math.max(0,_dirHR-50)*_wh;
-          const confPts=(p.confidence||0)*_wc;
-          const evPts=(_evScore+20)*_wv;
-          const total=Math.round(edgePts+hrPts+confPts+evPts);
-          const vsC=total>=40?'var(--g)':total>=25?'var(--a)':'var(--r)';
-          return`<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-            <span style="color:var(--b-text);">Edge:</span><strong>${Math.abs(p.edge||0).toFixed(1)}</strong>
-            <span style="color:var(--t2)">×${Math.round(_we*100)}%</span>
-            <span style="color:var(--b-text);margin-left:4px;">= ${edgePts.toFixed(1)}</span>
-            <span style="color:var(--bd2);margin:0 2px;">|</span>
-            <span style="color:var(--b-text);">HR:</span><strong>${Math.max(0,_dirHR-50)}</strong>
-            <span style="color:var(--t2)">×${Math.round(_wh*100)}%</span>
-            <span style="color:var(--b-text);margin-left:4px;">= ${hrPts.toFixed(1)}</span>
-            <span style="color:var(--bd2);margin:0 2px;">|</span>
-            <span style="color:var(--b-text);">Conf:</span><strong>${p.confidence||0}</strong>
-            <span style="color:var(--t2)">×${Math.round(_wc*100)}%</span>
-            <span style="color:var(--b-text);margin-left:4px;">= ${confPts.toFixed(1)}</span>
-            <span style="color:var(--bd2);margin:0 2px;">|</span>
-            <span style="color:var(--b-text);">EV:</span><strong>${(_evScore+20).toFixed(1)}</strong>
-            <span style="color:var(--t2)">×${Math.round(_wv*100)}%</span>
-            <span style="color:var(--b-text);margin-left:4px;">= ${evPts.toFixed(1)}</span>
-            <span style="margin-left:6px;padding:2px 8px;border-radius:8px;background:${vsC}20;color:${vsC};font-weight:800;">= ${total}</span>
-          </div>`;
-        })()}
-      </div>
-    </div>
     ${p.hasRealStats?(()=>{const pg=(p.gameLog||[]).filter(g=>parseInt(g.min||'0')>0);const am=pg.length?Math.round(pg.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/pg.length):30;const l5min=pg.slice(0,5);const l5avg=l5min.length?Math.round(l5min.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/l5min.length):am;const l10min=pg.slice(0,10);const l10avg=l10min.length?Math.round(l10min.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/l10min.length):am;const hasFlag=p.minutesFlag||p.dnpCount>=5;const presets=`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px;">
           <button onclick="setMinPreset(${am})" style="font-size:9px;padding:3px 8px;border-radius:5px;border:1px solid var(--bd);background:var(--bg2);color:var(--t2);cursor:pointer;font-weight:600;">Season Avg (${am})</button>
           <button onclick="setMinPreset(${l10avg})" style="font-size:9px;padding:3px 8px;border-radius:5px;border:1px solid var(--bd);background:var(--bg2);color:var(--t2);cursor:pointer;font-weight:600;">L10 Avg (${l10avg})</button>
