@@ -3058,35 +3058,6 @@ function renderOverview(el,p){
         })()}
       </div>
     </div>`;})()}
-    <div class="dc full">
-      <div class="dc-t"><span class="dt" style="background:var(--p)"></span>Recommendation</div>
-      <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
-        <div style="flex:1;min-width:200px;">
-          <div style="font-size:22px;font-weight:800;color:${lean.cls==='over'?'var(--g)':lean.cls==='under'?'var(--r)':'var(--t3)'}">
-            ${lean.label === 'OVER ▲' ? '▲ BET OVER' : lean.label === 'UNDER ▼' ? '▼ BET UNDER' : '— NO STRONG LEAN'}
-          </div>
-          <div style="font-size:12px;color:var(--t2);margin-top:4px;">Based on ${(p.edge||0).toFixed(1)}% edge · ${(p.edge||0)>=0?(p.hitRate||0):(100-(p.hitRate||0))}% ${(p.edge||0)>=0?'over':'under'} hit rate · ${p.confidence||0}/100 confidence</div>
-        </div>
-        <div style="font-size:11px;color:var(--t2);line-height:1.7;flex:2;background:var(--bg2);padding:10px 12px;border-radius:8px;border:1px solid var(--bd);">
-          ${(()=>{
-            const isOverBet=(p.edge||0)>=0;
-            const betOddsVal=isOverBet?(p.overOdds||0):(p.underOdds||0);
-            const betOddsFmt=(betOddsVal>0?'+':'')+betOddsVal;
-            const betDirEV=isOverBet?(p.evOver??calcEV((p.hitRate||50)/100,p.overOdds)):(p.evUnder??calcEV(1-(p.hitRate||50)/100,p.underOdds));
-            const dirHR=isOverBet?(p.hitRate||50):(100-(p.hitRate||50));
-            const dirImplied=isOverBet?((p.impliedProbOver??impliedProb(p.overOdds))*100):((p.impliedProbUnder??impliedProb(p.underOdds))*100);
-            const vs=valueScore(p);
-            const evC=betDirEV>0?'var(--g)':'var(--r)';
-            const _t=vsWeights.edge+vsWeights.hr+vsWeights.conf+vsWeights.ev||1;
-            const _we=Math.round(vsWeights.edge/_t*100),_wh=Math.round(vsWeights.hr/_t*100),_wc=Math.round(vsWeights.conf/_t*100),_wv=Math.round(vsWeights.ev/_t*100);
-            return `<strong>Edge:</strong> <code>(${p.avg} − ${p.line}) / ${p.line} × 100 = ${(p.edge||0)>0?'+':''}${(p.edge||0).toFixed(1)}%</code><br>
-          <strong>Implied prob (${isOverBet?'Over':'Under'}):</strong> <code>${dirImplied.toFixed(1)}%</code> · <strong>Model hit rate (${isOverBet?'Over':'Under'}):</strong> <code>${dirHR}%</code><br>
-          <strong>EV (${isOverBet?'Over':'Under'} ${betOddsFmt}):</strong> <code style="color:${evC}">${betDirEV>0?'+':''}${betDirEV}%</code> per $100 wagered<br>
-          <strong>Value score:</strong> <code>Edge ${Math.abs(p.edge||0).toFixed(1)}×${_we}% + HR ${Math.max(0,dirHR-50)}×${_wh}% + Conf ${p.confidence||0}×${_wc}% + EV×${_wv}% = <b>${vs}</b></code>`;
-          })()}
-        </div>
-      </div>
-    </div>
     ${(()=>{
         if(p.prev_line==null||(p.prev_line===p.line&&p.prev_overOdds===p.overOdds&&p.prev_underOdds===p.underOdds))return'';
         const _isOv=(p.edge||0)>=0;
@@ -3168,6 +3139,35 @@ function renderOverview(el,p){
           </div>
         </div></div>`;
       })()}
+    <div class="dc full">
+      <div class="dc-t"><span class="dt" style="background:var(--p)"></span>Recommendation</div>
+      <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:200px;">
+          <div style="font-size:22px;font-weight:800;color:${lean.cls==='over'?'var(--g)':lean.cls==='under'?'var(--r)':'var(--t3)'}">
+            ${lean.label === 'OVER ▲' ? '▲ BET OVER' : lean.label === 'UNDER ▼' ? '▼ BET UNDER' : '— NO STRONG LEAN'}
+          </div>
+          <div style="font-size:12px;color:var(--t2);margin-top:4px;">Based on ${(p.edge||0).toFixed(1)}% edge · ${(p.edge||0)>=0?(p.hitRate||0):(100-(p.hitRate||0))}% ${(p.edge||0)>=0?'over':'under'} hit rate · ${p.confidence||0}/100 confidence</div>
+        </div>
+        <div style="font-size:11px;color:var(--t2);line-height:1.7;flex:2;background:var(--bg2);padding:10px 12px;border-radius:8px;border:1px solid var(--bd);">
+          ${(()=>{
+            const isOverBet=(p.edge||0)>=0;
+            const betOddsVal=isOverBet?(p.overOdds||0):(p.underOdds||0);
+            const betOddsFmt=(betOddsVal>0?'+':'')+betOddsVal;
+            const betDirEV=isOverBet?(p.evOver??calcEV((p.hitRate||50)/100,p.overOdds)):(p.evUnder??calcEV(1-(p.hitRate||50)/100,p.underOdds));
+            const dirHR=isOverBet?(p.hitRate||50):(100-(p.hitRate||50));
+            const dirImplied=isOverBet?((p.impliedProbOver??impliedProb(p.overOdds))*100):((p.impliedProbUnder??impliedProb(p.underOdds))*100);
+            const vs=valueScore(p);
+            const evC=betDirEV>0?'var(--g)':'var(--r)';
+            const _t=vsWeights.edge+vsWeights.hr+vsWeights.conf+vsWeights.ev||1;
+            const _we=Math.round(vsWeights.edge/_t*100),_wh=Math.round(vsWeights.hr/_t*100),_wc=Math.round(vsWeights.conf/_t*100),_wv=Math.round(vsWeights.ev/_t*100);
+            return `<strong>Edge:</strong> <code>(${p.avg} − ${p.line}) / ${p.line} × 100 = ${(p.edge||0)>0?'+':''}${(p.edge||0).toFixed(1)}%</code><br>
+          <strong>Implied prob (${isOverBet?'Over':'Under'}):</strong> <code>${dirImplied.toFixed(1)}%</code> · <strong>Model hit rate (${isOverBet?'Over':'Under'}):</strong> <code>${dirHR}%</code><br>
+          <strong>EV (${isOverBet?'Over':'Under'} ${betOddsFmt}):</strong> <code style="color:${evC}">${betDirEV>0?'+':''}${betDirEV}%</code> per $100 wagered<br>
+          <strong>Value score:</strong> <code>Edge ${Math.abs(p.edge||0).toFixed(1)}×${_we}% + HR ${Math.max(0,dirHR-50)}×${_wh}% + Conf ${p.confidence||0}×${_wc}% + EV×${_wv}% = <b>${vs}</b></code>`;
+          })()}
+        </div>
+      </div>
+    </div>
     ${p.hasRealStats?(()=>{const pg=(p.gameLog||[]).filter(g=>parseInt(g.min||'0')>0);const am=pg.length?Math.round(pg.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/pg.length):30;const l3min=pg.slice(0,3);const l3avg=l3min.length>=3?Math.round(l3min.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/l3min.length):am;const l5min=pg.slice(0,5);const l5avg=l5min.length?Math.round(l5min.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/l5min.length):am;const l10min=pg.slice(0,10);const l10avg=l10min.length?Math.round(l10min.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/l10min.length):am;const hasFlag=p.minutesFlag||p.dnpCount>=5;const presets=`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px;">
           <button onclick="setMinPreset(${am})" style="font-size:9px;padding:3px 8px;border-radius:5px;border:1px solid var(--bd);background:var(--bg2);color:var(--t2);cursor:pointer;font-weight:600;">Season Avg (${am})</button>
           <button onclick="setMinPreset(${l10avg})" style="font-size:9px;padding:3px 8px;border-radius:5px;border:1px solid var(--bd);background:var(--bg2);color:var(--t2);cursor:pointer;font-weight:600;">L10 Avg (${l10avg})</button>
