@@ -367,6 +367,8 @@ table{width:100%;border-collapse:collapse;font-size:13px;}
   .lmr-outer{height:110px;margin-bottom:10px;}
   .lmr-card{width:220px;padding:10px 12px;gap:8px;border-radius:8px;}
   .lmr-label-text{font-size:7px;}
+  .lmr-arrow{width:24px;height:24px;font-size:15px;}
+  .lmr-arrow-l{left:42px;}
   .lmr-av{width:28px;height:28px;}
   .parlay-stats{gap:8px;}
   .parlay-stat{padding:10px;min-width:0;}
@@ -627,11 +629,15 @@ td{padding:13px 14px;white-space:nowrap;}
 .flag-est{background:var(--bld);color:var(--b-text);border:1px solid var(--bb);font-style:italic;}
 .flag-mover{background:rgba(168,85,247,.15);color:#c084fc;border:1px solid rgba(168,85,247,.3);}
 .lmr-outer{position:relative;margin-bottom:14px;height:130px;overflow:hidden;display:flex;align-items:center;}
-.lmr-outer::after{content:'';position:absolute;top:0;bottom:0;right:0;width:80px;z-index:2;pointer-events:none;background:linear-gradient(-90deg,var(--bg0) 30%,transparent);}
+.lmr-outer::after{content:'';position:absolute;top:0;bottom:0;right:0;width:40px;z-index:2;pointer-events:none;background:linear-gradient(-90deg,var(--bg0) 30%,transparent);}
 .lmr-label{flex-shrink:0;width:52px;z-index:3;display:flex;align-items:center;justify-content:center;pointer-events:none;}
 .lmr-label-inner{display:flex;flex-direction:column;align-items:center;gap:2px;white-space:nowrap;}
 .lmr-label-icon{font-size:16px;line-height:1;}
 .lmr-label-text{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:#c084fc;}
+.lmr-arrow{position:absolute;top:50%;transform:translateY(-50%);z-index:4;width:28px;height:28px;border-radius:50%;border:1px solid var(--bd2);background:var(--bg2);color:var(--t1);font-size:18px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;opacity:.7;transition:opacity .15s,background .15s;}
+.lmr-arrow:hover{opacity:1;background:var(--bg3);}
+.lmr-arrow-l{left:48px;}
+.lmr-arrow-r{right:4px;}
 .lmr-scroll{flex:1;height:130px;display:flex;align-items:center;overflow:hidden;mask-image:linear-gradient(90deg,transparent 0%,#000 3%,#000 92%,transparent 100%);-webkit-mask-image:linear-gradient(90deg,transparent 0%,#000 3%,#000 92%,transparent 100%);}
 .lmr-track{display:flex;gap:8px;width:max-content;animation:var-scroll 50s linear infinite;}
 .lmr-track:hover{animation-play-state:paused;}
@@ -1358,9 +1364,11 @@ td{padding:13px 14px;white-space:nowrap;}
       <div class="lmr-label">
         <div class="lmr-label-inner"><span class="lmr-label-icon">↕</span><span class="lmr-label-text">Line<br>Movers</span></div>
       </div>
-      <div class="lmr-scroll">
+      <button class="lmr-arrow lmr-arrow-l" onclick="lmrScroll(-1)" aria-label="Scroll left">‹</button>
+      <div class="lmr-scroll" id="lmRibbonScroll">
         <div class="lmr-track" id="lmRibbonTrack"></div>
       </div>
+      <button class="lmr-arrow lmr-arrow-r" onclick="lmrScroll(1)" aria-label="Scroll right">›</button>
     </div>
     <div class="alert-mkt-bar" id="alertMktBar"></div>
     <div class="risk-ctrl">
@@ -2235,25 +2243,41 @@ function computeMinutesAdjustedProb(p,projMin){
   const statKey=statMap[p.market||S.market]||'pts';
   const getV=g=>statKey==='pra'?(+g.pts||0)+(+g.reb||0)+(+g.ast||0):statKey==='ra'?(+g.reb||0)+(+g.ast||0):+(g[statKey]||0);
   const avgMin=games.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/games.length;
-  // Approach 1: similar minutes games — only when projection is within 40% of avg
-  // (extreme deviations like 9 min vs 26 avg need ratio scaling, not sparse game lookup)
+  const ratio=avgMin>0?projMin/avgMin:1;
+
+  // Approach 1: per-minute rate model — compute stat/min for each game, then project
+  // More accurate than raw ratio scaling because it captures the actual production curve
+  const rates=games.map(g=>{const min=parseFloat(g.min)||1;return getV(g)/min;});
+  const l5rates=rates.slice(0,5), l10rates=rates.slice(0,10);
+  const l5rateAvg=l5rates.length?l5rates.reduce((a,b)=>a+b,0)/l5rates.length:0;
+  const l10rateAvg=l10rates.length?l10rates.reduce((a,b)=>a+b,0)/l10rates.length:0;
+  const seasonRateAvg=rates.length?rates.reduce((a,b)=>a+b,0)/rates.length:0;
+  // Blend rates with same weights as model (25/30/25)
+  const blendedRate=l5rateAvg*0.3125+l10rateAvg*0.375+seasonRateAvg*0.3125;
+  const adjAvg=blendedRate*projMin;
+
+  // Approach 2: similar minutes games — only when projection is within 40% of avg
+  let simProb=null;
   if(Math.abs(projMin-avgMin)<=avgMin*0.4){
     for(const win of [4,7,11]){
       const sim=games.filter(g=>Math.abs((parseFloat(g.min)||0)-projMin)<=win);
       if(sim.length>=5){
         const simHR=sim.filter(g=>getV(g)>=p.line).length/sim.length;
         const conf=Math.min(1,sim.length/12);
-        // Blend toward neutral 0.5, not original model prob, to avoid anchoring bias
-        return Math.min(0.97,Math.max(0.03,simHR*conf+0.5*(1-conf)));
+        simProb=simHR*conf+0.5*(1-conf);
+        break;
       }
     }
   }
-  // Approach 2: ratio-scale avg + stddev, use normal distribution
-  // This is mathematically correct for any projection far from the player's average
-  const ratio=avgMin>0?projMin/avgMin:1;
-  const adjAvg=(p.avg||0)*ratio;
+
+  // Approach 3: ratio-scale stddev, use normalCDF (statProb style)
   const adjStd=Math.max(0.5,(p.stdDev||2)*Math.sqrt(Math.max(0.1,ratio)));
-  return Math.min(0.97,Math.max(0.03,1-normalCDF((p.line-adjAvg)/adjStd)));
+  const rateProb=1-normalCDF((p.line-adjAvg)/adjStd);
+
+  // Blend: if we have similar-minutes data, weight it 40% rate model 60%
+  // Otherwise use 100% rate model
+  const finalProb=simProb!==null?(simProb*0.4+rateProb*0.6):rateProb;
+  return Math.min(0.97,Math.max(0.03,finalProb));
 }
 // Handle minutes slider input in player overview
 function updateMinutesProjection(projMin){
@@ -2276,7 +2300,18 @@ function updateMinutesProjection(projMin){
   const adjEV=calcEV(adjDirProb,isOver?p.overOdds:p.underOdds);
   const adjHR=Math.round(adjProb*100);
   const ratio=avgMin>0?projMin/avgMin:1;
-  const adjAvg=+((p.avg||0)*ratio).toFixed(1);
+  // Per-minute rate for display consistency with computeMinutesAdjustedProb
+  const statMap2={'player_points':'pts','player_rebounds':'reb','player_assists':'ast',
+    'player_threes':'fg3m','player_steals':'stl','player_blocks':'blk',
+    'player_turnovers':'turnover','player_points_rebounds_assists':'pra','player_rebounds_assists':'ra'};
+  const sk2=statMap2[p.market||S.market]||'pts';
+  const gV2=g=>sk2==='pra'?(+g.pts||0)+(+g.reb||0)+(+g.ast||0):sk2==='ra'?(+g.reb||0)+(+g.ast||0):+(g[sk2]||0);
+  const rates2=games.map(g=>{const m=parseFloat(g.min)||1;return gV2(g)/m;});
+  const l5r=rates2.slice(0,5),l10r=rates2.slice(0,10);
+  const blendRate=(l5r.length?l5r.reduce((a,b)=>a+b,0)/l5r.length:0)*0.3125
+    +(l10r.length?l10r.reduce((a,b)=>a+b,0)/l10r.length:0)*0.375
+    +(rates2.length?rates2.reduce((a,b)=>a+b,0)/rates2.length:0)*0.3125;
+  const adjAvg=+((blendRate*projMin)).toFixed(1);
   const origHR=Math.round((p.modelProb||0.5)*100);
   const evCol=adjEV>0?'var(--g)':'var(--r)';
   const dir=projMin>avgMin?'↑':'↓';
@@ -2288,6 +2323,12 @@ function updateMinutesProjection(projMin){
       <div class="sb2"><div class="sb2-l">Adj EV</div><div class="sb2-v" style="color:${evCol}">${adjEV>0?'+':''}${adjEV}%</div><div class="sb2-s">${isOver?'Over':'Under'} ${p.line}</div></div>
     </div>
   </div>`;
+}
+function setMinPreset(val){
+  const slider=document.getElementById('minSlider');
+  if(!slider) return;
+  slider.value=val;
+  updateMinutesProjection(val);
 }
 // Kelly Criterion: f* = (b×p − q) / b
 // b = net profit per unit (decimal odds − 1), p = model prob, q = 1−p
@@ -2519,6 +2560,29 @@ function positionTip(tip,rect){
   tip.style.top=top+'px';
 }
 
+function lmrScroll(dir){
+  const track=document.getElementById('lmRibbonTrack');
+  if(!track) return;
+  // Pause auto-scroll, capture current visual position
+  const cs=getComputedStyle(track);
+  const matrix=cs.transform||cs.webkitTransform;
+  let curX=0;
+  if(matrix&&matrix!=='none'){const m=matrix.match(/matrix.*\((.+)\)/);if(m){const v=m[1].split(',');curX=parseFloat(v[4])||0;}}
+  track.style.animation='none';
+  track.style.transform=`translateX(${curX}px)`;
+  // Scroll by ~260px (one card width + gap)
+  const step=260*dir;
+  const newX=curX-step;
+  track.style.transition='transform .35s ease';
+  track.style.transform=`translateX(${newX}px)`;
+  // After transition, resume auto-scroll from new position
+  clearTimeout(window._lmrResumeTimer);
+  window._lmrResumeTimer=setTimeout(()=>{
+    track.style.transition='';
+    track.style.transform='';
+    track.style.animation='';
+  },3000);
+}
 function openAlertDetail(p){
   const modal=document.getElementById('playerDetailModal');
   const MKT=p.market||S.market;
@@ -2859,11 +2923,16 @@ function renderOverview(el,p){
         })()}
       </div>
     </div>
-    ${p.hasRealStats?(()=>{const pg=(p.gameLog||[]).filter(g=>parseInt(g.min||'0')>0);const am=pg.length?Math.round(pg.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/pg.length):30;return`<div class="dc full"><div class="dc-t"><span class="dt" style="background:#8b5cf6"></span>Minutes Projection <span style="font-size:10px;color:var(--t3);font-weight:400;margin-left:4px;">Adjust model for expected playing time</span></div>
+    ${p.hasRealStats?(()=>{const pg=(p.gameLog||[]).filter(g=>parseInt(g.min||'0')>0);const am=pg.length?Math.round(pg.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/pg.length):30;const l5min=pg.slice(0,5);const l5avg=l5min.length?Math.round(l5min.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/l5min.length):am;const l10min=pg.slice(0,10);const l10avg=l10min.length?Math.round(l10min.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/l10min.length):am;const hasFlag=p.minutesFlag||p.dnpCount>=5;const presets=`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px;">
+          <button onclick="setMinPreset(${am})" style="font-size:9px;padding:3px 8px;border-radius:5px;border:1px solid var(--bd);background:var(--bg2);color:var(--t2);cursor:pointer;font-weight:600;">Season Avg (${am})</button>
+          <button onclick="setMinPreset(${l10avg})" style="font-size:9px;padding:3px 8px;border-radius:5px;border:1px solid var(--bd);background:var(--bg2);color:var(--t2);cursor:pointer;font-weight:600;">L10 Avg (${l10avg})</button>
+          <button onclick="setMinPreset(${l5avg})" style="font-size:9px;padding:3px 8px;border-radius:5px;border:1px solid ${hasFlag?'rgba(139,92,246,.5)':'var(--bd)'};background:${hasFlag?'rgba(139,92,246,.15)':'var(--bg2)'};color:${hasFlag?'#a78bfa':'var(--t2)'};cursor:pointer;font-weight:700;">${hasFlag?'⚡ ':''}L5 Avg (${l5avg})</button>
+        </div>`;return`<div class="dc full"><div class="dc-t"><span class="dt" style="background:#8b5cf6"></span>Minutes Projection <span style="font-size:10px;color:var(--t3);font-weight:400;margin-left:4px;">Adjust model for expected playing time</span></div>
       <div style="padding:6px 0 2px;">
+        ${presets}
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
           <span style="font-size:11px;color:var(--t3);min-width:16px;">0</span>
-          <input type="range" min="0" max="48" value="${am}" step="1" style="flex:1;cursor:pointer;accent-color:#8b5cf6;" oninput="updateMinutesProjection(this.value)">
+          <input type="range" min="0" max="48" value="${am}" step="1" id="minSlider" style="flex:1;cursor:pointer;accent-color:#8b5cf6;" oninput="updateMinutesProjection(this.value)">
           <span style="font-size:11px;color:var(--t3);min-width:20px;">48</span>
           <span id="minSliderVal" style="font-size:13px;font-weight:700;color:#a78bfa;min-width:52px;text-align:right;">${am} min</span>
         </div>
@@ -2993,8 +3062,10 @@ function updateLineSim(){
     const hitSeason=Math.round(overCount/n*100);
     const hitL10=l10vals.length?Math.round(l10vals.filter(v=>v>=newLine).length/l10vals.length*100):hitSeason;
     const hitL5=l5vals.length>=3?Math.round(l5vals.filter(v=>v>=newLine).length/l5vals.length*100):hitL10;
-    // Bayesian shrinkage
-    const rawProb=(hitL5*0.35+hitL10*0.40+hitSeason*0.25)/100;
+    // statProb via normalCDF
+    const simStatProb=sd>0?normalCDF((avg-newLine)/sd):0.5;
+    // Bayesian shrinkage with statProb (25/30/25/20)
+    const rawProb=(hitL5*0.25+hitL10*0.30+hitSeason*0.25)/100+simStatProb*0.20;
     const simMP=Math.min(0.97,Math.max(0.03,(rawProb*n+5)/(n+10)));
     const simEdge=newLine>0?+((avg-newLine)/newLine*100).toFixed(1):0;
     // Direction: manual override or auto from edge
