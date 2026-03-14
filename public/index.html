@@ -3107,7 +3107,7 @@ function renderOverview(el,p){
         const pctChg=p._injPctChange||0;
         const pctCol=pctChg>0?'var(--g)':'var(--r)';
         const pctFmt=pctChg>0?`+${pctChg}%`:`${pctChg}%`;
-        return`<span style="display:inline-flex;align-items:center;gap:4px;">🏥 <strong>Injury Impact:</strong> w/o ${val} <span style="color:${pctCol};font-weight:700;">(${pctFmt} per-min rate)</span> <span style="color:var(--t3);">${p._injWithout||'?'} games</span></span>`;
+        return`<span style="display:inline-flex;align-items:center;gap:4px;flex-wrap:wrap;">🏥 <strong>Injury Impact:</strong> w/o ${val} <span style="color:${pctCol};font-weight:700;">(${pctFmt} per-min rate)</span></span>`;
       }
       const adjMin=parseInt(val);
       const diff=adjMin-seasonAvg;
@@ -3822,7 +3822,7 @@ function applyInjuryImpact(p){
   adj._injImpact=true;
   adj._injTeammate=impact.teammate;
   adj._injPctChange=impact.pctChange;
-  adj._injWithout=impact.withoutGames;
+  adj._injTeammates=impact.teammates||[];
   return adj;
 }
 

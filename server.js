@@ -1349,56 +1349,57 @@ app.get('/api/injury-impact', async (req, res) => {
       if (data) data.forEach(r => tmLogMap.set(r.player_name, r.game_log));
     }
 
-    // Find most impactful teammate
-    let bestTeammate = null, bestAvg = 0, bestLog = null;
+    // Stack ALL out teammates — compute independent rate ratios and multiply
+    const teamFilter = team.toUpperCase();
+    const playerPlayed = playerLog.filter(g => parseInt(g.min || '0') > 0 && (!g.team || g.team === teamFilter));
+    const teammateImpacts = [];
+
     for (const inj of outTeammates) {
       const tmLog = tmLogMap.get(inj.player);
       if (!tmLog?.length) continue;
       const tmPlayed = tmLog.filter(g => parseInt(g.min || '0') > 0);
       if (tmPlayed.length < 5) continue;
+
+      const tmDnpDates = new Set(), tmPlayedDates = new Set();
+      for (const g of tmLog) {
+        if (g.team && g.team !== teamFilter) continue;
+        if (parseInt(g.min || '0') === 0) tmDnpDates.add(g.date);
+        else tmPlayedDates.add(g.date);
+      }
+
+      const wo = [], wi = [];
+      for (const g of playerPlayed) {
+        if (tmDnpDates.has(g.date)) wo.push(g);
+        else if (tmPlayedDates.has(g.date)) wi.push(g);
+      }
+      if (wo.length < 3 || wi.length < 3) continue;
+
+      const wiRates = wi.map(g => _statVal(g, market) / (parseFloat(g.min) || 1));
+      const woRates = wo.map(g => _statVal(g, market) / (parseFloat(g.min) || 1));
+      const avgWi = wiRates.reduce((a, b) => a + b, 0) / wiRates.length;
+      const avgWo = woRates.reduce((a, b) => a + b, 0) / woRates.length;
+      if (avgWi === 0) continue;
+
+      const ratio = Math.max(0.70, Math.min(1.30, avgWo / avgWi));
+      if (Math.abs(ratio - 1.0) < 0.03) continue;
+
       const tmAvg = tmPlayed.reduce((s, g) => s + _statVal(g, market), 0) / tmPlayed.length;
-      if (tmAvg > bestAvg) { bestAvg = tmAvg; bestTeammate = inj.player; bestLog = tmLog; }
-    }
-    if (!bestTeammate) return res.json({ impact: false, reason: 'no teammate game logs found' });
-
-    // Compute without/with splits (same team only — handles mid-season trades)
-    const teamFilter = team.toUpperCase();
-    const tmDnpDates = new Set(), tmPlayedDates = new Set();
-    for (const g of bestLog) {
-      if (g.team && g.team !== teamFilter) continue;
-      if (parseInt(g.min || '0') === 0) tmDnpDates.add(g.date);
-      else tmPlayedDates.add(g.date);
+      teammateImpacts.push({ name: inj.player, ratio: +ratio.toFixed(3), tmAvg: +tmAvg.toFixed(1), wo: wo.length, wi: wi.length });
     }
 
-    const playerPlayed = playerLog.filter(g => parseInt(g.min || '0') > 0 && (!g.team || g.team === teamFilter));
-    const withoutGames = [], withGames = [];
-    for (const g of playerPlayed) {
-      if (tmDnpDates.has(g.date)) withoutGames.push(g);
-      else if (tmPlayedDates.has(g.date)) withGames.push(g);
-    }
+    if (!teammateImpacts.length) return res.json({ impact: false, reason: 'no teammate with sufficient split data' });
 
-    if (withoutGames.length < 3 || withGames.length < 3) {
-      return res.json({ impact: false, teammate: bestTeammate, reason: `insufficient split data (${withoutGames.length} without, ${withGames.length} with)` });
-    }
-
-    const withRates = withGames.map(g => _statVal(g, market) / (parseFloat(g.min) || 1));
-    const withoutRates = withoutGames.map(g => _statVal(g, market) / (parseFloat(g.min) || 1));
-    const avgWith = withRates.reduce((a, b) => a + b, 0) / withRates.length;
-    const avgWithout = withoutRates.reduce((a, b) => a + b, 0) / withoutRates.length;
-    const ratio = avgWith > 0 ? Math.max(0.70, Math.min(1.30, avgWithout / avgWith)) : 1;
-    const avgWithStat = +(withGames.reduce((s, g) => s + _statVal(g, market), 0) / withGames.length).toFixed(1);
-    const avgWithoutStat = +(withoutGames.reduce((s, g) => s + _statVal(g, market), 0) / withoutGames.length).toFixed(1);
+    // Multiply all individual ratios, cap combined at ±40%
+    const combinedRatio = Math.max(0.60, Math.min(1.40,
+      teammateImpacts.reduce((prod, t) => prod * t.ratio, 1)
+    ));
 
     res.json({
-      impact: Math.abs(ratio - 1.0) >= 0.03,
-      teammate: bestTeammate,
-      teammateAvg: +bestAvg.toFixed(1),
-      ratio: +ratio.toFixed(3),
-      withoutGames: withoutGames.length,
-      withGames: withGames.length,
-      avgWithStat,
-      avgWithoutStat,
-      pctChange: +((ratio - 1) * 100).toFixed(1),
+      impact: Math.abs(combinedRatio - 1.0) >= 0.03,
+      teammate: teammateImpacts.map(t => t.name).join(' + '),
+      teammates: teammateImpacts,
+      ratio: +combinedRatio.toFixed(3),
+      pctChange: +((combinedRatio - 1) * 100).toFixed(1),
     });
   } catch (e) {
     console.error('[injury-impact] Error:', e.message);
@@ -2958,67 +2959,56 @@ function serverApplyInjuryImpact(playerName, playerGameLog, playerTeam, market, 
   );
   if (!outTeammates.length) return baseStats;
 
-  // 2. For each out teammate, find their avg in this market to pick the most impactful
-  let bestTeammate = null;
-  let bestAvg = 0;
-  let bestTeammateLog = null;
+  // 2. Stack ALL out teammates — compute independent rate ratios and multiply
+  const playerPlayed = playerGameLog.filter(g => parseInt(g.min || '0') > 0 && (!g.team || g.team === playerTeam));
+  const teammateImpacts = [];
 
   for (const inj of outTeammates) {
-    // Try to find their game log in our map
     const tmLog = allGameLogs.get(inj.player);
     if (!tmLog?.length) continue;
     const tmPlayed = tmLog.filter(g => parseInt(g.min || '0') > 0);
     if (tmPlayed.length < 5) continue;
-    const tmAvg = tmPlayed.reduce((s, g) => s + _statVal(g, market), 0) / tmPlayed.length;
-    if (tmAvg > bestAvg) {
-      bestAvg = tmAvg;
-      bestTeammate = inj.player;
-      bestTeammateLog = tmPlayed;
+
+    // Build DNP/played date sets for this teammate
+    const tmDnpDates = new Set();
+    const tmPlayedDates = new Set();
+    for (const g of tmLog) {
+      if (g.team && g.team !== playerTeam) continue;
+      if (parseInt(g.min || '0') === 0) tmDnpDates.add(g.date);
+      else tmPlayedDates.add(g.date);
     }
+
+    // Split player's games into with/without this teammate
+    const wo = [], wi = [];
+    for (const g of playerPlayed) {
+      if (tmDnpDates.has(g.date)) wo.push(g);
+      else if (tmPlayedDates.has(g.date)) wi.push(g);
+    }
+    if (wo.length < 3 || wi.length < 3) continue;
+
+    const wiRates = wi.map(g => _statVal(g, market) / (parseFloat(g.min) || 1));
+    const woRates = wo.map(g => _statVal(g, market) / (parseFloat(g.min) || 1));
+    const avgWi = wiRates.reduce((a, b) => a + b, 0) / wiRates.length;
+    const avgWo = woRates.reduce((a, b) => a + b, 0) / woRates.length;
+    if (avgWi === 0) continue;
+
+    const ratio = avgWo / avgWi;
+    const capped = Math.max(0.70, Math.min(1.30, ratio));
+    if (Math.abs(capped - 1.0) < 0.03) continue;
+
+    teammateImpacts.push({ name: inj.player, ratio: capped, withoutGames: wo.length, withGames: wi.length });
   }
 
-  if (!bestTeammate || !bestTeammateLog) return baseStats;
+  if (!teammateImpacts.length) return baseStats;
 
-  // 3. Build a set of dates when the best teammate did NOT play (same team only)
-  const tmDnpDates = new Set();
-  const tmPlayedDates = new Set();
-  const tmAllSorted = [...(allGameLogs.get(bestTeammate) || [])].sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
-  for (const g of tmAllSorted) {
-    // Only count games where teammate was on the same team (handles mid-season trades)
-    if (g.team && g.team !== playerTeam) continue;
-    if (parseInt(g.min || '0') === 0) tmDnpDates.add(g.date);
-    else tmPlayedDates.add(g.date);
-  }
+  // 3. Multiply all individual ratios, cap combined at ±40%
+  const combinedRatio = Math.max(0.60, Math.min(1.40,
+    teammateImpacts.reduce((prod, t) => prod * t.ratio, 1)
+  ));
+  if (Math.abs(combinedRatio - 1.0) < 0.03) return baseStats;
+  const cappedRatio = combinedRatio;
 
-  // 4. Split player's games into "with" and "without" the teammate (same team only)
-  const playerSorted = [...playerGameLog].sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
-  const playerPlayed = playerSorted.filter(g => parseInt(g.min || '0') > 0 && (!g.team || g.team === playerTeam));
-
-  const withoutGames = [];
-  const withGames = [];
-  for (const g of playerPlayed) {
-    if (tmDnpDates.has(g.date)) withoutGames.push(g);
-    else if (tmPlayedDates.has(g.date)) withGames.push(g);
-  }
-
-  // Need minimum 3 "without" games for a reliable signal
-  if (withoutGames.length < 3 || withGames.length < 3) return baseStats;
-
-  // 5. Calculate per-minute rates with and without
-  const withRates = withGames.map(g => _statVal(g, market) / (parseFloat(g.min) || 1));
-  const withoutRates = withoutGames.map(g => _statVal(g, market) / (parseFloat(g.min) || 1));
-  const avgWithRate = withRates.reduce((a, b) => a + b, 0) / withRates.length;
-  const avgWithoutRate = withoutRates.reduce((a, b) => a + b, 0) / withoutRates.length;
-
-  if (avgWithRate === 0) return baseStats;
-  const impactRatio = avgWithoutRate / avgWithRate;
-
-  // Cap the adjustment to avoid wild swings: max ±30% change
-  const cappedRatio = Math.max(0.70, Math.min(1.30, impactRatio));
-  // Only apply if the difference is meaningful (>3%)
-  if (Math.abs(cappedRatio - 1.0) < 0.03) return baseStats;
-
-  // 6. Apply the ratio to compute adjusted stats (similar to Smart Minutes)
+  // 4. Apply the combined ratio to compute adjusted stats (similar to Smart Minutes)
   const vals = playerPlayed.map(g => _statVal(g, market));
   const adjAvg = +(baseStats.avg * cappedRatio).toFixed(1);
 
@@ -3062,10 +3052,10 @@ function serverApplyInjuryImpact(playerName, playerGameLog, playerTeam, market, 
     ...baseStats, avg: adjAvg, hitRate: adjHR, edge, modelProb, confidence,
     evOver, evUnder, direction, odds, dirEV, vs, stdDev: adjStdDev,
     _injuryImpact: true,
-    _injuryTeammate: bestTeammate,
+    _injuryTeammates: teammateImpacts.map(t => t.name),
+    _injuryTeammate: teammateImpacts.map(t => t.name).join(' + '),
     _injuryRatio: +cappedRatio.toFixed(3),
-    _withoutGames: withoutGames.length,
-    _withGames: withGames.length,
+    _injuryBreakdown: teammateImpacts.map(t => ({ name: t.name, ratio: +t.ratio.toFixed(3), wo: t.withoutGames, wi: t.withGames })),
   };
 }
 
