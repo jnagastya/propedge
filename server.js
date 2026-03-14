@@ -84,7 +84,7 @@ const _playerTeamCache = {
   'Tre Johnson':'WAS','Wendell Carter Jr':'ORL','Desmond Bane':'ORL',
   'Nickeil Alexander-Walker':'ATL','Jaxson Hayes':'LAL','C.J. McCollum':'ATL',
   'CJ McCollum':'ATL','Davion Mitchell':'MIA','Neemias Queta':'BOS',
-  'Christian Braun':'DEN','Noah Clowney':'BKN','Jalen Johnson':'ATL',
+  'Christian Braun':'DEN','Noah Clowney':'BKN','Jalen Johnson':'ATL','Jalen Wilson':'BKN',
 };
 const ODDS_BASE = 'https://api.the-odds-api.com/v4';
 const BDL_BASE = 'https://api.balldontlie.io/nba/v1';
@@ -332,6 +332,7 @@ const BDL_PLAYER_OVERRIDES = {
   'Nolan Traore':            { id: 1028217445,    position: 'F', team: 'BKN' },
   'Norman Powell':           { id: 380,           position: 'F', team: 'MIA' },
   'Jonas Valanciunas':       { id: 455,           position: 'C', team: 'DEN' },
+  'Jalen Wilson':            { id: 56677722,      position: 'F', team: 'BKN' },
 };
 
 // Search BDL for player ID + position by name, cached 24h
@@ -1014,7 +1015,7 @@ function guessTeam(name) {
     // BOS
     'jayson tatum':'BOS','jaylen brown':'BOS','jrue holiday':'BOS','al horford':'BOS','kristaps porzingis':'GSW','payton pritchard':'BOS','sam hauser':'BOS','derrick white':'BOS',
     // BKN
-    'cam thomas':'MIL','nic claxton':'BKN',"day'ron sharpe":'BKN','ben simmons':'BKN','danny wolf':'BKN','noah clowney':'BKN','nolan traore':'BKN',
+    'cam thomas':'MIL','nic claxton':'BKN',"day'ron sharpe":'BKN','ben simmons':'BKN','danny wolf':'BKN','noah clowney':'BKN','nolan traore':'BKN','jalen wilson':'BKN',
     // CHA
     'lamelo ball':'CHA','brandon miller':'CHA','miles bridges':'CHA','mark williams':'CHA','grant williams':'CHA','josh green':'CHA',
     // CHI
