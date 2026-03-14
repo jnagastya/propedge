@@ -3105,27 +3105,12 @@ app.get('/api/cron/agent-bet', async (req, res) => {
     const maxBet = currentBankroll * 0.05;
     summary.bankroll = +currentBankroll.toFixed(2);
 
-    // 1. Force a fresh odds refresh so we never bet on stale/yesterday's data
-    try {
-      const evtResp = await fetch(`${ODDS_BASE}/sports/basketball_nba/events?apiKey=${ODDS_KEY}&regions=us&oddsFormat=american`);
-      if (evtResp.ok) {
-        const events = await evtResp.json();
-        const _now = new Date();
-        const upcomingEvts = events.filter(e => new Date(e.commence_time) > _now);
-        if (upcomingEvts.length) {
-          const rawProps = (await Promise.allSettled(upcomingEvts.map(async evt => {
-            const pUrl = `${ODDS_BASE}/sports/basketball_nba/events/${evt.id}/odds?apiKey=${ODDS_KEY}&regions=us&markets=${ALL_PROP_MARKETS}&oddsFormat=american`;
-            const pResp = await fetch(pUrl);
-            return pResp.ok ? pResp.json() : null;
-          }))).filter(r => r.status === 'fulfilled' && r.value).map(r => r.value);
-          const freshPlayers = aggregatePlayers(rawProps, 'combined');
-          if (freshPlayers.length) {
-            await sbSetOdds('combined', freshPlayers);
-            console.log(`[agent-bet] Fresh odds refresh: ${freshPlayers.length} players from ${upcomingEvts.length} games`);
-          }
-        }
-      }
-    } catch (e) { console.warn('[agent-bet] Odds refresh failed, using cache:', e.message); }
+    // 1. Check odds cache freshness — refuse to bet on stale data
+    const { data: cacheRow } = await supabase.from('odds_cache').select('last_fetched').eq('book', 'combined').single();
+    const cacheAge = cacheRow?.last_fetched ? (Date.now() - new Date(cacheRow.last_fetched).getTime()) / (1000 * 60 * 60) : Infinity;
+    if (cacheAge > 2) {
+      return res.status(400).json({ error: `Odds cache is ${cacheAge === Infinity ? 'missing' : cacheAge.toFixed(1) + 'h old'}. Run refresh-odds first.`, cacheAge: +cacheAge.toFixed(1) });
+    }
 
     const allPlayers = await sbGetOdds('combined');
     if (!allPlayers?.length) return res.status(404).json({ error: 'No odds data in cache' });
