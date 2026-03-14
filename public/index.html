@@ -2507,10 +2507,11 @@ function drawEvMinutesChart(currentMin){
   if(!p||!p.hasRealStats) return;
   const ctx=canvas.getContext('2d');
   const dpr=window.devicePixelRatio||1;
-  canvas.width=canvas.offsetWidth*dpr;
-  canvas.height=canvas.offsetHeight*dpr;
-  ctx.scale(dpr,dpr);
   const W=canvas.offsetWidth,H=canvas.offsetHeight;
+  if(!W||!H) return;
+  canvas.width=W*dpr;
+  canvas.height=H*dpr;
+  ctx.scale(dpr,dpr);
   const pad={t:30,r:16,b:32,l:44};
   const cw=W-pad.l-pad.r,ch=H-pad.t-pad.b;
   const isOver=(p.edge||0)>=0;
@@ -3309,11 +3310,11 @@ function renderOverview(el,p){
         <div id="minAdjStats" style="font-size:11px;color:var(--t3);text-align:center;">Season avg: ${am} min/game${initMin!==am?' — adjusted by filter':' — slide to adjust'}</div>
       </div>
     </div>`})():''}
-    <div class="dc"><div class="dc-t"><span class="dt" style="background:var(--g)"></span>Last 10 Calendar Games <span style="font-size:10px;color:var(--t3);font-weight:400;margin-left:4px;">(DNPs shown but excluded from averages)</span></div>
+    <div class="dc full"><div class="dc-t"><span class="dt" style="background:var(--g)"></span>Last 10 Calendar Games <span style="font-size:10px;color:var(--t3);font-weight:400;margin-left:4px;">(DNPs shown but excluded from averages)</span></div>
       <div class="chb"><div class="lref" style="top:${lP}%"><span class="lref-l">LINE ${p.line}</span></div><div class="bars">${bars}</div></div>
     </div>
-    ${p.hasRealStats?`<div class="dc"><div class="dc-t"><span class="dt" style="background:#8b5cf6"></span>EV vs Minutes <span style="font-size:10px;color:var(--t3);font-weight:400;margin-left:4px;">How playing time affects expected value</span></div>
-      <canvas id="evMinutesChart" width="400" height="220" style="width:100%;height:220px;"></canvas>
+    ${p.hasRealStats?`<div class="dc full"><div class="dc-t"><span class="dt" style="background:#8b5cf6"></span>EV vs Minutes <span style="font-size:10px;color:var(--t3);font-weight:400;margin-left:4px;">How playing time affects expected value</span></div>
+      <canvas id="evMinutesChart" width="400" height="220" style="width:100%;height:220px;display:block;"></canvas>
     </div>`:''}
     ${p.bookLines&&Object.keys(p.bookLines).length>1?`<div class="dc full">
       <div class="dc-t"><span class="dt" style="background:var(--c)"></span>Book Comparison — Consensus Line: ${p.line}</div>
@@ -3330,8 +3331,8 @@ function renderOverview(el,p){
   // Draw EV vs Minutes chart after DOM is laid out
   if(p.hasRealStats){
     const _adjMinInit=p._adjMin;
-    const _tryDraw=(n)=>{const c=document.getElementById('evMinutesChart');if(c&&c.offsetWidth>0){drawEvMinutesChart(_adjMinInit);if(_adjMinInit)updateMinutesProjection(_adjMinInit);}else if(n<5)setTimeout(()=>_tryDraw(n+1),100);};
-    setTimeout(()=>_tryDraw(0),50);
+    const _tryDraw=(n)=>{const c=document.getElementById('evMinutesChart');if(c&&c.offsetWidth>0){drawEvMinutesChart(_adjMinInit);if(_adjMinInit)updateMinutesProjection(_adjMinInit);}else if(n<20)requestAnimationFrame(()=>setTimeout(()=>_tryDraw(n+1),100));};
+    requestAnimationFrame(()=>_tryDraw(0));
   }
   // Load injury report async and inject into the grid
   (async()=>{
