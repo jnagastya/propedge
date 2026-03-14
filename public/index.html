@@ -176,7 +176,6 @@ body.light .theme-toggle::after{transform:translateX(20px);background:var(--b);}
 .sc-s.lv{color:var(--g);font-weight:600;}
 .sc-hint{font-size:9px;color:var(--b-text);text-align:center;margin-top:2px;font-weight:700;display:none;}
 .sc:hover .sc-hint,.sc.active .sc-hint{display:block;}
-.sc-inj{text-align:center;margin-top:1px;}
 
 /* -- CONTROLS -- */
 .ctrls{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;gap:8px;flex-wrap:wrap;}
@@ -2223,7 +2222,7 @@ function renderGamePanel(away,home){
         const reason=(inj.reason||'').replace(/^Injury\/Illness\s*-\s*/i,'').replace(/;\s*$/,'');
         return`<tr><td style="padding:3px 6px;font-size:11px;font-weight:600;white-space:nowrap;">${inj.player}</td><td style="padding:3px 6px;font-size:11px;font-weight:700;color:${col};white-space:nowrap;">${inj.status}</td><td style="padding:3px 6px;font-size:10px;color:var(--t3);">${reason}</td></tr>`;
       }).join('');
-      return`<div style="margin-bottom:8px;"><div style="font-size:12px;font-weight:700;color:var(--t1);margin-bottom:4px;">${teamAbbr} Injuries <span style="font-size:10px;color:var(--t3);font-weight:400;">${outCt} out · ${gtdCt} GTD</span></div><table style="width:100%;border-collapse:collapse;"><thead><tr><th style="text-align:left;padding:3px 6px;font-size:9px;font-weight:700;color:var(--t3);text-transform:uppercase;border-bottom:1px solid var(--bd);">Player</th><th style="text-align:left;padding:3px 6px;font-size:9px;font-weight:700;color:var(--t3);text-transform:uppercase;border-bottom:1px solid var(--bd);">Status</th><th style="text-align:left;padding:3px 6px;font-size:9px;font-weight:700;color:var(--t3);text-transform:uppercase;border-bottom:1px solid var(--bd);">Reason</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+      return`<div style="margin-bottom:8px;"><div style="font-size:12px;font-weight:700;color:var(--t1);margin-bottom:4px;">${teamAbbr} Injuries <span style="font-size:10px;color:var(--t3);font-weight:400;">${outCt} out · ${gtdCt} GTD</span></div><table style="width:100%;border-collapse:collapse;table-layout:fixed;"><colgroup><col style="width:30%"><col style="width:18%"><col style="width:52%"></colgroup><thead><tr><th style="text-align:left;padding:3px 6px;font-size:9px;font-weight:700;color:var(--t3);text-transform:uppercase;border-bottom:1px solid var(--bd);">Player</th><th style="text-align:left;padding:3px 6px;font-size:9px;font-weight:700;color:var(--t3);text-transform:uppercase;border-bottom:1px solid var(--bd);">Status</th><th style="text-align:left;padding:3px 6px;font-size:9px;font-weight:700;color:var(--t3);text-transform:uppercase;border-bottom:1px solid var(--bd);">Reason</th></tr></thead><tbody>${rows}</tbody></table></div>`;
     };
     gpInj.innerHTML=`<div style="border-top:1px solid var(--bd);padding-top:8px;margin-top:4px;"><div style="font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;margin-bottom:6px;">🏥 Injury Report</div>${renderTeamInj(awayInj,away)}${renderTeamInj(homeInj,home)}</div>`;
   }).catch(()=>{gpInj.innerHTML='';});
@@ -2586,25 +2585,9 @@ function renderScores(data){
       <div class="sc-r"><div class="sc-team">${teamLogo(g.away)}<span class="sc-t">${g.away}</span></div><span class="sc-v">${aS}</span></div>
       <div class="sc-r"><div class="sc-team">${teamLogo(g.home)}<span class="sc-t">${g.home}</span></div><span class="sc-v">${hS}</span></div>
       <div class="sc-s${lv?' lv':''}">${st}</div>
-      <div class="sc-inj" id="scInj-${g.away}-${g.home}" style="display:none;"></div>
       <div class="sc-hint">${active?'✓ Filtered':'Click for players'}</div>
     </div>`;
   }).join('');
-  // Async: annotate with injury counts
-  getInjuries().then(allInj=>{
-    if(!allInj||!allInj.length) return;
-    sorted.forEach(g=>{
-      const awayInj=allInj.filter(i=>i.team===g.away);
-      const homeInj=allInj.filter(i=>i.team===g.home);
-      const awayOut=awayInj.filter(i=>i.status==='Out').length;
-      const homeOut=homeInj.filter(i=>i.status==='Out').length;
-      const el2=document.getElementById(`scInj-${g.away}-${g.home}`);
-      if(el2&&(awayOut+homeOut)>0){
-        el2.style.display='';
-        el2.innerHTML=`<span style="color:var(--r);font-size:8px;font-weight:700;">🏥 ${awayOut+homeOut} out</span>`;
-      }
-    });
-  });
 }
 
 // ── Render: Table ──

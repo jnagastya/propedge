@@ -1230,6 +1230,8 @@ function parsePlayerEntry(text) {
     // Remove trailing time patterns like "08:00(ET)" leaked from next game
     reason = reason.replace(/\s*\d{2}:\d{2}\(ET\).*$/, '').trim();
     if (!reason && status === 'Out' && namePart.length < 3) continue; // false positive
+    // Skip G-League / Two-Way players
+    if (/gleague|g[\s-]*league|two[\s-]*way/i.test(reason)) return null;
     return { player: displayName, playerRaw: `${last}, ${first}`, status, reason: reason || status };
   }
   return null;
