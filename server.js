@@ -1077,142 +1077,160 @@ const NBA_TEAM_ABBR = {
   'Toronto Raptors':'TOR','Utah Jazz':'UTA','Washington Wizards':'WAS',
 };
 const NBA_TEAM_NAMES = Object.keys(NBA_TEAM_ABBR);
-const INJURY_STATUSES = ['Out','Questionable','Doubtful','Probable','Available'];
+// Spaceless versions for pdf-parse v1 (strips spaces)
+const NBA_TEAM_NAMES_NOSPACE = NBA_TEAM_NAMES.map(t => t.replace(/\s+/g, ''));
+const NBA_TEAM_NOSPACE_MAP = {};
+NBA_TEAM_NAMES.forEach(t => { NBA_TEAM_NOSPACE_MAP[t.replace(/\s+/g, '')] = t; });
+const INJURY_STATUSES = ['Questionable','Doubtful','Probable','Available','Out'];
 
 function generateInjuryPdfUrl() {
-  // NBA publishes reports at various times; try the most recent 5:00 PM ET report for today
   const now = new Date();
-  // Use ET offset (UTC-4 or UTC-5 depending on DST)
   const et = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));
   const y = et.getFullYear(), m = String(et.getMonth()+1).padStart(2,'0'), d = String(et.getDate()).padStart(2,'0');
   const dateStr = `${y}-${m}-${d}`;
-  // Try multiple report times (most recent first)
-  const times = ['05_00PM','04_00PM','03_00PM','02_00PM','01_00PM','12_00PM'];
+  const times = ['05_00PM','04_30PM','04_00PM','03_30PM','03_00PM','02_30PM','02_00PM','01_30PM','01_00PM','12_30PM','12_00PM','05_30PM'];
   return times.map(t => `https://ak-static.cms.nba.com/referee/injury/Injury-Report_${dateStr}_${t}.pdf`);
 }
 
 function parseInjuryText(text) {
   const injuries = [];
-  // Pre-process: split lines that contain embedded matchup patterns from page breaks
-  // e.g. "Washington, P.J. Doubtful ... MEM@DET Memphis Grizzlies Aldama, Santi Out ..."
   const rawLines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  // Pre-process: split lines with embedded matchups (page break merges)
   const lines = [];
   for (const raw of rawLines) {
-    // Check for embedded matchup (3-letter@3-letter) mid-line that indicates a page break merge
-    const embeddedMatch = raw.match(/^(.+?)\s+([A-Z]{2,4}@[A-Z]{2,4})\s+(.+)$/);
-    if (embeddedMatch && !raw.match(/^\d{2}\/\d{2}\/\d{4}/) && !raw.match(/^\d{2}:\d{2}\s*\(ET\)/)) {
-      // Split into two lines: the part before the matchup, and matchup onward
-      lines.push(embeddedMatch[1].trim());
-      lines.push(embeddedMatch[2] + ' ' + embeddedMatch[3].trim());
+    const emb = raw.match(/^(.+?)([A-Z]{2,4}@[A-Z]{2,4})(?=[A-Z][a-z])(.+)$/);
+    if (emb && !raw.match(/^\d{2}\/\d{2}\/\d{4}/) && emb[1].length > 3) {
+      lines.push(emb[1].trim());
+      lines.push(emb[2] + emb[3].trim());
     } else {
       lines.push(raw);
     }
   }
-  let currentTeam = null;
-  let currentTeamAbbr = null;
-  let currentMatchup = null;
-  let currentGameDate = null;
-  let currentGameTime = null;
-  let i = 0;
-  while (i < lines.length) {
-    const line = lines[i];
-    // Skip page headers
-    if (line.startsWith('Injury Report:') || line.startsWith('Page ') || line.startsWith('Game Date')) { i++; continue; }
-    if (/^-- \d+ of \d+ --$/.test(line)) { i++; continue; }
-    // Game date line: 03/13/2026
-    const dateMatch = line.match(/^(\d{2}\/\d{2}\/\d{4})\s+(\d{2}:\d{2}\s*\(ET\))\s+(\S+@\S+)\s+(.*)/);
+
+  let currentTeam = null, currentTeamAbbr = null, currentMatchup = null;
+  let currentGameDate = null, currentGameTime = null;
+  let pendingReason = null; // for multi-line reasons
+
+  for (let i = 0; i < lines.length; i++) {
+    let line = lines[i];
+    // Skip page headers (spaceless)
+    if (line.match(/^InjuryReport:/)) continue;
+    if (line.match(/^Page\d+of\d+/)) continue;
+    if (line.match(/^GameDateGameTime/)) continue;
+
+    // Attach continuation lines to previous injury (multi-line reasons)
+    if (pendingReason !== null && injuries.length > 0) {
+      // If line doesn't start a new entry (no comma for name, no team, no date), it's a continuation
+      const isNewEntry = line.includes(',') && findStatusInLine(line);
+      const isTeamLine = findTeamInLine(line);
+      const isDateLine = line.match(/^\d{2}\/\d{2}\/\d{4}/);
+      const isMatchupLine = line.match(/^[A-Z]{2,4}@[A-Z]{2,4}/);
+      if (!isNewEntry && !isTeamLine && !isDateLine && !isMatchupLine) {
+        injuries[injuries.length - 1].reason += ' ' + reinsertSpaces(line);
+        continue;
+      }
+      pendingReason = null;
+    }
+
+    // Date line: 03/13/202607:30(ET)CLE@DALClevelandCavaliers...
+    const dateMatch = line.match(/^(\d{2}\/\d{2}\/\d{4})(\d{2}:\d{2})\(ET\)([A-Z]{2,4}@[A-Z]{2,4})(?=[A-Z][a-z])(.*)/);
     if (dateMatch) {
       currentGameDate = dateMatch[1];
-      currentGameTime = dateMatch[2].replace(/\s*\(ET\)/, '');
+      currentGameTime = dateMatch[2];
       currentMatchup = dateMatch[3];
-      // Rest of line is the first team name — find it
-      const rest = dateMatch[4].trim();
-      const foundTeam = NBA_TEAM_NAMES.find(t => rest.startsWith(t));
-      if (foundTeam) {
-        currentTeam = foundTeam;
-        currentTeamAbbr = NBA_TEAM_ABBR[foundTeam];
-        // After team name, there may be player data on same line
-        const afterTeam = rest.substring(foundTeam.length).trim();
-        if (afterTeam) {
-          const parsed = parsePlayerEntry(afterTeam);
-          if (parsed) injuries.push({ ...parsed, team: currentTeamAbbr, teamFull: currentTeam, matchup: currentMatchup, gameDate: currentGameDate, gameTime: currentGameTime });
-        }
-      }
-      i++; continue;
+      line = dateMatch[4]; // rest has team + possibly player
+      // Fall through to team detection
     }
-    // Time-only line for same date: 08:00 (ET) NOP@HOU ...
-    const timeMatch = line.match(/^(\d{2}:\d{2}\s*\(ET\))\s+(\S+@\S+)\s+(.*)/);
-    if (timeMatch) {
-      currentGameTime = timeMatch[1].replace(/\s*\(ET\)/, '');
-      currentMatchup = timeMatch[2];
-      const rest = timeMatch[3].trim();
-      const foundTeam = NBA_TEAM_NAMES.find(t => rest.startsWith(t));
-      if (foundTeam) {
-        currentTeam = foundTeam;
-        currentTeamAbbr = NBA_TEAM_ABBR[foundTeam];
-        const afterTeam = rest.substring(foundTeam.length).trim();
-        if (afterTeam) {
-          const parsed = parsePlayerEntry(afterTeam);
-          if (parsed) injuries.push({ ...parsed, team: currentTeamAbbr, teamFull: currentTeam, matchup: currentMatchup, gameDate: currentGameDate, gameTime: currentGameTime });
-        }
+
+    // Time line: 07:30(ET)CLE@DAL...
+    if (!dateMatch) {
+      const timeMatch = line.match(/^(\d{2}:\d{2})\(ET\)([A-Z]{2,4}@[A-Z]{2,4})(?=[A-Z][a-z])(.*)/);
+      if (timeMatch) {
+        currentGameTime = timeMatch[1];
+        currentMatchup = timeMatch[2];
+        line = timeMatch[3];
       }
-      i++; continue;
     }
-    // Matchup-only line (from page break splits): MEM@DET Memphis Grizzlies ...
-    const matchupOnly = line.match(/^([A-Z]{2,4}@[A-Z]{2,4})\s+(.*)/);
-    if (matchupOnly) {
-      currentMatchup = matchupOnly[1];
-      const rest = matchupOnly[2].trim();
-      const ft = NBA_TEAM_NAMES.find(t => rest.startsWith(t));
-      if (ft) {
-        currentTeam = ft;
-        currentTeamAbbr = NBA_TEAM_ABBR[ft];
-        const afterTeam = rest.substring(ft.length).trim();
-        if (afterTeam) {
-          const parsed = parsePlayerEntry(afterTeam);
-          if (parsed) injuries.push({ ...parsed, team: currentTeamAbbr, teamFull: currentTeam, matchup: currentMatchup, gameDate: currentGameDate, gameTime: currentGameTime });
-        }
+
+    // Matchup line: MEM@DETMemphisGrizzlies...
+    if (!dateMatch) {
+      const mMatch = line.match(/^([A-Z]{2,4}@[A-Z]{2,4})(?=[A-Z][a-z])(.*)/);
+      if (mMatch && line === lines[i]) { // only if not already consumed
+        currentMatchup = mMatch[1];
+        line = mMatch[2];
       }
-      i++; continue;
     }
-    // Team name line (standalone)
-    const foundTeam = NBA_TEAM_NAMES.find(t => line.startsWith(t));
-    if (foundTeam) {
-      currentTeam = foundTeam;
-      currentTeamAbbr = NBA_TEAM_ABBR[foundTeam];
-      const afterTeam = line.substring(foundTeam.length).trim();
-      if (afterTeam) {
-        const parsed = parsePlayerEntry(afterTeam);
-        if (parsed) injuries.push({ ...parsed, team: currentTeamAbbr, teamFull: currentTeam, matchup: currentMatchup, gameDate: currentGameDate, gameTime: currentGameTime });
-      }
-      i++; continue;
+
+    // Try to find a team name (spaceless) at the start of the remaining line
+    const teamResult = findTeamInLine(line);
+    if (teamResult) {
+      currentTeam = teamResult.fullName;
+      currentTeamAbbr = NBA_TEAM_ABBR[currentTeam];
+      line = teamResult.rest;
+      if (!line) continue;
     }
-    // Player entry line: "LastName, FirstName Status Reason..."
-    if (currentTeam) {
+
+    // Try to parse player entry from remaining text
+    if (currentTeam && line) {
       const parsed = parsePlayerEntry(line);
       if (parsed) {
         injuries.push({ ...parsed, team: currentTeamAbbr, teamFull: currentTeam, matchup: currentMatchup, gameDate: currentGameDate, gameTime: currentGameTime });
+        pendingReason = parsed.reason;
       }
-      // else: continuation line (multi-line reason) — skip
     }
-    i++;
   }
   return injuries;
 }
 
-function parsePlayerEntry(text) {
-  // Pattern: "LastName, FirstName Status Reason"
-  // Status is one of: Out, Questionable, Doubtful, Probable, Available
+function findTeamInLine(line) {
+  for (const ns of NBA_TEAM_NAMES_NOSPACE) {
+    if (line.startsWith(ns)) {
+      return { fullName: NBA_TEAM_NOSPACE_MAP[ns], rest: line.substring(ns.length) };
+    }
+  }
+  return null;
+}
+
+function findStatusInLine(line) {
   for (const status of INJURY_STATUSES) {
-    const idx = text.indexOf(' ' + status + ' ');
+    if (line.includes(status)) return status;
+  }
+  return null;
+}
+
+function reinsertSpaces(text) {
+  // Basic re-spacing: insert space before capitals that follow lowercase
+  return text.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/([;,])(\w)/g, '$1 $2');
+}
+
+function parsePlayerEntry(text) {
+  // Text is spaceless like: "Allen,JarrettOutInjury/Illness-RightKnee;Tendonitis"
+  // Find status keyword
+  for (const status of INJURY_STATUSES) {
+    const idx = text.indexOf(status);
     if (idx === -1) continue;
-    const name = text.substring(0, idx).trim();
-    const reason = text.substring(idx + status.length + 2).trim();
-    if (!name || !name.includes(',')) continue;
-    // Convert "Last, First" → "First Last"
-    const parts = name.split(',').map(s => s.trim());
-    const displayName = parts.length >= 2 ? `${parts[1]} ${parts[0]}` : name;
-    return { player: displayName, playerRaw: name, status, reason };
+    const namePart = text.substring(0, idx);
+    const reasonPart = text.substring(idx + status.length);
+    if (!namePart || !namePart.includes(',')) continue;
+    // Convert spaceless "Last,First" → "First Last"
+    const commaIdx = namePart.indexOf(',');
+    const last = namePart.substring(0, commaIdx);
+    const first = namePart.substring(commaIdx + 1);
+    // Re-insert spaces in names (e.g. "LivelyII" → "Lively II", "Gilgeous-Alexander" stays)
+    const cleanLast = last.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/([A-Z])([A-Z][a-z])/g, '$1 $2');
+    const cleanFirst = first.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/([A-Z])([A-Z][a-z])/g, '$1 $2');
+    // Fix common "Mc" prefix split: "Mc Bride" → "McBride", "Mc Clung" → "McClung"
+    const fixMc = (n) => n.replace(/\bMc (\w)/g, (_, c) => 'Mc' + c);
+    const displayName = fixMc(`${cleanFirst.trim()} ${cleanLast.trim()}`);
+    // Clean up reason: re-insert spaces, strip duplicate status prefix, trailing time patterns
+    let reason = reinsertSpaces(reasonPart).trim();
+    // Remove leading duplicate status (e.g. "Out Injury/..." → "Injury/...")
+    if (reason.startsWith(status + ' ')) reason = reason.substring(status.length + 1).trim();
+    if (reason.startsWith(status)) reason = reason.substring(status.length).trim();
+    // Remove trailing time patterns like "08:00(ET)" leaked from next game
+    reason = reason.replace(/\s*\d{2}:\d{2}\(ET\).*$/, '').trim();
+    if (!reason && status === 'Out' && namePart.length < 3) continue; // false positive
+    return { player: displayName, playerRaw: `${last}, ${first}`, status, reason: reason || status };
   }
   return null;
 }
