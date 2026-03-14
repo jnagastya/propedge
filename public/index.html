@@ -1394,6 +1394,11 @@ td{padding:13px 14px;white-space:nowrap;}
         <span>DNP Adjusted</span>
         <span style="font-size:9px;color:var(--t3);font-weight:400;">markdown minutes for DNP players</span>
       </label>
+      <label style="display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:var(--t2);cursor:pointer;user-select:none;">
+        <input type="checkbox" id="injuryImpactToggle" onchange="toggleInjuryImpact()" style="accent-color:#f59e0b;cursor:pointer;">
+        <span>Injury Impact</span>
+        <span style="font-size:9px;color:var(--t3);font-weight:400;">adjust for missing teammates</span>
+      </label>
     </div>
     <div class="risk-ctrl">
       <span class="risk-label">Risk Profile:</span>
@@ -3024,8 +3029,14 @@ function renderOverview(el,p){
     const pg=(p.gameLog||[]).filter(g=>parseInt(g.min||'0')>0);
     const seasonAvg=pg.length?Math.round(pg.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/pg.length):0;
     const parts=p._adjTags.map(t=>{
-      const [type,minStr]=t.split(':');
-      const adjMin=parseInt(minStr);
+      const [type,val]=t.split(':');
+      if(type==='inj'){
+        const pctChg=p._injPctChange||0;
+        const pctCol=pctChg>0?'var(--g)':'var(--r)';
+        const pctFmt=pctChg>0?`+${pctChg}%`:`${pctChg}%`;
+        return`<span style="display:inline-flex;align-items:center;gap:4px;">🏥 <strong>Injury Impact:</strong> w/o ${val} <span style="color:${pctCol};font-weight:700;">(${pctFmt} per-min rate)</span> <span style="color:var(--t3);">${p._injWithout||'?'} games</span></span>`;
+      }
+      const adjMin=parseInt(val);
       const diff=adjMin-seasonAvg;
       const diffFmt=diff>0?`+${diff}`:`${diff}`;
       const diffCol=diff>0?'var(--g)':'var(--r)';
@@ -3682,10 +3693,65 @@ const ALERT_MARKETS=[
 const MKT_SHORT={player_points:'PTS',player_rebounds:'REB',player_assists:'AST',player_threes:'3PM',player_points_rebounds_assists:'PRA',player_rebounds_assists:'R+A'};
 let alertMkt='all';
 let alertMktCache={}; // {market_key: enriched player array}
-let _smartMinOn=false, _dnpAdjOn=false;
+let _smartMinOn=false, _dnpAdjOn=false, _injuryImpactOn=false;
+let _injuryImpactCache={}; // playerName|market → {ratio, teammate, ...}
 
 function toggleSmartMin(){ _smartMinOn=document.getElementById('smartMinToggle').checked; renderAlerts(); }
 function toggleDnpAdj(){ _dnpAdjOn=document.getElementById('dnpAdjToggle').checked; renderAlerts(); }
+function toggleInjuryImpact(){
+  _injuryImpactOn=document.getElementById('injuryImpactToggle').checked;
+  if(_injuryImpactOn && !Object.keys(_injuryImpactCache).length) fetchInjuryImpacts();
+  else renderAlerts();
+}
+
+async function fetchInjuryImpacts(){
+  // Fetch injury impact data for all players currently in view
+  const players=window._lastAlertPlayers||[];
+  if(!players.length){ renderAlerts(); return; }
+  const fetches=[];
+  const seen=new Set();
+  for(const p of players){
+    const team=p.team||TEAM_MAP[p.name]||'';
+    if(!team||team==='???') continue;
+    const key=`${p.name}|${p.market}`;
+    if(seen.has(key)) continue;
+    seen.add(key);
+    fetches.push(
+      fetch(`/api/injury-impact?player=${encodeURIComponent(p.name)}&team=${team}&market=${p.market||S.market}`)
+        .then(r=>r.json())
+        .then(d=>{ _injuryImpactCache[key]=d; })
+        .catch(()=>{})
+    );
+  }
+  await Promise.all(fetches);
+  renderAlerts();
+}
+
+function applyInjuryImpact(p){
+  const key=`${p.name}|${p.market||S.market}`;
+  const impact=_injuryImpactCache[key];
+  if(!impact?.impact) return p;
+  const ratio=impact.ratio;
+  if(Math.abs(ratio-1.0)<0.03) return p;
+  const adj={...p};
+  // Scale the average by the impact ratio
+  adj.avg=+(p.avg*ratio).toFixed(1);
+  // Recompute edge from adjusted avg
+  adj.edge=p.line>0?+((adj.avg-p.line)/p.line*100).toFixed(1):0;
+  // Recompute model prob: shift proportionally
+  const probShift=(ratio-1)*0.5; // moderate shift
+  const newProb=Math.min(0.97,Math.max(0.03,(p.modelProb||0.5)+probShift));
+  adj.modelProb=newProb;
+  const isOver=adj.edge>=0;
+  adj.hitRate=Math.round((isOver?newProb:1-newProb)*100);
+  adj.evOver=calcEV(newProb, p.overOdds);
+  adj.evUnder=calcEV(1-newProb, p.underOdds);
+  adj._injImpact=true;
+  adj._injTeammate=impact.teammate;
+  adj._injPctChange=impact.pctChange;
+  adj._injWithout=impact.withoutGames;
+  return adj;
+}
 
 // Smart Minutes: for minutes-flagged players, recalculate stats using L3 avg minutes
 function applySmartMinutes(p){
@@ -4162,12 +4228,14 @@ function renderAlerts(){
   // Use custom slider value if set, otherwise preset
   const effectiveMinVS = S.customMinVS || t.minVS;
   const _now=new Date();
-  let alerts=getAlertData()
-    .filter(p=>!p.gameTime||new Date(p.gameTime)>_now)
+  const _rawAlerts=getAlertData().filter(p=>!p.gameTime||new Date(p.gameTime)>_now);
+  window._lastAlertPlayers=_rawAlerts; // for injury impact fetcher
+  let alerts=_rawAlerts
     .map(p=>{
       let adj=p, tags=[];
       if(_smartMinOn){ const a=applySmartMinutes(adj); if(a._adjTag==='min'){ adj=a; tags.push('min:'+a._adjMin); } }
       if(_dnpAdjOn){ const a=applyDnpAdjustment(adj); if(a._adjTag==='dnp'){ adj=a; tags.push('dnp:'+a._adjMin); } }
+      if(_injuryImpactOn){ const a=applyInjuryImpact(adj); if(a._injImpact){ adj=a; tags.push('inj:'+a._injTeammate); } }
       if(tags.length) adj._adjTags=tags;
       return {...adj,vs:valueScore(adj),_dirEV:getDirectionalEV(adj)};
     })
@@ -4301,7 +4369,7 @@ function renderAlerts(){
           </div>
           <div class="va-meta">${p.team||''} · ${(p.matchup||'').substring(0,25)}</div>
           ${!p.hasRealStats?`<div style="margin-top:3px;"><span class="player-flag flag-est" style="font-size:9px;">⚠ Fake Stats — EV may be inaccurate</span></div>`:''}
-          ${(()=>{const hasMove=p.prev_line!=null&&(p.prev_line!==p.line||p.prev_overOdds!==p.overOdds||p.prev_underOdds!==p.underOdds);const hasFlags=p.returnFromInjury>=2||p.minutesFlag||(p.dnpCount>=5)||hasMove||(p._adjTags&&p._adjTags.length);if(!hasFlags)return'';return`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;">${(p._adjTags||[]).map(t=>{const[type,min]=t.split(':');return type==='min'?`<span class="player-flag" style="background:rgba(139,92,246,.12);color:#a78bfa;border:1px solid rgba(139,92,246,.3);">⏱ Smart Min → ${min}m</span>`:`<span class="player-flag" style="background:rgba(239,68,68,.12);color:#ef4444;border:1px solid rgba(239,68,68,.3);">⚠ DNP Adj → ${min}m</span>`;}).join('')}${hasMove?`<span class="player-flag flag-mover">↕ Line Moved${p.prev_line!==p.line?' '+((p.line-p.prev_line)>0?'+':'')+((p.line-p.prev_line).toFixed(1)):' (odds)'}</span>`:''}${p.returnFromInjury>=2?`<span class="player-flag flag-injury">⚠ Back after ${p.returnFromInjury} games missed</span>`:''}${p.minutesFlag?`<span class="player-flag ${p.minutesFlag>0?'flag-minutes-up':'flag-minutes-down'}">⏱ ${Math.abs(Math.round(p.minutesFlag*100))}% ${p.minutesFlag>0?'↑ more':'↓ fewer'} minutes</span>`:''}${p.dnpCount>=5?`<span class="player-flag flag-dnp">✗ ${p.dnpCount} DNPs/10</span>`:''}</div>`;})()}</div>
+          ${(()=>{const hasMove=p.prev_line!=null&&(p.prev_line!==p.line||p.prev_overOdds!==p.overOdds||p.prev_underOdds!==p.underOdds);const hasFlags=p.returnFromInjury>=2||p.minutesFlag||(p.dnpCount>=5)||hasMove||(p._adjTags&&p._adjTags.length);if(!hasFlags)return'';return`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;">${(p._adjTags||[]).map(t=>{const[type,val]=t.split(':');return type==='min'?`<span class="player-flag" style="background:rgba(139,92,246,.12);color:#a78bfa;border:1px solid rgba(139,92,246,.3);">⏱ Smart Min → ${val}m</span>`:type==='inj'?`<span class="player-flag" style="background:rgba(245,158,11,.12);color:#f59e0b;border:1px solid rgba(245,158,11,.3);">🏥 w/o ${val} (${p._injPctChange>0?'+':''}${p._injPctChange||0}%)</span>`:`<span class="player-flag" style="background:rgba(239,68,68,.12);color:#ef4444;border:1px solid rgba(239,68,68,.3);">⚠ DNP Adj → ${val}m</span>`;}).join('')}${hasMove?`<span class="player-flag flag-mover">↕ Line Moved${p.prev_line!==p.line?' '+((p.line-p.prev_line)>0?'+':'')+((p.line-p.prev_line).toFixed(1)):' (odds)'}</span>`:''}${p.returnFromInjury>=2?`<span class="player-flag flag-injury">⚠ Back after ${p.returnFromInjury} games missed</span>`:''}${p.minutesFlag?`<span class="player-flag ${p.minutesFlag>0?'flag-minutes-up':'flag-minutes-down'}">⏱ ${Math.abs(Math.round(p.minutesFlag*100))}% ${p.minutesFlag>0?'↑ more':'↓ fewer'} minutes</span>`:''}${p.dnpCount>=5?`<span class="player-flag flag-dnp">✗ ${p.dnpCount} DNPs/10</span>`:''}</div>`;})()}</div>
         <div class="va-right">
           <div class="va-edge-big ${evPct>0?'pos':'neg'}">${evPct>0?'+':''}${evPct}%</div>
           <div class="va-direction ${isOver?'over':'under'}">${isOver?'▲':'▼'} BET ${dir}</div>

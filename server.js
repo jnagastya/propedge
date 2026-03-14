@@ -1281,6 +1281,91 @@ app.get('/api/injuries', async (req, res) => {
 });
 
 // ============================================================
+// ROUTE: GET /api/injury-impact — compute injury impact for a player
+// Returns: { teammate, ratio, withoutGames, withGames, adjAvg, origAvg }
+// ============================================================
+app.get('/api/injury-impact', async (req, res) => {
+  const { player, team, market } = req.query;
+  if (!player || !team || !market) return res.status(400).json({ error: 'player, team, market required' });
+  try {
+    const injuries = await fetchInjuryReport();
+    const outTeammates = injuries.filter(inj => inj.team === team.toUpperCase() && inj.status === 'Out' && inj.player.toLowerCase() !== player.toLowerCase());
+    if (!outTeammates.length) return res.json({ impact: false, reason: 'no OUT teammates' });
+
+    // Fetch player game log
+    const ckMem = `gl_name_${NBA_SEASON}_${player.toLowerCase().replace(/\s+/g,'_')}`;
+    let playerLog = cacheGet(ckMem);
+    if (!playerLog) {
+      playerLog = await sbGetGameLog(player);
+      if (playerLog) cacheSet(ckMem, playerLog, STATS_TTL);
+    }
+    if (!playerLog?.length) return res.json({ impact: false, reason: 'no player game log' });
+
+    // Fetch game logs for out teammates
+    const tmNames = outTeammates.map(i => i.player);
+    const tmLogMap = new Map();
+    // Try supabase batch
+    if (supabase) {
+      const { data } = await supabase.from('player_stats').select('player_name, game_log, season').eq('season', NBA_SEASON).in('player_name', tmNames);
+      if (data) data.forEach(r => tmLogMap.set(r.player_name, r.game_log));
+    }
+
+    // Find most impactful teammate
+    let bestTeammate = null, bestAvg = 0, bestLog = null;
+    for (const inj of outTeammates) {
+      const tmLog = tmLogMap.get(inj.player);
+      if (!tmLog?.length) continue;
+      const tmPlayed = tmLog.filter(g => parseInt(g.min || '0') > 0);
+      if (tmPlayed.length < 5) continue;
+      const tmAvg = tmPlayed.reduce((s, g) => s + _statVal(g, market), 0) / tmPlayed.length;
+      if (tmAvg > bestAvg) { bestAvg = tmAvg; bestTeammate = inj.player; bestLog = tmLog; }
+    }
+    if (!bestTeammate) return res.json({ impact: false, reason: 'no teammate game logs found' });
+
+    // Compute without/with splits
+    const tmDnpDates = new Set(), tmPlayedDates = new Set();
+    for (const g of bestLog) {
+      if (parseInt(g.min || '0') === 0) tmDnpDates.add(g.date);
+      else tmPlayedDates.add(g.date);
+    }
+
+    const playerPlayed = playerLog.filter(g => parseInt(g.min || '0') > 0);
+    const withoutGames = [], withGames = [];
+    for (const g of playerPlayed) {
+      if (tmDnpDates.has(g.date)) withoutGames.push(g);
+      else if (tmPlayedDates.has(g.date)) withGames.push(g);
+    }
+
+    if (withoutGames.length < 3 || withGames.length < 3) {
+      return res.json({ impact: false, teammate: bestTeammate, reason: `insufficient split data (${withoutGames.length} without, ${withGames.length} with)` });
+    }
+
+    const withRates = withGames.map(g => _statVal(g, market) / (parseFloat(g.min) || 1));
+    const withoutRates = withoutGames.map(g => _statVal(g, market) / (parseFloat(g.min) || 1));
+    const avgWith = withRates.reduce((a, b) => a + b, 0) / withRates.length;
+    const avgWithout = withoutRates.reduce((a, b) => a + b, 0) / withoutRates.length;
+    const ratio = avgWith > 0 ? Math.max(0.70, Math.min(1.30, avgWithout / avgWith)) : 1;
+    const avgWithStat = +(withGames.reduce((s, g) => s + _statVal(g, market), 0) / withGames.length).toFixed(1);
+    const avgWithoutStat = +(withoutGames.reduce((s, g) => s + _statVal(g, market), 0) / withoutGames.length).toFixed(1);
+
+    res.json({
+      impact: Math.abs(ratio - 1.0) >= 0.03,
+      teammate: bestTeammate,
+      teammateAvg: +bestAvg.toFixed(1),
+      ratio: +ratio.toFixed(3),
+      withoutGames: withoutGames.length,
+      withGames: withGames.length,
+      avgWithStat,
+      avgWithoutStat,
+      pctChange: +((ratio - 1) * 100).toFixed(1),
+    });
+  } catch (e) {
+    console.error('[injury-impact] Error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ============================================================
 // ROUTE: GET /api/cache/clear — manual cache flush
 // ============================================================
 app.get('/api/cache/clear', (req, res) => {
@@ -2794,6 +2879,156 @@ function serverApplySmartMinutes(gameLog, line, market, overOdds, underOdds, bas
 }
 
 // ============================================================
+// Injury Impact: "Without Teammate" split-based adjustment
+// Finds the most impactful injured teammate for a given market,
+// computes how the player performs without them, and adjusts stats.
+// ============================================================
+
+// Get stat value from a game log entry for a given market
+function _statVal(g, market) {
+  const sk = STAT_KEYS[market] || 'pts';
+  return sk === 'pra' ? (+g.pts || 0) + (+g.reb || 0) + (+g.ast || 0)
+    : sk === 'ra' ? (+g.reb || 0) + (+g.ast || 0) : +(g[sk] || 0);
+}
+
+/**
+ * Compute injury impact adjustment for a player.
+ * @param {string} playerName - The player we're evaluating
+ * @param {Array} playerGameLog - Player's game log
+ * @param {string} playerTeam - Player's team abbreviation
+ * @param {string} market - Stat market (player_points, etc.)
+ * @param {number} line - The prop line
+ * @param {number} overOdds - Over odds
+ * @param {number} underOdds - Under odds
+ * @param {Array} injuries - Today's injury report array
+ * @param {Map} allGameLogs - Map of playerName → gameLog for teammates
+ * @param {Object} baseStats - Output from serverComputeStats
+ * @returns {Object} Adjusted stats or original baseStats if no impact
+ */
+function serverApplyInjuryImpact(playerName, playerGameLog, playerTeam, market, line, overOdds, underOdds, injuries, allGameLogs, baseStats) {
+  if (!injuries?.length || !playerGameLog?.length) return baseStats;
+
+  // 1. Find teammates who are OUT today
+  const outTeammates = injuries.filter(inj =>
+    inj.team === playerTeam &&
+    inj.status === 'Out' &&
+    inj.player !== playerName &&
+    inj.player.toLowerCase() !== playerName.toLowerCase()
+  );
+  if (!outTeammates.length) return baseStats;
+
+  // 2. For each out teammate, find their avg in this market to pick the most impactful
+  let bestTeammate = null;
+  let bestAvg = 0;
+  let bestTeammateLog = null;
+
+  for (const inj of outTeammates) {
+    // Try to find their game log in our map
+    const tmLog = allGameLogs.get(inj.player);
+    if (!tmLog?.length) continue;
+    const tmPlayed = tmLog.filter(g => parseInt(g.min || '0') > 0);
+    if (tmPlayed.length < 5) continue;
+    const tmAvg = tmPlayed.reduce((s, g) => s + _statVal(g, market), 0) / tmPlayed.length;
+    if (tmAvg > bestAvg) {
+      bestAvg = tmAvg;
+      bestTeammate = inj.player;
+      bestTeammateLog = tmPlayed;
+    }
+  }
+
+  if (!bestTeammate || !bestTeammateLog) return baseStats;
+
+  // 3. Build a set of dates when the best teammate did NOT play
+  const tmDnpDates = new Set();
+  const tmPlayedDates = new Set();
+  // Include all games from teammate's log: DNP = min 0 or absent
+  const tmAllSorted = [...(allGameLogs.get(bestTeammate) || [])].sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+  for (const g of tmAllSorted) {
+    if (parseInt(g.min || '0') === 0) tmDnpDates.add(g.date);
+    else tmPlayedDates.add(g.date);
+  }
+
+  // 4. Split player's games into "with" and "without" the teammate
+  const playerSorted = [...playerGameLog].sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+  const playerPlayed = playerSorted.filter(g => parseInt(g.min || '0') > 0);
+
+  const withoutGames = [];
+  const withGames = [];
+  for (const g of playerPlayed) {
+    if (tmDnpDates.has(g.date)) withoutGames.push(g);
+    else if (tmPlayedDates.has(g.date)) withGames.push(g);
+    // Games where teammate wasn't on roster yet (no entry) are excluded
+  }
+
+  // Need minimum 3 "without" games for a reliable signal
+  if (withoutGames.length < 3 || withGames.length < 3) return baseStats;
+
+  // 5. Calculate per-minute rates with and without
+  const withRates = withGames.map(g => _statVal(g, market) / (parseFloat(g.min) || 1));
+  const withoutRates = withoutGames.map(g => _statVal(g, market) / (parseFloat(g.min) || 1));
+  const avgWithRate = withRates.reduce((a, b) => a + b, 0) / withRates.length;
+  const avgWithoutRate = withoutRates.reduce((a, b) => a + b, 0) / withoutRates.length;
+
+  if (avgWithRate === 0) return baseStats;
+  const impactRatio = avgWithoutRate / avgWithRate;
+
+  // Cap the adjustment to avoid wild swings: max ±30% change
+  const cappedRatio = Math.max(0.70, Math.min(1.30, impactRatio));
+  // Only apply if the difference is meaningful (>3%)
+  if (Math.abs(cappedRatio - 1.0) < 0.03) return baseStats;
+
+  // 6. Apply the ratio to compute adjusted stats (similar to Smart Minutes)
+  const vals = playerPlayed.map(g => _statVal(g, market));
+  const adjAvg = +(baseStats.avg * cappedRatio).toFixed(1);
+
+  const l20 = vals.slice(0, 20);
+  const l20avg = l20.reduce((a, b) => a + b, 0) / l20.length;
+  const stdDev = Math.sqrt(l20.reduce((s, v) => s + Math.pow(v - l20avg, 2), 0) / l20.length);
+  const adjStdDev = stdDev * cappedRatio;
+
+  // Recompute hit rates with adjustment
+  const adjHR = line ? Math.round(vals.filter(v => v * cappedRatio >= line).length / vals.length * 100) : 50;
+  const l10vals = vals.slice(0, 10);
+  const l10HR = line && l10vals.length ? Math.round(l10vals.filter(v => v * cappedRatio >= line).length / l10vals.length * 100) : adjHR;
+  const l5vals = vals.slice(0, 5);
+  const l5HR = l5vals.length >= 3 && line ? Math.round(l5vals.filter(v => v * cappedRatio >= line).length / l5vals.length * 100) : l10HR;
+
+  const statProb = line != null && adjStdDev > 0 ? normalCDF((adjAvg - line) / adjStdDev) : 0.5;
+  const rawProb = (l5HR * 0.25 + l10HR * 0.30 + adjHR * 0.25) / 100 + statProb * 0.20;
+  const modelProb = Math.min(0.97, Math.max(0.03, (rawProb * vals.length + 5) / (vals.length + 10)));
+
+  const evOver = calcEV(modelProb, overOdds);
+  const evUnder = calcEV(1 - modelProb, underOdds);
+  const edge = line ? +((adjAvg - line) / line * 100).toFixed(1) : 0;
+
+  const isOverBet = edge >= 0;
+  const dirModelProb = isOverBet ? modelProb : 1 - modelProb;
+  const dirImplied = isOverBet ? impliedProb(overOdds) : impliedProb(underOdds);
+  const evEdge = dirModelProb - dirImplied;
+  const cv = adjAvg ? adjStdDev / adjAvg : 0.4;
+  const edgePts = Math.min(40, Math.max(0, evEdge / 0.15 * 20 + 20));
+  const dirHR = Math.round(dirModelProb * 100);
+  const hrPts = Math.min(40, Math.max(0, (dirHR - 25) * 0.8));
+  const cvPts = Math.min(20, Math.max(0, (0.6 - Math.min(cv, 0.6)) / 0.4 * 20));
+  const confidence = Math.max(0, Math.min(100, Math.round(edgePts + hrPts + cvPts)));
+
+  const direction = isOverBet ? 'over' : 'under';
+  const odds = isOverBet ? overOdds : underOdds;
+  const dirEV = isOverBet ? evOver : evUnder;
+  const vs = serverValueScore(edge, adjHR, confidence, dirEV);
+
+  return {
+    ...baseStats, avg: adjAvg, hitRate: adjHR, edge, modelProb, confidence,
+    evOver, evUnder, direction, odds, dirEV, vs, stdDev: adjStdDev,
+    _injuryImpact: true,
+    _injuryTeammate: bestTeammate,
+    _injuryRatio: +cappedRatio.toFixed(3),
+    _withoutGames: withoutGames.length,
+    _withGames: withGames.length,
+  };
+}
+
+// ============================================================
 // CRON: Place agent bets — runs daily at 3:30 PM PST
 // ============================================================
 app.get('/api/cron/agent-bet', async (req, res) => {
@@ -2846,6 +3081,19 @@ app.get('/api/cron/agent-bet', async (req, res) => {
       if (data) data.forEach(r => gameLogMap.set(r.player_name, r.game_log));
     }
 
+    // 3b. Fetch injury report and injured teammates' game logs for injury impact
+    const injuries = await fetchInjuryReport();
+    const injuredTeammateNames = [...new Set(injuries.filter(i => i.status === 'Out').map(i => i.player))];
+    // Fetch game logs for injured players not already in gameLogMap
+    const missingInjured = injuredTeammateNames.filter(n => !gameLogMap.has(n));
+    if (missingInjured.length && supabase) {
+      for (let i = 0; i < missingInjured.length; i += 50) {
+        const batch = missingInjured.slice(i, i + 50);
+        const { data } = await supabase.from('player_stats').select('player_name, game_log, season').eq('season', NBA_SEASON).in('player_name', batch);
+        if (data) data.forEach(r => gameLogMap.set(r.player_name, r.game_log));
+      }
+    }
+
     // 4. For each player/market combo, compute stats and value score
     const valueCandidates = [];
     const controlCandidates = [];
@@ -2864,7 +3112,13 @@ app.get('/api/cron/agent-bet', async (req, res) => {
         if (!rawStats || rawStats.gamesPlayed < 5) { summary.skipped++; continue; }
 
         // Apply Smart Minutes: recalculate flagged players using L3 avg minutes
-        const stats = serverApplySmartMinutes(gameLog, p.line, p.market, p.overOdds, p.underOdds, rawStats);
+        let stats = serverApplySmartMinutes(gameLog, p.line, p.market, p.overOdds, p.underOdds, rawStats);
+
+        // Apply Injury Impact: adjust based on most impactful OUT teammate
+        const playerTeam = _playerTeamCache[p.name] || guessTeam(p.name) || p.homeTeam;
+        if (playerTeam && playerTeam !== '???') {
+          stats = serverApplyInjuryImpact(p.name, gameLog, playerTeam, p.market, p.line, p.overOdds, p.underOdds, injuries, gameLogMap, stats);
+        }
 
         const isValue = stats.vs >= 30 && Math.abs(stats.edge) > 4 && stats.confidence >= 55 && stats.dirEV > 3;
         const isControl = !isValue && stats.vs >= 20 && Math.abs(stats.edge) > 2 && stats.dirEV > 0;
