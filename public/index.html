@@ -2413,7 +2413,7 @@ function drawEvMinutesChart(currentMin){
   canvas.height=canvas.offsetHeight*dpr;
   ctx.scale(dpr,dpr);
   const W=canvas.offsetWidth,H=canvas.offsetHeight;
-  const pad={t:20,r:16,b:32,l:44};
+  const pad={t:30,r:16,b:32,l:44};
   const cw=W-pad.l-pad.r,ch=H-pad.t-pad.b;
   const isOver=(p.edge||0)>=0;
   const dirOdds=isOver?(p.overOdds||-110):(p.underOdds||-110);
@@ -2427,8 +2427,7 @@ function drawEvMinutesChart(currentMin){
     evs.push(calcEV(dirP,dirOdds));
   }
   const minEV=Math.min(...evs),maxEV=Math.max(...evs);
-  const evRange=Math.max(1,maxEV-minEV);
-  const yLo=Math.floor(minEV/5)*5-5,yHi=Math.ceil(maxEV/5)*5+5;
+  const yLo=Math.floor(minEV/5)*5-5,yHi=Math.ceil(maxEV/5)*5+10;
   const yRange=yHi-yLo;
   const toX=m=>pad.l+(m/48)*cw;
   const toY=ev=>pad.t+(1-(ev-yLo)/yRange)*ch;
@@ -2460,7 +2459,7 @@ function drawEvMinutesChart(currentMin){
     m===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
   }
   ctx.stroke();
-  // Fill under curve (positive green, negative red) — simplified gradient
+  // Fill under curve
   ctx.save();
   ctx.globalAlpha=0.08;
   ctx.beginPath();
@@ -2469,39 +2468,52 @@ function drawEvMinutesChart(currentMin){
   ctx.lineTo(toX(48),toY(0));ctx.closePath();
   ctx.fillStyle=evs[Math.round(currentMin||avgMin)]>=0?'#22c55e':'#ef4444';
   ctx.fill();ctx.restore();
-  // Helper: draw marker dot + label
-  function drawMarker(min,label,color,yOff){
-    const x=toX(min),y=toY(evs[Math.round(Math.min(48,Math.max(0,min)))]);
-    ctx.beginPath();ctx.arc(x,y,5,0,Math.PI*2);ctx.fillStyle=color;ctx.fill();
-    ctx.strokeStyle='rgba(0,0,0,.4)';ctx.lineWidth=1.5;ctx.stroke();
-    ctx.fillStyle=color;ctx.font='bold 9px system-ui';ctx.textAlign='center';
-    ctx.fillText(label,x,y+(yOff||(-12)));
-    // EV value
-    const evVal=evs[Math.round(Math.min(48,Math.max(0,min)))];
-    ctx.font='bold 8px system-ui';
-    ctx.fillText((evVal>0?'+':'')+evVal.toFixed(1)+'%',x,y+(yOff||-12)+(yOff>0?10:-10));
-  }
-  // Season avg marker (control)
+  // Compute preset minutes
   const seasonMin=Math.round(avgMin);
-  drawMarker(seasonMin,'Season',  'rgba(255,255,255,.5)',14);
-  // Preset markers (L10, L5, L3)
   const l10m=games.slice(0,10);const l10a=l10m.length?Math.round(l10m.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/l10m.length):seasonMin;
   const l5m=games.slice(0,5);const l5a=l5m.length?Math.round(l5m.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/l5m.length):seasonMin;
   const l3m=games.slice(0,3);const l3a=l3m.length>=3?Math.round(l3m.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/l3m.length):seasonMin;
-  // Only draw preset dots if they differ enough from each other to avoid overlap
-  const drawn=new Set();drawn.add(seasonMin);
-  if(Math.abs(l10a-seasonMin)>=2&&!drawn.has(l10a)){drawMarker(l10a,'L10','#60a5fa',-12);drawn.add(l10a);}
-  if(Math.abs(l5a-seasonMin)>=2&&!drawn.has(l5a)){drawMarker(l5a,'L5','#34d399',-12);drawn.add(l5a);}
-  if(Math.abs(l3a-seasonMin)>=2&&!drawn.has(l3a)){drawMarker(l3a,'L3','#fbbf24',-12);drawn.add(l3a);}
-  // Current selection marker (large, prominent)
   const curMin=Math.round(currentMin!=null?currentMin:avgMin);
-  if(!drawn.has(curMin)||curMin!==seasonMin){
-    const cx=toX(curMin),cy=toY(evs[Math.min(48,Math.max(0,curMin))]);
-    // Vertical dashed line
+  // Draw dots only (no inline labels)
+  function drawDot(min,color,size){
+    const x=toX(min),y=toY(evs[Math.round(Math.min(48,Math.max(0,min)))]);
+    ctx.beginPath();ctx.arc(x,y,size||4,0,Math.PI*2);ctx.fillStyle=color;ctx.fill();
+    ctx.strokeStyle='rgba(0,0,0,.4)';ctx.lineWidth=1;ctx.stroke();
+  }
+  drawDot(seasonMin,'rgba(255,255,255,.6)',4);
+  if(Math.abs(l10a-seasonMin)>=2) drawDot(l10a,'#60a5fa',4);
+  if(Math.abs(l5a-seasonMin)>=2) drawDot(l5a,'#34d399',4);
+  if(Math.abs(l3a-seasonMin)>=2) drawDot(l3a,'#fbbf24',4);
+  // Current selection — vertical dashed line + larger dot
+  if(curMin!==seasonMin){
+    const cx=toX(curMin);
     ctx.strokeStyle='rgba(139,92,246,.4)';ctx.setLineDash([3,3]);ctx.lineWidth=1;
     ctx.beginPath();ctx.moveTo(cx,pad.t);ctx.lineTo(cx,H-pad.b);ctx.stroke();ctx.setLineDash([]);
-    drawMarker(curMin,'▶ '+curMin+'m','#c084fc',-14);
+    drawDot(curMin,'#c084fc',6);
   }
+  // Legend (top-right corner)
+  const getEv=min=>evs[Math.round(Math.min(48,Math.max(0,min)))];
+  const fmtEv=v=>(v>0?'+':'')+v.toFixed(1)+'%';
+  const legendItems=[
+    {label:'Season ('+seasonMin+'m)',color:'rgba(255,255,255,.6)',ev:getEv(seasonMin)},
+    {label:'L10 ('+l10a+'m)',color:'#60a5fa',ev:getEv(l10a)},
+    {label:'L5 ('+l5a+'m)',color:'#34d399',ev:getEv(l5a)},
+    {label:'L3 ('+l3a+'m)',color:'#fbbf24',ev:getEv(l3a)},
+  ];
+  if(curMin!==seasonMin) legendItems.push({label:'Selected ('+curMin+'m)',color:'#c084fc',ev:getEv(curMin)});
+  const lx=W-pad.r-6, ly=pad.t+2;
+  ctx.textAlign='right';
+  legendItems.forEach((item,idx)=>{
+    const iy=ly+idx*13;
+    // Dot
+    ctx.beginPath();ctx.arc(lx-ctx.measureText(item.label+' '+fmtEv(item.ev)).width-10,iy,3,0,Math.PI*2);ctx.fillStyle=item.color;ctx.fill();
+    // Text
+    ctx.fillStyle='rgba(255,255,255,.5)';ctx.font='bold 8px system-ui';
+    ctx.fillText(item.label,lx-45,iy+3);
+    // EV value
+    ctx.fillStyle=item.ev>=0?'#22c55e':'#ef4444';ctx.font='bold 9px system-ui';
+    ctx.fillText(fmtEv(item.ev),lx,iy+3);
+  });
   // Axis labels
   ctx.fillStyle='rgba(255,255,255,.3)';ctx.font='bold 8px system-ui';
   ctx.save();ctx.translate(10,pad.t+ch/2);ctx.rotate(-Math.PI/2);ctx.textAlign='center';ctx.fillText('EV %',0,0);ctx.restore();
@@ -3111,8 +3123,8 @@ function renderOverview(el,p){
     ${p.hasRealStats?(()=>{const pg=(p.gameLog||[]).filter(g=>parseInt(g.min||'0')>0);const am=pg.length?Math.round(pg.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/pg.length):30;const l3min=pg.slice(0,3);const l3avg=l3min.length>=3?Math.round(l3min.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/l3min.length):am;const l5min=pg.slice(0,5);const l5avg=l5min.length?Math.round(l5min.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/l5min.length):am;const l10min=pg.slice(0,10);const l10avg=l10min.length?Math.round(l10min.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/l10min.length):am;const hasFlag=p.minutesFlag||p.dnpCount>=5;const presets=`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px;">
           <button onclick="setMinPreset(${am})" style="font-size:9px;padding:3px 8px;border-radius:5px;border:1px solid var(--bd);background:var(--bg2);color:var(--t2);cursor:pointer;font-weight:600;">Season Avg (${am})</button>
           <button onclick="setMinPreset(${l10avg})" style="font-size:9px;padding:3px 8px;border-radius:5px;border:1px solid var(--bd);background:var(--bg2);color:var(--t2);cursor:pointer;font-weight:600;">L10 Avg (${l10avg})</button>
-          <button onclick="setMinPreset(${l5avg})" style="font-size:9px;padding:3px 8px;border-radius:5px;border:1px solid ${hasFlag?'rgba(139,92,246,.5)':'var(--bd)'};background:${hasFlag?'rgba(139,92,246,.15)':'var(--bg2)'};color:${hasFlag?'#a78bfa':'var(--t2)'};cursor:pointer;font-weight:700;">${hasFlag?'⚡ ':''}L5 Avg (${l5avg})</button>
-          <button onclick="setMinPreset(${l3avg})" style="font-size:9px;padding:3px 8px;border-radius:5px;border:1px solid ${hasFlag?'rgba(139,92,246,.5)':'var(--bd)'};background:${hasFlag?'rgba(139,92,246,.15)':'var(--bg2)'};color:${hasFlag?'#a78bfa':'var(--t2)'};cursor:pointer;font-weight:700;">${hasFlag?'⚡ ':''}L3 Avg (${l3avg})</button>
+          <button onclick="setMinPreset(${l5avg})" style="font-size:9px;padding:3px 8px;border-radius:5px;border:1px solid ${hasFlag?'rgba(139,92,246,.5)':'var(--bd)'};background:${hasFlag?'rgba(139,92,246,.15)':'var(--bg2)'};color:${hasFlag?'#a78bfa':'var(--t2)'};cursor:pointer;font-weight:700;">${hasFlag?'❗ ':''}L5 Avg (${l5avg})</button>
+          <button onclick="setMinPreset(${l3avg})" style="font-size:9px;padding:3px 8px;border-radius:5px;border:1px solid ${hasFlag?'rgba(139,92,246,.5)':'var(--bd)'};background:${hasFlag?'rgba(139,92,246,.15)':'var(--bg2)'};color:${hasFlag?'#a78bfa':'var(--t2)'};cursor:pointer;font-weight:700;">${hasFlag?'❗ ':''}L3 Avg (${l3avg})</button>
         </div>`;return`<div class="dc full"><div class="dc-t"><span class="dt" style="background:#8b5cf6"></span>Minutes Projection <span style="font-size:10px;color:var(--t3);font-weight:400;margin-left:4px;">Adjust model for expected playing time</span></div>
       <div style="padding:6px 0 2px;">
         ${presets}
