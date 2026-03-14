@@ -76,6 +76,7 @@ const _playerTeamCache = {
   'Dean Wade':'CLE','Robert Williams':'POR','Isaiah Stewart II':'DET',
   'Donovan Clingan':'POR','Cooper Flagg':'LAL','Saddiq Bey':'ATL',
   'Kris Dunn':'LAC','Kevin Huerter':'IND','Jabari Smith Jr':'HOU','Leonard Miller':'CHI',
+  'Marcus Smart':'LAL','Adem Bona':'PHI','Nolan Traore':'BKN','Norman Powell':'MIA','Jonas Valanciunas':'DEN',
 };
 const ODDS_BASE = 'https://api.the-odds-api.com/v4';
 const BDL_BASE = 'https://api.balldontlie.io/nba/v1';
@@ -318,6 +319,11 @@ const BDL_PLAYER_OVERRIDES = {
   'Scoot Henderson':        { id: 56677747,      position: 'G', team: 'POR' },
   'Brandon Miller':          { id: 56677823,      position: 'F', team: 'CHA' },
   'Coby White':              { id: 666956,        position: 'G', team: 'CHI' },
+  'Marcus Smart':            { id: 420,           position: 'G', team: 'LAL' },
+  'Adem Bona':               { id: 1028034846,    position: 'F', team: 'PHI' },
+  'Nolan Traore':            { id: 1028217445,    position: 'F', team: 'BKN' },
+  'Norman Powell':           { id: 380,           position: 'F', team: 'MIA' },
+  'Jonas Valanciunas':       { id: 455,           position: 'C', team: 'DEN' },
 };
 
 // Search BDL for player ID + position by name, cached 24h
@@ -1020,11 +1026,11 @@ function guessTeam(name) {
     // IND
     'tyrese haliburton':'IND','pascal siakam':'IND','myles turner':'IND','benedict mathurin':'IND','andrew nembhard':'IND','t.j. mcconnell':'IND',
     // LAC
-    'kawhi leonard':'LAC','james harden':'LAC','ivica zubac':'IND','norman powell':'LAC','terance mann':'LAC','bones hyland':'LAC',
+    'kawhi leonard':'LAC','james harden':'LAC','ivica zubac':'IND','norman powell':'MIA','terance mann':'LAC','bones hyland':'LAC',
     // LAL
     'lebron james':'LAL','anthony davis':'LAL','austin reaves':'LAL',"d'angelo russell":'LAL','rui hachimura':'LAL','max christie':'LAL','gabe vincent':'LAL',
     // MEM
-    'ja morant':'MEM','desmond bane':'MEM','jaren jackson jr.':'MEM','marcus smart':'MEM','ziaire williams':'MEM','luke kennard':'MEM',
+    'ja morant':'MEM','desmond bane':'MEM','jaren jackson jr.':'MEM','marcus smart':'LAL','ziaire williams':'MEM','luke kennard':'MEM',
     // MIA
     'bam adebayo':'MIA','tyler herro':'MIA','jimmy butler':'MIA','terry rozier':'MIA','haywood highsmith':'MIA','caleb martin':'MIA',
     // MIL
@@ -1032,7 +1038,7 @@ function guessTeam(name) {
     // MIN
     'anthony edwards':'MIN','rudy gobert':'MIN','jaden mcdaniels':'MIN','naz reid':'MIN','mike conley':'MIN','nickeil alexander-walker':'MIN',
     // NOP
-    'zion williamson':'NOP','cj mccollum':'NOP','brandon ingram':'NOP','trey murphy iii':'NOP','herb jones':'NOP','jonas valanciunas':'NOP',
+    'zion williamson':'NOP','cj mccollum':'NOP','brandon ingram':'NOP','trey murphy iii':'NOP','herb jones':'NOP','jonas valanciunas':'DEN',
     // NYK
     'jalen brunson':'NYK','karl-anthony towns':'NYK','mikal bridges':'NYK','og anunoby':'NYK','josh hart':'NYK','donte divincenzo':'NYK',
     // OKC
