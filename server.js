@@ -3561,6 +3561,21 @@ app.get('/api/ping', (req, res) => {
   res.json({ ok: true, time: new Date().toISOString(), discord: { picks: !!DISCORD_PICKS_WEBHOOK, results: !!DISCORD_RESULTS_WEBHOOK } });
 });
 
+// ---- Resend Discord picks for a specific date ----
+app.get('/api/discord/resend-picks', async (req, res) => {
+  const secret = (req.headers.authorization || '').replace('Bearer ', '') || req.headers['x-cron-secret'] || req.query.secret;
+  if (process.env.CRON_SECRET && secret !== process.env.CRON_SECRET) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  if (!supabase) return res.status(503).json({ error: 'Supabase not configured' });
+  const date = req.query.date || new Date().toISOString().slice(0, 10);
+  const { data: bets, error } = await supabase.from('agent_bets').select('*').eq('game_date', date);
+  if (error) return res.status(500).json({ error: error.message });
+  if (!bets || !bets.length) return res.status(404).json({ error: `No bets found for ${date}` });
+  await sendDiscordPicks(bets, date);
+  res.json({ success: true, date, bets: bets.length });
+});
+
 // ---- TEST: Send sample Discord messages ----
 app.get('/api/test-discord', async (req, res) => {
   const secret = (req.headers.authorization || '').replace('Bearer ', '') || req.headers['x-cron-secret'] || req.query.secret;
