@@ -1063,7 +1063,7 @@ function guessTeam(name) {
 // ============================================================
 // INJURY REPORT — fetch & parse NBA official PDF
 // ============================================================
-const { PDFParse } = require('pdf-parse');
+const pdfParse = require('pdf-parse');
 
 // NBA team name → abbreviation map
 const NBA_TEAM_ABBR = {
@@ -1232,8 +1232,7 @@ async function fetchInjuryReport() {
       const resp = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }, timeout: 15000 });
       if (!resp.ok) continue;
       const buf = await resp.buffer();
-      const parser = new PDFParse({ data: buf });
-      const result = await parser.getText();
+      const result = await pdfParse(buf);
       const injuries = parseInjuryText(result.text);
       if (injuries.length > 0) {
         _injuryCache = { data: injuries, fetchedAt: now };
