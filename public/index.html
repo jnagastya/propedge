@@ -4114,8 +4114,8 @@ function renderAlerts(){
     .filter(p=>!p.gameTime||new Date(p.gameTime)>_now)
     .map(p=>{
       let adj=p, tags=[];
-      if(_smartMinOn){ const a=applySmartMinutes(adj); if(a._adjTag){ adj=a; tags.push('min:'+a._adjMin); } }
-      if(_dnpAdjOn){ const a=applyDnpAdjustment(adj); if(a._adjTag){ adj=a; tags.push('dnp:'+a._adjMin); } }
+      if(_smartMinOn){ const a=applySmartMinutes(adj); if(a._adjTag==='min'){ adj=a; tags.push('min:'+a._adjMin); } }
+      if(_dnpAdjOn){ const a=applyDnpAdjustment(adj); if(a._adjTag==='dnp'){ adj=a; tags.push('dnp:'+a._adjMin); } }
       if(tags.length) adj._adjTags=tags;
       return {...adj,vs:valueScore(adj),_dirEV:getDirectionalEV(adj)};
     })
