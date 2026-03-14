@@ -2416,7 +2416,7 @@ function drawEvMinutesChart(currentMin){
   const pad={t:20,r:16,b:32,l:44};
   const cw=W-pad.l-pad.r,ch=H-pad.t-pad.b;
   const isOver=(p.edge||0)>=0;
-  const dirOdds=isOver?p.overOdds:p.underOdds;
+  const dirOdds=isOver?(p.overOdds||-110):(p.underOdds||-110);
   // Compute EV for each minute 0-48
   const evs=[];
   const games=(p.gameLog||[]).filter(g=>parseInt(g.min||'0')>0);
@@ -3172,8 +3172,11 @@ function renderOverview(el,p){
       </div>
     </div>
   </div>`;
-  // Draw EV vs Minutes chart after DOM is ready
-  if(p.hasRealStats) setTimeout(()=>drawEvMinutesChart(),0);
+  // Draw EV vs Minutes chart after DOM is laid out
+  if(p.hasRealStats){
+    const _tryDraw=(n)=>{const c=document.getElementById('evMinutesChart');if(c&&c.offsetWidth>0)drawEvMinutesChart();else if(n<5)setTimeout(()=>_tryDraw(n+1),100);};
+    setTimeout(()=>_tryDraw(0),50);
+  }
   // Load injury report async and inject into the grid
   (async()=>{
     try{
