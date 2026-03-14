@@ -3011,7 +3011,27 @@ function renderOverview(el,p){
   if(p.minutesFlag){const dir=p.minutesFlag>0?'↑ more':'↓ fewer';const pct=Math.abs(Math.round(p.minutesFlag*100));const mCls=p.minutesFlag>0?'flag-minutes-up':'flag-minutes-down';flags.push(`<span class="player-flag ${mCls}">⏱ ${pct}% ${dir} minutes recently</span>`);}
   if(p.dnpCount>=5)flags.push(`<span class="player-flag flag-dnp">✗ ${p.dnpCount} DNPs in last 10 games</span>`);
   const flagsHTML=flags.length?`<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:4px;">${flags.join('')}</div>`:'';
+  // Build adjustment banner if Smart Minutes or DNP Adjusted is active
+  const adjBanner=(()=>{
+    if(!p._adjTags||!p._adjTags.length)return'';
+    const pg=(p.gameLog||[]).filter(g=>parseInt(g.min||'0')>0);
+    const seasonAvg=pg.length?Math.round(pg.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/pg.length):0;
+    const parts=p._adjTags.map(t=>{
+      const [type,minStr]=t.split(':');
+      const adjMin=parseInt(minStr);
+      const diff=adjMin-seasonAvg;
+      const diffFmt=diff>0?`+${diff}`:`${diff}`;
+      const diffCol=diff>0?'var(--g)':'var(--r)';
+      const label=type==='min'?'Smart Minutes':'DNP Adjusted';
+      const icon=type==='min'?'⏱':'✗';
+      return`<span style="display:inline-flex;align-items:center;gap:4px;">${icon} <strong>${label}:</strong> ${adjMin} min <span style="color:${diffCol};font-weight:700;">(${diffFmt} min from ${seasonAvg} avg)</span></span>`;
+    });
+    return`<div class="dc full" style="background:rgba(139,92,246,.1);border:1px solid rgba(139,92,246,.3);padding:8px 12px;border-radius:8px;font-size:11px;color:#c084fc;display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
+      <span style="font-weight:800;">📊 Adjusted Stats Active</span><span style="color:var(--t3);">·</span>${parts.join('<span style="color:var(--t3);">·</span>')}
+    </div>`;
+  })();
   el.innerHTML=`<div class="di-grid">
+    ${adjBanner}
     ${p.hasRealStats?`<div class="dc full" style="background:var(--g)15;border:1px solid var(--g)40;padding:8px 12px;border-radius:8px;font-size:11px;color:var(--g);">✓ Stats from NBA.com — ${p.gamesPlayed} games this season${flagsHTML}</div>`:p.statsError?`<div class="dc full" style="background:var(--r)15;border:1px solid var(--r)40;padding:8px 12px;border-radius:8px;font-size:11px;color:var(--r);">⚠ Stats unavailable: ${p.statsError}</div>`:`<div class="dc full" style="background:var(--a)15;border:1px solid var(--a)40;padding:8px 12px;border-radius:8px;font-size:11px;color:var(--a);">⏳ Loading real stats from NBA.com…</div>`}
     ${(()=>{const _hlc=p.prev_line!=null&&(p.prev_line!==p.line||p.prev_overOdds!==p.overOdds||p.prev_underOdds!==p.underOdds);return`<div class="dc${_hlc?'':' full'}"><div class="dc-t"><span class="dt" style="background:var(--b)"></span>Stats vs Line</div>
       <div class="sr">
