@@ -1278,21 +1278,29 @@ async function fetchInjuryReport() {
     return _injuryCache.data;
   }
   const urls = generateInjuryPdfUrl();
-  for (const url of urls) {
+  // Fetch all URLs in parallel with short timeout, take first valid result
+  const attempts = urls.map(async (url) => {
     try {
-      const resp = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }, timeout: 15000 });
-      if (!resp.ok) continue;
+      const resp = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }, timeout: 5000 });
+      if (!resp.ok) return null;
       const buf = await resp.buffer();
       const result = await pdfParse(buf);
       const injuries = parseInjuryText(result.text);
       if (injuries.length > 0) {
-        _injuryCache = { data: injuries, fetchedAt: now };
         console.log(`[injuries] Parsed ${injuries.length} entries from ${url.split('/').pop()}`);
         return injuries;
       }
     } catch (e) {
       console.warn(`[injuries] Failed ${url.split('/').pop()}: ${e.message}`);
     }
+    return null;
+  });
+  const results = await Promise.all(attempts);
+  // Use the result with the most entries (latest/most complete report)
+  const best = results.filter(Boolean).sort((a, b) => b.length - a.length)[0];
+  if (best) {
+    _injuryCache = { data: best, fetchedAt: now };
+    return best;
   }
   // Return stale cache if available
   if (_injuryCache.data) return _injuryCache.data;
