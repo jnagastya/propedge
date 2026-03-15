@@ -1590,10 +1590,16 @@ app.get('/api/injury-impact', async (req, res) => {
       return res.json({ impact: false, reason: 'no teammate with sufficient data', outTeammates: outTeammates.map(t => t.player), debug });
     }
 
-    // Multiply all individual ratios, cap combined at ±40%
-    const combinedRatio = Math.max(0.60, Math.min(1.40,
-      teammateImpacts.reduce((prod, t) => prod * t.ratio, 1)
-    ));
+    // Weighted average of individual ratios (most impactful weighted highest), cap at ±20%
+    teammateImpacts.sort((a, b) => Math.abs(b.ratio - 1) - Math.abs(a.ratio - 1));
+    const _weights = [0.60, 0.30, 0.10];
+    let _wSum = 0, _wTotal = 0;
+    for (let i = 0; i < teammateImpacts.length; i++) {
+      const w = _weights[Math.min(i, _weights.length - 1)];
+      _wSum += (teammateImpacts[i].ratio - 1) * w;
+      _wTotal += w;
+    }
+    const combinedRatio = Math.max(0.80, Math.min(1.20, 1 + (_wTotal > 0 ? _wSum / _wTotal : 0)));
 
     const hasSpeculative = teammateImpacts.some(t => t.speculative);
     res.json({
@@ -3635,10 +3641,19 @@ function serverApplyInjuryImpact(playerName, playerGameLog, playerTeam, market, 
 
   if (!teammateImpacts.length) return baseStats;
 
-  // 3. Multiply all individual ratios, cap combined at ±40%
-  const combinedRatio = Math.max(0.60, Math.min(1.40,
-    teammateImpacts.reduce((prod, t) => prod * t.ratio, 1)
-  ));
+  // 3. Weighted average of individual ratios (most impactful teammate weighted highest)
+  // Sort by magnitude of impact (furthest from 1.0 first)
+  teammateImpacts.sort((a, b) => Math.abs(b.ratio - 1) - Math.abs(a.ratio - 1));
+  // Diminishing weights: 60% for top impact, 30% for second, 10% for rest
+  const weights = [0.60, 0.30, 0.10];
+  let weightedSum = 0, weightTotal = 0;
+  for (let i = 0; i < teammateImpacts.length; i++) {
+    const w = weights[Math.min(i, weights.length - 1)];
+    weightedSum += (teammateImpacts[i].ratio - 1) * w;
+    weightTotal += w;
+  }
+  const avgShift = weightTotal > 0 ? weightedSum / weightTotal : 0;
+  const combinedRatio = Math.max(0.80, Math.min(1.20, 1 + avgShift)); // cap at ±20%
   if (Math.abs(combinedRatio - 1.0) < 0.03) return baseStats;
   const cappedRatio = combinedRatio;
 
