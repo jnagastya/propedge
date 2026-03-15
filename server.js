@@ -157,7 +157,7 @@ let BDL_KEY = process.env.BDL_API_KEY || '';
 const _playerTeamCache = {
   'Derik Queen':'HOU','Jeremiah Fears':'OKC','Mohamed Diawara':'ATL',
   'Ivica Zubac':'IND','Gui Santos':'GSW','Marcus Sasser':'DET',
-  'Cody Williams':'UTA','Mitchell Robinson':'NYK','Brice Sensabaugh':'TOR',
+  'Cody Williams':'UTA','Mitchell Robinson':'NYK','Brice Sensabaugh':'UTA',
   'Ace Bailey':'UTA','Sandro Mamukelashvili':'TOR','Matas Buzelis':'CHI',
   'Keon Ellis':'CLE','Olivier-Maxence Prosper':'DAL','Isaiah Collier':'UTA',
   'Kyle Filipowski':'UTA','Jaylon Tyson':'CLE','Dennis Schroder':'CLE',
@@ -170,7 +170,7 @@ const _playerTeamCache = {
   'Aaron Nesmith':'IND','Oso Ighodaro':'PHX','Will Richard':'GSW',
   'Toumani Camara':'POR','Bennedict Mathurin':'IND','Jaylen Wells':'MEM',
   'Dean Wade':'CLE','Robert Williams':'POR','Isaiah Stewart II':'DET',
-  'Donovan Clingan':'POR','Cooper Flagg':'LAL','Saddiq Bey':'ATL',
+  'Donovan Clingan':'POR','Cooper Flagg':'DAL','Saddiq Bey':'ATL',
   'Kris Dunn':'LAC','Kevin Huerter':'IND','Jabari Smith Jr':'HOU','Leonard Miller':'CHI',
   'Marcus Smart':'LAL','Adem Bona':'PHI','Nolan Traore':'BKN','Norman Powell':'MIA','Jonas Valanciunas':'DEN',
   'Trae Young':'WAS','Alex Sarr':'WAS','Quentin Grimes':'PHI','Tim Hardaway Jr':'DEN',
@@ -196,6 +196,9 @@ const _playerTeamCache = {
   'Ron Holland':'DET',
   'Brandon Ingram':'TOR',
   'Jrue Holiday':'POR',
+  'Myles Turner':'MIL',
+  'Kyle Kuzma':'MIL',
+  'Deni Avdija':'NOP',
 };
 // All manually-set teams are frozen — never overwritten by BDL/Supabase game log data
 const _frozenTeams = new Set(Object.keys(_playerTeamCache));
@@ -1535,14 +1538,20 @@ app.get('/api/injury-impact', async (req, res) => {
       const tmAvg = tmPlayed.reduce((s, g) => s + _statVal(g, market), 0) / tmPlayed.length;
 
       if (!recentlyTraded && wo.length >= 7 && wi.length >= 7) {
-        // Enough split data — use actual with/without rate comparison
-        const wiRates = wi.map(g => _statVal(g, market) / (parseFloat(g.min) || 1));
-        const woRates = wo.map(g => _statVal(g, market) / (parseFloat(g.min) || 1));
-        const avgWi = wiRates.reduce((a, b) => a + b, 0) / wiRates.length;
-        const avgWo = woRates.reduce((a, b) => a + b, 0) / woRates.length;
+        // Enough split data — minutes-weighted per-minute rate comparison
+        const wiTotalMin = wi.reduce((s, g) => s + (parseFloat(g.min) || 1), 0);
+        const woTotalMin = wo.reduce((s, g) => s + (parseFloat(g.min) || 1), 0);
+        const avgWi = wi.reduce((s, g) => { const m = parseFloat(g.min) || 1; return s + (_statVal(g, market) / m) * m; }, 0) / wiTotalMin;
+        const avgWo = wo.reduce((s, g) => { const m = parseFloat(g.min) || 1; return s + (_statVal(g, market) / m) * m; }, 0) / woTotalMin;
         if (avgWi === 0) continue;
 
-        const ratio = Math.max(0.70, Math.min(1.30, avgWo / avgWi));
+        const rawRatio = avgWo / avgWi;
+        // Bayesian shrinkage: regress toward 1.0 based on sample size
+        // With 14 games (7+7 min) trust ~41%, with 40 games trust ~67%, with 60+ trust ~75%
+        const totalGames = wo.length + wi.length;
+        const confidence = totalGames / (totalGames + 20);
+        const shrunkRatio = 1.0 + (rawRatio - 1.0) * confidence;
+        const ratio = Math.max(0.70, Math.min(1.30, shrunkRatio));
         if (Math.abs(ratio - 1.0) < 0.03) continue;
 
         teammateImpacts.push({ name: inj.player, ratio: +ratio.toFixed(3), tmAvg: +tmAvg.toFixed(1), wo: wo.length, wi: wi.length, speculative: false });
@@ -2087,6 +2096,95 @@ app.get('/api/debug/bdl', async (req, res) => {
     res.json(result);
   } catch (err) {
     res.json({ ...result, error: err.message });
+  }
+});
+
+// ============================================================
+// ROUTE: POST /api/backfill-positions — look up BDL position for all Supabase players missing one
+// Fetches all player_stats rows with null position, queries BDL for each, writes back.
+// Rate-limited to avoid BDL 429s. Returns summary of updates.
+// ============================================================
+app.get('/api/backfill-positions', async (req, res) => {
+  const secret = (req.headers.authorization || '').replace('Bearer ', '') || req.headers['x-cron-secret'] || req.query.secret;
+  if (process.env.CRON_SECRET && secret !== process.env.CRON_SECRET) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  if (!supabase) return res.status(500).json({ error: 'Supabase not configured' });
+  try {
+    // 1. Fetch all players with null or missing position
+    const { data: players, error } = await supabase
+      .from('player_stats')
+      .select('player_name, bdl_id, position')
+      .eq('season', NBA_SEASON);
+    if (error) return res.status(500).json({ error: error.message });
+
+    const needsPosition = players.filter(p => !p.position);
+    const alreadyHas = players.length - needsPosition.length;
+
+    console.log(`[backfill-positions] ${needsPosition.length} players need position (${alreadyHas} already have one)`);
+
+    const updated = [], failed = [], skipped = [];
+
+    for (const p of needsPosition) {
+      try {
+        // If we already have a BDL ID, fetch position directly
+        let position = null;
+        if (p.bdl_id) {
+          try {
+            const resp = await fetch(`${BDL_BASE}/players/${p.bdl_id}`, { headers: bdlHeaders() });
+            if (resp.ok) {
+              const data = await resp.json();
+              const player = data.data || data;
+              position = normalizeBDLPosition(player.position);
+            }
+          } catch {}
+        }
+
+        // Fallback: search by name (uses full name-matching pipeline)
+        if (!position) {
+          const result = await getBDLPlayerId(p.player_name);
+          if (result?.id) {
+            position = result.position ? normalizeBDLPosition(result.position) : null;
+          }
+        }
+
+        if (!position) {
+          skipped.push({ name: p.player_name, reason: 'BDL lookup returned no position' });
+          continue;
+        }
+
+        // Write position back to Supabase
+        const { error: updateErr } = await supabase
+          .from('player_stats')
+          .update({ position })
+          .eq('player_name', p.player_name);
+
+        if (updateErr) {
+          failed.push({ name: p.player_name, error: updateErr.message });
+        } else {
+          updated.push({ name: p.player_name, position });
+        }
+
+        // Rate limit: 200ms between BDL calls to avoid 429s
+        await new Promise(r => setTimeout(r, 200));
+      } catch (e) {
+        failed.push({ name: p.player_name, error: e.message });
+      }
+    }
+
+    console.log(`[backfill-positions] Done: ${updated.length} updated, ${skipped.length} skipped, ${failed.length} failed`);
+    res.json({
+      total: players.length,
+      alreadyHadPosition: alreadyHas,
+      needed: needsPosition.length,
+      updated: updated.length,
+      skipped: skipped.length,
+      failed: failed.length,
+      details: { updated, skipped, failed },
+    });
+  } catch (e) {
+    console.error('[backfill-positions] Error:', e.message);
+    res.status(500).json({ error: e.message });
   }
 });
 
@@ -3615,15 +3713,19 @@ function serverApplyInjuryImpact(playerName, playerGameLog, playerTeam, market, 
     }
 
     if (!recentlyTraded && wo.length >= 7 && wi.length >= 7) {
-      // Enough split data — use actual with/without rate comparison
-      const wiRates = wi.map(g => _statVal(g, market) / (parseFloat(g.min) || 1));
-      const woRates = wo.map(g => _statVal(g, market) / (parseFloat(g.min) || 1));
-      const avgWi = wiRates.reduce((a, b) => a + b, 0) / wiRates.length;
-      const avgWo = woRates.reduce((a, b) => a + b, 0) / woRates.length;
+      // Enough split data — minutes-weighted per-minute rate comparison
+      const wiTotalMin = wi.reduce((s, g) => s + (parseFloat(g.min) || 1), 0);
+      const woTotalMin = wo.reduce((s, g) => s + (parseFloat(g.min) || 1), 0);
+      const avgWi = wi.reduce((s, g) => { const m = parseFloat(g.min) || 1; return s + (_statVal(g, market) / m) * m; }, 0) / wiTotalMin;
+      const avgWo = wo.reduce((s, g) => { const m = parseFloat(g.min) || 1; return s + (_statVal(g, market) / m) * m; }, 0) / woTotalMin;
       if (avgWi === 0) continue;
 
-      const ratio = avgWo / avgWi;
-      const capped = Math.max(0.70, Math.min(1.30, ratio));
+      const rawRatio = avgWo / avgWi;
+      // Bayesian shrinkage: regress toward 1.0 based on sample size
+      const totalGames = wo.length + wi.length;
+      const confidence = totalGames / (totalGames + 20);
+      const shrunkRatio = 1.0 + (rawRatio - 1.0) * confidence;
+      const capped = Math.max(0.70, Math.min(1.30, shrunkRatio));
       if (Math.abs(capped - 1.0) < 0.03) continue;
 
       teammateImpacts.push({ name: inj.player, ratio: capped, withoutGames: wo.length, withGames: wi.length, speculative: false });
