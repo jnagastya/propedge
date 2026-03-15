@@ -187,6 +187,9 @@ const _playerTeamCache = {
   'Moe Wagner':'ORL','Russell Westbrook':'SAC','Precious Achiuwa':'SAC','Ryan Rollins':'MIL',
   'Dylan Cardwell':'SAC','Justin Edwards':'PHI','Nique Clifford':'SAC',"Kel'el Ware":'MIA',
   'DeMar DeRozan':'SAC','Darius Garland':'LAC','Jaime Jaquez Jr':'MIA','Maxime Raynaud':'SAC',
+  'Kobe Brown':'IND','Isaiah Hartenstein':'OKC','Brandon Williams':'DAL','Quinten Post':'GSW',
+  'Kyle Anderson':'MIN','Ajay Mitchell':'OKC','Jaylin Williams':'OKC',"Ja'Kobe Walter":'TOR',
+  'Aaron Wiggins':'OKC','Cason Wallace':'OKC','Caris LeVert':'DET','Luguentz Dort':'OKC',
 };
 const ODDS_BASE = 'https://api.the-odds-api.com/v4';
 const BDL_BASE = 'https://api.balldontlie.io/nba/v1';
