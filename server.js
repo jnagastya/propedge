@@ -3450,6 +3450,75 @@ function serverApplySmartMinutes(gameLog, line, market, overOdds, underOdds, bas
   return { ...baseStats, avg: adjAvg, hitRate: adjHR, edge, modelProb, confidence, evOver, evUnder, direction, odds, dirEV, vs, stdDev: adjStdDev, _smartMin: true, _adjMin: l3avg };
 }
 
+// Server-side DNP Adjustment (mirrors client applyDnpAdjustment)
+// For players with 5+ DNPs in last 10 games, markdown minutes proportionally
+// 5 DNPs = 20% cut, 10 DNPs = 40% cut, linear between
+function serverApplyDNP(gameLog, line, market, overOdds, underOdds, baseStats) {
+  if (!baseStats.dnpCount || baseStats.dnpCount < 5) return baseStats;
+  const sorted = [...gameLog].sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+  const played = sorted.filter(g => parseInt(g.min || '0') > 0);
+  if (!played.length) return baseStats;
+
+  const seasonAvg = played.reduce((s, g) => s + (parseFloat(g.min) || 0), 0) / played.length;
+  const dnpRatio = Math.min(baseStats.dnpCount, 10);
+  const markdownPct = 0.20 + (dnpRatio - 5) * (0.20 / 5); // 20% at 5, 40% at 10
+  const adjMin = Math.round(seasonAvg * (1 - markdownPct));
+
+  // Recompute stats using adjusted minutes projection (same approach as Smart Minutes)
+  const statKey = STAT_KEYS[market] || 'pts';
+  const getVal = g => statKey === 'pra' ? (+g.pts || 0) + (+g.reb || 0) + (+g.ast || 0)
+    : statKey === 'ra' ? (+g.reb || 0) + (+g.ast || 0) : +(g[statKey] || 0);
+
+  const rates = played.map(g => { const m = parseFloat(g.min) || 1; return getVal(g) / m; });
+  const l5r = rates.slice(0, 5), l10r = rates.slice(0, 10);
+  const blendRate = (l5r.length ? l5r.reduce((a, b) => a + b, 0) / l5r.length : 0) * 0.3125
+    + (l10r.length ? l10r.reduce((a, b) => a + b, 0) / l10r.length : 0) * 0.375
+    + (rates.length ? rates.reduce((a, b) => a + b, 0) / rates.length : 0) * 0.3125;
+  const adjAvg = +(blendRate * adjMin).toFixed(1);
+
+  const vals = played.map(g => getVal(g));
+  const l20 = vals.slice(0, 20);
+  const l20avg = l20.reduce((a, b) => a + b, 0) / l20.length;
+  const stdDev = Math.sqrt(l20.reduce((s, v) => s + Math.pow(v - l20avg, 2), 0) / l20.length);
+  const ratio = adjMin / seasonAvg;
+
+  const adjHR = line ? Math.round(vals.filter(v => v * ratio >= line).length / vals.length * 100) : 50;
+  const l10vals = vals.slice(0, 10);
+  const l10HR = line && l10vals.length ? Math.round(l10vals.filter(v => v * ratio >= line).length / l10vals.length * 100) : adjHR;
+  const l5vals = vals.slice(0, 5);
+  const l5HR = l5vals.length >= 3 && line ? Math.round(l5vals.filter(v => v * ratio >= line).length / l5vals.length * 100) : l10HR;
+
+  const adjStdDev = stdDev * ratio;
+  const statProb = line != null && adjStdDev > 0 ? normalCDF((adjAvg - line) / adjStdDev) : 0.5;
+  const rawProb = (l5HR * 0.25 + l10HR * 0.30 + adjHR * 0.25) / 100 + statProb * 0.20;
+  const modelProb = Math.min(0.97, Math.max(0.03, (rawProb * vals.length + 5) / (vals.length + 10)));
+
+  const evOver = calcEV(modelProb, overOdds);
+  const evUnder = calcEV(1 - modelProb, underOdds);
+  const edge = line ? +((adjAvg - line) / line * 100).toFixed(1) : 0;
+
+  const isOverBet = edge >= 0;
+  const dirModelProb = isOverBet ? modelProb : 1 - modelProb;
+  const dirImplied = isOverBet ? impliedProb(overOdds) : impliedProb(underOdds);
+  const cv = adjAvg ? adjStdDev / adjAvg : 0.4;
+
+  const _evEdge = dirModelProb - dirImplied;
+  const _evEdgePts = Math.min(30, Math.max(0, _evEdge * 300));
+  const _alignPts = (edge >= 0 && modelProb >= 0.5) || (edge < 0 && modelProb < 0.5) ? 20 : 0;
+  const _vigGap = Math.abs(dirModelProb - dirImplied);
+  const _sharpPts = Math.min(20, Math.max(0, _vigGap * 100));
+  const _cvPts = Math.min(20, Math.max(0, (0.6 - Math.min(cv, 0.6)) / 0.4 * 20));
+  const _samplePts = Math.min(10, Math.max(0, (vals.length - 5) / 50 * 10));
+  const confidence = Math.max(0, Math.min(100, Math.round(_evEdgePts + _alignPts + _sharpPts + _cvPts + _samplePts)));
+
+  const direction = isOverBet ? 'over' : 'under';
+  const odds = isOverBet ? overOdds : underOdds;
+  const dirEV = isOverBet ? evOver : evUnder;
+  const vs = serverValueScore(dirModelProb, confidence, dirEV);
+
+  return { ...baseStats, avg: adjAvg, hitRate: adjHR, edge, modelProb, confidence, evOver, evUnder, direction, odds, dirEV, vs, stdDev: adjStdDev, _dnpAdj: true, _adjMin: adjMin, _dnpMarkdown: markdownPct };
+}
+
 // ============================================================
 // Injury Impact: "Without Teammate" split-based adjustment
 // Finds the most impactful injured teammate for a given market,
@@ -3754,6 +3823,9 @@ app.get('/api/cron/agent-bet', async (req, res) => {
 
         // Apply Smart Minutes: recalculate flagged players using L3 avg minutes
         let stats = serverApplySmartMinutes(gameLog, p.line, p.market, p.overOdds, p.underOdds, rawStats);
+
+        // Apply DNP Adjustment: markdown minutes for players with 5+ DNPs in last 10
+        stats = serverApplyDNP(gameLog, p.line, p.market, p.overOdds, p.underOdds, stats);
 
         // Apply Injury Impact: adjust based on most impactful OUT teammate
         const playerTeam = _playerTeamCache[p.name] || guessTeam(p.name) || p.homeTeam;
@@ -4064,6 +4136,7 @@ app.get('/api/cron/tipoff-snapshot', async (req, res) => {
         if (!rawStats) { summary.skipped++; continue; }
 
         let stats = serverApplySmartMinutes(gameLog, bet.line, bet.market, bet.odds, bet.odds, rawStats);
+        stats = serverApplyDNP(gameLog, bet.line, bet.market, bet.odds, bet.odds, stats);
         stats = serverApplyInjuryImpact(bet.player_name, gameLog, playerTeam, bet.market, bet.line, bet.odds, bet.odds, injuries, gameLogMap, stats);
 
         const newAdjPct = stats._injuryImpact ? +((stats._injuryRatio - 1) * 100).toFixed(1) : null;
