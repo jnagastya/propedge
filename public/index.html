@@ -4019,16 +4019,7 @@ function applyAllAdjustments(p){
     projMin=Math.round(l3.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/l3.length);
     tags.push('min:'+projMin);
   }
-  if(_dnpAdjOn && p.dnpCount>=5 && p.hasRealStats && p.gameLog && games.length>0){
-    // If Smart Minutes already set projMin, apply DNP markdown to that; otherwise use season avg
-    const baseMin=projMin||Math.round(games.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/games.length);
-    const dnpCapped=Math.min(p.dnpCount,10);
-    const markdownPct=0.20+(dnpCapped-5)*(0.20/5);
-    projMin=Math.round(baseMin*(1-markdownPct));
-    tags.push('dnp:'+projMin);
-  }
-
-  // --- Step 2: Get injury impact ratio + projected minutes ---
+  // --- Step 1b: Get injury impact ratio + projected minutes (BEFORE DNP so DNP applies on top) ---
   if(_injuryImpactOn){
     const key=`${p.name}|${p.market||S.market}`;
     const impact=_injuryImpactCache[key];
@@ -4051,6 +4042,15 @@ function applyAllAdjustments(p){
         injMeta._injSkipped=impact.skipped;
       }
     }
+  }
+
+  // --- Step 1c: DNP markdown applies LAST — on top of Smart Minutes and injury projMinutes ---
+  if(_dnpAdjOn && p.dnpCount>=5 && p.hasRealStats && p.gameLog && games.length>0){
+    const baseMin=projMin||Math.round(games.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/games.length);
+    const dnpCapped=Math.min(p.dnpCount,10);
+    const markdownPct=0.10+(dnpCapped-5)*(0.15/5);
+    projMin=Math.round(baseMin*(1-markdownPct));
+    tags.push('dnp:'+projMin);
   }
 
   // Nothing to adjust — pass through skipped info if any
@@ -4140,7 +4140,7 @@ function applyDnpAdjustment(p){
   if(!games.length) return p;
   const seasonAvg=games.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/games.length;
   const dnpRatio=Math.min(p.dnpCount, 10);
-  const markdownPct=0.20 + (dnpRatio - 5) * (0.20 / 5);
+  const markdownPct=0.10 + (dnpRatio - 5) * (0.15 / 5);
   const adjMin=Math.round(seasonAvg * (1 - markdownPct));
   return _applyMinAdj(p, adjMin, 'dnp');
 }

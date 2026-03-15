@@ -3666,7 +3666,7 @@ function serverApplyDNP(gameLog, line, market, overOdds, underOdds, baseStats) {
 
   const seasonAvg = played.reduce((s, g) => s + (parseFloat(g.min) || 0), 0) / played.length;
   const dnpRatio = Math.min(baseStats.dnpCount, 10);
-  const markdownPct = 0.20 + (dnpRatio - 5) * (0.20 / 5); // 20% at 5, 40% at 10
+  const markdownPct = 0.10 + (dnpRatio - 5) * (0.15 / 5); // 10% at 5, 25% at 10
   const adjMin = Math.round(seasonAvg * (1 - markdownPct));
 
   // Recompute stats using adjusted minutes projection (same approach as Smart Minutes)
