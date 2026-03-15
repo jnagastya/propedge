@@ -3494,25 +3494,30 @@ app.get('/api/cron/grade-agent-bets', async (req, res) => {
   }
   if (!supabase) return res.status(503).json({ error: 'Supabase not configured' });
 
+  const forceDate = req.query.date; // e.g. ?date=2026-03-13 — grade all ungraded bets for that game_date
   const GRADE_AFTER_MS = 10 * 60 * 60 * 1000;
   const now = Date.now();
   const summary = { graded: 0, skipped: 0, errors: [] };
 
   try {
-    const { data: openBets, error: fetchErr } = await supabase
-      .from('agent_bets')
-      .select('*')
-      .is('result', null);
+    let query = supabase.from('agent_bets').select('*').is('result', null);
+    if (forceDate) query = query.eq('game_date', forceDate);
+    const { data: openBets, error: fetchErr } = await query;
     if (fetchErr) return res.status(500).json({ error: fetchErr.message });
 
     for (const bet of (openBets || [])) {
-      if (!bet.game_time || (now - new Date(bet.game_time).getTime()) < GRADE_AFTER_MS) {
-        summary.skipped++;
-        continue;
+      // Skip time check if force-grading by date
+      if (!forceDate) {
+        if (!bet.game_time || (now - new Date(bet.game_time).getTime()) < GRADE_AFTER_MS) {
+          summary.skipped++;
+          continue;
+        }
       }
 
       try {
-        const gameDate = getEtDate(bet.game_time);
+        // Use game_date directly when force-grading, otherwise derive from game_time
+        const gameDate = forceDate || (bet.game_time ? getEtDate(bet.game_time) : bet.game_date);
+        if (!gameDate) { summary.skipped++; continue; }
         const { status, value } = await getActualStat(bet.player_name, gameDate, bet.market);
 
         if (status === 'missing') { summary.skipped++; continue; }
