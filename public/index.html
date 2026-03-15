@@ -1348,10 +1348,10 @@ input[type=range].min-slider::-moz-range-track{height:6px;border-radius:3px;back
       </div>
       <div class="cr">
         <select class="sel" id="sortS" onchange="renderTable()">
+          <option value="val">Sort: Value Score</option>
           <option value="edge">Sort: Edge %</option>
           <option value="ev">Sort: Expected Value</option>
           <option value="conf">Sort: Confidence</option>
-          <option value="val">Sort: Value Score</option>
           <option value="hr">Sort: Hit Rate</option>
           <option value="move">Sort: Line Movement</option>
           <option value="name">Sort: Name</option>
@@ -1468,6 +1468,33 @@ input[type=range].min-slider::-moz-range-track{height:6px;border-radius:3px;back
       <div class="wt-row"><span class="wt-lbl">Model Prob</span><input type="range" class="wt-slider" min="0" max="100" value="20" id="wMp" oninput="syncWeightFromSlider('wMp','wMpNum')"><input type="number" class="wt-num" min="0" max="100" value="20" id="wMpNum" oninput="syncWeightFromNum('wMp','wMpNum')"><span class="wt-prop" id="wMpProp">20%</span></div>
       <div class="wt-row"><span class="wt-lbl">Confidence</span><input type="range" class="wt-slider" min="0" max="100" value="40" id="wConf" oninput="syncWeightFromSlider('wConf','wConfNum')"><input type="number" class="wt-num" min="0" max="100" value="40" id="wConfNum" oninput="syncWeightFromNum('wConf','wConfNum')"><span class="wt-prop" id="wConfProp">40%</span></div>
       <div class="wt-row"><span class="wt-lbl">EV</span><input type="range" class="wt-slider" min="0" max="100" value="40" id="wEv" oninput="syncWeightFromSlider('wEv','wEvNum')"><input type="number" class="wt-num" min="0" max="100" value="40" id="wEvNum" oninput="syncWeightFromNum('wEv','wEvNum')"><span class="wt-prop" id="wEvProp">40%</span></div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0;">
+      <select class="sel" id="alertSortS" onchange="renderAlerts()" style="font-size:11px;padding:4px 8px;">
+        <option value="vs">Sort: Value Score</option>
+        <option value="ev">Sort: EV</option>
+        <option value="conf">Sort: Confidence</option>
+        <option value="mp">Sort: Model Prob</option>
+        <option value="edge">Sort: Edge %</option>
+        <option value="hr">Sort: Hit Rate</option>
+      </select>
+      <select class="sel" id="alertDirF" onchange="renderAlerts()" style="font-size:11px;padding:4px 8px;">
+        <option value="all">Direction: All</option>
+        <option value="over">OVER Only</option>
+        <option value="under">UNDER Only</option>
+      </select>
+      <select class="sel" id="alertConfF" onchange="renderAlerts()" style="font-size:11px;padding:4px 8px;">
+        <option value="0">Confidence: All</option>
+        <option value="60">Confidence 60+</option>
+        <option value="70">Confidence 70+</option>
+        <option value="80">Confidence 80+</option>
+      </select>
+      <select class="sel" id="alertFlagF" onchange="renderAlerts()" style="font-size:11px;padding:4px 8px;">
+        <option value="all">Flags: All</option>
+        <option value="clean">Clean Only</option>
+        <option value="flagged">Flagged Only</option>
+        <option value="injury">Injury Adjusted</option>
+      </select>
     </div>
     <div class="va-grid" id="vaGrid"></div>
   </div>
@@ -4395,8 +4422,32 @@ function renderAlerts(){
       if(tags.length) adj._adjTags=tags;
       return {...adj,vs:valueScore(adj),_dirEV:getDirectionalEV(adj)};
     })
-    .filter(p=>p.vs>=effectiveMinVS&&Math.abs(p.edge||0)>=2&&p._dirEV>0)
-    .sort((a,b)=>b.vs-a.vs);
+    .filter(p=>p.vs>=effectiveMinVS&&Math.abs(p.edge||0)>=2&&p._dirEV>0);
+
+  // Apply alert filters
+  const alertDirF=document.getElementById('alertDirF')?.value||'all';
+  if(alertDirF==='over') alerts=alerts.filter(p=>(p.edge||0)>=0);
+  else if(alertDirF==='under') alerts=alerts.filter(p=>(p.edge||0)<0);
+
+  const alertConfF=+(document.getElementById('alertConfF')?.value||0);
+  if(alertConfF) alerts=alerts.filter(p=>(p.confidence||0)>=alertConfF);
+
+  const alertFlagF=document.getElementById('alertFlagF')?.value||'all';
+  if(alertFlagF==='clean') alerts=alerts.filter(p=>!p.hasFlags&&!p._injImpact);
+  else if(alertFlagF==='flagged') alerts=alerts.filter(p=>p.hasFlags);
+  else if(alertFlagF==='injury') alerts=alerts.filter(p=>p._injImpact);
+
+  // Apply alert sort
+  const alertSort=document.getElementById('alertSortS')?.value||'vs';
+  const sortFns={
+    vs:(a,b)=>b.vs-a.vs,
+    ev:(a,b)=>b._dirEV-a._dirEV,
+    conf:(a,b)=>(b.confidence||0)-(a.confidence||0),
+    mp:(a,b)=>(b.modelProb||0)-(a.modelProb||0),
+    edge:(a,b)=>Math.abs(b.edge||0)-Math.abs(a.edge||0),
+    hr:(a,b)=>(b.hitRate||0)-(a.hitRate||0),
+  };
+  alerts.sort(sortFns[alertSort]||sortFns.vs);
 
   // Build "Line Movers" rotating ribbon (all lines that moved)
   const allData = getAlertData().filter(p=>!p.gameTime||new Date(p.gameTime)>_now);
