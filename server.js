@@ -1538,7 +1538,7 @@ app.get('/api/injury-impact', async (req, res) => {
 
       const tmAvg = tmPlayed.reduce((s, g) => s + _statVal(g, market), 0) / tmPlayed.length;
 
-      if (!recentlyTraded && wo.length >= 3 && wi.length >= 3) {
+      if (!recentlyTraded && wo.length >= 7 && wi.length >= 7) {
         // Enough split data — use actual with/without rate comparison
         const wiRates = wi.map(g => _statVal(g, market) / (parseFloat(g.min) || 1));
         const woRates = wo.map(g => _statVal(g, market) / (parseFloat(g.min) || 1));
@@ -3605,7 +3605,7 @@ function serverApplyInjuryImpact(playerName, playerGameLog, playerTeam, market, 
       else if (tmPlayedDates.has(g.date)) wi.push(g);
     }
 
-    if (!recentlyTraded && wo.length >= 3 && wi.length >= 3) {
+    if (!recentlyTraded && wo.length >= 7 && wi.length >= 7) {
       // Enough split data — use actual with/without rate comparison
       const wiRates = wi.map(g => _statVal(g, market) / (parseFloat(g.min) || 1));
       const woRates = wo.map(g => _statVal(g, market) / (parseFloat(g.min) || 1));
