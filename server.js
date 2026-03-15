@@ -3061,7 +3061,7 @@ async function sendDiscordResults(allBets, latestDate) {
 
   // Model insights — calibration analysis
   const settledValue = allValue.filter(b => b.status === 'won' || b.status === 'lost');
-  if (settledValue.length >= 10) {
+  if (settledValue.length >= 5) {
     const buckets = {};
     for (const b of settledValue) {
       const mp = Math.round((b.model_prob || 0.5) * 100);
@@ -3111,7 +3111,7 @@ async function sendDiscordResults(allBets, latestDate) {
   }
 
   // Value Score tier breakdown
-  if (settledValue.length >= 10) {
+  if (settledValue.length >= 5) {
     const vsTiers = [
       { label: 'VS 50+', min: 50, max: Infinity },
       { label: 'VS 40–49', min: 40, max: 49 },
@@ -3141,7 +3141,7 @@ async function sendDiscordResults(allBets, latestDate) {
   }
 
   // Flagged vs clean player breakdown
-  if (settledValue.length >= 10) {
+  if (settledValue.length >= 5) {
     const flagged = settledValue.filter(b => b.has_flags);
     const clean = settledValue.filter(b => !b.has_flags);
     const bucketLine = (label, bets, emoji) => {
@@ -3223,7 +3223,7 @@ async function sendDiscordResults(allBets, latestDate) {
   }
 
   // Edge accuracy — do higher-edge bets actually win more?
-  if (settledValue.length >= 10) {
+  if (settledValue.length >= 5) {
     const edgeTiers = [
       { label: '10%+ Edge', min: 10 },
       { label: '5-10% Edge', min: 5, max: 10 },
@@ -3253,7 +3253,7 @@ async function sendDiscordResults(allBets, latestDate) {
   }
 
   // Over vs Under split
-  if (settledValue.length >= 10) {
+  if (settledValue.length >= 5) {
     const overBets = settledValue.filter(b => b.direction === 'over');
     const underBets = settledValue.filter(b => b.direction === 'under');
     const splitLine = (label, bets, emoji) => {
@@ -3277,7 +3277,7 @@ async function sendDiscordResults(allBets, latestDate) {
   }
 
   // Home vs Away split
-  if (settledValue.length >= 10) {
+  if (settledValue.length >= 5) {
     // Infer from bet data — check if we stored home/away info
     const homeBets = settledValue.filter(b => b.is_home === true);
     const awayBets = settledValue.filter(b => b.is_home === false);
@@ -3402,10 +3402,82 @@ async function sendDiscordResults(allBets, latestDate) {
     }
   }
 
+  // Confidence Tier Performance
+  if (settledValue.length >= 3) {
+    const confTiers = [
+      { label: 'Elite (75+)', min: 75, max: Infinity },
+      { label: 'Strong (65–74)', min: 65, max: 74 },
+      { label: 'Standard (55–64)', min: 55, max: 64 },
+      { label: 'Low (<55)', min: 0, max: 54 },
+    ];
+    const tierLines = confTiers.map(t => {
+      const inTier = settledValue.filter(b => (b.confidence || 0) >= t.min && (b.confidence || 0) <= t.max);
+      if (!inTier.length) return null;
+      const won = inTier.filter(b => b.status === 'won').length;
+      const lost = inTier.length - won;
+      const wr = (won / inTier.length * 100).toFixed(1);
+      const tierPnl = inTier.reduce((s, b) => s + (b.pnl || 0), 0);
+      const tierStaked = inTier.reduce((s, b) => s + b.stake, 0);
+      const roi = tierStaked ? (tierPnl / tierStaked * 100).toFixed(1) : '0.0';
+      const icon = parseFloat(roi) >= 0 ? '🟢' : '🔴';
+      return `${icon} **${t.label}**: ${won}-${lost} (${wr}%) · ROI ${roi}% · ${pnlFmt(tierPnl)}`;
+    }).filter(Boolean).join('\n');
+
+    if (tierLines) {
+      embeds.push({
+        title: '🎯 Performance by Confidence',
+        description: tierLines + '\n\n_Higher confidence should correlate with higher win rate & ROI_',
+        color: 0x8b5cf6,
+      });
+    }
+  }
+
+  // Daily P&L + W-L bar chart (past 7 days)
+  {
+    const allDates = [...new Set(allValue.map(b => b.game_date || b.placed_at))].sort();
+    const last7 = allDates.slice(-7);
+    if (last7.length >= 2) {
+      const dailyData = last7.map(d => {
+        const dayBets = allValue.filter(b => (b.game_date || b.placed_at) === d && (b.status === 'won' || b.status === 'lost'));
+        const won = dayBets.filter(b => b.status === 'won').length;
+        const lost = dayBets.length - won;
+        const pnl = dayBets.reduce((s, b) => s + (b.pnl || 0), 0);
+        return { date: d, won, lost, pnl, total: dayBets.length };
+      }).filter(d => d.total > 0);
+
+      if (dailyData.length >= 2) {
+        const maxAbsPnl = Math.max(...dailyData.map(d => Math.abs(d.pnl)), 1);
+        const BAR_WIDTH = 10;
+        const chartLines = dailyData.map(d => {
+          const barLen = Math.round((Math.abs(d.pnl) / maxAbsPnl) * BAR_WIDTH);
+          const bar = d.pnl >= 0
+            ? '　'.repeat(BAR_WIDTH - barLen) + '🟩'.repeat(Math.max(barLen, 1))
+            : '🟥'.repeat(Math.max(barLen, 1)) + '　'.repeat(BAR_WIDTH - barLen);
+          const dateLabel = d.date.slice(5); // MM-DD
+          const wl = `${d.won}W-${d.lost}L`;
+          return `\`${dateLabel}\` ${bar} ${pnlFmt(d.pnl)} (${wl})`;
+        }).join('\n');
+
+        const totalPnl7 = dailyData.reduce((s, d) => s + d.pnl, 0);
+        const totalWon7 = dailyData.reduce((s, d) => s + d.won, 0);
+        const totalLost7 = dailyData.reduce((s, d) => s + d.lost, 0);
+        const trend = dailyData.length >= 3
+          ? (dailyData[dailyData.length - 1].pnl > dailyData[dailyData.length - 2].pnl ? '📈 Trending up' : '📉 Trending down')
+          : '';
+
+        embeds.push({
+          title: '📊 7-Day P&L Tracker',
+          description: chartLines + `\n\n**Week Total**: ${pnlFmt(totalPnl7)} · ${totalWon7}W-${totalLost7}L ${trend}`,
+          color: totalPnl7 >= 0 ? 0x10b981 : 0xf43f5e,
+        });
+      }
+    }
+  }
+
   // VS Component Breakdown — median-split lift analysis
   {
     const vsAnalyzable = settledValue.filter(b => b.model_prob != null && b.confidence != null && b.dir_ev != null);
-    if (vsAnalyzable.length >= 10) {
+    if (vsAnalyzable.length >= 5) {
       const median = arr => { const s = [...arr].sort((a, b) => a - b); const m = Math.floor(s.length / 2); return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
       const wr = bets => bets.length ? (bets.filter(b => b.status === 'won').length / bets.length * 100) : 0;
       const components = [
@@ -3449,10 +3521,10 @@ async function sendDiscordResults(allBets, latestDate) {
   }
 
   // Recommendations based on data
-  if (settledValue.length >= 20) {
+  if (settledValue.length >= 5) {
     const recs = [];
     // Check which markets are best/worst
-    const mktEntries = Object.entries(mktMap).filter(([, d]) => d.total >= 5);
+    const mktEntries = Object.entries(mktMap).filter(([, d]) => d.total >= 3);
     const bestMkt = mktEntries.sort((a, b) => (b[1].won / b[1].total) - (a[1].won / a[1].total))[0];
     const worstMkt = mktEntries.sort((a, b) => (a[1].won / a[1].total) - (b[1].won / b[1].total))[0];
     if (bestMkt) recs.push(`📊 **Best market**: ${bestMkt[0]} at ${(bestMkt[1].won / bestMkt[1].total * 100).toFixed(0)}% win rate — consider increasing exposure`);
@@ -3461,7 +3533,7 @@ async function sendDiscordResults(allBets, latestDate) {
 
     // Check high-confidence performance
     const highConf = settledValue.filter(b => b.confidence >= 75);
-    if (highConf.length >= 5) {
+    if (highConf.length >= 3) {
       const hcWr = highConf.filter(b => b.status === 'won').length / highConf.length * 100;
       if (hcWr >= 60) recs.push(`🔥 **Elite confidence (75+)**: ${hcWr.toFixed(0)}% hit rate — model excels at high conviction`);
       else recs.push(`🔍 **Elite confidence (75+)**: only ${hcWr.toFixed(0)}% — confidence scoring may need tuning`);
@@ -3497,10 +3569,21 @@ async function sendDiscordResults(allBets, latestDate) {
     }
   }
 
+  // --- Message 1: Results + pick-by-pick (up to 10 embeds) ---
+  const msg1Embeds = embeds.slice(0, 10);
   await postDiscord(DISCORD_RESULTS_WEBHOOK, {
     content: `@everyone ${yStats.pnl >= 0 ? '🟢' : '🔴'} **Results are in!** ${yStats.won}-${yStats.lost} today (${pnlFmt(yStats.pnl)})`,
-    embeds: embeds.slice(0, 10), // Discord max 10 embeds
+    embeds: msg1Embeds,
   });
+
+  // --- Message 2: Analytics & Insights (remaining embeds) ---
+  const msg2Embeds = embeds.slice(10);
+  if (msg2Embeds.length) {
+    await postDiscord(DISCORD_RESULTS_WEBHOOK, {
+      content: '📊 **Analytics & Insights**',
+      embeds: msg2Embeds.slice(0, 10),
+    });
+  }
 }
 
 const MKT_LABELS = { player_points: 'PTS', player_rebounds: 'REB', player_assists: 'AST', player_threes: '3PM', player_points_rebounds_assists: 'PRA', player_rebounds_assists: 'R+A' };
