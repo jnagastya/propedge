@@ -3832,7 +3832,7 @@ app.get('/api/cron/newsletter', async (req, res) => {
   <!-- FOOTER -->
   <div style="padding:24px;background:#0f172a;text-align:center;">
     <div style="color:#64748b;font-size:11px;">Value Alert Agent · Automated Tracking</div>
-    <div style="color:#475569;font-size:10px;margin-top:4px;">Flat $${STAKE} units · All bets placed at 3:30 PM PST daily</div>
+    <div style="color:#475569;font-size:10px;margin-top:4px;">Flat $$5 units · All bets placed at 3:30 PM PST daily</div>
   </div>
 
 </div></body></html>`;
