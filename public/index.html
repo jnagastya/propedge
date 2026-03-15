@@ -1370,6 +1370,11 @@ input[type=range].min-slider::-moz-range-track{height:6px;border-radius:3px;back
         </div>
         <div class="adj-toggle-switch"><div class="adj-toggle-knob"></div></div>
       </div>
+      <button class="adj-all-btn" id="ppAllFiltersBtn" onclick="toggleAllFilters()" style="padding:8px 14px;border-radius:10px;border:1.5px solid rgba(139,92,246,.4);background:rgba(139,92,246,.1);color:#a78bfa;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;align-self:center;">⚡ All Filters</button>
+    </div>
+    <div id="ppFilterLoading" style="display:none;padding:6px 12px;background:rgba(139,92,246,.08);border:1px solid rgba(139,92,246,.2);border-radius:8px;margin-bottom:8px;font-size:11px;color:#a78bfa;align-items:center;gap:8px;">
+      <div style="width:14px;height:14px;border:2px solid rgba(139,92,246,.3);border-top-color:#a78bfa;border-radius:50%;animation:spin .6s linear infinite;flex-shrink:0;"></div>
+      <span>Applying filters...</span>
     </div>
 
     <!-- CONTROLS -->
@@ -1500,6 +1505,11 @@ input[type=range].min-slider::-moz-range-track{height:6px;border-radius:3px;back
         </div>
         <div class="adj-toggle-switch"><div class="adj-toggle-knob"></div></div>
       </div>
+      <button class="adj-all-btn" id="vaAllFiltersBtn" onclick="toggleAllFilters()" style="padding:8px 14px;border-radius:10px;border:1.5px solid rgba(139,92,246,.4);background:rgba(139,92,246,.1);color:#a78bfa;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;align-self:center;">⚡ All Filters</button>
+    </div>
+    <div id="vaFilterLoading" style="display:none;padding:6px 12px;background:rgba(139,92,246,.08);border:1px solid rgba(139,92,246,.2);border-radius:8px;margin-bottom:8px;font-size:11px;color:#a78bfa;align-items:center;gap:8px;">
+      <div style="width:14px;height:14px;border:2px solid rgba(139,92,246,.3);border-top-color:#a78bfa;border-radius:50%;animation:spin .6s linear infinite;flex-shrink:0;"></div>
+      <span>Applying filters...</span>
     </div>
     <div class="risk-ctrl">
       <span class="risk-label">Risk Profile:</span>
@@ -3343,14 +3353,23 @@ function renderOverview(el,p){
         const specTag=p._injSpeculative?' <span style="color:#f59e0b;font-size:10px;font-weight:600;opacity:.8;" title="Estimated — not enough split data">~est</span>':'';
         return`<span style="display:inline-flex;align-items:center;gap:4px;">🏥 <strong>Injury Impact:</strong> <span style="color:${pctCol};font-weight:700;">${pctFmt}</span>${specTag}</span>`;
       }
-      const adjMin=parseInt(val);
-      const diff=adjMin-seasonAvg;
-      const diffFmt=diff>0?`+${diff}`:`${diff}`;
-      const diffCol=diff>0?'var(--g)':'var(--r)';
-      const label=type==='min'?'Smart Minutes':'DNP Adjusted';
-      const icon=type==='min'?'⏱':'✗';
-      return`<span style="display:inline-flex;align-items:center;gap:4px;">${icon} <strong>${label}:</strong> ${adjMin} min <span style="color:${diffCol};font-weight:700;">(${diffFmt} min from ${seasonAvg} avg)</span></span>`;
-    });
+      if(type==='min'||type==='dnp'){
+        const adjMin=parseInt(val);
+        const diff=adjMin-seasonAvg;
+        const diffFmt=diff>0?`+${diff}`:`${diff}`;
+        const diffCol=diff>0?'var(--g)':'var(--r)';
+        const label=type==='min'?'Smart Minutes':'DNP Adjusted';
+        const icon=type==='min'?'⏱':'✗';
+        return`<span style="display:inline-flex;align-items:center;gap:4px;">${icon} <strong>${label}:</strong> ${adjMin} min <span style="color:${diffCol};font-weight:700;">(${diffFmt} min from ${seasonAvg} avg)</span></span>`;
+      }
+      if(type==='pace'||type==='dvp'){
+        const mult=parseFloat(val);
+        const pct=+((mult-1)*100).toFixed(1);
+        const label=type==='pace'?'Pace':'DvP';
+        return`<span style="display:inline-flex;align-items:center;gap:4px;">📊 <strong>Matchup ${label}:</strong> <span style="color:${pct>0?'var(--g)':'var(--r)'}; font-weight:700;">×${mult.toFixed(2)}</span></span>`;
+      }
+      return null;
+    }).filter(Boolean);
     return`<div class="dc full" style="background:rgba(139,92,246,.1);border:1px solid rgba(139,92,246,.3);padding:8px 12px;border-radius:8px;font-size:11px;color:#c084fc;display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
       <span style="font-weight:800;">📊 Adjusted Stats Active</span><span style="color:var(--t3);">·</span>${parts.join('<span style="color:var(--t3);">·</span>')}
     </div>`;
@@ -4092,12 +4111,13 @@ let _teamStatsCache=null; // { _leagueAvg: {...}, BOS: { pace, allows: {...}, ..
 
 function _flipToggle(id, labelId){ const cb=document.getElementById(id); if(cb){ cb.checked=!cb.checked; document.getElementById(labelId)?.classList.toggle('on',cb.checked); } return cb?.checked||false; }
 function _syncToggles(state, pairs){ pairs.forEach(([cbId, lblId])=>{ const cb=document.getElementById(cbId); if(cb){ cb.checked=state; document.getElementById(lblId)?.classList.toggle('on',state); } }); }
-function toggleSmartMin(){ _smartMinOn=!_smartMinOn; _syncToggles(_smartMinOn,[['smartMinToggle','adjToggle-min'],['ppSmartMinToggle','ppAdjToggle-min']]); renderAlerts(); renderTable(); }
-function toggleDnpAdj(){ _dnpAdjOn=!_dnpAdjOn; _syncToggles(_dnpAdjOn,[['dnpAdjToggle','adjToggle-dnp'],['ppDnpAdjToggle','ppAdjToggle-dnp']]); renderAlerts(); renderTable(); }
+function toggleSmartMin(){ _smartMinOn=!_smartMinOn; _syncToggles(_smartMinOn,[['smartMinToggle','adjToggle-min'],['ppSmartMinToggle','ppAdjToggle-min']]); updateAllFiltersBtn(); showFilterLoading(true); requestAnimationFrame(()=>{renderAlerts(); renderTable(); showFilterLoading(false);}); }
+function toggleDnpAdj(){ _dnpAdjOn=!_dnpAdjOn; _syncToggles(_dnpAdjOn,[['dnpAdjToggle','adjToggle-dnp'],['ppDnpAdjToggle','ppAdjToggle-dnp']]); updateAllFiltersBtn(); showFilterLoading(true); requestAnimationFrame(()=>{renderAlerts(); renderTable(); showFilterLoading(false);}); }
 function toggleInjuryImpact(){
   _injuryImpactOn=!_injuryImpactOn; _syncToggles(_injuryImpactOn,[['injuryImpactToggle','adjToggle-inj'],['ppInjuryImpactToggle','ppAdjToggle-inj']]);
-  if(_injuryImpactOn && !Object.keys(_injuryImpactCache).length) fetchInjuryImpacts();
-  else { renderAlerts(); renderTable(); }
+  updateAllFiltersBtn();
+  if(_injuryImpactOn && !Object.keys(_injuryImpactCache).length){ showFilterLoading(true); fetchInjuryImpacts().finally(()=>showFilterLoading(false)); }
+  else { showFilterLoading(true); requestAnimationFrame(()=>{renderAlerts(); renderTable(); showFilterLoading(false);}); }
 }
 
 async function fetchInjuryImpacts(){
@@ -4126,8 +4146,9 @@ async function fetchInjuryImpacts(){
 
 function toggleTeamStats(){
   _teamStatsOn=!_teamStatsOn; _syncToggles(_teamStatsOn,[['teamStatsToggle','adjToggle-team'],['ppTeamStatsToggle','ppAdjToggle-team']]);
-  if(_teamStatsOn && !_teamStatsCache) fetchTeamStats();
-  else { renderAlerts(); renderTable(); }
+  updateAllFiltersBtn();
+  if(_teamStatsOn && !_teamStatsCache){ showFilterLoading(true); fetchTeamStats().finally(()=>showFilterLoading(false)); }
+  else { showFilterLoading(true); requestAnimationFrame(()=>{renderAlerts(); renderTable(); showFilterLoading(false);}); }
 }
 async function fetchTeamStats(){
   try{
@@ -4135,6 +4156,46 @@ async function fetchTeamStats(){
     if(r.ok) _teamStatsCache=await r.json();
   }catch{}
   renderAlerts(); renderTable();
+}
+async function toggleAllFilters(){
+  const allOn=_smartMinOn&&_dnpAdjOn&&_injuryImpactOn&&_teamStatsOn;
+  const target=!allOn; // toggle to ON if any are off, OFF if all on
+  showFilterLoading(true);
+  // Set all states
+  _smartMinOn=target; _dnpAdjOn=target; _injuryImpactOn=target; _teamStatsOn=target;
+  _syncToggles(target,[['smartMinToggle','adjToggle-min'],['ppSmartMinToggle','ppAdjToggle-min']]);
+  _syncToggles(target,[['dnpAdjToggle','adjToggle-dnp'],['ppDnpAdjToggle','ppAdjToggle-dnp']]);
+  _syncToggles(target,[['injuryImpactToggle','adjToggle-inj'],['ppInjuryImpactToggle','ppAdjToggle-inj']]);
+  _syncToggles(target,[['teamStatsToggle','adjToggle-team'],['ppTeamStatsToggle','ppAdjToggle-team']]);
+  updateAllFiltersBtn();
+  if(target){
+    // Fetch any missing data before rendering
+    const fetches=[];
+    if(!Object.keys(_injuryImpactCache).length) fetches.push(fetchInjuryImpacts().catch(()=>{}));
+    if(!_teamStatsCache) fetches.push(fetchTeamStats().catch(()=>{}));
+    if(fetches.length){ await Promise.all(fetches); }
+    else { renderAlerts(); renderTable(); }
+  } else {
+    renderAlerts(); renderTable();
+  }
+  showFilterLoading(false);
+}
+function showFilterLoading(show){
+  ['ppFilterLoading','vaFilterLoading'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.style.display=show?'flex':'none';
+  });
+}
+function updateAllFiltersBtn(){
+  const allOn=_smartMinOn&&_dnpAdjOn&&_injuryImpactOn&&_teamStatsOn;
+  ['ppAllFiltersBtn','vaAllFiltersBtn'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el){
+      el.style.background=allOn?'rgba(139,92,246,.25)':'rgba(139,92,246,.1)';
+      el.style.borderColor=allOn?'rgba(139,92,246,.6)':'rgba(139,92,246,.4)';
+      el.textContent=allOn?'⚡ All On':'⚡ All Filters';
+    }
+  });
 }
 
 // Market → opponent allowed stat key(s) for DvP multiplier
@@ -5015,7 +5076,7 @@ function renderAlerts(){
           </div>
           <div class="va-meta">${p.team||''} · ${(p.matchup||'').substring(0,25)}${getInjuryBadge(p.name)}</div>
           ${!p.hasRealStats?`<div style="margin-top:3px;"><span class="player-flag flag-est" style="font-size:9px;">⚠ Missing Stats — EV may be inaccurate</span></div>`:''}
-          ${(()=>{const hasMove=p.prev_line!=null&&(p.prev_line!==p.line||p.prev_overOdds!==p.overOdds||p.prev_underOdds!==p.underOdds);const hasFlags=p.returnFromInjury>=2||p.minutesFlag||(p.dnpCount>=5)||hasMove||(p._adjTags&&p._adjTags.length);if(!hasFlags)return'';return`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;">${(p._adjTags||[]).map(t=>{const[type,val]=t.split(':');return type==='min'?`<span class="player-flag" style="background:rgba(139,92,246,.12);color:#a78bfa;border:1px solid rgba(139,92,246,.3);">⏱ Smart Min → ${val}m</span>`:type==='inj'?`<span class="player-flag" style="background:rgba(245,158,11,.12);color:#f59e0b;border:1px solid rgba(245,158,11,.3);">🏥 ${p._injPctChange>0?'+':''}${p._injPctChange||0}%${p._injSpeculative?' ~est':''}</span>`:`<span class="player-flag" style="background:rgba(239,68,68,.12);color:#ef4444;border:1px solid rgba(239,68,68,.3);">⚠ DNP Adj → ${val}m</span>`;}).join('')}${hasMove?`<span class="player-flag flag-mover">↕ Line Moved${p.prev_line!==p.line?' '+((p.line-p.prev_line)>0?'+':'')+((p.line-p.prev_line).toFixed(1)):' (odds)'}</span>`:''}${p.returnFromInjury>=2?`<span class="player-flag flag-injury">⚠ Back after ${p.returnFromInjury} games missed</span>`:''}${p.minutesFlag?`<span class="player-flag ${p.minutesFlag>0?'flag-minutes-up':'flag-minutes-down'}">⏱ ${Math.abs(Math.round(p.minutesFlag*100))}% ${p.minutesFlag>0?'↑ more':'↓ fewer'} minutes</span>`:''}${p.dnpCount>=5?`<span class="player-flag flag-dnp">✗ ${p.dnpCount} DNPs/10</span>`:''}</div>`;})()}</div>
+          ${(()=>{const hasMove=p.prev_line!=null&&(p.prev_line!==p.line||p.prev_overOdds!==p.overOdds||p.prev_underOdds!==p.underOdds);const hasFlags=p.returnFromInjury>=2||p.minutesFlag||(p.dnpCount>=5)||hasMove||(p._adjTags&&p._adjTags.length);if(!hasFlags)return'';return`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;">${(p._adjTags||[]).map(t=>{const[type,val]=t.split(':');if(type==='min')return`<span class="player-flag" style="background:rgba(139,92,246,.12);color:#a78bfa;border:1px solid rgba(139,92,246,.3);">⏱ Smart Min → ${val}m</span>`;if(type==='inj')return`<span class="player-flag" style="background:rgba(245,158,11,.12);color:#f59e0b;border:1px solid rgba(245,158,11,.3);">🏥 ${p._injPctChange>0?'+':''}${p._injPctChange||0}%${p._injSpeculative?' ~est':''}</span>`;if(type==='dnp')return`<span class="player-flag" style="background:rgba(239,68,68,.12);color:#ef4444;border:1px solid rgba(239,68,68,.3);">⚠ DNP Adj → ${val}m</span>`;return'';}).filter(Boolean).join('')}${hasMove?`<span class="player-flag flag-mover">↕ Line Moved${p.prev_line!==p.line?' '+((p.line-p.prev_line)>0?'+':'')+((p.line-p.prev_line).toFixed(1)):' (odds)'}</span>`:''}${p.returnFromInjury>=2?`<span class="player-flag flag-injury">⚠ Back after ${p.returnFromInjury} games missed</span>`:''}${p.minutesFlag?`<span class="player-flag ${p.minutesFlag>0?'flag-minutes-up':'flag-minutes-down'}">⏱ ${Math.abs(Math.round(p.minutesFlag*100))}% ${p.minutesFlag>0?'↑ more':'↓ fewer'} minutes</span>`:''}${p.dnpCount>=5?`<span class="player-flag flag-dnp">✗ ${p.dnpCount} DNPs/10</span>`:''}</div>`;})()}</div>
         <div class="va-right">
           <div class="va-edge-big ${evPct>0?'pos':'neg'}">${evPct>0?'+':''}${evPct}%</div>
           <div class="va-direction ${isOver?'over':'under'}">${isOver?'▲':'▼'} BET ${dir}</div>
