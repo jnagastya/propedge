@@ -1582,10 +1582,12 @@ app.get('/api/injury-impact', async (req, res) => {
         else tmPlayedDates.add(g.date);
       }
 
-      // Skip if teammate has been out long enough that recent stats already reflect it
+      // Gradual fadeout: scale impact by how much is NOT already baked into recent stats
+      // 0/10 recent games without = 100% impact, 5/10 = 50%, 10/10 = 0%
       const l10 = playerPlayedTeam.slice(0, 10);
       const l10Without = l10.filter(g => tmDnpDates.has(g.date)).length;
-      if (l10Without >= 7) continue; // 7+ of last 10 already without → impact baked in
+      const bakedInWeight = Math.max(0, 1 - (l10Without / 10));
+      if (bakedInWeight <= 0) continue; // fully baked in
 
       const wo = [], wi = [];
       for (const g of playerPlayedTeam) {
@@ -1613,7 +1615,9 @@ app.get('/api/injury-impact', async (req, res) => {
         const totalGames = wo.length + wi.length;
         const confidence = totalGames / (totalGames + 20);
         const shrunkRatio = 1.0 + (rawRatio - 1.0) * confidence;
-        const ratio = Math.max(0.70, Math.min(1.30, shrunkRatio));
+        // Apply baked-in fadeout: only apply the portion not already reflected in recent stats
+        const fadedRatio = 1.0 + (shrunkRatio - 1.0) * bakedInWeight;
+        const ratio = Math.max(0.70, Math.min(1.30, fadedRatio));
         if (Math.abs(ratio - 1.0) < 0.03) continue;
 
         teammateImpacts.push({ name: inj.player, ratio: +ratio.toFixed(3), tmAvg: +tmAvg.toFixed(1), wo: wo.length, wi: wi.length, woMinAvg, wiMinAvg, speculative: false });
@@ -1637,8 +1641,10 @@ app.get('/api/injury-impact', async (req, res) => {
         const tmPos = _posMap[inj.player] || _posMap[inj.resolvedName] || null;
         const affinity = getPosAffinity(tmPos, subjectPos, market);
         const boost = tmAvg * 0.35 * playerShare * affinity;
-        const ratio = (playerAvg + boost) / playerAvg;
-        const capped = Math.max(0.70, Math.min(1.20, ratio));
+        const rawRatio = (playerAvg + boost) / playerAvg;
+        // Apply baked-in fadeout
+        const fadedRatio = 1.0 + (rawRatio - 1.0) * bakedInWeight;
+        const capped = Math.max(0.70, Math.min(1.20, fadedRatio));
         if (Math.abs(capped - 1.0) < 0.03) continue;
 
         // For speculative model: estimate minutes boost if same position and out player is a starter
@@ -1669,7 +1675,7 @@ app.get('/api/injury-impact', async (req, res) => {
         const tmDnp = new Set();
         for (const g of tmLog) { if (g.team && g.team !== teamFilter) continue; if (parseInt(g.min || '0') === 0) tmDnp.add(g.date); }
         const l10wo = playerPlayed.slice(0, 10).filter(g => tmDnp.has(g.date)).length;
-        if (l10wo >= 7) { debug.push({ name: inj.player, skip: `already reflected in recent stats (${l10wo}/10 recent games without)` }); continue; }
+        if (l10wo >= 10) { debug.push({ name: inj.player, skip: `fully reflected in recent stats (${l10wo}/10 recent games without)` }); continue; }
         debug.push({ name: inj.player, skip: 'insufficient split data or ratio < 3%' });
       }
       return res.json({ impact: false, reason: 'no teammate with sufficient data', outTeammates: outTeammates.map(t => t.player), debug });
@@ -3789,10 +3795,11 @@ function serverApplyInjuryImpact(playerName, playerGameLog, playerTeam, market, 
       else tmPlayedDates.add(g.date);
     }
 
-    // Skip if teammate has been out long enough that recent stats already reflect it
+    // Gradual fadeout: scale impact by how much is NOT already baked into recent stats
     const l10 = playerPlayedTeam.slice(0, 10);
     const l10Without = l10.filter(g => tmDnpDates.has(g.date)).length;
-    if (l10Without >= 7) continue; // 7+ of last 10 already without → impact baked in
+    const bakedInWeight = Math.max(0, 1 - (l10Without / 10));
+    if (bakedInWeight <= 0) continue; // fully baked in
 
     // Split player's same-team games into with/without this teammate
     const wo = [], wi = [];
@@ -3817,7 +3824,9 @@ function serverApplyInjuryImpact(playerName, playerGameLog, playerTeam, market, 
       const totalGames = wo.length + wi.length;
       const confidence = totalGames / (totalGames + 20);
       const shrunkRatio = 1.0 + (rawRatio - 1.0) * confidence;
-      const capped = Math.max(0.70, Math.min(1.30, shrunkRatio));
+      // Apply baked-in fadeout
+      const fadedRatio = 1.0 + (shrunkRatio - 1.0) * bakedInWeight;
+      const capped = Math.max(0.70, Math.min(1.30, fadedRatio));
       if (Math.abs(capped - 1.0) < 0.03) continue;
 
       teammateImpacts.push({ name: inj.player, ratio: capped, withoutGames: wo.length, withGames: wi.length, woMinAvg, speculative: false });
@@ -3845,8 +3854,10 @@ function serverApplyInjuryImpact(playerName, playerGameLog, playerTeam, market, 
       const subjectPos = positionMap?.get(playerName) || null;
       const affinity = getPosAffinity(tmPos, subjectPos, market);
       const boost = tmAvg * 0.35 * playerShare * affinity;
-      const ratio = (playerAvg + boost) / playerAvg;
-      const capped = Math.max(0.70, Math.min(1.20, ratio)); // tighter cap for speculative
+      const rawRatio2 = (playerAvg + boost) / playerAvg;
+      // Apply baked-in fadeout
+      const fadedRatio2 = 1.0 + (rawRatio2 - 1.0) * bakedInWeight;
+      const capped = Math.max(0.70, Math.min(1.20, fadedRatio2));
       if (Math.abs(capped - 1.0) < 0.03) continue;
 
       // Estimate minutes boost for same-position speculative

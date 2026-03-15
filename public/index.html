@@ -4064,11 +4064,9 @@ function applyAllAdjustments(p){
   // Store pre-adjustment values for injury delta display
   if(injRatio) adj._injPre={avg:p.avg,edge:p.edge,modelProb:p.modelProb,hitRate:p.hitRate,evOver:p.evOver,evUnder:p.evUnder,vs:valueScore(p),dirEV:getDirectionalEV(p)};
 
-  // --- Step 4: Compute adjusted avg and modelProb ---
-  let adjAvg=p.avg, adjProb=p.modelProb||0.5;
+  // --- Step 4: Compute adjusted avg ---
+  let adjAvg=p.avg;
   if(projMin){
-    // Minutes-adjusted probability from rate model
-    adjProb=computeMinutesAdjustedProb(p,projMin);
     // Scale avg by minutes ratio
     const avgMin=games.length?games.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/games.length:30;
     const minRatio=avgMin>0?projMin/avgMin:1;
@@ -4079,11 +4077,11 @@ function applyAllAdjustments(p){
   if(injRatio){
     // Compound injury ratio on top of minutes-adjusted avg
     adjAvg=+(adjAvg*injRatio).toFixed(1);
-    const probShift=(injRatio-1)*0.5;
-    adjProb=Math.min(0.97,Math.max(0.03,adjProb+probShift));
   }
 
-  // --- Step 5: Compute all derived stats ONCE ---
+  // --- Step 5: Derive probability from final adjusted avg (single source of truth) ---
+  const adjStd=Math.max(0.5,p.stdDev||2);
+  const adjProb=p.line>0?Math.min(0.97,Math.max(0.03,1-normalCDF((p.line-adjAvg)/adjStd))):(p.modelProb||0.5);
   adj.avg=adjAvg;
   adj.modelProb=adjProb;
   adj.edge=p.line>0?+((adjAvg-p.line)/p.line*100).toFixed(1):0;
@@ -4113,8 +4111,8 @@ function applyInjuryImpact(p){
   const adj={...p};
   adj.avg=+(p.avg*ratio).toFixed(1);
   adj.edge=p.line>0?+((adj.avg-p.line)/p.line*100).toFixed(1):0;
-  const probShift=(ratio-1)*0.5;
-  const newProb=Math.min(0.97,Math.max(0.03,(p.modelProb||0.5)+probShift));
+  const _std=Math.max(0.5,p.stdDev||2);
+  const newProb=p.line>0?Math.min(0.97,Math.max(0.03,1-normalCDF((p.line-adj.avg)/_std))):(p.modelProb||0.5);
   adj.modelProb=newProb;
   const isOver=adj.edge>=0;
   adj.hitRate=Math.round((isOver?newProb:1-newProb)*100);
