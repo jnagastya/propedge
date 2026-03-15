@@ -3592,14 +3592,39 @@ app.get('/api/cron/agent-bet', async (req, res) => {
     // 3b. Fetch injury report and injured teammates' game logs for injury impact
     const injuries = await fetchInjuryReport();
     const injuredTeammateNames = [...new Set(injuries.filter(i => i.status === 'Out').map(i => i.player))];
-    // Fetch game logs for injured players not already in gameLogMap
-    const missingInjured = injuredTeammateNames.filter(n => !gameLogMap.has(n));
+    // Resolve aliases and fetch game logs for injured players not already in gameLogMap
+    const resolvedInjuredNames = injuredTeammateNames.map(n => ({ orig: n, resolved: resolvePlayerName(n) }));
+    const missingInjured = resolvedInjuredNames.filter(n => !gameLogMap.has(n.resolved) && !gameLogMap.has(n.orig));
+    // Try Supabase first
     if (missingInjured.length && supabase) {
-      for (let i = 0; i < missingInjured.length; i += 50) {
-        const batch = missingInjured.slice(i, i + 50);
+      const namesToFetch = [...new Set(missingInjured.flatMap(n => [n.resolved, n.orig]))];
+      for (let i = 0; i < namesToFetch.length; i += 50) {
+        const batch = namesToFetch.slice(i, i + 50);
         const { data } = await supabase.from('player_stats').select('player_name, game_log, season').eq('season', NBA_SEASON).in('player_name', batch);
         if (data) data.forEach(r => gameLogMap.set(r.player_name, r.game_log));
       }
+    }
+    // BDL fallback for injured players still missing from Supabase (3 concurrent, max 15)
+    const stillMissing = missingInjured.filter(n => !gameLogMap.has(n.resolved) && !gameLogMap.has(n.orig)).slice(0, 15);
+    if (stillMissing.length) {
+      const fetchBatch = async (items, fn, concurrency) => {
+        for (let i = 0; i < items.length; i += concurrency) {
+          await Promise.all(items.slice(i, i + concurrency).map(fn));
+        }
+      };
+      await fetchBatch(stillMissing, async ({ resolved }) => {
+        try {
+          const bdl = await getBDLPlayerId(resolved);
+          if (!bdl?.id) return;
+          const games = await fetchBDLGameLog(bdl.id);
+          if (games?.length) {
+            gameLogMap.set(resolved, games);
+            await sbSetGameLog(resolved, bdl.id, games, bdl.position);
+          }
+        } catch (e) {
+          console.warn(`BDL fallback for injured teammate ${resolved}: ${e.message}`);
+        }
+      }, 3);
     }
 
     // 4. For each player/market combo, compute stats and value score
