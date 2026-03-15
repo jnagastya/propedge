@@ -3212,7 +3212,7 @@ async function enrichPlayerStats(i,p){
     const r=await apiGet(`/api/stats/player/name/${encodeURIComponent(p.name)}/games`);
     console.log(`[stats] ${p.name}:`,r.error||`${r.data?.length??0} games, team=${r.team}, nbaPlayerId=${r.nbaPlayerId}`);
     if(r.team&&(!p.team||p.team==='???'))p.team=r.team;
-    if(r.position&&!p.position)p.position=r.position;
+    if(r.position)p.position=r.position; // BDL position always overrides guess
     // Cache NBA.com player ID for headshots — update any visible avatars immediately
     if(r.nbaPlayerId&&!_nbaIdCache[p.name]){
       _nbaIdCache[p.name]=r.nbaPlayerId;

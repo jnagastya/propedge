@@ -1054,9 +1054,19 @@ app.get('/api/analytics/merged', async (req, res) => {
     // Filter to requested market
     const players = (allPlayers || []).filter(p => p.market === market);
 
-    // Step 2: Return odds data with placeholder stats — real stats loaded client-side
+    // Step 2: Bulk-fetch positions from Supabase for all players in this market
+    const _posMap = {};
+    if (supabase && players.length) {
+      try {
+        const _names = players.map(p => p.name);
+        const { data: _posRows } = await supabase.from('player_stats').select('player_name, position').in('player_name', _names).eq('season', NBA_SEASON);
+        if (_posRows) _posRows.forEach(r => { if (r.position) _posMap[r.player_name] = r.position; });
+      } catch {}
+    }
+
+    // Return odds data with placeholder stats — real stats loaded client-side
     const enriched = players.map((p) => {
-      const pos = guessPosition(p.name);
+      const pos = _posMap[p.name] || guessPosition(p.name);
       const team = _playerTeamCache[p.name] || guessTeam(p.name);
       const impliedProbOver = impliedProb(p.overOdds);
       const impliedProbUnder = impliedProb(p.underOdds);
