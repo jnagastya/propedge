@@ -1648,7 +1648,7 @@ app.get('/api/injury-impact', async (req, res) => {
           // Same position group — estimate subject picks up ~40% of the gap
           const tmMinAvg = tmPlayed.reduce((s, g) => s + (parseFloat(g.min) || 0), 0) / tmPlayed.length;
           const subjectMinAvg = playerPlayed.reduce((s, g) => s + (parseFloat(g.min) || 0), 0) / playerPlayed.length;
-          if (tmMinAvg > 24 && subjectMinAvg < tmMinAvg) {
+          if (tmMinAvg > 30 && subjectMinAvg < tmMinAvg) {
             specWoMinAvg = Math.round(subjectMinAvg + (tmMinAvg - subjectMinAvg) * 0.4);
           }
         }
@@ -3854,7 +3854,7 @@ function serverApplyInjuryImpact(playerName, playerGameLog, playerTeam, market, 
       if (tmPos && subjectPos && tmPos.charAt(0) === subjectPos.charAt(0)) {
         const tmMinAvg = tmPlayed.reduce((s, g) => s + (parseFloat(g.min) || 0), 0) / tmPlayed.length;
         const subjectMinAvg = playerPlayed.reduce((s, g) => s + (parseFloat(g.min) || 0), 0) / playerPlayed.length;
-        if (tmMinAvg > 24 && subjectMinAvg < tmMinAvg) specWoMin = Math.round(subjectMinAvg + (tmMinAvg - subjectMinAvg) * 0.4);
+        if (tmMinAvg > 30 && subjectMinAvg < tmMinAvg) specWoMin = Math.round(subjectMinAvg + (tmMinAvg - subjectMinAvg) * 0.4);
       }
 
       teammateImpacts.push({ name: inj.player, ratio: capped, withoutGames: wo.length, withGames: wi.length, woMinAvg: specWoMin, speculative: true });
