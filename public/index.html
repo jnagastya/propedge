@@ -3589,8 +3589,29 @@ function renderOverview(el,p){
   // Draw EV vs Minutes chart after DOM is laid out
   if(p.hasRealStats){
     const _adjMinInit=p._adjMin;
-    const _tryDraw=(n)=>{const c=document.getElementById('evMinutesChart');if(c&&c.offsetWidth>0){drawEvMinutesChart(_adjMinInit);if(_adjMinInit)updateMinutesProjection(_adjMinInit);}else if(n<20)requestAnimationFrame(()=>setTimeout(()=>_tryDraw(n+1),100));};
+    let _chartDrawn=false;
+    const _doDraw=()=>{
+      if(_chartDrawn) return;
+      const c=document.getElementById('evMinutesChart');
+      if(c&&c.offsetWidth>0&&c.offsetHeight>0){
+        _chartDrawn=true;
+        drawEvMinutesChart(_adjMinInit);
+        if(_adjMinInit)updateMinutesProjection(_adjMinInit);
+      }
+    };
+    // Retry with increasing delays
+    const _tryDraw=(n)=>{
+      _doDraw();
+      if(!_chartDrawn&&n<60) setTimeout(()=>_tryDraw(n+1),n<5?30:n<15?80:200);
+    };
     requestAnimationFrame(()=>_tryDraw(0));
+    // Also use ResizeObserver as a fallback for when the element finally gets layout
+    const c=document.getElementById('evMinutesChart');
+    if(c&&typeof ResizeObserver!=='undefined'){
+      const ro=new ResizeObserver(()=>{_doDraw();if(_chartDrawn)ro.disconnect();});
+      ro.observe(c);
+      setTimeout(()=>ro.disconnect(),10000); // cleanup after 10s
+    }
   }
   // Load injury report async and inject into the grid
   (async()=>{
