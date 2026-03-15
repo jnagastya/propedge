@@ -1509,8 +1509,8 @@ input[type=range].min-slider::-moz-range-track{height:6px;border-radius:3px;back
       </select>
       <select class="sel" id="alertTimeF" onchange="renderAlerts()" style="font-size:11px;padding:4px 8px;">
         <option value="all">Game Time: All</option>
-        <option value="early">Early (before 8pm ET)</option>
-        <option value="late">Late (8pm ET+)</option>
+        <option value="early">Early (before 6pm PT)</option>
+        <option value="late">Late (6pm PT+)</option>
       </select>
       <select class="sel" id="alertOddsF" onchange="renderAlerts()" style="font-size:11px;padding:4px 8px;">
         <option value="all">Odds: All</option>
@@ -4474,14 +4474,15 @@ function renderAlerts(){
   const alertMktF=document.getElementById('alertMktF')?.value||'all';
   if(alertMktF!=='all') alerts=alerts.filter(p=>(p.market||S.market)===alertMktF);
 
-  // Game time filter
+  // Game time filter (5:30pm PT = 17:30)
   const alertTimeF=document.getElementById('alertTimeF')?.value||'all';
   if(alertTimeF!=='all'){
     alerts=alerts.filter(p=>{
       if(!p.gameTime) return true;
-      const h=new Date(p.gameTime).toLocaleString('en-US',{hour:'numeric',hour12:false,timeZone:'America/New_York'});
-      const hr=parseInt(h);
-      return alertTimeF==='early'?hr<20:hr>=20;
+      const pt=new Date(p.gameTime).toLocaleString('en-US',{hour:'numeric',minute:'numeric',hour12:false,timeZone:'America/Los_Angeles'});
+      const [h,m]=pt.split(':').map(Number);
+      const mins=h*60+m;
+      return alertTimeF==='early'?mins<1080:mins>=1080; // 18*60=1080
     });
   }
 
