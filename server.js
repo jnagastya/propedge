@@ -3811,6 +3811,18 @@ app.get('/api/discord/resend-picks', async (req, res) => {
   res.json({ success: true, date, bets: bets.length });
 });
 
+// Debug: see ungraded bet dates
+app.get('/api/debug/ungraded-bets', async (req, res) => {
+  const secret = (req.headers.authorization || '').replace('Bearer ', '') || req.query.secret;
+  if (process.env.CRON_SECRET && secret !== process.env.CRON_SECRET) return res.status(401).json({ error: 'Unauthorized' });
+  if (!supabase) return res.status(503).json({ error: 'Not configured' });
+  const { data } = await supabase.from('agent_bets').select('id, player_name, game_date, game_time, market, result').is('result', null).limit(20);
+  const { data: dates } = await supabase.from('agent_bets').select('game_date').is('result', null);
+  const dateCounts = {};
+  (dates || []).forEach(d => { dateCounts[d.game_date || 'null'] = (dateCounts[d.game_date || 'null'] || 0) + 1; });
+  res.json({ total: (dates || []).length, byDate: dateCounts, sample: data });
+});
+
 // ---- TEST: Send sample Discord messages ----
 app.get('/api/test-discord', async (req, res) => {
   const secret = (req.headers.authorization || '').replace('Bearer ', '') || req.headers['x-cron-secret'] || req.query.secret;
