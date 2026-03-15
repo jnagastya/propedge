@@ -2285,8 +2285,11 @@ function renderInjuryBreakdown(p){
   const shiftBorder=shiftFavorable?'rgba(34,197,94,.3)':'rgba(239,68,68,.3)';
   const shiftText=shiftFavorable?'#22c55e':'#ef4444';
   // Stat deltas
+  const isOver=p.edge>=0;
+  const dirProb=isOver?(p.modelProb||0):1-(p.modelProb||0);
+  const preDirProb=(pre.edge>=0)?(pre.modelProb||0):1-(pre.modelProb||0);
   const avgD=p.avg-(pre.avg||0);
-  const mpD=((p.modelProb||0)-(pre.modelProb||0))*100;
+  const mpD=(dirProb-preDirProb)*100;
   const edgeD=p.edge-(pre.edge||0);
   const evD=postDirEV-preDirEV;
   const vsD=postVS-preVS;
@@ -2303,8 +2306,8 @@ function renderInjuryBreakdown(p){
         <div style="font-size:13px;font-weight:700;color:var(--t1);">${p.avg} <span style="font-size:10px;font-weight:700;color:${dCol(avgD)};">(${fD(avgD)})</span></div>
       </div>
       <div style="background:var(--bg2);border-radius:8px;padding:8px 10px;border:1px solid var(--bd);">
-        <div style="font-size:9px;color:var(--t3);text-transform:uppercase;font-weight:700;margin-bottom:2px;">Model Prob</div>
-        <div style="font-size:13px;font-weight:700;color:var(--t1);">${Math.round((p.modelProb||0)*100)}% <span style="font-size:10px;font-weight:700;color:${dCol(mpD)};">(${fD(mpD)})</span></div>
+        <div style="font-size:9px;color:var(--t3);text-transform:uppercase;font-weight:700;margin-bottom:2px;">Model Prob <span style="color:${isOver?'var(--g)':'var(--r)'};">${isOver?'OVER':'UNDER'}</span></div>
+        <div style="font-size:13px;font-weight:700;color:var(--t1);">${Math.round(dirProb*100)}% <span style="font-size:10px;font-weight:700;color:${dCol(mpD)};">(${fD(mpD)})</span></div>
       </div>
       <div style="background:var(--bg2);border-radius:8px;padding:8px 10px;border:1px solid var(--bd);">
         <div style="font-size:9px;color:var(--t3);text-transform:uppercase;font-weight:700;margin-bottom:2px;">Edge</div>
