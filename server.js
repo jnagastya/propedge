@@ -190,6 +190,7 @@ const _playerTeamCache = {
   'Kobe Brown':'IND','Isaiah Hartenstein':'OKC','Brandon Williams':'DAL','Quinten Post':'GSW',
   'Kyle Anderson':'MIN','Ajay Mitchell':'OKC','Jaylin Williams':'OKC',"Ja'Kobe Walter":'TOR',
   'Aaron Wiggins':'OKC','Cason Wallace':'OKC','Caris LeVert':'DET','Luguentz Dort':'OKC',
+  'Khris Middleton':'DAL',
 };
 const ODDS_BASE = 'https://api.the-odds-api.com/v4';
 const BDL_BASE = 'https://api.balldontlie.io/nba/v1';
@@ -446,6 +447,10 @@ const BDL_PLAYER_OVERRIDES = {
   'DeMar DeRozan':           { id: 125,           position: 'G', team: 'SAC' },
   'Darius Garland':          { id: 666581,        position: 'G', team: 'LAC' },
   'Maxime Raynaud':          { id: 1057390745,    position: 'C', team: 'SAC' },
+  'Jaylin Williams':         { id: 38017706,      position: 'F', team: 'OKC' },
+  "Ja'Kobe Walter":          { id: 1028029111,    position: 'G', team: 'TOR' },
+  'Aaron Wiggins':           { id: 17896078,      position: 'G', team: 'OKC' },
+  'Khris Middleton':         { id: 246,           position: 'F', team: 'DAL' },
 };
 
 // Search BDL for player ID + position by name, cached 24h
