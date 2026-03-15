@@ -6432,6 +6432,8 @@ const FALLBACK_HCA = 3.5;
 const B2B_HOME_ADJ = 1.0;
 const B2B_AWAY_ADJ = 2.0;
 const MAX_INJURY_ADJ = 8;
+const MARGIN_REGRESS = 0.85;   // Regress raw net rtg margin toward mean (splits are noisy)
+const INJURY_DAMPEN  = 0.65;   // On/off data is noisier → keep 65% of signal
 
 const GL_BOOK_NAMES = {
   fanduel:'FanDuel', draftkings:'DraftKings', betmgm:'BetMGM', pointsbetus:'PointsBet',
@@ -6446,7 +6448,7 @@ function glWinProb(hStats, aStats) {
   const homeNR = hStats.homeNetRtg != null ? hStats.homeNetRtg : hStats.netRtg;
   const awayNR = aStats.awayNetRtg != null ? aStats.awayNetRtg : aStats.netRtg;
   const hcaAdj = (hStats.homeNetRtg != null && aStats.awayNetRtg != null) ? 0 : FALLBACK_HCA;
-  const margin = (homeNR - awayNR) / 2 + hcaAdj;
+  const margin = (homeNR - awayNR) * MARGIN_REGRESS + hcaAdj;
   const prob = 1 / (1 + Math.pow(10, -margin / 12));
   return Math.min(0.97, Math.max(0.03, prob));
 }
@@ -6523,12 +6525,13 @@ function glNormCdf(x) {
   return 0.5 * (1 + sign * y);
 }
 
-// Spread cover probability: P(home margin > bookSpread)
+// Spread cover probability: P(home covers at bookSpread)
+// Home covers if actual_margin > -bookSpread (e.g. at -14.5, home must win by 15+)
 // Uses normal distribution with predicted margin as mean, sigma=12 (NBA game variance)
 const GL_SPREAD_SIGMA = 12;
 function glSpreadProb(predMargin, bookSpread) {
-  // P(margin > bookSpread) = P(Z > (bookSpread - predMargin) / sigma)
-  return 1 - glNormCdf((bookSpread - predMargin) / GL_SPREAD_SIGMA);
+  // Home covers iff margin + bookSpread > 0, i.e., margin > -bookSpread
+  return 1 - glNormCdf((-bookSpread - predMargin) / GL_SPREAD_SIGMA);
 }
 
 // Total probability: P(actual total > bookLine)
@@ -6580,11 +6583,11 @@ function glComputeGame(g, ts, allInjuries) {
     const homeNR = hStats.homeNetRtg != null ? hStats.homeNetRtg : hStats.netRtg;
     const awayNR = aStats.awayNetRtg != null ? aStats.awayNetRtg : aStats.netRtg;
     const hcaAdj = (hStats.homeNetRtg != null && aStats.awayNetRtg != null) ? 0 : FALLBACK_HCA;
-    baseMargin = +((homeNR - awayNR) / 2 + hcaAdj).toFixed(1);
+    baseMargin = +((homeNR - awayNR) * MARGIN_REGRESS + hcaAdj).toFixed(1);
     let margin = baseMargin;
     if (homeB2B) { margin -= B2B_HOME_ADJ; b2bAdj -= B2B_HOME_ADJ; }
     if (awayB2B) { margin += B2B_AWAY_ADJ; b2bAdj += B2B_AWAY_ADJ; }
-    margin += (hInjAdj - aInjAdj) / 2;
+    margin += (hInjAdj - aInjAdj) * INJURY_DAMPEN;
     predSpread = +margin.toFixed(1);
     const prob = 1 / (1 + Math.pow(10, -margin / 12));
     adjHomeWinProb = Math.min(0.97, Math.max(0.03, prob));
@@ -6650,13 +6653,17 @@ function glBestRec(type, c, g) {
   }
   if (type === 'spread') {
     if (c.spreadEdge != null) {
-      if (Math.abs(c.spreadEdge) >= 2) return { edge: c.spreadEdge, strength: Math.abs(c.spreadEdge) >= 5 ? 'strong' : 'lean', side: c.spreadEdge > 0 ? 'home' : 'away' };
+      if (Math.abs(c.spreadEdge) >= 2) {
+        const prob = c.spreadEdge > 0 ? c.homeCoverProb : c.awayCoverProb;
+        return { edge: c.spreadEdge, strength: Math.abs(c.spreadEdge) >= 5 ? 'strong' : 'lean', side: c.spreadEdge > 0 ? 'home' : 'away', prob };
+      }
     }
     return null;
   }
   if (type === 'total') {
     if (c.totalEdge != null && Math.abs(c.totalEdge) >= 2) {
-      return { edge: c.totalEdge, strength: Math.abs(c.totalEdge) >= 5 ? 'strong' : 'lean', side: c.totalEdge > 0 ? 'over' : 'under' };
+      const prob = c.totalEdge > 0 ? c.overProb : c.underProb;
+      return { edge: c.totalEdge, strength: Math.abs(c.totalEdge) >= 5 ? 'strong' : 'lean', side: c.totalEdge > 0 ? 'over' : 'under', prob };
     }
     return null;
   }
@@ -6668,7 +6675,8 @@ function glRecBadge(rec, label) {
   const col = rec.strength === 'strong' ? 'var(--g)' : 'rgba(74,222,128,.7)';
   const bg = rec.strength === 'strong' ? 'rgba(34,197,94,.12)' : 'rgba(34,197,94,.06)';
   const bd = rec.strength === 'strong' ? 'rgba(34,197,94,.4)' : 'rgba(34,197,94,.2)';
-  return `<div style="display:inline-flex;align-items:center;gap:4px;background:${bg};border:1px solid ${bd};border-radius:6px;padding:3px 8px;font-size:10px;font-weight:700;color:${col};">${label}</div>`;
+  const probStr = rec.prob != null ? `<span style="font-weight:500;opacity:.85;margin-left:4px;">${(rec.prob * 100).toFixed(0)}% prob</span>` : '';
+  return `<div style="display:inline-flex;align-items:center;gap:4px;background:${bg};border:1px solid ${bd};border-radius:6px;padding:3px 8px;font-size:10px;font-weight:700;color:${col};">${label}${probStr}</div>`;
 }
 
 async function renderGameLines() {
@@ -6732,12 +6740,15 @@ async function renderGameLines() {
       injTag = `<span style="font-size:10px;color:#f59e0b;margin-left:8px;">Inj: ${parts.join(', ')}</span>`;
     }
 
+    // Large team logo helper (40px for game lines cards)
+    const glLogo = (abbr) => { const c2 = NBA_LOGOS[abbr]; return c2 ? `<img src="https://a.espncdn.com/i/teamlogos/nba/500/${c2}.png" alt="${abbr}" style="width:40px;height:40px;object-fit:contain;flex-shrink:0;filter:drop-shadow(0 1px 3px rgba(0,0,0,.4));" onerror="this.style.display='none'">` : ''; };
+
     return `<div class="gl-card" style="background:var(--bg1);border:1px solid ${hasBigEdge ? 'rgba(74,222,128,.3)' : 'var(--bd)'};border-radius:14px;padding:0;overflow:hidden;${hasBigEdge ? 'box-shadow:0 0 16px rgba(74,222,128,.08);' : ''}cursor:pointer;" onclick="openGLDetailModal(${gi})">
       <!-- Header: Date/Time -->
       <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px 0;">
         <div>
           <div style="font-size:14px;font-weight:700;color:var(--t1);">${dateStr}</div>
-          <div style="font-size:13px;color:var(--t2);font-weight:600;">${etStr} ET<span style="color:var(--t3);font-weight:400;margin-left:6px;">/ ${ptStr} PT</span></div>
+          <div style="font-size:14px;color:var(--t1);font-weight:700;">${ptStr} PT</div>
         </div>
         <div style="display:flex;align-items:center;gap:6px;">
           ${c.blowoutRisk > 25 ? `<span style="font-size:10px;color:var(--r);opacity:.8;">Blowout ${c.blowoutRisk.toFixed(0)}%</span>` : ''}
@@ -6747,8 +6758,8 @@ async function renderGameLines() {
 
       <!-- Teams -->
       <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:6px;align-items:center;padding:14px 16px;">
-        <div style="display:flex;align-items:center;gap:10px;">
-          ${teamLogo(g.away)}
+        <div style="display:flex;align-items:center;gap:12px;">
+          ${glLogo(g.away)}
           <div>
             <div style="font-size:17px;font-weight:800;color:var(--t1);">${g.away}${c.awayB2B ? '<span style="font-size:9px;background:rgba(251,191,36,.2);color:rgb(251,191,36);border-radius:4px;padding:1px 4px;margin-left:5px;font-weight:600;">B2B</span>' : ''}</div>
             <div style="font-size:11px;color:var(--t3);">${aRec}${c.aStats ? ` · ${c.aStats.awayNetRtg != null ? (c.aStats.awayNetRtg > 0 ? '+' : '') + c.aStats.awayNetRtg.toFixed(1) + ' Away' : (c.aStats.netRtg > 0 ? '+' : '') + c.aStats.netRtg.toFixed(1) + ' NR'}` : ''}</div>
@@ -6756,73 +6767,73 @@ async function renderGameLines() {
         </div>
         <div style="text-align:center;">
           <div style="font-size:11px;color:var(--t3);font-weight:700;">@</div>
-          ${c.homeWinProb != null ? `<div style="font-size:11px;color:var(--t3);margin-top:2px;">${(c.awayWinProb * 100).toFixed(0)}-${(c.homeWinProb * 100).toFixed(0)}</div>` : ''}
+          ${c.homeWinProb != null ? `<div style="font-size:12px;color:var(--t2);margin-top:2px;font-weight:700;"><span style="color:${c.awayWinProb > 0.5 ? 'var(--g)' : 'var(--t3)'};">${(c.awayWinProb * 100).toFixed(0)}%</span><span style="color:var(--t3);font-weight:400;"> - </span><span style="color:${c.homeWinProb > 0.5 ? 'var(--g)' : 'var(--t3)'};">${(c.homeWinProb * 100).toFixed(0)}%</span></div>` : ''}
         </div>
-        <div style="display:flex;align-items:center;gap:10px;justify-content:flex-end;">
+        <div style="display:flex;align-items:center;gap:12px;justify-content:flex-end;">
           <div style="text-align:right;">
             <div style="font-size:17px;font-weight:800;color:var(--t1);">${g.home}${c.homeB2B ? '<span style="font-size:9px;background:rgba(251,191,36,.2);color:rgb(251,191,36);border-radius:4px;padding:1px 4px;margin-left:5px;font-weight:600;">B2B</span>' : ''}</div>
             <div style="font-size:11px;color:var(--t3);">${hRec}${c.hStats ? ` · ${c.hStats.homeNetRtg != null ? (c.hStats.homeNetRtg > 0 ? '+' : '') + c.hStats.homeNetRtg.toFixed(1) + ' Home' : (c.hStats.netRtg > 0 ? '+' : '') + c.hStats.netRtg.toFixed(1) + ' NR'}` : ''}</div>
           </div>
-          ${teamLogo(g.home)}
+          ${glLogo(g.home)}
         </div>
       </div>
 
       <!-- Betting Lines -->
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:var(--bd);">
         ${g.h2h ? `<div style="background:var(--bg1);padding:12px 10px;text-align:center;" onclick="event.stopPropagation();">
-          <div style="font-size:10px;color:var(--t3);margin-bottom:6px;font-weight:600;text-transform:uppercase;">Moneyline</div>
+          <div style="font-size:11px;color:var(--b);margin-bottom:6px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;">Moneyline</div>
           <div style="display:flex;justify-content:space-around;gap:4px;">
             <button onclick="event.stopPropagation();openGLBetModal(${gi},'ml_away')" style="flex:1;background:var(--bg2);border:1.5px solid ${(c.aMLEV||0) > 0 ? 'rgba(74,222,128,.4)' : 'var(--bd)'};border-radius:8px;padding:6px 4px;cursor:pointer;text-align:center;">
-              <div style="font-size:10px;color:var(--t3);">${g.away}</div>
-              <div style="font-size:14px;font-weight:700;color:var(--t1);">${glFmtOdds(g.h2h.away)}</div>
-              ${c.aMLEV != null ? `<div style="font-size:10px;font-weight:700;color:${c.aMLEV > 0 ? 'var(--g)' : 'var(--r)'};">EV ${glFmtEV(c.aMLEV)}</div>` : ''}
+              <div style="font-size:11px;color:var(--b);font-weight:700;">${g.away}</div>
+              <div style="font-size:15px;font-weight:700;color:var(--t1);">${glFmtOdds(g.h2h.away)}</div>
+              ${c.aMLEV != null ? `<div style="font-size:12px;font-weight:700;color:${c.aMLEV > 0 ? 'var(--g)' : 'var(--r)'};">EV ${glFmtEV(c.aMLEV)}</div>` : ''}
             </button>
             <button onclick="event.stopPropagation();openGLBetModal(${gi},'ml_home')" style="flex:1;background:var(--bg2);border:1.5px solid ${(c.hMLEV||0) > 0 ? 'rgba(74,222,128,.4)' : 'var(--bd)'};border-radius:8px;padding:6px 4px;cursor:pointer;text-align:center;">
-              <div style="font-size:10px;color:var(--t3);">${g.home}</div>
-              <div style="font-size:14px;font-weight:700;color:var(--t1);">${glFmtOdds(g.h2h.home)}</div>
-              ${c.hMLEV != null ? `<div style="font-size:10px;font-weight:700;color:${c.hMLEV > 0 ? 'var(--g)' : 'var(--r)'};">EV ${glFmtEV(c.hMLEV)}</div>` : ''}
+              <div style="font-size:11px;color:var(--b);font-weight:700;">${g.home}</div>
+              <div style="font-size:15px;font-weight:700;color:var(--t1);">${glFmtOdds(g.h2h.home)}</div>
+              ${c.hMLEV != null ? `<div style="font-size:12px;font-weight:700;color:${c.hMLEV > 0 ? 'var(--g)' : 'var(--r)'};">EV ${glFmtEV(c.hMLEV)}</div>` : ''}
             </button>
           </div>
           ${mlRec ? `<div style="margin-top:6px;">${glRecBadge(mlRec, `${mlRec.strength === 'strong' ? 'STRONG' : 'LEAN'}: ${mlRec.team} ML`)}</div>` : ''}
         </div>` : `<div style="background:var(--bg1);padding:12px 10px;text-align:center;color:var(--t3);font-size:11px;">No ML data</div>`}
 
         ${g.spread ? `<div style="background:var(--bg1);padding:12px 10px;text-align:center;" onclick="event.stopPropagation();">
-          <div style="font-size:10px;color:var(--t3);margin-bottom:6px;font-weight:600;text-transform:uppercase;">Spread</div>
+          <div style="font-size:11px;color:var(--b);margin-bottom:6px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;">Spread</div>
           <div style="display:flex;justify-content:space-around;gap:4px;">
             <button onclick="event.stopPropagation();openGLBetModal(${gi},'spread_away')" style="flex:1;background:var(--bg2);border:1.5px solid ${(c.awaySpreadEV||0) > 0 ? 'rgba(74,222,128,.4)' : 'var(--bd)'};border-radius:8px;padding:6px 4px;cursor:pointer;text-align:center;">
-              <div style="font-size:10px;color:var(--t3);">${g.away}</div>
-              <div style="font-size:14px;font-weight:700;color:var(--t1);">${g.spread.homeSpread < 0 ? '+' : ''}${(-g.spread.homeSpread)}</div>
-              <div style="font-size:10px;color:var(--t2);">${glFmtOdds(g.spread.away)}</div>
-              ${c.awaySpreadEV != null ? `<div style="font-size:10px;font-weight:700;color:${c.awaySpreadEV > 0 ? 'var(--g)' : 'var(--r)'};">EV ${glFmtEV(c.awaySpreadEV)}</div>` : ''}
+              <div style="font-size:11px;color:var(--b);font-weight:700;">${g.away}</div>
+              <div style="font-size:15px;font-weight:700;color:var(--t1);">${g.spread.homeSpread < 0 ? '+' : ''}${(-g.spread.homeSpread)}</div>
+              <div style="font-size:11px;color:var(--t2);">${glFmtOdds(g.spread.away)}</div>
+              ${c.awaySpreadEV != null ? `<div style="font-size:12px;font-weight:700;color:${c.awaySpreadEV > 0 ? 'var(--g)' : 'var(--r)'};">EV ${glFmtEV(c.awaySpreadEV)}</div>` : ''}
             </button>
             <button onclick="event.stopPropagation();openGLBetModal(${gi},'spread_home')" style="flex:1;background:var(--bg2);border:1.5px solid ${(c.homeSpreadEV||0) > 0 ? 'rgba(74,222,128,.4)' : 'var(--bd)'};border-radius:8px;padding:6px 4px;cursor:pointer;text-align:center;">
-              <div style="font-size:10px;color:var(--t3);">${g.home}</div>
-              <div style="font-size:14px;font-weight:700;color:var(--t1);">${g.spread.homeSpread > 0 ? '+' : ''}${g.spread.homeSpread}</div>
-              <div style="font-size:10px;color:var(--t2);">${glFmtOdds(g.spread.home)}</div>
-              ${c.homeSpreadEV != null ? `<div style="font-size:10px;font-weight:700;color:${c.homeSpreadEV > 0 ? 'var(--g)' : 'var(--r)'};">EV ${glFmtEV(c.homeSpreadEV)}</div>` : ''}
+              <div style="font-size:11px;color:var(--b);font-weight:700;">${g.home}</div>
+              <div style="font-size:15px;font-weight:700;color:var(--t1);">${g.spread.homeSpread > 0 ? '+' : ''}${g.spread.homeSpread}</div>
+              <div style="font-size:11px;color:var(--t2);">${glFmtOdds(g.spread.home)}</div>
+              ${c.homeSpreadEV != null ? `<div style="font-size:12px;font-weight:700;color:${c.homeSpreadEV > 0 ? 'var(--g)' : 'var(--r)'};">EV ${glFmtEV(c.homeSpreadEV)}</div>` : ''}
             </button>
           </div>
-          <div style="margin-top:4px;font-size:10px;color:var(--t3);">Model: <span style="font-weight:700;color:${glEdgeColor(c.spreadEdge)};">${c.predSpread != null ? (c.predSpread > 0 ? '+' : '') + c.predSpread : '—'}</span></div>
+          <div style="margin-top:6px;font-size:12px;color:var(--t3);">Model: <span style="font-weight:700;color:${glEdgeColor(c.spreadEdge)};font-size:13px;">${c.predSpread != null ? (c.predSpread > 0 ? '+' : '') + c.predSpread : '—'}</span></div>
           ${spreadRec ? `<div style="margin-top:4px;">${glRecBadge(spreadRec, `${spreadRec.strength === 'strong' ? 'STRONG' : 'LEAN'}: ${spreadRec.side === 'home' ? g.home : g.away} ${spreadRec.side === 'home' ? (g.spread.homeSpread > 0 ? '+' : '') + g.spread.homeSpread : (g.spread.homeSpread < 0 ? '+' : '') + (-g.spread.homeSpread)}`)}</div>` : ''}
         </div>` : `<div style="background:var(--bg1);padding:12px 10px;text-align:center;color:var(--t3);font-size:11px;">No spread data</div>`}
 
         ${g.total ? `<div style="background:var(--bg1);padding:12px 10px;text-align:center;" onclick="event.stopPropagation();">
-          <div style="font-size:10px;color:var(--t3);margin-bottom:6px;font-weight:600;text-transform:uppercase;">Total</div>
+          <div style="font-size:11px;color:var(--b);margin-bottom:6px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;">Total</div>
           <div style="display:flex;justify-content:space-around;gap:4px;">
             <button onclick="event.stopPropagation();openGLBetModal(${gi},'total_over')" style="flex:1;background:var(--bg2);border:1.5px solid ${(c.overEV||0) > 0 ? 'rgba(74,222,128,.4)' : 'var(--bd)'};border-radius:8px;padding:6px 4px;cursor:pointer;text-align:center;">
-              <div style="font-size:10px;color:var(--t3);">Over</div>
-              <div style="font-size:14px;font-weight:700;color:var(--t1);">${g.total.line}</div>
-              <div style="font-size:10px;color:var(--t2);">${glFmtOdds(g.total.over)}</div>
-              ${c.overEV != null ? `<div style="font-size:10px;font-weight:700;color:${c.overEV > 0 ? 'var(--g)' : 'var(--r)'};">EV ${glFmtEV(c.overEV)}</div>` : ''}
+              <div style="font-size:11px;color:var(--b);font-weight:700;">Over</div>
+              <div style="font-size:15px;font-weight:700;color:var(--t1);">${g.total.line}</div>
+              <div style="font-size:11px;color:var(--t2);">${glFmtOdds(g.total.over)}</div>
+              ${c.overEV != null ? `<div style="font-size:12px;font-weight:700;color:${c.overEV > 0 ? 'var(--g)' : 'var(--r)'};">EV ${glFmtEV(c.overEV)}</div>` : ''}
             </button>
             <button onclick="event.stopPropagation();openGLBetModal(${gi},'total_under')" style="flex:1;background:var(--bg2);border:1.5px solid ${(c.underEV||0) > 0 ? 'rgba(74,222,128,.4)' : 'var(--bd)'};border-radius:8px;padding:6px 4px;cursor:pointer;text-align:center;">
-              <div style="font-size:10px;color:var(--t3);">Under</div>
-              <div style="font-size:14px;font-weight:700;color:var(--t1);">${g.total.line}</div>
-              <div style="font-size:10px;color:var(--t2);">${glFmtOdds(g.total.under)}</div>
-              ${c.underEV != null ? `<div style="font-size:10px;font-weight:700;color:${c.underEV > 0 ? 'var(--g)' : 'var(--r)'};">EV ${glFmtEV(c.underEV)}</div>` : ''}
+              <div style="font-size:11px;color:var(--b);font-weight:700;">Under</div>
+              <div style="font-size:15px;font-weight:700;color:var(--t1);">${g.total.line}</div>
+              <div style="font-size:11px;color:var(--t2);">${glFmtOdds(g.total.under)}</div>
+              ${c.underEV != null ? `<div style="font-size:12px;font-weight:700;color:${c.underEV > 0 ? 'var(--g)' : 'var(--r)'};">EV ${glFmtEV(c.underEV)}</div>` : ''}
             </button>
           </div>
-          <div style="margin-top:4px;font-size:10px;color:var(--t3);">Model: <span style="font-weight:700;color:${glEdgeColor(c.totalEdge)};">${c.predTotal ?? '—'}</span></div>
+          <div style="margin-top:6px;font-size:12px;color:var(--t3);">Model: <span style="font-weight:700;color:${glEdgeColor(c.totalEdge)};font-size:13px;">${c.predTotal ?? '—'}</span></div>
           ${totalRec ? `<div style="margin-top:4px;">${glRecBadge(totalRec, `${totalRec.strength === 'strong' ? 'STRONG' : 'LEAN'}: ${totalRec.side === 'over' ? 'Over' : 'Under'} ${g.total.line}`)}</div>` : ''}
         </div>` : `<div style="background:var(--bg1);padding:12px 10px;text-align:center;color:var(--t3);font-size:11px;">No total data</div>`}
       </div>
@@ -6864,7 +6875,7 @@ function openGLDetailModal(gi) {
   const hNR = c.hStats?.homeNetRtg != null ? c.hStats.homeNetRtg.toFixed(1) : c.hStats?.netRtg?.toFixed(1) || '—';
   const aNR = c.aStats?.awayNetRtg != null ? c.aStats.awayNetRtg.toFixed(1) : c.aStats?.netRtg?.toFixed(1) || '—';
   const usingSplits = c.hStats?.homeNetRtg != null && c.aStats?.awayNetRtg != null;
-  const injAdjTotal = ((c.hInjAdj - c.aInjAdj) / 2).toFixed(1);
+  const injAdjTotal = ((c.hInjAdj - c.aInjAdj) * INJURY_DAMPEN).toFixed(1);
 
   document.getElementById('modalBody').innerHTML = `
     <div style="font-size:12px;color:var(--t3);margin-bottom:16px;">${etStr} / ${ptStr}</div>
@@ -6896,53 +6907,90 @@ function openGLDetailModal(gi) {
 
     <!-- Model Calculation Breakdown -->
     <div style="background:var(--bg2);border:1px solid var(--bd);border-radius:10px;padding:14px;margin-bottom:18px;">
-      <div style="font-size:12px;font-weight:700;color:var(--t1);margin-bottom:10px;">Model Breakdown</div>
+      <div style="font-size:12px;font-weight:700;color:var(--t1);margin-bottom:10px;">Spread Model</div>
       <div style="display:grid;gap:6px;font-size:11px;">
-        <div style="display:flex;justify-content:space-between;"><span style="color:var(--t3);">Home Net Rtg (${usingSplits ? 'home split' : 'overall'})</span><span style="color:var(--t1);font-weight:600;">${hNR}</span></div>
-        <div style="display:flex;justify-content:space-between;"><span style="color:var(--t3);">Away Net Rtg (${usingSplits ? 'away split' : 'overall'})</span><span style="color:var(--t1);font-weight:600;">${aNR}</span></div>
-        <div style="display:flex;justify-content:space-between;"><span style="color:var(--t3);">HCA Adjustment</span><span style="color:var(--t1);font-weight:600;">${usingSplits ? 'Baked into splits' : '+' + FALLBACK_HCA + ' (fallback)'}</span></div>
-        <div style="display:flex;justify-content:space-between;border-top:1px solid var(--bd);padding-top:6px;"><span style="color:var(--t3);">Base Margin</span><span style="color:var(--t1);font-weight:700;">${c.baseMargin != null ? (c.baseMargin > 0 ? '+' : '') + c.baseMargin : '—'}</span></div>
-        ${c.homeB2B || c.awayB2B ? `<div style="display:flex;justify-content:space-between;"><span style="color:#f59e0b;">B2B Adjustment${c.homeB2B ? ' (' + g.home + ' home)' : ''}${c.awayB2B ? ' (' + g.away + ' away)' : ''}</span><span style="color:#f59e0b;font-weight:600;">${c.b2bAdj > 0 ? '+' : ''}${c.b2bAdj.toFixed(1)}</span></div>` : ''}
-        ${c.hInjAdj || c.aInjAdj ? `<div style="display:flex;justify-content:space-between;"><span style="color:#f59e0b;">Injury Adjustment</span><span style="color:#f59e0b;font-weight:600;">${injAdjTotal > 0 ? '+' : ''}${injAdjTotal}</span></div>` : ''}
-        <div style="display:flex;justify-content:space-between;border-top:1px solid var(--bd);padding-top:6px;"><span style="color:var(--t1);font-weight:700;">Final Predicted Spread</span><span style="color:var(--g);font-weight:800;font-size:13px;">${c.predSpread != null ? (c.predSpread > 0 ? '+' : '') + c.predSpread : '—'}</span></div>
-        <div style="display:flex;justify-content:space-between;"><span style="color:var(--t1);font-weight:700;">Predicted Total</span><span style="color:var(--g);font-weight:800;font-size:13px;">${c.predTotal ?? '—'}</span></div>
-        <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--bd);">
-          <div style="font-size:11px;font-weight:600;color:var(--t3);margin-bottom:6px;">Model Probabilities & EV</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;font-size:10px;">
-            ${c.homeWinProb != null ? `<div style="background:var(--bg1);border-radius:6px;padding:6px;text-align:center;">
-              <div style="color:var(--t3);margin-bottom:2px;">ML ${g.home}</div>
-              <div style="font-weight:700;color:var(--t1);">${(c.homeWinProb*100).toFixed(0)}%</div>
-              ${c.hMLEV != null ? `<div style="font-weight:700;color:${c.hMLEV > 0 ? 'var(--g)' : 'var(--r)'};">EV ${glFmtEV(c.hMLEV)}</div>` : ''}
-            </div>` : ''}
-            ${c.homeCoverProb != null ? `<div style="background:var(--bg1);border-radius:6px;padding:6px;text-align:center;">
-              <div style="color:var(--t3);margin-bottom:2px;">Cover ${g.home}</div>
-              <div style="font-weight:700;color:var(--t1);">${(c.homeCoverProb*100).toFixed(0)}%</div>
-              ${c.homeSpreadEV != null ? `<div style="font-weight:700;color:${c.homeSpreadEV > 0 ? 'var(--g)' : 'var(--r)'};">EV ${glFmtEV(c.homeSpreadEV)}</div>` : ''}
-            </div>` : ''}
-            ${c.overProb != null ? `<div style="background:var(--bg1);border-radius:6px;padding:6px;text-align:center;">
-              <div style="color:var(--t3);margin-bottom:2px;">Over</div>
-              <div style="font-weight:700;color:var(--t1);">${(c.overProb*100).toFixed(0)}%</div>
-              ${c.overEV != null ? `<div style="font-weight:700;color:${c.overEV > 0 ? 'var(--g)' : 'var(--r)'};">EV ${glFmtEV(c.overEV)}</div>` : ''}
-            </div>` : ''}
-            ${c.awayWinProb != null ? `<div style="background:var(--bg1);border-radius:6px;padding:6px;text-align:center;">
-              <div style="color:var(--t3);margin-bottom:2px;">ML ${g.away}</div>
-              <div style="font-weight:700;color:var(--t1);">${(c.awayWinProb*100).toFixed(0)}%</div>
-              ${c.aMLEV != null ? `<div style="font-weight:700;color:${c.aMLEV > 0 ? 'var(--g)' : 'var(--r)'};">EV ${glFmtEV(c.aMLEV)}</div>` : ''}
-            </div>` : ''}
-            ${c.awayCoverProb != null ? `<div style="background:var(--bg1);border-radius:6px;padding:6px;text-align:center;">
-              <div style="color:var(--t3);margin-bottom:2px;">Cover ${g.away}</div>
-              <div style="font-weight:700;color:var(--t1);">${(c.awayCoverProb*100).toFixed(0)}%</div>
-              ${c.awaySpreadEV != null ? `<div style="font-weight:700;color:${c.awaySpreadEV > 0 ? 'var(--g)' : 'var(--r)'};">EV ${glFmtEV(c.awaySpreadEV)}</div>` : ''}
-            </div>` : ''}
-            ${c.underProb != null ? `<div style="background:var(--bg1);border-radius:6px;padding:6px;text-align:center;">
-              <div style="color:var(--t3);margin-bottom:2px;">Under</div>
-              <div style="font-weight:700;color:var(--t1);">${(c.underProb*100).toFixed(0)}%</div>
-              ${c.underEV != null ? `<div style="font-weight:700;color:${c.underEV > 0 ? 'var(--g)' : 'var(--r)'};">EV ${glFmtEV(c.underEV)}</div>` : ''}
-            </div>` : ''}
-          </div>
-        </div>
+        <div style="display:flex;justify-content:space-between;"><span style="color:var(--t3);">${g.home} Net Rtg <span style="font-size:10px;">(${usingSplits ? 'home split' : 'overall'})</span></span><span style="color:var(--t1);font-weight:600;">${hNR}</span></div>
+        <div style="display:flex;justify-content:space-between;"><span style="color:var(--t3);">${g.away} Net Rtg <span style="font-size:10px;">(${usingSplits ? 'away split' : 'overall'})</span></span><span style="color:var(--t1);font-weight:600;">${aNR}</span></div>
+        <div style="display:flex;justify-content:space-between;"><span style="color:var(--t3);">HCA</span><span style="color:var(--t1);font-weight:600;">${usingSplits ? 'In splits' : '+' + FALLBACK_HCA}</span></div>
+        <div style="font-size:10px;color:var(--t3);border-top:1px solid var(--bd);padding-top:4px;">Base = (${hNR} - (${aNR})) × ${MARGIN_REGRESS}${usingSplits ? '' : ' + ' + FALLBACK_HCA} = <strong style="color:var(--t1);">${c.baseMargin != null ? (c.baseMargin > 0 ? '+' : '') + c.baseMargin : '—'}</strong></div>
+        ${c.homeB2B || c.awayB2B ? `<div style="display:flex;justify-content:space-between;"><span style="color:#f59e0b;">B2B${c.homeB2B ? ' (' + g.home + ' home -' + B2B_HOME_ADJ + ')' : ''}${c.awayB2B ? ' (' + g.away + ' away +' + B2B_AWAY_ADJ + ')' : ''}</span><span style="color:#f59e0b;font-weight:600;">${c.b2bAdj > 0 ? '+' : ''}${c.b2bAdj.toFixed(1)}</span></div>` : ''}
+        ${c.hInjAdj || c.aInjAdj ? `<div style="display:flex;justify-content:space-between;"><span style="color:#f59e0b;">Injury <span style="font-size:10px;">(${c.hInjAdj ? g.home+' '+c.hInjAdj.toFixed(1) : ''}${c.hInjAdj && c.aInjAdj ? ', ' : ''}${c.aInjAdj ? g.away+' '+c.aInjAdj.toFixed(1) : ''}) × ${INJURY_DAMPEN}</span></span><span style="color:#f59e0b;font-weight:600;">${injAdjTotal > 0 ? '+' : ''}${injAdjTotal}</span></div>` : ''}
+        <div style="display:flex;justify-content:space-between;border-top:1px solid var(--bd);padding-top:6px;"><span style="color:var(--t1);font-weight:700;">Predicted Spread (${g.home})</span><span style="color:var(--g);font-weight:800;font-size:14px;">${c.predSpread != null ? (c.predSpread > 0 ? '+' : '') + c.predSpread : '—'}</span></div>
       </div>
     </div>
+
+    <!-- Spread Probability Math -->
+    ${c.predSpread != null && g.spread ? `<div style="background:var(--bg2);border:1px solid var(--bd);border-radius:10px;padding:14px;margin-bottom:18px;">
+      <div style="font-size:12px;font-weight:700;color:var(--t1);margin-bottom:10px;">Spread Probability</div>
+      <div style="font-size:11px;color:var(--t3);margin-bottom:8px;">
+        Model predicts ${g.home} ${c.predSpread > 0 ? '+' : ''}${c.predSpread}. Book line: ${g.home} ${g.spread.homeSpread > 0 ? '+' : ''}${g.spread.homeSpread}.<br>
+        Using Normal CDF with σ=${GL_SPREAD_SIGMA} (NBA game-to-game variance):
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <div style="background:var(--bg1);border-radius:8px;padding:10px;text-align:center;">
+          <div style="font-size:11px;color:var(--b);font-weight:700;margin-bottom:2px;">${g.home} ${g.spread.homeSpread > 0 ? '+' : ''}${g.spread.homeSpread}</div>
+          <div style="font-size:10px;color:var(--t3);margin-bottom:4px;">P(margin > ${(-g.spread.homeSpread)})</div>
+          <div style="font-size:16px;font-weight:800;color:var(--t1);">${c.homeCoverProb != null ? (c.homeCoverProb*100).toFixed(1) + '%' : '—'}</div>
+          <div style="font-size:10px;color:var(--t3);margin-top:2px;">Implied: ${(glImpliedProb(g.spread.home)*100).toFixed(1)}%</div>
+          ${c.homeSpreadEV != null ? `<div style="font-size:12px;font-weight:700;color:${c.homeSpreadEV > 0 ? 'var(--g)' : 'var(--r)'};">EV ${glFmtEV(c.homeSpreadEV)}</div>` : ''}
+        </div>
+        <div style="background:var(--bg1);border-radius:8px;padding:10px;text-align:center;">
+          <div style="font-size:11px;color:var(--b);font-weight:700;margin-bottom:2px;">${g.away} ${g.spread.homeSpread < 0 ? '+' : ''}${(-g.spread.homeSpread)}</div>
+          <div style="font-size:10px;color:var(--t3);margin-bottom:4px;">P(margin < ${(-g.spread.homeSpread)})</div>
+          <div style="font-size:16px;font-weight:800;color:var(--t1);">${c.awayCoverProb != null ? (c.awayCoverProb*100).toFixed(1) + '%' : '—'}</div>
+          <div style="font-size:10px;color:var(--t3);margin-top:2px;">Implied: ${(glImpliedProb(g.spread.away)*100).toFixed(1)}%</div>
+          ${c.awaySpreadEV != null ? `<div style="font-size:12px;font-weight:700;color:${c.awaySpreadEV > 0 ? 'var(--g)' : 'var(--r)'};">EV ${glFmtEV(c.awaySpreadEV)}</div>` : ''}
+        </div>
+      </div>
+    </div>` : ''}
+
+    <!-- Total Probability Math -->
+    ${c.predTotal != null && g.total ? `<div style="background:var(--bg2);border:1px solid var(--bd);border-radius:10px;padding:14px;margin-bottom:18px;">
+      <div style="font-size:12px;font-weight:700;color:var(--t1);margin-bottom:10px;">Total Probability</div>
+      <div style="font-size:11px;color:var(--t3);margin-bottom:4px;">
+        Predicted total: <strong style="color:var(--t1);">${c.predTotal}</strong> (book line: ${g.total.line})
+      </div>
+      <div style="font-size:10px;color:var(--t3);margin-bottom:8px;">
+        = (${g.home} ORTG + ${g.away} DRTG) / 2 × pace / 100 + (${g.away} ORTG + ${g.home} DRTG) / 2 × pace / 100<br>
+        Normal CDF with σ=${GL_TOTAL_SIGMA} (NBA total variance)
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <div style="background:var(--bg1);border-radius:8px;padding:10px;text-align:center;">
+          <div style="font-size:11px;color:var(--b);font-weight:700;margin-bottom:2px;">Over ${g.total.line}</div>
+          <div style="font-size:10px;color:var(--t3);margin-bottom:4px;">P(total > ${g.total.line})</div>
+          <div style="font-size:16px;font-weight:800;color:var(--t1);">${c.overProb != null ? (c.overProb*100).toFixed(1) + '%' : '—'}</div>
+          <div style="font-size:10px;color:var(--t3);margin-top:2px;">Implied: ${(glImpliedProb(g.total.over)*100).toFixed(1)}%</div>
+          ${c.overEV != null ? `<div style="font-size:12px;font-weight:700;color:${c.overEV > 0 ? 'var(--g)' : 'var(--r)'};">EV ${glFmtEV(c.overEV)}</div>` : ''}
+        </div>
+        <div style="background:var(--bg1);border-radius:8px;padding:10px;text-align:center;">
+          <div style="font-size:11px;color:var(--b);font-weight:700;margin-bottom:2px;">Under ${g.total.line}</div>
+          <div style="font-size:10px;color:var(--t3);margin-bottom:4px;">P(total < ${g.total.line})</div>
+          <div style="font-size:16px;font-weight:800;color:var(--t1);">${c.underProb != null ? (c.underProb*100).toFixed(1) + '%' : '—'}</div>
+          <div style="font-size:10px;color:var(--t3);margin-top:2px;">Implied: ${(glImpliedProb(g.total.under)*100).toFixed(1)}%</div>
+          ${c.underEV != null ? `<div style="font-size:12px;font-weight:700;color:${c.underEV > 0 ? 'var(--g)' : 'var(--r)'};">EV ${glFmtEV(c.underEV)}</div>` : ''}
+        </div>
+      </div>
+    </div>` : ''}
+
+    <!-- Moneyline Probability -->
+    ${c.homeWinProb != null && g.h2h ? `<div style="background:var(--bg2);border:1px solid var(--bd);border-radius:10px;padding:14px;margin-bottom:18px;">
+      <div style="font-size:12px;font-weight:700;color:var(--t1);margin-bottom:10px;">Moneyline Probability</div>
+      <div style="font-size:10px;color:var(--t3);margin-bottom:8px;">Win prob from predicted spread via logistic: 1 / (1 + 10^(-margin / 12))</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <div style="background:var(--bg1);border-radius:8px;padding:10px;text-align:center;">
+          <div style="font-size:11px;color:var(--b);font-weight:700;margin-bottom:2px;">${g.away} ML</div>
+          <div style="font-size:16px;font-weight:800;color:var(--t1);">${(c.awayWinProb*100).toFixed(1)}%</div>
+          <div style="font-size:10px;color:var(--t3);margin-top:2px;">Implied: ${(glImpliedProb(g.h2h.away)*100).toFixed(1)}% (${glFmtOdds(g.h2h.away)})</div>
+          ${c.aMLEV != null ? `<div style="font-size:12px;font-weight:700;color:${c.aMLEV > 0 ? 'var(--g)' : 'var(--r)'};">EV ${glFmtEV(c.aMLEV)}</div>` : ''}
+        </div>
+        <div style="background:var(--bg1);border-radius:8px;padding:10px;text-align:center;">
+          <div style="font-size:11px;color:var(--b);font-weight:700;margin-bottom:2px;">${g.home} ML</div>
+          <div style="font-size:16px;font-weight:800;color:var(--t1);">${(c.homeWinProb*100).toFixed(1)}%</div>
+          <div style="font-size:10px;color:var(--t3);margin-top:2px;">Implied: ${(glImpliedProb(g.h2h.home)*100).toFixed(1)}% (${glFmtOdds(g.h2h.home)})</div>
+          ${c.hMLEV != null ? `<div style="font-size:12px;font-weight:700;color:${c.hMLEV > 0 ? 'var(--g)' : 'var(--r)'};">EV ${glFmtEV(c.hMLEV)}</div>` : ''}
+        </div>
+      </div>
+    </div>` : ''}
 
     <!-- Injury Detail -->
     ${(c.hInjPlayers.length || c.aInjPlayers.length) ? `<div style="background:var(--bg2);border:1px solid var(--bd);border-radius:10px;padding:14px;margin-bottom:18px;">
