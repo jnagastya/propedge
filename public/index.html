@@ -2244,24 +2244,27 @@ function renderInjurySection(injuries,playerName){
 function renderInjuryBreakdown(p){
   const pre=p._injPre||{};
   const pct=p._injPctChange||0;
+  const mktShort=MKT_SHORT[p.market||S.market]||'';
   const pctCol=pct>0?'var(--g)':'var(--r)';
   const pctFmt=pct>0?`+${pct}%`:`${pct}%`;
   const specNote=p._injSpeculative?'<div style="margin-top:6px;padding:6px 8px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);border-radius:6px;font-size:10px;color:#f59e0b;">⚠ Speculative — estimated from production share redistribution (insufficient with/without game data)</div>':'';
-  // Per-teammate breakdown rows
+  // Per-teammate breakdown rows with avg/g context
   const tmRows=(p._injTeammates||[]).map(t=>{
     const r=t.ratio||1;
     const tPct=+((r-1)*100).toFixed(1);
     const tCol=tPct>0?'var(--g)':'var(--r)';
     const tFmt=tPct>0?`+${tPct}%`:`${tPct}%`;
     const spec=t.speculative?` <span style="color:#f59e0b;font-size:9px;">~est</span>`:'';
+    const tmAvgLabel=t.tmAvg?` <span style="font-size:9px;font-weight:400;color:var(--t3);">(${t.tmAvg} ${mktShort}/g)</span>`:'';
     return`<tr>
-      <td style="padding:4px 8px;font-size:11px;font-weight:600;">${t.name}${spec}</td>
+      <td style="padding:4px 8px;font-size:11px;font-weight:600;">${t.name}${spec}${tmAvgLabel}</td>
       <td style="padding:4px 8px;font-size:11px;font-weight:700;color:${tCol};">${tFmt}</td>
       <td style="padding:4px 8px;font-size:10px;color:var(--t3);">${t.wo||'?'} games w/o, ${t.wi||'?'} w/</td>
     </tr>`;
   }).join('');
-  // Compute deltas
+  // Compute deltas + color helpers
   const fD=(v,dec=1)=>{const d=+(v).toFixed(dec);return(d>0?'+':'')+d;};
+  const dCol=(d)=>d>0.01?'var(--g)':d<-0.01?'var(--r)':'var(--t3)';
   const postVS=valueScore(p);
   const postDirEV=getDirectionalEV(p);
   const preVS=pre.vs||0;
@@ -2272,7 +2275,23 @@ function renderInjuryBreakdown(p){
   const postRec=postVS>=40?postDir:'NEUTRAL';
   const recChanged=preRec!==postRec;
   const recCol=postRec==='OVER'?'var(--g)':postRec==='UNDER'?'var(--r)':'var(--t3)';
+  // Determine if injury impact helps or hurts the bet
+  const vsDelta=postVS-preVS;
+  const evDelta=postDirEV-preDirEV;
+  const shiftFavorable=vsDelta>0||evDelta>0;
+  const shiftLabel=shiftFavorable?'Injury favors this bet':'Injury weakens this bet';
+  const shiftIcon=shiftFavorable?'✓':'⚠';
+  const shiftCol=shiftFavorable?'rgba(34,197,94,.12)':'rgba(239,68,68,.12)';
+  const shiftBorder=shiftFavorable?'rgba(34,197,94,.3)':'rgba(239,68,68,.3)';
+  const shiftText=shiftFavorable?'#22c55e':'#ef4444';
+  // Stat deltas
+  const avgD=p.avg-(pre.avg||0);
+  const mpD=((p.modelProb||0)-(pre.modelProb||0))*100;
+  const edgeD=p.edge-(pre.edge||0);
+  const evD=postDirEV-preDirEV;
+  const vsD=postVS-preVS;
   return`<div class="dc full"><div class="dc-t"><span class="dt" style="background:#f59e0b"></span>Injury Impact Breakdown <span style="font-size:11px;font-weight:700;color:${pctCol};margin-left:6px;">${pctFmt} combined</span></div>
+    <div style="margin-bottom:8px;padding:6px 10px;background:${shiftCol};border:1px solid ${shiftBorder};border-radius:6px;font-size:11px;font-weight:700;color:${shiftText};">${shiftIcon} ${shiftLabel} — VS ${fD(vsD,0)}, Dir EV ${fD(evD)}pp</div>
     ${tmRows?`<div style="overflow-x:auto;margin-bottom:8px;"><table style="width:100%;border-collapse:collapse;"><thead><tr>
       <th style="text-align:left;padding:4px 8px;font-size:9px;font-weight:700;color:var(--t3);text-transform:uppercase;border-bottom:1px solid var(--bd);">OUT Player</th>
       <th style="text-align:left;padding:4px 8px;font-size:9px;font-weight:700;color:var(--t3);text-transform:uppercase;border-bottom:1px solid var(--bd);">Impact</th>
@@ -2281,23 +2300,23 @@ function renderInjuryBreakdown(p){
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;">
       <div style="background:var(--bg2);border-radius:8px;padding:8px 10px;border:1px solid var(--bd);">
         <div style="font-size:9px;color:var(--t3);text-transform:uppercase;font-weight:700;margin-bottom:2px;">Avg</div>
-        <div style="font-size:13px;font-weight:700;color:var(--t1);">${p.avg} <span style="font-size:10px;color:var(--t3);">(${fD(p.avg-(pre.avg||0))})</span></div>
+        <div style="font-size:13px;font-weight:700;color:var(--t1);">${p.avg} <span style="font-size:10px;font-weight:700;color:${dCol(avgD)};">(${fD(avgD)})</span></div>
       </div>
       <div style="background:var(--bg2);border-radius:8px;padding:8px 10px;border:1px solid var(--bd);">
         <div style="font-size:9px;color:var(--t3);text-transform:uppercase;font-weight:700;margin-bottom:2px;">Model Prob</div>
-        <div style="font-size:13px;font-weight:700;color:var(--t1);">${Math.round((p.modelProb||0)*100)}% <span style="font-size:10px;color:var(--t3);">(${fD(((p.modelProb||0)-(pre.modelProb||0))*100)})</span></div>
+        <div style="font-size:13px;font-weight:700;color:var(--t1);">${Math.round((p.modelProb||0)*100)}% <span style="font-size:10px;font-weight:700;color:${dCol(mpD)};">(${fD(mpD)})</span></div>
       </div>
       <div style="background:var(--bg2);border-radius:8px;padding:8px 10px;border:1px solid var(--bd);">
         <div style="font-size:9px;color:var(--t3);text-transform:uppercase;font-weight:700;margin-bottom:2px;">Edge</div>
-        <div style="font-size:13px;font-weight:700;color:var(--t1);">${p.edge>0?'+':''}${p.edge}% <span style="font-size:10px;color:var(--t3);">(${fD(p.edge-(pre.edge||0))})</span></div>
+        <div style="font-size:13px;font-weight:700;color:var(--t1);">${p.edge>0?'+':''}${p.edge}% <span style="font-size:10px;font-weight:700;color:${dCol(edgeD)};">(${fD(edgeD)})</span></div>
       </div>
       <div style="background:var(--bg2);border-radius:8px;padding:8px 10px;border:1px solid var(--bd);">
         <div style="font-size:9px;color:var(--t3);text-transform:uppercase;font-weight:700;margin-bottom:2px;">Dir EV</div>
-        <div style="font-size:13px;font-weight:700;color:${postDirEV>=0?'var(--g)':'var(--r)'};">${fD(postDirEV)}% <span style="font-size:10px;color:var(--t3);">(${fD(postDirEV-preDirEV)})</span></div>
+        <div style="font-size:13px;font-weight:700;color:${postDirEV>=0?'var(--g)':'var(--r)'};">${fD(postDirEV)}% <span style="font-size:10px;font-weight:700;color:${dCol(evD)};">(${fD(evD)})</span></div>
       </div>
       <div style="background:var(--bg2);border-radius:8px;padding:8px 10px;border:1px solid var(--bd);">
         <div style="font-size:9px;color:var(--t3);text-transform:uppercase;font-weight:700;margin-bottom:2px;">Value Score</div>
-        <div style="font-size:13px;font-weight:700;color:var(--t1);">${postVS} <span style="font-size:10px;color:var(--t3);">(${fD(postVS-preVS,0)})</span></div>
+        <div style="font-size:13px;font-weight:700;color:var(--t1);">${postVS} <span style="font-size:10px;font-weight:700;color:${dCol(vsD)};">(${fD(vsD,0)})</span></div>
       </div>
       <div style="background:var(--bg2);border-radius:8px;padding:8px 10px;border:1px solid var(--bd);">
         <div style="font-size:9px;color:var(--t3);text-transform:uppercase;font-weight:700;margin-bottom:2px;">Recommendation</div>
