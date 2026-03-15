@@ -3599,6 +3599,89 @@ function renderOverview(el,p){
       }
     }catch(e){console.warn('[injuries UI]',e);}
   })();
+  // Add matchup adjustment breakdown if active
+  if(p._matchupCombined && Math.abs(p._matchupCombined-1.0)>=0.005){
+    const grid2=el.querySelector('.di-grid');
+    if(grid2){
+      const mDiv=document.createElement('div');
+      mDiv.innerHTML=renderMatchupBreakdown(p);
+      const bookComp=grid2.querySelector('.dc.full table.spt');
+      if(bookComp) grid2.insertBefore(mDiv.firstElementChild,bookComp.closest('.dc.full'));
+      else grid2.appendChild(mDiv.firstElementChild);
+    }
+  }
+}
+
+function renderMatchupBreakdown(p){
+  const opp=p._matchupOpp||'OPP';
+  const pace=p._matchupPace||1;
+  const dvp=p._matchupDvP||1;
+  const combined=p._matchupCombined||1;
+  const pctChg=+((combined-1)*100).toFixed(1);
+  const pctCol=pctChg>0?'var(--g)':'var(--r)';
+  const pctFmt=pctChg>0?`+${pctChg}%`:`${pctChg}%`;
+  const mkt=p.market||S.market;
+  const mktLabel=MKT_SHORT[mkt]||'stat';
+
+  // Get raw data for display
+  const ts=_teamStatsCache||{};
+  const ptTeam=p.team||'';
+  const ptPace=ts[ptTeam]?.pace;
+  const opPace=ts[opp]?.pace;
+  const lgPace=ts._leagueAvg?.pace;
+
+  // DvP raw data — reuse the same keys as getDvPMultiplier
+  const dvpKeys=MARKET_DVP_MAP[mkt]||[];
+  const dvpRows=dvpKeys.map(k=>{
+    const oppVal=ts[opp]?.allows?.[k];
+    const lgVal=ts._leagueAvg?.[k];
+    if(!oppVal||!lgVal) return null;
+    const raw=oppVal/lgVal;
+    const dampened=1+(raw-1)*DVP_DAMPEN;
+    const label=k.replace('fg3m','3PT').replace('pts','PTS').replace('reb','REB').replace('ast','AST');
+    return {label,oppVal:oppVal.toFixed(1),lgVal:lgVal.toFixed(1),raw:raw.toFixed(3),dampened:dampened.toFixed(3)};
+  }).filter(Boolean);
+
+  const paceExplain=ptPace&&opPace&&lgPace
+    ?`<div style="font-size:10px;color:var(--t3);margin-top:4px;">Formula: (${ptTeam} pace ${ptPace.toFixed(1)} + ${opp} pace ${opPace.toFixed(1)}) / (${ptTeam} pace + league avg ${lgPace.toFixed(1)}) = <strong style="color:var(--t1);">${pace.toFixed(3)}</strong></div>`
+    :'';
+  const dvpExplain=dvpRows.length
+    ?dvpRows.map(r=>`<div style="font-size:10px;color:var(--t3);margin-top:2px;">${r.label}: ${opp} allows ${r.oppVal}/g vs league avg ${r.lgVal}/g → raw ${r.raw} → dampened (×${DVP_DAMPEN}) = <strong style="color:var(--t1);">${r.dampened}</strong></div>`).join('')
+    :'';
+
+  return`<div class="dc full"><div class="dc-t"><span class="dt" style="background:var(--c)"></span>Matchup Adjustment vs ${opp} <span style="font-size:11px;font-weight:700;color:${pctCol};margin-left:6px;">${pctFmt} combined</span></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px;">
+      <div style="background:var(--bg2);border-radius:8px;padding:8px 10px;border:1px solid var(--bd);text-align:center;">
+        <div style="font-size:9px;color:var(--t3);text-transform:uppercase;font-weight:700;margin-bottom:2px;">Pace Factor</div>
+        <div style="font-size:16px;font-weight:800;color:${pace>1?'var(--g)':pace<1?'var(--r)':'var(--t1)'};">${pace.toFixed(3)}</div>
+        <div style="font-size:9px;color:var(--t3);margin-top:2px;">Game speed</div>
+      </div>
+      <div style="background:var(--bg2);border-radius:8px;padding:8px 10px;border:1px solid var(--bd);text-align:center;">
+        <div style="font-size:9px;color:var(--t3);text-transform:uppercase;font-weight:700;margin-bottom:2px;">DvP Factor</div>
+        <div style="font-size:16px;font-weight:800;color:${dvp>1?'var(--g)':dvp<1?'var(--r)':'var(--t1)'};">${dvp.toFixed(3)}</div>
+        <div style="font-size:9px;color:var(--t3);margin-top:2px;">${opp} vs ${mktLabel}</div>
+      </div>
+      <div style="background:var(--bg2);border-radius:8px;padding:8px 10px;border:1px solid var(--bd);text-align:center;">
+        <div style="font-size:9px;color:var(--t3);text-transform:uppercase;font-weight:700;margin-bottom:2px;">Combined</div>
+        <div style="font-size:16px;font-weight:800;color:${pctCol};">${combined.toFixed(3)}</div>
+        <div style="font-size:9px;color:var(--t3);margin-top:2px;">${pctFmt} to avg</div>
+      </div>
+    </div>
+    <div style="padding:8px 10px;background:var(--bg2);border-radius:6px;border:1px solid var(--bd);">
+      <div style="font-size:10px;font-weight:700;color:var(--b-text);margin-bottom:4px;">How it works</div>
+      <div style="font-size:10px;color:var(--t3);">
+        <strong>Pace:</strong> If both teams play fast, possessions increase → more counting stats. Compared to league average game speed.
+        ${paceExplain}
+      </div>
+      <div style="font-size:10px;color:var(--t3);margin-top:6px;">
+        <strong>DvP (Defense vs Position):</strong> How many ${mktLabel} ${opp} allows vs league average, dampened ${Math.round(DVP_DAMPEN*100)}% toward 1.0 (team defense doesn't fully translate to individual matchups).
+        ${dvpExplain}
+      </div>
+      <div style="font-size:10px;color:var(--t3);margin-top:6px;">
+        <strong>Result:</strong> Player's adjusted avg is multiplied by <strong style="color:${pctCol}">${combined.toFixed(3)}</strong> (${pctFmt}). This ${pctChg>0?'boosts':'reduces'} the projection to account for the specific matchup.
+      </div>
+    </div>
+  </div>`;
 }
 
 function renderLineSimulator(el,p){
