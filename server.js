@@ -202,6 +202,9 @@ const _frozenTeams = new Set([
   'James Harden','Max Christie','Ron Holland','Sandro Mamukelashvili',
   'Brandon Ingram','Jrue Holiday','Dennis Schroder','Khris Middleton',
   'Duncan Robinson','Keon Ellis',
+  'Kobe Brown','Isaiah Hartenstein','Brandon Williams','Quinten Post',
+  'Kyle Anderson','Ajay Mitchell','Jaylin Williams',"Ja'Kobe Walter",
+  'Aaron Wiggins','Cason Wallace','Caris LeVert','Luguentz Dort',
 ]);
 const ODDS_BASE = 'https://api.the-odds-api.com/v4';
 const BDL_BASE = 'https://api.balldontlie.io/nba/v1';
