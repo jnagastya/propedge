@@ -1055,25 +1055,16 @@ app.get('/api/analytics/merged', async (req, res) => {
     // Filter to requested market
     const players = (allPlayers || []).filter(p => p.market === market);
 
-    // Step 2: Enrich each player with estimated stats + EV from odds
+    // Step 2: Return odds data with placeholder stats — real stats loaded client-side
     const enriched = players.map((p) => {
-      const l10 = generateFakeL10(p.line);
-      const avg = +(l10.reduce((a, b) => a + b, 0) / l10.length).toFixed(1);
-      const hitRate = p.line ? Math.round(l10.filter(v => v >= p.line).length / l10.length * 100) : 50;
-      const edge = p.line ? +((avg - p.line) / p.line * 100).toFixed(1) : 0;
       const pos = guessPosition(p.name);
       const team = _playerTeamCache[p.name] || guessTeam(p.name);
-      const modelProb = hitRate / 100;
       const impliedProbOver = impliedProb(p.overOdds);
       const impliedProbUnder = impliedProb(p.underOdds);
-      const stdDev = +(Math.sqrt(l10.reduce((s,v) => s + Math.pow(v - avg, 2), 0) / l10.length)).toFixed(1);
-      const confidence = computeConfidence({ hitRate, modelProb, impliedProbOver, avg, stdDev });
-      const evOver = calcEV(modelProb, p.overOdds);
-      const evUnder = calcEV(1 - modelProb, p.underOdds);
       return {
-        ...p, team, position: pos, avg, l10, hitRate, edge, confidence,
-        modelProb, impliedProbOver, impliedProbUnder, evOver, evUnder, isLive: false,
-        hasRealStats: false, gamesPlayed: 0,
+        ...p, team, position: pos, avg: 0, l10: [], hitRate: 0, edge: 0, confidence: 0,
+        modelProb: 0, impliedProbOver, impliedProbUnder, evOver: 0, evUnder: 0, stdDev: 0,
+        isLive: false, hasRealStats: false, gamesPlayed: 0,
       };
     });
 
@@ -1086,10 +1077,6 @@ app.get('/api/analytics/merged', async (req, res) => {
 });
 
 // ---- ANALYTICS HELPERS ----
-function generateFakeL10(line) {
-  return Array.from({ length: 10 }, () => Math.max(0, Math.round(line + (Math.random() - 0.45) * line * 0.4)));
-}
-
 function computeConfidence({ hitRate, modelProb, impliedProbOver, avg, stdDev }) {
   // 1. Market Edge (0–40 pts): model prob vs market implied prob
   //    neutral (0% edge) = 20pts, +15% edge = 40pts, -15% edge = 0pts
