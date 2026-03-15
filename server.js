@@ -2452,70 +2452,84 @@ app.get('/api/cron/refresh-odds', async (req, res) => {
     // Bust in-memory cache so next request pulls fresh Supabase data
     books.forEach(b => cache.del(`allMarkets_${b}`));
 
-    // --- Game Lines: fetch h2h, spreads, totals (single API call) ---
-    let glStored = 0;
-    try {
-      const glResp = await fetch(`${ODDS_BASE}/sports/basketball_nba/odds?apiKey=${ODDS_KEY}&regions=us&markets=h2h,spreads,totals&oddsFormat=american`);
-      if (glResp.ok) {
-        const glEvents = await glResp.json();
-        const gameLines = glEvents.filter(e => new Date(e.commence_time) > now).map(evt => {
-          const home = teamAbbr(evt.home_team), away = teamAbbr(evt.away_team);
-          const line = { id: evt.id, home, away, commence: evt.commence_time, matchup: `${away} @ ${home}`, books: {} };
-          const EXCLUDED = new Set(['bovada', 'betonlineag', 'mybookieag', 'lowvig']);
-          for (const bk of (evt.bookmakers || []).filter(b => !EXCLUDED.has(b.key))) {
-            const bEntry = {};
-            for (const mkt of (bk.markets || [])) {
-              if (mkt.key === 'h2h') {
-                const hOc = mkt.outcomes?.find(o => o.name === evt.home_team);
-                const aOc = mkt.outcomes?.find(o => o.name === evt.away_team);
-                if (hOc && aOc) bEntry.h2h = { home: hOc.price, away: aOc.price };
-              } else if (mkt.key === 'spreads') {
-                const hOc = mkt.outcomes?.find(o => o.name === evt.home_team);
-                const aOc = mkt.outcomes?.find(o => o.name === evt.away_team);
-                if (hOc && aOc) bEntry.spread = { home: hOc.price, homeSpread: hOc.point, away: aOc.price, awaySpread: aOc.point };
-              } else if (mkt.key === 'totals') {
-                const over = mkt.outcomes?.find(o => o.name === 'Over');
-                const under = mkt.outcomes?.find(o => o.name === 'Under');
-                if (over && under) bEntry.total = { over: over.price, under: under.price, line: over.point };
-              }
-            }
-            if (Object.keys(bEntry).length) line.books[bk.key] = bEntry;
-          }
-          // Compute consensus (average across books)
-          const allH2H = Object.values(line.books).map(b => b.h2h).filter(Boolean);
-          const allSpread = Object.values(line.books).map(b => b.spread).filter(Boolean);
-          const allTotal = Object.values(line.books).map(b => b.total).filter(Boolean);
-          if (allH2H.length) {
-            line.h2h = {
-              home: Math.round(allH2H.reduce((s, b) => s + b.home, 0) / allH2H.length),
-              away: Math.round(allH2H.reduce((s, b) => s + b.away, 0) / allH2H.length),
-            };
-          }
-          if (allSpread.length) {
-            line.spread = {
-              homeSpread: +(allSpread.reduce((s, b) => s + b.homeSpread, 0) / allSpread.length).toFixed(1),
-              home: Math.round(allSpread.reduce((s, b) => s + b.home, 0) / allSpread.length),
-              away: Math.round(allSpread.reduce((s, b) => s + b.away, 0) / allSpread.length),
-            };
-          }
-          if (allTotal.length) {
-            line.total = {
-              line: +(allTotal.reduce((s, b) => s + b.line, 0) / allTotal.length).toFixed(1),
-              over: Math.round(allTotal.reduce((s, b) => s + b.over, 0) / allTotal.length),
-              under: Math.round(allTotal.reduce((s, b) => s + b.under, 0) / allTotal.length),
-            };
-          }
-          return line;
-        });
-        if (gameLines.length) {
-          await sbSetOdds('game_lines', gameLines);
-          cacheSet('game_lines', gameLines, 300);
-          glStored = gameLines.length;
-        }
-      }
-    } catch (glErr) { console.warn('Game lines fetch error:', glErr.message); }
+    res.json({ success: true, games: upcoming.length, stored });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
-    res.json({ success: true, games: upcoming.length, stored, gameLines: glStored });
+// ============================================================
+// CRON: Refresh game lines (h2h, spreads, totals) — independent from props
+// ============================================================
+app.get('/api/cron/refresh-game-lines', async (req, res) => {
+  const secret = (req.headers.authorization || '').replace('Bearer ', '') || req.headers['x-cron-secret'] || req.query.secret;
+  if (process.env.CRON_SECRET && secret !== process.env.CRON_SECRET) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  if (!ODDS_KEY) return res.status(503).json({ error: 'Odds API key not configured' });
+
+  try {
+    const now = new Date();
+    const glResp = await fetch(`${ODDS_BASE}/sports/basketball_nba/odds?apiKey=${ODDS_KEY}&regions=us&markets=h2h,spreads,totals&oddsFormat=american`);
+    if (!glResp.ok) return res.status(502).json({ error: `Game lines fetch failed: ${glResp.status}` });
+
+    const glEvents = await glResp.json();
+    const gameLines = glEvents.filter(e => new Date(e.commence_time) > now).map(evt => {
+      const home = teamAbbr(evt.home_team), away = teamAbbr(evt.away_team);
+      const line = { id: evt.id, home, away, commence: evt.commence_time, matchup: `${away} @ ${home}`, books: {} };
+      const EXCLUDED = new Set(['bovada', 'betonlineag', 'mybookieag', 'lowvig']);
+      for (const bk of (evt.bookmakers || []).filter(b => !EXCLUDED.has(b.key))) {
+        const bEntry = {};
+        for (const mkt of (bk.markets || [])) {
+          if (mkt.key === 'h2h') {
+            const hOc = mkt.outcomes?.find(o => o.name === evt.home_team);
+            const aOc = mkt.outcomes?.find(o => o.name === evt.away_team);
+            if (hOc && aOc) bEntry.h2h = { home: hOc.price, away: aOc.price };
+          } else if (mkt.key === 'spreads') {
+            const hOc = mkt.outcomes?.find(o => o.name === evt.home_team);
+            const aOc = mkt.outcomes?.find(o => o.name === evt.away_team);
+            if (hOc && aOc) bEntry.spread = { home: hOc.price, homeSpread: hOc.point, away: aOc.price, awaySpread: aOc.point };
+          } else if (mkt.key === 'totals') {
+            const over = mkt.outcomes?.find(o => o.name === 'Over');
+            const under = mkt.outcomes?.find(o => o.name === 'Under');
+            if (over && under) bEntry.total = { over: over.price, under: under.price, line: over.point };
+          }
+        }
+        if (Object.keys(bEntry).length) line.books[bk.key] = bEntry;
+      }
+      // Compute consensus (average across books)
+      const allH2H = Object.values(line.books).map(b => b.h2h).filter(Boolean);
+      const allSpread = Object.values(line.books).map(b => b.spread).filter(Boolean);
+      const allTotal = Object.values(line.books).map(b => b.total).filter(Boolean);
+      if (allH2H.length) {
+        line.h2h = {
+          home: Math.round(allH2H.reduce((s, b) => s + b.home, 0) / allH2H.length),
+          away: Math.round(allH2H.reduce((s, b) => s + b.away, 0) / allH2H.length),
+        };
+      }
+      if (allSpread.length) {
+        line.spread = {
+          homeSpread: +(allSpread.reduce((s, b) => s + b.homeSpread, 0) / allSpread.length).toFixed(1),
+          home: Math.round(allSpread.reduce((s, b) => s + b.home, 0) / allSpread.length),
+          away: Math.round(allSpread.reduce((s, b) => s + b.away, 0) / allSpread.length),
+        };
+      }
+      if (allTotal.length) {
+        line.total = {
+          line: +(allTotal.reduce((s, b) => s + b.line, 0) / allTotal.length).toFixed(1),
+          over: Math.round(allTotal.reduce((s, b) => s + b.over, 0) / allTotal.length),
+          under: Math.round(allTotal.reduce((s, b) => s + b.under, 0) / allTotal.length),
+        };
+      }
+      return line;
+    });
+
+    if (gameLines.length) {
+      await sbSetOdds('game_lines', gameLines);
+      cacheSet('game_lines', gameLines, 300);
+    }
+
+    res.json({ success: true, gameLines: gameLines.length });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
