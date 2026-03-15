@@ -1589,6 +1589,18 @@ app.get('/api/injury-impact', async (req, res) => {
       return res.json({ impact: false, reason: 'no teammate with sufficient data', outTeammates: outTeammates.map(t => t.player), debug });
     }
 
+    // Track skipped teammates so the client can flag them
+    const includedNames = new Set(teammateImpacts.map(t => t.name));
+    const skipped = [];
+    for (const inj of outTeammates) {
+      if (includedNames.has(inj.player)) continue;
+      const tmLog = tmLogMap.get(inj.player);
+      if (!tmLog?.length) { skipped.push({ name: inj.player, reason: 'no game log — upload player ID' }); continue; }
+      const tmPlayed = tmLog.filter(g => parseInt(g.min || '0') > 0 && (!g.team || g.team === teamFilter));
+      if (tmPlayed.length < 5) { skipped.push({ name: inj.player, reason: `only ${tmPlayed.length} games on team (need 5)` }); continue; }
+      skipped.push({ name: inj.player, reason: 'impact < 3% or already baked in' });
+    }
+
     // Weighted average of individual ratios (most impactful weighted highest), cap at ±20%
     teammateImpacts.sort((a, b) => Math.abs(b.ratio - 1) - Math.abs(a.ratio - 1));
     const _weights = [0.60, 0.30, 0.10];
@@ -1605,6 +1617,7 @@ app.get('/api/injury-impact', async (req, res) => {
       impact: Math.abs(combinedRatio - 1.0) >= 0.03,
       teammate: teammateImpacts.map(t => t.name).join(' + '),
       teammates: teammateImpacts,
+      skipped: skipped.length ? skipped : undefined,
       ratio: +combinedRatio.toFixed(3),
       pctChange: +((combinedRatio - 1) * 100).toFixed(1),
       speculative: hasSpeculative,

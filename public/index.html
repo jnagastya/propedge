@@ -2324,6 +2324,10 @@ function renderInjuryBreakdown(p){
       </div>
     </div>
     ${specNote}
+    ${(p._injSkipped||[]).length?`<div style="margin-top:6px;padding:6px 8px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:6px;font-size:10px;color:#ef4444;">
+      <div style="font-weight:700;margin-bottom:3px;">⚠ Skipped teammates (not factored in):</div>
+      ${p._injSkipped.map(s=>`<div style="margin-left:8px;">• ${s.name} — <span style="color:var(--t3);">${s.reason}</span></div>`).join('')}
+    </div>`:''}
   </div>`;
 }
 
@@ -4007,7 +4011,12 @@ async function fetchInjuryImpacts(){
 function applyInjuryImpact(p){
   const key=`${p.name}|${p.market||S.market}`;
   const impact=_injuryImpactCache[key];
-  if(!impact?.impact) return p;
+  if(!impact) return p;
+  // Even if no impact computed, pass through skipped teammates for visibility
+  if(!impact.impact){
+    if(impact.skipped?.length) return {...p, _injSkipped: impact.skipped};
+    return p;
+  }
   const ratio=impact.ratio;
   if(Math.abs(ratio-1.0)<0.03) return p;
   const adj={...p};
@@ -4027,6 +4036,7 @@ function applyInjuryImpact(p){
   adj._injTeammate=impact.teammate;
   adj._injPctChange=impact.pctChange;
   adj._injTeammates=impact.teammates||[];
+  adj._injSkipped=impact.skipped||[];
   adj._injSpeculative=impact.speculative||false;
   // Store pre-adjustment values for delta display
   adj._injPre={avg:p.avg,edge:p.edge,modelProb:p.modelProb,hitRate:p.hitRate,evOver:p.evOver,evUnder:p.evUnder,vs:valueScore(p),dirEV:getDirectionalEV(p)};
