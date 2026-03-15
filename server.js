@@ -3494,7 +3494,8 @@ app.get('/api/cron/grade-agent-bets', async (req, res) => {
   }
   if (!supabase) return res.status(503).json({ error: 'Supabase not configured' });
 
-  const forceDate = req.query.date; // e.g. ?date=2026-03-13 — grade all ungraded bets for that game_date
+  const forceDate = req.query.date; // e.g. ?date=2026-03-14 — filter ungraded bets by this game_date
+  const lookupDate = req.query.lookup_date; // e.g. ?lookup_date=2026-03-13 — override date for stat lookup
   const GRADE_AFTER_MS = 10 * 60 * 60 * 1000;
   const now = Date.now();
   const summary = { graded: 0, skipped: 0, errors: [] };
@@ -3515,8 +3516,8 @@ app.get('/api/cron/grade-agent-bets', async (req, res) => {
       }
 
       try {
-        // Use game_date directly when force-grading, otherwise derive from game_time
-        const gameDate = forceDate || (bet.game_time ? getEtDate(bet.game_time) : bet.game_date);
+        // Use lookup_date override, then game_time ET conversion, then game_date fallback
+        const gameDate = lookupDate || (bet.game_time ? getEtDate(bet.game_time) : null) || forceDate || bet.game_date;
         if (!gameDate) { summary.skipped++; continue; }
         const { status, value } = await getActualStat(bet.player_name, gameDate, bet.market);
 
