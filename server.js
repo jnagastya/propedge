@@ -197,15 +197,8 @@ const _playerTeamCache = {
   'Brandon Ingram':'TOR',
   'Jrue Holiday':'POR',
 };
-// Teams that must never be overwritten by BDL/Supabase game log data (recent trades, etc.)
-const _frozenTeams = new Set([
-  'James Harden','Max Christie','Ron Holland','Sandro Mamukelashvili',
-  'Brandon Ingram','Jrue Holiday','Dennis Schroder','Khris Middleton',
-  'Duncan Robinson','Keon Ellis',
-  'Kobe Brown','Isaiah Hartenstein','Brandon Williams','Quinten Post',
-  'Kyle Anderson','Ajay Mitchell','Jaylin Williams',"Ja'Kobe Walter",
-  'Aaron Wiggins','Cason Wallace','Caris LeVert','Luguentz Dort',
-]);
+// All manually-set teams are frozen — never overwritten by BDL/Supabase game log data
+const _frozenTeams = new Set(Object.keys(_playerTeamCache));
 const ODDS_BASE = 'https://api.the-odds-api.com/v4';
 const BDL_BASE = 'https://api.balldontlie.io/nba/v1';
 const NBA_BASE = 'https://stats.nba.com/stats';
