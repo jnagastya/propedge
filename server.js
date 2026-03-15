@@ -3552,22 +3552,32 @@ app.get('/api/cron/grade-agent-bets', async (req, res) => {
       betsToGrade.push(bet);
     }
 
-    // Pre-fetch unique players from BDL in parallel (5 concurrent) to warm Supabase cache
+    // Check which players are missing the game date in Supabase, only BDL-fetch those
     const uniquePlayers = [...new Set(betsToGrade.map(b => b.player_name))];
     const gameDateForLookup = betsToGrade[0]?._gameDate;
-    if (gameDateForLookup && uniquePlayers.length) {
+    const missingPlayers = [];
+    if (gameDateForLookup) {
+      for (const name of uniquePlayers) {
+        const record = await sbGetGameLogRecord(name);
+        if (!record?.game_log?.find(g => g.date === gameDateForLookup)) {
+          missingPlayers.push(name);
+        }
+      }
+    }
+    // Only pre-fetch missing players from BDL (3 concurrent to stay under 60/min rate limit)
+    if (missingPlayers.length) {
       const prefetchBatch = async (items, fn, concurrency) => {
         for (let i = 0; i < items.length; i += concurrency) {
           await Promise.all(items.slice(i, i + concurrency).map(fn));
         }
       };
-      await prefetchBatch(uniquePlayers, async (name) => {
+      await prefetchBatch(missingPlayers, async (name) => {
         try {
-          // This call triggers BDL fallback if missing, caching for all subsequent bets
           await getActualStat(name, gameDateForLookup, 'player_points');
         } catch (e) { /* ignore — individual bet grading will handle errors */ }
-      }, 5);
+      }, 3);
     }
+    summary.prefetched = missingPlayers.length;
 
     // Now grade all bets — stats are cached, so this is fast
     for (const bet of betsToGrade) {
