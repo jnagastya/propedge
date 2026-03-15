@@ -2187,7 +2187,8 @@ app.put('/api/user/profile', async (req, res) => {
     if (bets !== undefined) updates.bets = bets;
     if (preferences !== undefined) updates.preferences = preferences;
     if (displayName !== undefined) updates.display_name = displayName;
-    await supabase.from('user_profiles').upsert(updates, { onConflict: 'id' });
+    const { error: upsertErr } = await supabase.from('user_profiles').upsert(updates, { onConflict: 'id' });
+    if (upsertErr) return res.status(500).json({ error: upsertErr.message });
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -3182,6 +3183,52 @@ async function sendDiscordResults(allBets, latestDate) {
     }
   }
 
+  // VS Component Breakdown — median-split lift analysis
+  {
+    const vsAnalyzable = settledValue.filter(b => b.model_prob != null && b.confidence != null && b.dir_ev != null);
+    if (vsAnalyzable.length >= 10) {
+      const median = arr => { const s = [...arr].sort((a, b) => a - b); const m = Math.floor(s.length / 2); return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
+      const wr = bets => bets.length ? (bets.filter(b => b.status === 'won').length / bets.length * 100) : 0;
+      const components = [
+        { name: 'Model Prob', weight: 20, key: 'model_prob', scale: v => v * 100 },
+        { name: 'Confidence', weight: 40, key: 'confidence', scale: v => v },
+        { name: 'EV', weight: 40, key: 'dir_ev', scale: v => v },
+      ];
+      let desc = `📊 **${vsAnalyzable.length} settled bets** — median split on each VS component\n\n`;
+      const lifts = [];
+      for (const c of components) {
+        const vals = vsAnalyzable.map(b => c.scale(b[c.key]));
+        const med = median(vals);
+        const above = vsAnalyzable.filter(b => c.scale(b[c.key]) >= med);
+        const below = vsAnalyzable.filter(b => c.scale(b[c.key]) < med);
+        const aboveWr = wr(above);
+        const belowWr = wr(below);
+        const lift = aboveWr - belowWr;
+        lifts.push({ ...c, lift, aboveWr, belowWr, med, aboveN: above.length, belowN: below.length });
+        const liftIcon = lift > 5 ? '🟢' : lift < -5 ? '🔴' : '🟡';
+        desc += `${liftIcon} **${c.name}** (${c.weight}% weight)\n`;
+        desc += `  Above median: ${aboveWr.toFixed(1)}% WR (${above.length}) · Below: ${belowWr.toFixed(1)}% WR (${below.length})\n`;
+        desc += `  Lift: **${lift > 0 ? '+' : ''}${lift.toFixed(1)}pp** · Median: ${med.toFixed(1)}\n\n`;
+      }
+      // Recommendation
+      const sorted = [...lifts].sort((a, b) => b.lift - a.lift);
+      const best = sorted[0];
+      const worst = sorted[sorted.length - 1];
+      if (best.lift - worst.lift > 5) {
+        desc += `💡 **${best.name}** (lift +${best.lift.toFixed(1)}pp) is the most predictive — consider increasing its weight.\n`;
+        desc += `**${worst.name}** (lift ${worst.lift > 0 ? '+' : ''}${worst.lift.toFixed(1)}pp) is least predictive — consider decreasing.`;
+      } else {
+        desc += `💡 Components are performing similarly — current weights look balanced.`;
+      }
+      embeds.push({
+        title: '⚖️ Value Score Component Breakdown',
+        description: desc,
+        color: 0x6366f1,
+        footer: { text: `Weights: MP ${components[0].weight}% · Conf ${components[1].weight}% · EV ${components[2].weight}% — higher lift = more predictive` },
+      });
+    }
+  }
+
   // Recommendations based on data
   if (settledValue.length >= 20) {
     const recs = [];
@@ -3898,7 +3945,7 @@ app.get('/api/cron/grade-agent-bets', async (req, res) => {
     }
 
     const elapsed = ((Date.now() - now) / 1000).toFixed(1);
-    res.json({ success: true, playersPreFetched: uniquePlayers.length, injuredTeammates: { total: injuredTeammateNames.length, missingFromSupabase: stillMissing.length, fetchedFromBDL: injuredBdlFetched }, elapsed: `${elapsed}s`, ...summary });
+    res.json({ success: true, playersPreFetched: missingPlayers.length, elapsed: `${elapsed}s`, ...summary });
   } catch (err) {
     res.status(500).json({ error: err.message, ...summary });
   }
@@ -4463,6 +4510,61 @@ app.get('/api/cron/newsletter', async (req, res) => {
     </table>
     <div style="margin-top:8px;font-size:11px;color:#94a3b8;">Tracked: ${emailTipoffBets.length} bets with pre-tipoff snapshots</div>
   </div>` : ''}
+
+  <!-- VS COMPONENT BREAKDOWN -->
+  ${(() => {
+    const vsA = emailSettled.filter(b => b.model_prob != null && b.confidence != null && b.dir_ev != null);
+    if (vsA.length < 10) return '';
+    const median = arr => { const s = [...arr].sort((a, b) => a - b); const m = Math.floor(s.length / 2); return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
+    const wr = bets => bets.length ? (bets.filter(b => b.status === 'won').length / bets.length * 100) : 0;
+    const comps = [
+      { name: 'Model Prob', weight: 20, key: 'model_prob', scale: v => v * 100 },
+      { name: 'Confidence', weight: 40, key: 'confidence', scale: v => v },
+      { name: 'EV', weight: 40, key: 'dir_ev', scale: v => v },
+    ];
+    const results = comps.map(c => {
+      const vals = vsA.map(b => c.scale(b[c.key]));
+      const med = median(vals);
+      const above = vsA.filter(b => c.scale(b[c.key]) >= med);
+      const below = vsA.filter(b => c.scale(b[c.key]) < med);
+      const aboveWr = wr(above);
+      const belowWr = wr(below);
+      const lift = aboveWr - belowWr;
+      return { ...c, lift, aboveWr, belowWr, med, aboveN: above.length, belowN: below.length };
+    });
+    const sorted = [...results].sort((a, b) => b.lift - a.lift);
+    const best = sorted[0];
+    const worst = sorted[sorted.length - 1];
+    const rec = best.lift - worst.lift > 5
+      ? `<strong>${best.name}</strong> (lift +${best.lift.toFixed(1)}pp) is the most predictive — consider increasing its weight. <strong>${worst.name}</strong> (lift ${worst.lift > 0 ? '+' : ''}${worst.lift.toFixed(1)}pp) is least predictive — consider decreasing.`
+      : 'Components are performing similarly — current weights look balanced.';
+    const rows = results.map(r => {
+      const liftClr = r.lift > 5 ? '#16a34a' : r.lift < -5 ? '#dc2626' : '#d97706';
+      return `<tr>
+        <td style="padding:6px 12px;border-bottom:1px solid #e2e8f0;font-weight:600;">${r.name} <span style="color:#94a3b8;font-weight:400;">(${r.weight}%)</span></td>
+        <td style="padding:6px 12px;border-bottom:1px solid #e2e8f0;text-align:center;">${r.aboveWr.toFixed(1)}% <span style="color:#94a3b8;">(${r.aboveN})</span></td>
+        <td style="padding:6px 12px;border-bottom:1px solid #e2e8f0;text-align:center;">${r.belowWr.toFixed(1)}% <span style="color:#94a3b8;">(${r.belowN})</span></td>
+        <td style="padding:6px 12px;border-bottom:1px solid #e2e8f0;text-align:center;font-weight:700;color:${liftClr}">${r.lift > 0 ? '+' : ''}${r.lift.toFixed(1)}pp</td>
+      </tr>`;
+    }).join('');
+    return `<div style="padding:24px;border-top:1px solid #e2e8f0;">
+      <div style="font-size:16px;font-weight:700;color:#1e293b;margin-bottom:4px;">⚖️ Value Score Component Breakdown</div>
+      <div style="font-size:12px;color:#94a3b8;margin-bottom:12px;">Which VS components are most predictive? Higher lift = better at separating winners from losers.</div>
+      <table style="width:100%;border-collapse:collapse;font-size:12px;">
+        <thead><tr style="background:#f8fafc;">
+          <th style="padding:8px 12px;text-align:left;font-weight:600;color:#64748b;border-bottom:2px solid #e2e8f0;">Component</th>
+          <th style="padding:8px 12px;text-align:center;font-weight:600;color:#64748b;border-bottom:2px solid #e2e8f0;">Above Median WR</th>
+          <th style="padding:8px 12px;text-align:center;font-weight:600;color:#64748b;border-bottom:2px solid #e2e8f0;">Below Median WR</th>
+          <th style="padding:8px 12px;text-align:center;font-weight:600;color:#64748b;border-bottom:2px solid #e2e8f0;">Lift</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <div style="margin-top:12px;padding:12px;background:#eef2ff;border-radius:8px;font-size:12px;color:#4338ca;">
+        💡 ${rec}
+      </div>
+      <div style="margin-top:8px;font-size:11px;color:#94a3b8;">Based on ${vsA.length} settled value bets · Current weights: MP 20%, Conf 40%, EV 40%</div>
+    </div>`;
+  })()}
 
   <!-- FOOTER -->
   <div style="padding:24px;background:#0f172a;text-align:center;">

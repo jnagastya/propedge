@@ -1749,9 +1749,15 @@ async function afterLogin() {
   if (!profile) { doLogout(); return; }
   _profileLoaded = true;
   _authUser = { displayName: profile.displayName };
-  // Sync simulator from server profile
+  // Sync simulator from server profile (merge to preserve unsynced local bets)
   localStorage.setItem('pe_sim_balance', (profile.balance ?? 1000).toFixed(2));
-  localStorage.setItem('pe_sim_bets', JSON.stringify(profile.bets || []));
+  const _srvBets = profile.bets || [];
+  const _locBets = JSON.parse(localStorage.getItem('pe_sim_bets') || '[]');
+  const _srvIds = new Set(_srvBets.map(b => b.id));
+  const _locOnly = _locBets.filter(b => b.id && !_srvIds.has(b.id));
+  const _merged = _locOnly.length ? [..._locOnly, ..._srvBets] : _srvBets;
+  localStorage.setItem('pe_sim_bets', JSON.stringify(_merged));
+  if (_locOnly.length) console.log(`[sync] Preserved ${_locOnly.length} local-only bets not yet on server`);
   // Restore favorites from server profile
   if (profile.preferences?.favorites?.length) {
     favorites = new Set(profile.preferences.favorites);
@@ -1862,8 +1868,9 @@ async function syncProfile() {
       body: JSON.stringify({ balance: sim.balance, bets: sim.bets, preferences: { favorites: [...favorites], ui: collectUiPrefs() } }),
     });
     if (r.ok) { _lastSyncTime = Date.now(); updateLastSaved(); }
+    else { if (el) { el.textContent = '⚠ Save failed'; el.className = 'save-status error'; } console.error('Profile sync failed:', r.status); }
   } catch(e) {
-    if (el) { el.textContent = '⚠ Sync failed'; el.className = 'save-status'; }
+    if (el) { el.textContent = '⚠ Sync failed'; el.className = 'save-status error'; }
   }
 }
 async function saveNow() {
@@ -4731,7 +4738,14 @@ setInterval(()=>loadData(),7200000);
     if (profile) {
       _authUser = { displayName: profile.displayName };
       localStorage.setItem('pe_sim_balance', (profile.balance ?? 1000).toFixed(2));
-      localStorage.setItem('pe_sim_bets', JSON.stringify(profile.bets || []));
+      // Merge: keep any local-only bets (not yet synced) alongside server bets
+      const serverBets = profile.bets || [];
+      const localBets = JSON.parse(localStorage.getItem('pe_sim_bets') || '[]');
+      const serverIds = new Set(serverBets.map(b => b.id));
+      const localOnly = localBets.filter(b => b.id && !serverIds.has(b.id));
+      const merged = localOnly.length ? [...localOnly, ...serverBets] : serverBets;
+      localStorage.setItem('pe_sim_bets', JSON.stringify(merged));
+      if (localOnly.length) console.log(`[sync] Preserved ${localOnly.length} local-only bets not yet on server`);
       if (profile.preferences?.favorites?.length) {
         favorites = new Set(profile.preferences.favorites);
         localStorage.setItem('pe_favorites', JSON.stringify([...favorites]));
