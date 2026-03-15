@@ -191,6 +191,7 @@ const _playerTeamCache = {
   'Kyle Anderson':'MIN','Ajay Mitchell':'OKC','Jaylin Williams':'OKC',"Ja'Kobe Walter":'TOR',
   'Aaron Wiggins':'OKC','Cason Wallace':'OKC','Caris LeVert':'DET','Luguentz Dort':'OKC',
   'Khris Middleton':'DAL',
+  'James Harden':'CLE',
 };
 const ODDS_BASE = 'https://api.the-odds-api.com/v4';
 const BDL_BASE = 'https://api.balldontlie.io/nba/v1';
