@@ -3833,8 +3833,8 @@ app.get('/api/cron/agent-bet', async (req, res) => {
           stats = serverApplyInjuryImpact(p.name, gameLog, playerTeam, p.market, p.line, p.overOdds, p.underOdds, injuries, gameLogMap, stats);
         }
 
-        const isValue = stats.vs >= 30 && Math.abs(stats.edge) > 4 && stats.confidence >= 55 && stats.dirEV > 3;
-        const isControl = !isValue && stats.vs >= 20 && Math.abs(stats.edge) > 2 && stats.dirEV > 0;
+        const isValue = stats.vs >= 30;
+        const isControl = !isValue && stats.vs >= 20;
 
         if (!isValue && !isControl) { summary.skipped++; continue; }
 
