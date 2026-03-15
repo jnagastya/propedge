@@ -1495,6 +1495,29 @@ input[type=range].min-slider::-moz-range-track{height:6px;border-radius:3px;back
         <option value="flagged">Flagged Only</option>
         <option value="injury">Injury Adjusted</option>
       </select>
+      <select class="sel" id="alertTeamF" onchange="renderAlerts()" style="font-size:11px;padding:4px 8px;">
+        <option value="all">Team: All</option>
+      </select>
+      <select class="sel" id="alertMktF" onchange="renderAlerts()" style="font-size:11px;padding:4px 8px;">
+        <option value="all">Market: All</option>
+        <option value="player_points">PTS</option>
+        <option value="player_rebounds">REB</option>
+        <option value="player_assists">AST</option>
+        <option value="player_threes">3PM</option>
+        <option value="player_points_rebounds_assists">PRA</option>
+        <option value="player_rebounds_assists">R+A</option>
+      </select>
+      <select class="sel" id="alertTimeF" onchange="renderAlerts()" style="font-size:11px;padding:4px 8px;">
+        <option value="all">Game Time: All</option>
+        <option value="early">Early (before 8pm ET)</option>
+        <option value="late">Late (8pm ET+)</option>
+      </select>
+      <select class="sel" id="alertOddsF" onchange="renderAlerts()" style="font-size:11px;padding:4px 8px;">
+        <option value="all">Odds: All</option>
+        <option value="plus">Plus Money (+100+)</option>
+        <option value="minus">Minus Money</option>
+        <option value="even">Near Even (-120 to +120)</option>
+      </select>
     </div>
     <div class="va-grid" id="vaGrid"></div>
   </div>
@@ -4436,6 +4459,44 @@ function renderAlerts(){
   if(alertFlagF==='clean') alerts=alerts.filter(p=>!p.hasFlags&&!p._injImpact);
   else if(alertFlagF==='flagged') alerts=alerts.filter(p=>p.hasFlags);
   else if(alertFlagF==='injury') alerts=alerts.filter(p=>p._injImpact);
+
+  // Team filter — populate dropdown dynamically
+  const teamSel=document.getElementById('alertTeamF');
+  if(teamSel){
+    const teams=[...new Set(alerts.map(p=>p.team||TEAM_MAP[p.name]).filter(Boolean))].sort();
+    const curTeam=teamSel.value;
+    const opts='<option value="all">Team: All</option>'+teams.map(t=>`<option value="${t}"${t===curTeam?' selected':''}>${t}</option>`).join('');
+    if(teamSel.innerHTML!==opts) teamSel.innerHTML=opts;
+    if(curTeam&&curTeam!=='all') alerts=alerts.filter(p=>(p.team||TEAM_MAP[p.name])===curTeam);
+  }
+
+  // Market filter
+  const alertMktF=document.getElementById('alertMktF')?.value||'all';
+  if(alertMktF!=='all') alerts=alerts.filter(p=>(p.market||S.market)===alertMktF);
+
+  // Game time filter
+  const alertTimeF=document.getElementById('alertTimeF')?.value||'all';
+  if(alertTimeF!=='all'){
+    alerts=alerts.filter(p=>{
+      if(!p.gameTime) return true;
+      const h=new Date(p.gameTime).toLocaleString('en-US',{hour:'numeric',hour12:false,timeZone:'America/New_York'});
+      const hr=parseInt(h);
+      return alertTimeF==='early'?hr<20:hr>=20;
+    });
+  }
+
+  // Odds filter
+  const alertOddsF=document.getElementById('alertOddsF')?.value||'all';
+  if(alertOddsF!=='all'){
+    alerts=alerts.filter(p=>{
+      const isOver=(p.edge||0)>=0;
+      const odds=isOver?(p.overOdds||-110):(p.underOdds||-110);
+      if(alertOddsF==='plus') return odds>0;
+      if(alertOddsF==='minus') return odds<0;
+      if(alertOddsF==='even') return odds>=-120&&odds<=120;
+      return true;
+    });
+  }
 
   // Apply alert sort
   const alertSort=document.getElementById('alertSortS')?.value||'vs';
