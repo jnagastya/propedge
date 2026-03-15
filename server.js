@@ -1776,9 +1776,30 @@ function gradeSingleOutcome(actual, line, direction) {
 // Looks up a player's actual stat for a given ET game date from Supabase
 async function getActualStat(playerName, gameDate, market) {
   const record = await sbGetGameLogRecord(playerName);
-  if (!record?.game_log?.length) return { status: 'missing' };
-  const game = record.game_log.find(g => g.date === gameDate);
-  if (!game) return { status: 'missing' }; // stats not in yet
+  let game = record?.game_log?.find(g => g.date === gameDate);
+
+  // BDL fallback: if Supabase doesn't have this date, fetch fresh from BDL
+  if (!game) {
+    try {
+      const bdl = await getBDLPlayerId(playerName);
+      if (bdl?.id) {
+        const freshGames = await fetchBDLGameLog(bdl.id, gameDate);
+        game = freshGames?.find(g => g.date === gameDate);
+        // Also update Supabase cache so future lookups don't need BDL
+        if (game && record?.game_log) {
+          const merged = [...record.game_log.filter(g => g.date !== gameDate), game]
+            .sort((a, b) => a.date.localeCompare(b.date));
+          await sbSetGameLog(playerName, bdl.id, merged, bdl.position);
+        } else if (game) {
+          await sbSetGameLog(playerName, bdl.id, freshGames, bdl.position);
+        }
+      }
+    } catch (e) {
+      console.warn(`BDL fallback failed for ${playerName}: ${e.message}`);
+    }
+  }
+
+  if (!game) return { status: 'missing' };
   const minPlayed = parseInt(game.min || '0', 10);
   if (minPlayed === 0) return { status: 'dnp' };
   const val = getStatValue(game, market);
