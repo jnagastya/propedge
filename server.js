@@ -158,13 +158,13 @@ const _playerTeamCache = {
   'Derik Queen':'HOU','Jeremiah Fears':'OKC','Mohamed Diawara':'ATL',
   'Ivica Zubac':'IND','Gui Santos':'GSW','Marcus Sasser':'DET',
   'Cody Williams':'UTA','Mitchell Robinson':'NYK','Brice Sensabaugh':'TOR',
-  'Ace Bailey':'UTA','Sandro Mamukelashvili':'SAS','Matas Buzelis':'CHI',
+  'Ace Bailey':'UTA','Sandro Mamukelashvili':'TOR','Matas Buzelis':'CHI',
   'Keon Ellis':'SAC','Olivier-Maxence Prosper':'DAL','Isaiah Collier':'UTA',
-  'Kyle Filipowski':'UTA','Jaylon Tyson':'CLE','Dennis Schroder':'BKN',
+  'Kyle Filipowski':'UTA','Jaylon Tyson':'CLE','Dennis Schroder':'CLE',
   'Taylor Hendricks':'UTA','G.G. Jackson':'MEM','Royce O\'Neale':'PHX',
   'Ty Jerome':'MEM','Jarace Walker':'IND','Landry Shamet':'NYK',
   'Brandin Podziemski':'GSW','De\'Anthony Melton':'BKN','Cedric Coward':'LAC',
-  'Duncan Robinson':'MIA','Kristaps Porzingis':'GSW','Reed Sheppard':'HOU',
+  'Duncan Robinson':'DET','Kristaps Porzingis':'GSW','Reed Sheppard':'HOU',
   'Julius Randle':'MIN','Derrick Jones':'LAC','Kobe Sanders':'LAC',
   'R.J. Barrett':'TOR','Collin Gillespie':'DEN','Sam Merrill':'CLE',
   'Aaron Nesmith':'IND','Oso Ighodaro':'PHX','Will Richard':'GSW',
@@ -192,7 +192,17 @@ const _playerTeamCache = {
   'Aaron Wiggins':'OKC','Cason Wallace':'OKC','Caris LeVert':'DET','Luguentz Dort':'OKC',
   'Khris Middleton':'DAL',
   'James Harden':'CLE',
+  'Max Christie':'DAL',
+  'Ron Holland':'DET',
+  'Brandon Ingram':'TOR',
+  'Jrue Holiday':'POR',
 };
+// Teams that must never be overwritten by BDL/Supabase game log data (recent trades, etc.)
+const _frozenTeams = new Set([
+  'James Harden','Max Christie','Ron Holland','Sandro Mamukelashvili',
+  'Brandon Ingram','Jrue Holiday','Dennis Schroder','Khris Middleton',
+  'Duncan Robinson',
+]);
 const ODDS_BASE = 'https://api.the-odds-api.com/v4';
 const BDL_BASE = 'https://api.balldontlie.io/nba/v1';
 const NBA_BASE = 'https://stats.nba.com/stats';
@@ -1649,7 +1659,7 @@ app.get('/api/cron/refresh-stats', async (req, res) => {
       const games = await fetchBDLGameLog(bdlId);
       await sbSetGameLog(singlePlayer, bdlId, games, bdlPos);
       const latestTeam = games.sort((a, b) => new Date(b.date) - new Date(a.date))[0]?.team;
-      if (latestTeam) _playerTeamCache[singlePlayer] = latestTeam;
+      if (latestTeam && !_frozenTeams.has(singlePlayer)) _playerTeamCache[singlePlayer] = latestTeam;
       return res.json({ success: true, player: singlePlayer, bdlId, position: bdlPos, games: games.length });
     } catch (e) {
       return res.status(500).json({ error: e.message, player: singlePlayer });
@@ -1727,7 +1737,7 @@ app.get('/api/cron/refresh-stats', async (req, res) => {
         await sbSetGameLog(name, bdlId, merged, position);
         // Cache team from most recent game
         const latestTeam = merged[0]?.team;
-        if (latestTeam) _playerTeamCache[name] = latestTeam;
+        if (latestTeam && !_frozenTeams.has(name)) _playerTeamCache[name] = latestTeam;
         results.ok.push(`${name} (+${newGames.length})`);
       } catch (e) {
         results.failed.push(`${name} (${e.message})`);
@@ -1744,7 +1754,7 @@ app.get('/api/cron/refresh-stats', async (req, res) => {
         const games = await fetchBDLGameLog(bdlId);
         await sbSetGameLog(name, bdlId, games, bdlPos);
         const latestTeam = games.sort((a, b) => new Date(b.date) - new Date(a.date))[0]?.team;
-        if (latestTeam) _playerTeamCache[name] = latestTeam;
+        if (latestTeam && !_frozenTeams.has(name)) _playerTeamCache[name] = latestTeam;
         results.newPlayers.push(`${name} (${games.length} games)`);
       } catch (e) {
         results.failed.push(`${name} (${e.message})`);
@@ -4854,7 +4864,7 @@ if (supabase) {
       if (data) {
         for (const r of data) {
           const latest = r.game_log?.sort((a, b) => new Date(b.date) - new Date(a.date))?.[0];
-          if (latest?.team) _playerTeamCache[r.player_name] = latest.team;
+          if (latest?.team && !_frozenTeams.has(r.player_name)) _playerTeamCache[r.player_name] = latest.team;
         }
         console.log(`Team cache loaded: ${Object.keys(_playerTeamCache).length} players`);
       }
