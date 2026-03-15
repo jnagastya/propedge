@@ -1512,7 +1512,8 @@ app.get('/api/injury-impact', async (req, res) => {
     for (const inj of outTeammates) {
       const tmLog = tmLogMap.get(inj.player);
       if (!tmLog?.length) continue;
-      const tmPlayed = tmLog.filter(g => parseInt(g.min || '0') > 0);
+      // Filter teammate games to current team only (avoid cross-team pollution from trades)
+      const tmPlayed = tmLog.filter(g => parseInt(g.min || '0') > 0 && (!g.team || g.team === teamFilter));
       if (tmPlayed.length < 5) continue;
 
       const tmDnpDates = new Set(), tmPlayedDates = new Set();
@@ -1552,10 +1553,10 @@ app.get('/api/injury-impact', async (req, res) => {
         const playerAvg = playerPlayed.reduce((s, g) => s + _statVal(g, market), 0) / playerPlayed.length;
         if (!tmAvg || !playerAvg) continue;
 
-        // Estimate team total from all available teammate logs
+        // Estimate team total from all available teammate logs (same team only)
         let teamTotal = playerAvg;
         for (const [tmName, tmGl] of tmLogMap) {
-          const played = (tmGl || []).filter(g => parseInt(g.min || '0') > 0);
+          const played = (tmGl || []).filter(g => parseInt(g.min || '0') > 0 && (!g.team || g.team === teamFilter));
           if (!played.length) continue;
           const avg = played.reduce((s, g) => s + _statVal(g, market), 0) / played.length;
           if (avg > 0) teamTotal += avg;
@@ -3573,7 +3574,8 @@ function serverApplyInjuryImpact(playerName, playerGameLog, playerTeam, market, 
     const resolved = resolvePlayerName(inj.player);
     const tmLog = allGameLogs.get(resolved) || allGameLogs.get(inj.player);
     if (!tmLog?.length) continue;
-    const tmPlayed = tmLog.filter(g => parseInt(g.min || '0') > 0);
+    // Filter teammate games to current team only (avoid cross-team pollution from trades)
+    const tmPlayed = tmLog.filter(g => parseInt(g.min || '0') > 0 && (!g.team || g.team === playerTeam));
     if (tmPlayed.length < 5) continue;
 
     // Build DNP/played date sets for this teammate
