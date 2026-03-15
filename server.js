@@ -296,6 +296,187 @@ async function sbSetOdds(book, players) {
   } catch (e) { console.warn('Supabase odds write failed:', e.message); }
 }
 
+// ============================================================
+// NBA.COM STATS API — Team Advanced Stats, DvP, Blowout Rate
+// ============================================================
+const NBA_STATS_HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+  'Referer': 'https://www.nba.com/',
+  'Accept': 'application/json, text/plain, */*',
+  'Origin': 'https://www.nba.com',
+  'x-nba-stats-origin': 'stats',
+  'x-nba-stats-token': 'true',
+};
+
+// NBA.com team ID → abbreviation map
+const NBA_COM_TEAM_MAP = {
+  1610612737:'ATL',1610612738:'BOS',1610612751:'BKN',1610612766:'CHA',1610612741:'CHI',
+  1610612739:'CLE',1610612742:'DAL',1610612743:'DEN',1610612765:'DET',1610612744:'GSW',
+  1610612745:'HOU',1610612754:'IND',1610612746:'LAC',1610612747:'LAL',1610612763:'MEM',
+  1610612748:'MIA',1610612749:'MIL',1610612750:'MIN',1610612740:'NOP',1610612752:'NYK',
+  1610612760:'OKC',1610612753:'ORL',1610612755:'PHI',1610612756:'PHX',1610612757:'POR',
+  1610612758:'SAC',1610612759:'SAS',1610612761:'TOR',1610612762:'UTA',1610612764:'WAS',
+};
+
+async function fetchNBAStats(endpoint, params = {}) {
+  const qs = new URLSearchParams(params).toString();
+  const url = `https://stats.nba.com/stats/${endpoint}?${qs}`;
+  const resp = await fetch(url, { headers: NBA_STATS_HEADERS, timeout: 15000 });
+  if (!resp.ok) throw new Error(`NBA Stats ${endpoint} returned ${resp.status}`);
+  return resp.json();
+}
+
+// Fetch advanced team stats: pace, ORTG, DRTG, net rating, TS%, eFG%
+async function fetchTeamAdvancedStats(season) {
+  const seasonStr = `${season}-${String(season + 1).slice(2)}`; // e.g. "2025-26"
+  const json = await fetchNBAStats('leaguedashteamstats', {
+    MeasureType: 'Advanced', PerMode: 'PerGame', Season: seasonStr,
+    SeasonType: 'Regular Season', LeagueID: '00', TeamID: '0',
+    OpponentTeamID: '0', Conference: '', Division: '', GameScope: '',
+    GameSegment: '', DateFrom: '', DateTo: '', LastNGames: '0',
+    Location: '', Month: '0', Outcome: '', PORound: '0',
+    PaceAdjust: 'N', Period: '0', PlayerExperience: '', PlayerPosition: '',
+    PlusMinus: 'N', Rank: 'N', SeasonSegment: '', ShotClockRange: '',
+    StarterBench: '', TwoWay: '0', VsConference: '', VsDivision: '',
+  });
+  const headers = json.resultSets?.[0]?.headers || [];
+  const rows = json.resultSets?.[0]?.rowSet || [];
+  const idx = (name) => headers.indexOf(name);
+  const teams = {};
+  for (const r of rows) {
+    const abbr = NBA_COM_TEAM_MAP[r[idx('TEAM_ID')]] || r[idx('TEAM_NAME')]?.substring(0, 3)?.toUpperCase();
+    if (!abbr) continue;
+    teams[abbr] = {
+      name: r[idx('TEAM_NAME')], gp: r[idx('GP')], w: r[idx('W')], l: r[idx('L')],
+      pace: r[idx('PACE')], offRtg: r[idx('OFF_RATING')], defRtg: r[idx('DEF_RATING')],
+      netRtg: r[idx('NET_RATING')], ts: r[idx('TS_PCT')], efg: r[idx('EFG_PCT')],
+      astPct: r[idx('AST_PCT')], tovPct: r[idx('TM_TOV_PCT')], rebPct: r[idx('REB_PCT')],
+      pie: r[idx('PIE')],
+    };
+  }
+  return teams;
+}
+
+// Fetch DvP — defense vs position using leaguedashptdefend
+// Returns: { ATL: { G: { fga, fgPct, diffPct }, F: {...}, C: {...} }, ... }
+async function fetchDvPStats(season) {
+  const seasonStr = `${season}-${String(season + 1).slice(2)}`;
+  const json = await fetchNBAStats('leaguedashptdefend', {
+    DefenseCategory: 'Overall', Season: seasonStr,
+    SeasonType: 'Regular Season', PerMode: 'PerGame', LeagueID: '00',
+    TeamID: '', PlayerPosition: '', OpponentTeamID: '',
+    Conference: '', Division: '', DateFrom: '', DateTo: '',
+    GameSegment: '', LastNGames: '0', Location: '', Month: '0',
+    Outcome: '', PORound: '0', Period: '0',
+  });
+  const headers = json.resultSets?.[0]?.headers || [];
+  const rows = json.resultSets?.[0]?.rowSet || [];
+  const idx = (name) => headers.indexOf(name);
+
+  // Aggregate player-level defensive data by team + opponent position
+  // Group defenders by their team, then by the position they defend
+  const teamDefense = {};
+  for (const r of rows) {
+    const teamId = r[idx('PLAYER_LAST_TEAM_ID')];
+    const abbr = NBA_COM_TEAM_MAP[teamId];
+    if (!abbr) continue;
+    // Normalize position: G, F, C
+    let pos = (r[idx('PLAYER_POSITION')] || '').toUpperCase();
+    if (pos === 'G' || pos === 'G-F') pos = 'G';
+    else if (pos === 'F' || pos === 'F-G' || pos === 'F-C') pos = 'F';
+    else if (pos === 'C' || pos === 'C-F') pos = 'C';
+    else continue;
+
+    if (!teamDefense[abbr]) teamDefense[abbr] = {};
+    if (!teamDefense[abbr][pos]) teamDefense[abbr][pos] = { fga: 0, fgm: 0, normalFgPct: 0, count: 0 };
+    const entry = teamDefense[abbr][pos];
+    entry.fga += r[idx('D_FGA')] || 0;
+    entry.fgm += r[idx('D_FGM')] || 0;
+    entry.normalFgPct += r[idx('NORMAL_FG_PCT')] || 0;
+    entry.count++;
+  }
+
+  // Compute averages
+  const dvp = {};
+  for (const [abbr, positions] of Object.entries(teamDefense)) {
+    dvp[abbr] = {};
+    for (const [pos, d] of Object.entries(positions)) {
+      const actualFgPct = d.fga > 0 ? d.fgm / d.fga : 0;
+      const avgNormalFgPct = d.count > 0 ? d.normalFgPct / d.count : 0;
+      dvp[abbr][pos] = {
+        fga: d.fga, fgm: d.fgm,
+        fgPct: +(actualFgPct * 100).toFixed(1),
+        normalFgPct: +(avgNormalFgPct * 100).toFixed(1),
+        diffPct: +((actualFgPct - avgNormalFgPct) * 100).toFixed(1), // positive = team gives up more
+      };
+    }
+  }
+  return dvp;
+}
+
+// Fetch blowout rates from team game logs
+// Returns: { ATL: { blowoutWins: 5, blowoutLosses: 8, blowoutPct: 16.2, gp: 80, avgMargin: 1.3 }, ... }
+async function fetchBlowoutRates(season) {
+  const seasonStr = `${season}-${String(season + 1).slice(2)}`;
+  const json = await fetchNBAStats('leaguegamelog', {
+    PlayerOrTeam: 'T', Season: seasonStr, SeasonType: 'Regular Season',
+    LeagueID: '00', Counter: '0', Sorter: 'DATE', Direction: 'DESC',
+    DateFrom: '', DateTo: '',
+  });
+  const headers = json.resultSets?.[0]?.headers || [];
+  const rows = json.resultSets?.[0]?.rowSet || [];
+  const idx = (name) => headers.indexOf(name);
+
+  const BLOWOUT_MARGIN = 15;
+  const teams = {};
+  for (const r of rows) {
+    const abbr = r[idx('TEAM_ABBREVIATION')];
+    if (!abbr) continue;
+    if (!teams[abbr]) teams[abbr] = { gp: 0, blowoutWins: 0, blowoutLosses: 0, totalMargin: 0 };
+    const t = teams[abbr];
+    const margin = r[idx('PLUS_MINUS')] || 0;
+    const wl = r[idx('WL')];
+    t.gp++;
+    t.totalMargin += margin;
+    if (margin >= BLOWOUT_MARGIN && wl === 'W') t.blowoutWins++;
+    else if (margin <= -BLOWOUT_MARGIN && wl === 'L') t.blowoutLosses++;
+  }
+
+  const blowouts = {};
+  for (const [abbr, t] of Object.entries(teams)) {
+    const totalBlowouts = t.blowoutWins + t.blowoutLosses;
+    blowouts[abbr] = {
+      gp: t.gp, blowoutWins: t.blowoutWins, blowoutLosses: t.blowoutLosses,
+      blowoutPct: t.gp ? +(totalBlowouts / t.gp * 100).toFixed(1) : 0,
+      avgMargin: t.gp ? +(t.totalMargin / t.gp).toFixed(1) : 0,
+    };
+  }
+  return blowouts;
+}
+
+// Supabase cache for team stats (reuses odds_cache table)
+async function sbGetTeamStats() {
+  if (!supabase) return null;
+  try {
+    const { data, error } = await supabase.from('odds_cache')
+      .select('players, last_fetched').eq('book', 'team_stats').single();
+    if (error || !data) return null;
+    // Check freshness — stale after 6 hours
+    const age = (Date.now() - new Date(data.last_fetched).getTime()) / (1000 * 60 * 60);
+    if (age > 6) return null;
+    return data.players; // the JSON blob
+  } catch { return null; }
+}
+
+async function sbSetTeamStats(statsObj) {
+  if (!supabase) return;
+  try {
+    await supabase.from('odds_cache').upsert({
+      book: 'team_stats', players: statsObj, last_fetched: new Date().toISOString(),
+    }, { onConflict: 'book' });
+  } catch (e) { console.warn('Team stats cache write failed:', e.message); }
+}
+
 // ---- BDL TEAM ID → ABBREVIATION MAP ----
 // BDL uses fixed numeric IDs for all 30 teams
 
@@ -2028,6 +2209,81 @@ app.get('/api/cron/grade-bets', async (req, res) => {
 // ROUTE: GET /api/cron/refresh-odds — store Odds API data in Supabase
 // Runs on schedule so users never hit the Odds API directly
 // ============================================================
+// ============================================================
+// CRON: Refresh team stats from NBA.com Stats API
+// Fetches advanced stats, DvP, and blowout rates
+// ============================================================
+app.get('/api/cron/refresh-team-stats', async (req, res) => {
+  const secret = (req.headers.authorization || '').replace('Bearer ', '') || req.headers['x-cron-secret'] || req.query.secret;
+  if (process.env.CRON_SECRET && secret !== process.env.CRON_SECRET) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  const startTime = Date.now();
+  const summary = { teams: 0, dvpTeams: 0, blowoutTeams: 0, errors: [] };
+  try {
+    // Fetch all three datasets with 1s delays between to avoid rate limiting
+    const advanced = await fetchTeamAdvancedStats(NBA_SEASON);
+    summary.teams = Object.keys(advanced).length;
+    await new Promise(r => setTimeout(r, 1000));
+
+    const dvp = await fetchDvPStats(NBA_SEASON);
+    summary.dvpTeams = Object.keys(dvp).length;
+    await new Promise(r => setTimeout(r, 1000));
+
+    const blowouts = await fetchBlowoutRates(NBA_SEASON);
+    summary.blowoutTeams = Object.keys(blowouts).length;
+
+    // Compute league averages for context
+    const allTeams = Object.values(advanced);
+    const leagueAvg = {
+      pace: +(allTeams.reduce((s, t) => s + (t.pace || 0), 0) / allTeams.length).toFixed(1),
+      offRtg: +(allTeams.reduce((s, t) => s + (t.offRtg || 0), 0) / allTeams.length).toFixed(1),
+      defRtg: +(allTeams.reduce((s, t) => s + (t.defRtg || 0), 0) / allTeams.length).toFixed(1),
+    };
+
+    // Merge into single object keyed by team abbreviation
+    const combined = { _leagueAvg: leagueAvg, _fetchedAt: new Date().toISOString() };
+    for (const abbr of Object.keys(advanced)) {
+      combined[abbr] = {
+        ...advanced[abbr],
+        dvp: dvp[abbr] || {},
+        blowout: blowouts[abbr] || {},
+      };
+    }
+
+    // Cache in memory + Supabase
+    cacheSet('team_stats', combined, 6 * 60 * 60); // 6h TTL
+    await sbSetTeamStats(combined);
+
+    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+    res.json({ success: true, elapsed: `${elapsed}s`, ...summary, leagueAvg });
+  } catch (err) {
+    summary.errors.push(err.message);
+    res.status(500).json({ error: err.message, ...summary });
+  }
+});
+
+// ============================================================
+// API: GET /api/team-stats — serve cached team stats to client
+// ============================================================
+app.get('/api/team-stats', async (req, res) => {
+  // Try memory cache first
+  let stats = cacheGet('team_stats');
+  if (!stats) {
+    // Try Supabase
+    stats = await sbGetTeamStats();
+    if (stats) cacheSet('team_stats', stats, 6 * 60 * 60);
+  }
+  if (!stats) return res.status(404).json({ error: 'Team stats not cached yet. Run /api/cron/refresh-team-stats first.' });
+
+  // Optional team filter
+  const team = req.query.team?.toUpperCase();
+  if (team && stats[team]) {
+    return res.json({ team, ...stats[team], _leagueAvg: stats._leagueAvg });
+  }
+  res.json(stats);
+});
+
 app.get('/api/cron/refresh-odds', async (req, res) => {
   const secret = (req.headers.authorization || '').replace('Bearer ', '') || req.headers['x-cron-secret'] || req.query.secret;
   if (process.env.CRON_SECRET && secret !== process.env.CRON_SECRET) {

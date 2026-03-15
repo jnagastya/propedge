@@ -4,7 +4,7 @@
     {
       "src": "server.js",
       "use": "@vercel/node",
-      "config": { "maxDuration": 300 }
+      "config": { "maxDuration": 120 }
     }
   ],
   "routes": [
@@ -14,9 +14,11 @@
   "crons": [
     { "path": "/api/cron/refresh-odds", "schedule": "0 18 * * 1-5" },
     { "path": "/api/cron/refresh-stats", "schedule": "30 18 * * 1-5" },
+    { "path": "/api/cron/refresh-team-stats", "schedule": "45 18 * * 1-5" },
 
     { "path": "/api/cron/refresh-odds", "schedule": "0 17 * * 0,6" },
     { "path": "/api/cron/refresh-stats", "schedule": "15 17 * * 0,6" },
+    { "path": "/api/cron/refresh-team-stats", "schedule": "30 17 * * 0,6" },
 
     { "path": "/api/cron/grade-agent-bets", "schedule": "0 19 * * *" },
     { "path": "/api/cron/grade-bets", "schedule": "15 19 * * *" },
@@ -27,19 +29,12 @@
     { "path": "/api/cron/agent-bet", "schedule": "45 17 * * 0,6" },
 
     { "path": "/api/cron/tipoff-snapshot", "schedule": "0 18 * * 0,6" },
-    { "path": "/api/cron/tipoff-snapshot", "schedule": "0 19 * * 0,6" },
     { "path": "/api/cron/tipoff-snapshot", "schedule": "0 20 * * 0,6" },
-    { "path": "/api/cron/tipoff-snapshot", "schedule": "0 21 * * 0,6" },
     { "path": "/api/cron/tipoff-snapshot", "schedule": "0 22 * * 0,6" },
-    { "path": "/api/cron/tipoff-snapshot", "schedule": "0 23 * * 0,6" },
 
-    { "path": "/api/cron/tipoff-snapshot", "schedule": "30 23 * * *" },
     { "path": "/api/cron/tipoff-snapshot", "schedule": "0 0 * * *" },
-    { "path": "/api/cron/tipoff-snapshot", "schedule": "30 0 * * *" },
     { "path": "/api/cron/tipoff-snapshot", "schedule": "0 1 * * *" },
-    { "path": "/api/cron/tipoff-snapshot", "schedule": "30 1 * * *" },
     { "path": "/api/cron/tipoff-snapshot", "schedule": "0 2 * * *" },
-    { "path": "/api/cron/tipoff-snapshot", "schedule": "30 2 * * *" },
     { "path": "/api/cron/tipoff-snapshot", "schedule": "0 3 * * *" }
   ]
 }
