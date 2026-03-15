@@ -3,6 +3,9 @@
 // Run locally: node scripts/refresh-team-stats.js
 // NBA.com blocks cloud IPs (Vercel, GitHub Actions), so this
 // must run from a residential IP (your machine).
+//
+// Blended windows: 60% season + 25% last 15 games + 15% last 5 games
+// This captures roster/injury shifts without losing seasonal stability.
 // ============================================================
 
 // Load .env from project root if available
@@ -44,20 +47,24 @@ function currentNBASeason() {
 async function fetchNBAStats(endpoint, params = {}) {
   const qs = new URLSearchParams(params).toString();
   const url = `https://stats.nba.com/stats/${endpoint}?${qs}`;
-  console.log(`Fetching ${endpoint}...`);
+  console.log(`  Fetching ${endpoint}${params.LastNGames && params.LastNGames !== '0' ? ` (L${params.LastNGames})` : ''}${params.Location ? ` [${params.Location}]` : ''}...`);
   const resp = await fetch(url, { headers: NBA_STATS_HEADERS });
   if (!resp.ok) throw new Error(`NBA Stats ${endpoint} returned ${resp.status}`);
   return resp.json();
 }
 
-async function fetchTeamAdvancedStats(season) {
+const delay = (ms) => new Promise(r => setTimeout(r, ms));
+
+// ---- Fetch functions with LastNGames support ----
+
+async function fetchTeamAdvancedStats(season, lastNGames = 0, location = '') {
   const seasonStr = `${season}-${String(season + 1).slice(2)}`;
   const json = await fetchNBAStats('leaguedashteamstats', {
     MeasureType: 'Advanced', PerMode: 'PerGame', Season: seasonStr,
     SeasonType: 'Regular Season', LeagueID: '00', TeamID: '0',
     OpponentTeamID: '0', Conference: '', Division: '', GameScope: '',
-    GameSegment: '', DateFrom: '', DateTo: '', LastNGames: '0',
-    Location: '', Month: '0', Outcome: '', PORound: '0',
+    GameSegment: '', DateFrom: '', DateTo: '', LastNGames: String(lastNGames),
+    Location: location, Month: '0', Outcome: '', PORound: '0',
     PaceAdjust: 'N', Period: '0', PlayerExperience: '', PlayerPosition: '',
     PlusMinus: 'N', Rank: 'N', SeasonSegment: '', ShotClockRange: '',
     StarterBench: '', TwoWay: '0', VsConference: '', VsDivision: '',
@@ -80,58 +87,37 @@ async function fetchTeamAdvancedStats(season) {
   return teams;
 }
 
-async function fetchDvPStats(season) {
+async function fetchOpponentStats(season, lastNGames = 0) {
   const seasonStr = `${season}-${String(season + 1).slice(2)}`;
-  const json = await fetchNBAStats('leaguedashptdefend', {
-    DefenseCategory: 'Overall', Season: seasonStr,
-    SeasonType: 'Regular Season', PerMode: 'PerGame', LeagueID: '00',
-    TeamID: '', PlayerPosition: '', OpponentTeamID: '',
-    Conference: '', Division: '', DateFrom: '', DateTo: '',
-    GameSegment: '', LastNGames: '0', Location: '', Month: '0',
-    Outcome: '', PORound: '0', Period: '0',
+  const json = await fetchNBAStats('leaguedashteamstats', {
+    MeasureType: 'Opponent', PerMode: 'PerGame', Season: seasonStr,
+    SeasonType: 'Regular Season', LeagueID: '00', TeamID: '0',
+    OpponentTeamID: '0', Conference: '', Division: '', GameScope: '',
+    GameSegment: '', DateFrom: '', DateTo: '', LastNGames: String(lastNGames),
+    Location: '', Month: '0', Outcome: '', PORound: '0',
+    PaceAdjust: 'N', Period: '0', PlayerExperience: '', PlayerPosition: '',
+    PlusMinus: 'N', Rank: 'N', SeasonSegment: '', ShotClockRange: '',
+    StarterBench: '', TwoWay: '0', VsConference: '', VsDivision: '',
   });
   const headers = json.resultSets?.[0]?.headers || [];
   const rows = json.resultSets?.[0]?.rowSet || [];
   const idx = (name) => headers.indexOf(name);
-
-  const teamDefense = {};
+  const teams = {};
   for (const r of rows) {
-    const teamId = r[idx('PLAYER_LAST_TEAM_ID')];
-    const abbr = NBA_COM_TEAM_MAP[teamId];
+    const abbr = NBA_COM_TEAM_MAP[r[idx('TEAM_ID')]] || r[idx('TEAM_NAME')]?.substring(0, 3)?.toUpperCase();
     if (!abbr) continue;
-    let pos = (r[idx('PLAYER_POSITION')] || '').toUpperCase();
-    if (pos === 'G' || pos === 'G-F') pos = 'G';
-    else if (pos === 'F' || pos === 'F-G' || pos === 'F-C') pos = 'F';
-    else if (pos === 'C' || pos === 'C-F') pos = 'C';
-    else continue;
-
-    if (!teamDefense[abbr]) teamDefense[abbr] = {};
-    if (!teamDefense[abbr][pos]) teamDefense[abbr][pos] = { fga: 0, fgm: 0, normalFgPct: 0, count: 0 };
-    const entry = teamDefense[abbr][pos];
-    entry.fga += r[idx('D_FGA')] || 0;
-    entry.fgm += r[idx('D_FGM')] || 0;
-    entry.normalFgPct += r[idx('NORMAL_FG_PCT')] || 0;
-    entry.count++;
+    teams[abbr] = {
+      pts: r[idx('OPP_PTS')], reb: r[idx('OPP_REB')], ast: r[idx('OPP_AST')],
+      fg3m: r[idx('OPP_FG3M')], stl: r[idx('OPP_STL')], blk: r[idx('OPP_BLK')],
+      tov: r[idx('OPP_TOV')], fgPct: r[idx('OPP_FG_PCT')], fg3Pct: r[idx('OPP_FG3_PCT')],
+      oreb: r[idx('OPP_OREB')], dreb: r[idx('OPP_DREB')],
+    };
   }
-
-  const dvp = {};
-  for (const [abbr, positions] of Object.entries(teamDefense)) {
-    dvp[abbr] = {};
-    for (const [pos, d] of Object.entries(positions)) {
-      const actualFgPct = d.fga > 0 ? d.fgm / d.fga : 0;
-      const avgNormalFgPct = d.count > 0 ? d.normalFgPct / d.count : 0;
-      dvp[abbr][pos] = {
-        fga: d.fga, fgm: d.fgm,
-        fgPct: +(actualFgPct * 100).toFixed(1),
-        normalFgPct: +(avgNormalFgPct * 100).toFixed(1),
-        diffPct: +((actualFgPct - avgNormalFgPct) * 100).toFixed(1),
-      };
-    }
-  }
-  return dvp;
+  return teams;
 }
 
-async function fetchBlowoutRates(season) {
+// Fetch full game log — blowout windows computed from one dataset
+async function fetchGameLog(season) {
   const seasonStr = `${season}-${String(season + 1).slice(2)}`;
   const json = await fetchNBAStats('leaguegamelog', {
     PlayerOrTeam: 'T', Season: seasonStr, SeasonType: 'Regular Season',
@@ -142,32 +128,118 @@ async function fetchBlowoutRates(season) {
   const rows = json.resultSets?.[0]?.rowSet || [];
   const idx = (name) => headers.indexOf(name);
 
-  const BLOWOUT_MARGIN = 15;
-  const teams = {};
+  // Group games by team (already sorted DESC by date)
+  const teamGames = {};
   for (const r of rows) {
     const abbr = r[idx('TEAM_ABBREVIATION')];
     if (!abbr) continue;
-    if (!teams[abbr]) teams[abbr] = { gp: 0, blowoutWins: 0, blowoutLosses: 0, totalMargin: 0 };
-    const t = teams[abbr];
-    const margin = r[idx('PLUS_MINUS')] || 0;
-    const wl = r[idx('WL')];
-    t.gp++;
-    t.totalMargin += margin;
-    if (margin >= BLOWOUT_MARGIN && wl === 'W') t.blowoutWins++;
-    else if (margin <= -BLOWOUT_MARGIN && wl === 'L') t.blowoutLosses++;
+    if (!teamGames[abbr]) teamGames[abbr] = [];
+    teamGames[abbr].push({ margin: r[idx('PLUS_MINUS')] || 0, wl: r[idx('WL')], date: r[idx('GAME_DATE')] });
+  }
+  return teamGames;
+}
+
+function computeBlowouts(games) {
+  const BLOWOUT_MARGIN = 15;
+  let blowoutWins = 0, blowoutLosses = 0, totalMargin = 0;
+  for (const g of games) {
+    totalMargin += g.margin;
+    if (g.margin >= BLOWOUT_MARGIN && g.wl === 'W') blowoutWins++;
+    else if (g.margin <= -BLOWOUT_MARGIN && g.wl === 'L') blowoutLosses++;
+  }
+  const gp = games.length;
+  const total = blowoutWins + blowoutLosses;
+  return {
+    gp, blowoutWins, blowoutLosses,
+    blowoutPct: gp ? +(total / gp * 100).toFixed(1) : 0,
+    blowoutWinPct: gp ? +(blowoutWins / gp * 100).toFixed(1) : 0,
+    blowoutLossPct: gp ? +(blowoutLosses / gp * 100).toFixed(1) : 0,
+    avgMargin: gp ? +(totalMargin / gp).toFixed(1) : 0,
+  };
+}
+
+// ---- Blending utility ----
+// Blend numeric fields from 3 windows: 60% season + 25% L15 + 15% L5
+function blendObj(season, l15, l5, keys) {
+  const result = {};
+  for (const k of keys) {
+    const sv = season?.[k], m = l15?.[k], s = l5?.[k];
+    if (sv == null) { result[k] = sv; continue; }
+    // If L15/L5 data missing (team played fewer games), fall back to season
+    const v15 = m != null ? m : sv;
+    const v5 = s != null ? s : v15;
+    result[k] = +(sv * 0.60 + v15 * 0.25 + v5 * 0.15).toFixed(2);
+  }
+  return result;
+}
+
+// ---- Player on/off impact ----
+// Fetches team-level on/off summary for one team, returns top 8 players by minutes
+const ONOFF_DAMPEN = 0.6; // on/off overstates individual impact (lineup correlation)
+const MAX_IMPACT_PLAYERS = 8;
+
+async function fetchTeamOnOff(season, teamId, teamAbbr) {
+  const seasonStr = `${season}-${String(season + 1).slice(2)}`;
+  const json = await fetchNBAStats('teamplayeronoffsummary', {
+    TeamID: String(teamId), Season: seasonStr, SeasonType: 'Regular Season',
+    MeasureType: 'Base', PerMode: 'PerGame', LastNGames: '0', Month: '0',
+    OpponentTeamID: '0', PaceAdjust: 'N', Period: '0', PlusMinus: 'N',
+    Rank: 'N', DateFrom: '', DateTo: '', GameSegment: '', LeagueID: '00',
+    Location: '', Outcome: '', SeasonSegment: '', VsConference: '', VsDivision: '',
+  });
+
+  // resultSets: [0] = overall, [1] = on court, [2] = off court
+  const onSet = json.resultSets?.[1], offSet = json.resultSets?.[2];
+  if (!onSet?.headers || !offSet?.headers) return [];
+
+  const onH = onSet.headers, offH = offSet.headers;
+  const onIdx = (n) => onH.indexOf(n), offIdx = (n) => offH.indexOf(n);
+
+  // Build map of off-court net ratings by player ID
+  const offMap = {};
+  for (const r of offSet.rowSet || []) {
+    offMap[r[offIdx('VS_PLAYER_ID')]] = r[offIdx('NET_RATING')];
   }
 
-  const blowouts = {};
-  for (const [abbr, t] of Object.entries(teams)) {
-    const totalBlowouts = t.blowoutWins + t.blowoutLosses;
-    blowouts[abbr] = {
-      gp: t.gp, blowoutWins: t.blowoutWins, blowoutLosses: t.blowoutLosses,
-      blowoutPct: t.gp ? +(totalBlowouts / t.gp * 100).toFixed(1) : 0,
-      avgMargin: t.gp ? +(t.totalMargin / t.gp).toFixed(1) : 0,
-    };
+  // Parse on-court rows, compute on/off diff
+  const players = [];
+  for (const r of onSet.rowSet || []) {
+    const pid = r[onIdx('VS_PLAYER_ID')];
+    const onNR = r[onIdx('NET_RATING')];
+    const offNR = offMap[pid];
+    const totalMin = r[onIdx('MIN')];
+    const gp = r[onIdx('GP')];
+    if (onNR == null || offNR == null || !totalMin || !gp) continue;
+    const mpg = totalMin / gp; // MIN is total, convert to per game
+    const onOffDiff = +(onNR - offNR).toFixed(1);
+    // Minutes-weighted impact: (onOffDiff) * (mpg/48) * dampen
+    const impact = +(onOffDiff * (mpg / 48) * ONOFF_DAMPEN).toFixed(1);
+    // Convert "Last, First" to "First Last" for injury matching
+    const rawName = r[onIdx('VS_PLAYER_NAME')] || '';
+    const name = rawName.includes(',') ? rawName.split(',').map(s => s.trim()).reverse().join(' ') : rawName;
+    players.push({
+      name,
+      playerId: pid,
+      min: +mpg.toFixed(1),
+      onNetRtg: +onNR.toFixed(1),
+      offNetRtg: +offNR.toFixed(1),
+      onOffDiff,
+      impact,
+    });
   }
-  return blowouts;
+
+  // Sort by minutes DESC, take top 8
+  players.sort((a, b) => b.min - a.min);
+  return players.slice(0, MAX_IMPACT_PLAYERS);
 }
+
+// Reverse map: abbr → teamId
+const ABBR_TO_ID = {};
+for (const [id, abbr] of Object.entries(NBA_COM_TEAM_MAP)) ABBR_TO_ID[abbr] = id;
+
+const ADV_KEYS = ['pace', 'offRtg', 'defRtg', 'netRtg', 'ts', 'efg', 'astPct', 'tovPct', 'rebPct', 'pie'];
+const OPP_KEYS = ['pts', 'reb', 'ast', 'fg3m', 'stl', 'blk', 'tov', 'fgPct', 'fg3Pct', 'oreb', 'dreb'];
+const BLOW_KEYS = ['blowoutPct', 'blowoutWinPct', 'blowoutLossPct', 'avgMargin'];
 
 async function writeToSupabase(data) {
   const resp = await fetch(`${SUPABASE_URL}/rest/v1/odds_cache?on_conflict=book`, {
@@ -192,40 +264,143 @@ async function writeToSupabase(data) {
 
 async function main() {
   const season = currentNBASeason();
-  console.log(`Fetching NBA team stats for ${season}-${String(season + 1).slice(2)}...`);
+  console.log(`Fetching NBA team stats for ${season}-${String(season + 1).slice(2)} (blended: 60% season + 25% L15 + 15% L5)...\n`);
 
-  const advanced = await fetchTeamAdvancedStats(season);
-  console.log(`  Advanced stats: ${Object.keys(advanced).length} teams`);
-  await new Promise(r => setTimeout(r, 1000));
+  // --- Advanced stats: 3 windows ---
+  console.log('Advanced stats:');
+  const advSeason = await fetchTeamAdvancedStats(season, 0);
+  console.log(`    Season: ${Object.keys(advSeason).length} teams`);
+  await delay(1000);
+  const advL15 = await fetchTeamAdvancedStats(season, 15);
+  console.log(`    L15: ${Object.keys(advL15).length} teams`);
+  await delay(1000);
+  const advL5 = await fetchTeamAdvancedStats(season, 5);
+  console.log(`    L5: ${Object.keys(advL5).length} teams`);
+  await delay(1000);
 
-  const dvp = await fetchDvPStats(season);
-  console.log(`  DvP stats: ${Object.keys(dvp).length} teams`);
-  await new Promise(r => setTimeout(r, 1000));
+  // --- Opponent stats: 3 windows ---
+  console.log('Opponent stats allowed:');
+  const oppSeason = await fetchOpponentStats(season, 0);
+  console.log(`    Season: ${Object.keys(oppSeason).length} teams`);
+  await delay(1000);
+  const oppL15 = await fetchOpponentStats(season, 15);
+  console.log(`    L15: ${Object.keys(oppL15).length} teams`);
+  await delay(1000);
+  const oppL5 = await fetchOpponentStats(season, 5);
+  console.log(`    L5: ${Object.keys(oppL5).length} teams`);
+  await delay(1000);
 
-  const blowouts = await fetchBlowoutRates(season);
-  console.log(`  Blowout rates: ${Object.keys(blowouts).length} teams`);
+  // --- Home/Away splits: season only (small samples already) ---
+  console.log('Home/Away splits:');
+  const advHome = await fetchTeamAdvancedStats(season, 0, 'Home');
+  console.log(`    Home: ${Object.keys(advHome).length} teams`);
+  await delay(1000);
+  const advAway = await fetchTeamAdvancedStats(season, 0, 'Road');
+  console.log(`    Away: ${Object.keys(advAway).length} teams`);
+  await delay(1000);
 
-  // League averages
-  const allTeams = Object.values(advanced);
-  const leagueAvg = {
-    pace: +(allTeams.reduce((s, t) => s + (t.pace || 0), 0) / allTeams.length).toFixed(1),
-    offRtg: +(allTeams.reduce((s, t) => s + (t.offRtg || 0), 0) / allTeams.length).toFixed(1),
-    defRtg: +(allTeams.reduce((s, t) => s + (t.defRtg || 0), 0) / allTeams.length).toFixed(1),
+  // --- Blowout rates: 1 fetch, 3 windows computed ---
+  console.log('Blowout rates:');
+  const teamGames = await fetchGameLog(season);
+  console.log(`    Game log: ${Object.keys(teamGames).length} teams`);
+
+  // --- Player on/off impact: 30 calls (batched 5 at a time) ---
+  console.log('Player on/off impact:');
+  const allTeamAbbrs = Object.keys(advSeason);
+  const playerImpactMap = {};
+  const BATCH_SIZE = 5;
+  for (let i = 0; i < allTeamAbbrs.length; i += BATCH_SIZE) {
+    const batch = allTeamAbbrs.slice(i, i + BATCH_SIZE);
+    const results = await Promise.all(
+      batch.map(abbr => fetchTeamOnOff(season, ABBR_TO_ID[abbr], abbr).catch(err => {
+        console.warn(`    ⚠ ${abbr} on/off failed: ${err.message}`);
+        return [];
+      }))
+    );
+    for (let j = 0; j < batch.length; j++) {
+      playerImpactMap[batch[j]] = results[j];
+    }
+    console.log(`    Batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(allTeamAbbrs.length / BATCH_SIZE)}: ${batch.join(', ')}`);
+    if (i + BATCH_SIZE < allTeamAbbrs.length) await delay(1500);
+  }
+  const totalPlayers = Object.values(playerImpactMap).reduce((s, p) => s + p.length, 0);
+  console.log(`    ${totalPlayers} players across ${Object.keys(playerImpactMap).length} teams`);
+
+  // --- Blend everything ---
+  console.log('\nBlending windows...');
+  const allTeams = Object.keys(advSeason);
+
+  // League averages (computed from blended values)
+  const avg = (obj, key) => {
+    const vals = Object.values(obj).map(t => t[key]).filter(v => v != null);
+    return vals.length ? +(vals.reduce((s, v) => s + v, 0) / vals.length).toFixed(1) : 0;
   };
 
-  // Combine
-  const combined = { _leagueAvg: leagueAvg, _fetchedAt: new Date().toISOString() };
-  for (const abbr of Object.keys(advanced)) {
+  const combined = { _fetchedAt: new Date().toISOString() };
+  for (const abbr of allTeams) {
+    // Blend advanced
+    const blendedAdv = blendObj(advSeason[abbr], advL15[abbr], advL5[abbr], ADV_KEYS);
+    // Blend opponent allowed
+    const blendedOpp = blendObj(oppSeason[abbr], oppL15[abbr], oppL5[abbr], OPP_KEYS);
+    // Blend blowout rates from game log windows
+    const games = teamGames[abbr] || [];
+    const blowSeason = computeBlowouts(games);
+    const blowL15 = computeBlowouts(games.slice(0, 15));
+    const blowL5 = computeBlowouts(games.slice(0, 5));
+    const blendedBlow = {
+      ...blendObj(blowSeason, blowL15, blowL5, BLOW_KEYS),
+      gp: blowSeason.gp,
+      blowoutWins: blowSeason.blowoutWins,
+      blowoutLosses: blowSeason.blowoutLosses,
+    };
+
+    // Home/Away splits (full season only — half-season samples are already small)
+    const hSplit = advHome[abbr], aSplit = advAway[abbr];
+    const homeSplit = hSplit ? { homeNetRtg: hSplit.netRtg, homeOffRtg: hSplit.offRtg, homeDefRtg: hSplit.defRtg, homePace: hSplit.pace } : {};
+    const awaySplit = aSplit ? { awayNetRtg: aSplit.netRtg, awayOffRtg: aSplit.offRtg, awayDefRtg: aSplit.defRtg, awayPace: aSplit.pace } : {};
+
+    // B2B detection: most recent game date (games sorted DESC)
+    const lastGameDate = games.length ? games[0].date : null;
+
     combined[abbr] = {
-      ...advanced[abbr],
-      dvp: dvp[abbr] || {},
-      blowout: blowouts[abbr] || {},
+      name: advSeason[abbr].name, gp: advSeason[abbr].gp,
+      w: advSeason[abbr].w, l: advSeason[abbr].l,
+      ...blendedAdv,
+      ...homeSplit, ...awaySplit,
+      lastGameDate,
+      allows: blendedOpp,
+      blowout: blendedBlow,
+      playerImpact: playerImpactMap[abbr] || [],
     };
   }
 
-  console.log(`Writing to Supabase...`);
+  // League averages from blended data
+  const blendedTeams = Object.values(combined).filter(t => t.pace != null);
+  const blendedAllows = Object.values(combined).filter(t => t.allows?.pts != null).map(t => t.allows);
+  combined._leagueAvg = {
+    pace: avg(combined, 'pace') || +(blendedTeams.reduce((s, t) => s + t.pace, 0) / blendedTeams.length).toFixed(1),
+    offRtg: +(blendedTeams.reduce((s, t) => s + t.offRtg, 0) / blendedTeams.length).toFixed(1),
+    defRtg: +(blendedTeams.reduce((s, t) => s + t.defRtg, 0) / blendedTeams.length).toFixed(1),
+    pts: +(blendedAllows.reduce((s, t) => s + t.pts, 0) / blendedAllows.length).toFixed(1),
+    reb: +(blendedAllows.reduce((s, t) => s + t.reb, 0) / blendedAllows.length).toFixed(1),
+    ast: +(blendedAllows.reduce((s, t) => s + t.ast, 0) / blendedAllows.length).toFixed(1),
+    fg3m: +(blendedAllows.reduce((s, t) => s + t.fg3m, 0) / blendedAllows.length).toFixed(1),
+    stl: +(blendedAllows.reduce((s, t) => s + t.stl, 0) / blendedAllows.length).toFixed(1),
+    blk: +(blendedAllows.reduce((s, t) => s + t.blk, 0) / blendedAllows.length).toFixed(1),
+    tov: +(blendedAllows.reduce((s, t) => s + t.tov, 0) / blendedAllows.length).toFixed(1),
+  };
+
+  console.log(`\nWriting to Supabase...`);
   await writeToSupabase(combined);
-  console.log(`Done! League avg pace: ${leagueAvg.pace}, ORTG: ${leagueAvg.offRtg}, DRTG: ${leagueAvg.defRtg}`);
+  console.log(`Done! ${allTeams.length} teams (blended) — ${9 + allTeams.length} API calls`);
+  console.log(`League avg pace: ${combined._leagueAvg.pace}, pts allowed: ${combined._leagueAvg.pts}, reb allowed: ${combined._leagueAvg.reb}, ast allowed: ${combined._leagueAvg.ast}`);
+  // Spot check
+  const sampleTeam = allTeams[0];
+  const s = combined[sampleTeam];
+  console.log(`Sample ${sampleTeam}: homeNetRtg=${s.homeNetRtg}, awayNetRtg=${s.awayNetRtg}, lastGame=${s.lastGameDate}`);
+  if (s.playerImpact?.length) {
+    console.log(`  Top player: ${s.playerImpact[0].name} — ${s.playerImpact[0].min} mpg, on/off: ${s.playerImpact[0].onOffDiff > 0 ? '+' : ''}${s.playerImpact[0].onOffDiff}, impact: ${s.playerImpact[0].impact > 0 ? '+' : ''}${s.playerImpact[0].impact}`);
+  }
 }
 
 main().catch(err => {

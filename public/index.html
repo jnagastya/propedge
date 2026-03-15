@@ -584,6 +584,8 @@ td{padding:13px 14px;white-space:nowrap;}
 #adjToggle-dnp:hover{border-color:rgba(239,68,68,.4);background:rgba(239,68,68,.04);}
 #adjToggle-inj.on{border-color:rgba(245,158,11,.5);background:rgba(245,158,11,.08);box-shadow:0 0 12px rgba(245,158,11,.15);}
 #adjToggle-inj:hover{border-color:rgba(245,158,11,.4);background:rgba(245,158,11,.04);}
+#adjToggle-team.on,#ppAdjToggle-team.on{border-color:rgba(6,182,212,.5);background:rgba(6,182,212,.08);box-shadow:0 0 12px rgba(6,182,212,.15);}
+#adjToggle-team:hover,#ppAdjToggle-team:hover{border-color:rgba(6,182,212,.4);background:rgba(6,182,212,.04);}
 .adj-toggle-icon{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;}
 .adj-toggle-text{flex:1;min-width:0;}
 .adj-toggle-title{font-size:13px;font-weight:700;color:var(--t1);line-height:1.2;}
@@ -592,6 +594,7 @@ td{padding:13px 14px;white-space:nowrap;}
 .adj-toggle.on .adj-toggle-switch{background:rgba(139,92,246,.6);border-color:rgba(139,92,246,.8);}
 #adjToggle-dnp.on .adj-toggle-switch,#ppAdjToggle-dnp.on .adj-toggle-switch{background:rgba(239,68,68,.6);border-color:rgba(239,68,68,.8);}
 #adjToggle-inj.on .adj-toggle-switch,#ppAdjToggle-inj.on .adj-toggle-switch{background:rgba(245,158,11,.6);border-color:rgba(245,158,11,.8);}
+#adjToggle-team.on .adj-toggle-switch,#ppAdjToggle-team.on .adj-toggle-switch{background:rgba(6,182,212,.6);border-color:rgba(6,182,212,.8);}
 .adj-toggle-knob{width:16px;height:16px;border-radius:50%;background:#fff;position:absolute;top:1px;left:1px;transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.3);}
 .adj-toggle.on .adj-toggle-knob{transform:translateX(16px);}
 .risk-ctrl{display:flex;align-items:center;gap:16px;padding:14px 18px;background:var(--bg1);border:1px solid var(--bd);border-radius:var(--radius-lg);margin-bottom:6px;box-shadow:var(--shadow);}
@@ -1239,6 +1242,7 @@ input[type=range].min-slider::-moz-range-track{height:6px;border-radius:3px;back
   <button class="nav-tab nav-secondary" onclick="switchView('favorites',this)">Watchlist ⭐ <span class="fav-count-badge" id="favCountBadge" style="display:none"></span></button>
   <button class="nav-tab nav-secondary" onclick="switchView('parlay',this)">Parlay Builder 🎯 <span id="parlayNavBadge" class="parlay-nav-badge" style="display:none">0</span></button>
   <button class="nav-tab nav-secondary" onclick="switchView('analytics',this)">Analytics 📊</button>
+  <button class="nav-tab nav-secondary" onclick="switchView('gamelines',this)">Game Lines 🏀</button>
   <button class="nav-tab nav-secondary" onclick="switchView('glossary',this)">Glossary 📖</button>
   <button class="nav-tab nav-secondary" onclick="switchView('social',this)">Social 💬 <span id="socNotifBadge" class="soc-notif-badge" style="display:none"></span></button>
   <button class="nav-tab nav-more" onclick="toggleNavMore(this)">More ▾</button>
@@ -1352,6 +1356,15 @@ input[type=range].min-slider::-moz-range-track{height:6px;border-radius:3px;back
         <div class="adj-toggle-text">
           <div class="adj-toggle-title">Injury Impact</div>
           <div class="adj-toggle-desc">Adjust for missing teammates</div>
+        </div>
+        <div class="adj-toggle-switch"><div class="adj-toggle-knob"></div></div>
+      </div>
+      <div class="adj-toggle" id="ppAdjToggle-team" onclick="toggleTeamStats()">
+        <input type="checkbox" id="ppTeamStatsToggle" style="display:none;">
+        <div class="adj-toggle-icon" style="background:rgba(6,182,212,.15);color:#06b6d4;">📊</div>
+        <div class="adj-toggle-text">
+          <div class="adj-toggle-title">Matchup Adjust</div>
+          <div class="adj-toggle-desc">Pace + opponent allowed stats</div>
         </div>
         <div class="adj-toggle-switch"><div class="adj-toggle-knob"></div></div>
       </div>
@@ -1473,6 +1486,15 @@ input[type=range].min-slider::-moz-range-track{height:6px;border-radius:3px;back
         <div class="adj-toggle-text">
           <div class="adj-toggle-title">Injury Impact</div>
           <div class="adj-toggle-desc">Adjust for missing teammates</div>
+        </div>
+        <div class="adj-toggle-switch"><div class="adj-toggle-knob"></div></div>
+      </div>
+      <div class="adj-toggle" id="adjToggle-team" onclick="toggleTeamStats()">
+        <input type="checkbox" id="teamStatsToggle" style="display:none;">
+        <div class="adj-toggle-icon" style="background:rgba(6,182,212,.15);color:#06b6d4;">📊</div>
+        <div class="adj-toggle-text">
+          <div class="adj-toggle-title">Matchup Adjust</div>
+          <div class="adj-toggle-desc">Pace + opponent allowed stats</div>
         </div>
         <div class="adj-toggle-switch"><div class="adj-toggle-knob"></div></div>
       </div>
@@ -1743,6 +1765,16 @@ Negative odds: |odds| / (|odds| + 100)</div>
         </div>
       </div>
     </div>
+  </div>
+
+  <div class="view-pane" id="gamelinesView">
+    <div style="margin-bottom:14px;">
+      <h2 style="font-size:20px;font-weight:800;color:var(--t1);margin:0 0 4px;">Game Lines</h2>
+      <p style="font-size:12px;color:var(--t3);margin:0;">Moneyline, spread & totals with model-driven edge detection.</p>
+    </div>
+    <div id="glLoading" style="text-align:center;padding:40px;color:var(--t3);font-size:13px;">Loading game lines...</div>
+    <div id="glGrid" style="display:grid;gap:14px;"></div>
+    <div id="glEmpty" style="display:none;text-align:center;padding:40px;color:var(--t3);font-size:13px;">No upcoming games found.</div>
   </div>
 
 </div>
@@ -2427,12 +2459,12 @@ function switchView(v, btn) {
   nav.classList.remove('nav-expanded');
   const moreBtn = nav.querySelector('.nav-more');
   if (moreBtn) moreBtn.textContent = 'More ▾';
-  const views = ['propsView','alertsView','simView','analyticsView','parlayView','glossView','favView','socialView'];
+  const views = ['propsView','alertsView','simView','analyticsView','parlayView','glossView','favView','socialView','gamelinesView'];
   views.forEach(id => {
     const el = document.getElementById(id);
     if (el) { el.classList.remove('show'); }
   });
-  const target = {props:'propsView',alerts:'alertsView',simulator:'simView',analytics:'analyticsView',parlay:'parlayView',glossary:'glossView',favorites:'favView',social:'socialView'}[v];
+  const target = {props:'propsView',alerts:'alertsView',simulator:'simView',analytics:'analyticsView',parlay:'parlayView',glossary:'glossView',favorites:'favView',social:'socialView',gamelines:'gamelinesView'}[v];
   if (target) {
     const el = document.getElementById(target);
     if (el) { el.classList.add('show'); }
@@ -2446,6 +2478,7 @@ function switchView(v, btn) {
     if (!document.getElementById('vaGrid').children.length) renderAlerts();
   }
   if (v === 'social') showSocialView();
+  if (v === 'gamelines') renderGameLines();
 }
 
 // ── Game filter ──
@@ -2930,8 +2963,8 @@ function renderTable(){
     const[fAway,fHome]=S.gameFilter.split(' @ ');
     d=d.filter(p=>p.matchup&&p.matchup.includes(fAway)&&p.matchup.includes(fHome));
   }
-  // Apply stacked adjustment filters (Smart Minutes + DNP + Injury Impact compound multiplicatively)
-  if(_smartMinOn||_dnpAdjOn||_injuryImpactOn){
+  // Apply stacked adjustment filters (Smart Minutes + DNP + Injury Impact + Matchup compound multiplicatively)
+  if(_smartMinOn||_dnpAdjOn||_injuryImpactOn||_teamStatsOn){
     d=d.map(p=>applyAllAdjustments(p));
   }
   const sf={
@@ -3968,8 +4001,9 @@ const ALERT_MARKETS=[
 const MKT_SHORT={player_points:'PTS',player_rebounds:'REB',player_assists:'AST',player_threes:'3PM',player_points_rebounds_assists:'PRA',player_rebounds_assists:'R+A'};
 let alertMkt='all';
 let alertMktCache={}; // {market_key: enriched player array}
-let _smartMinOn=false, _dnpAdjOn=false, _injuryImpactOn=false;
+let _smartMinOn=false, _dnpAdjOn=false, _injuryImpactOn=false, _teamStatsOn=false;
 let _injuryImpactCache={}; // playerName|market → {ratio, teammate, ...}
+let _teamStatsCache=null; // { _leagueAvg: {...}, BOS: { pace, allows: {...}, ... }, ... }
 
 function _flipToggle(id, labelId){ const cb=document.getElementById(id); if(cb){ cb.checked=!cb.checked; document.getElementById(labelId)?.classList.toggle('on',cb.checked); } return cb?.checked||false; }
 function _syncToggles(state, pairs){ pairs.forEach(([cbId, lblId])=>{ const cb=document.getElementById(cbId); if(cb){ cb.checked=state; document.getElementById(lblId)?.classList.toggle('on',state); } }); }
@@ -4005,7 +4039,55 @@ async function fetchInjuryImpacts(){
   renderTable();
 }
 
-// Unified filter stacking: Smart Minutes + DNP + Injury Impact compound multiplicatively
+function toggleTeamStats(){
+  _teamStatsOn=!_teamStatsOn; _syncToggles(_teamStatsOn,[['teamStatsToggle','adjToggle-team'],['ppTeamStatsToggle','ppAdjToggle-team']]);
+  if(_teamStatsOn && !_teamStatsCache) fetchTeamStats();
+  else { renderAlerts(); renderTable(); }
+}
+async function fetchTeamStats(){
+  try{
+    const r=await fetch('/api/team-stats');
+    if(r.ok) _teamStatsCache=await r.json();
+  }catch{}
+  renderAlerts(); renderTable();
+}
+
+// Market → opponent allowed stat key(s) for DvP multiplier
+const MARKET_DVP_MAP={
+  player_points:['pts'], player_rebounds:['reb'], player_assists:['ast'],
+  player_threes:['fg3m'], player_points_rebounds_assists:['pts','reb','ast'],
+  player_rebounds_assists:['reb','ast'],
+};
+
+// Compute pace differential multiplier: adjusts for game environment
+// Formula: (playerTeamPace + opponentPace) / (playerTeamPace + leagueAvgPace)
+// This only captures the DIFFERENTIAL — player's own team pace is already baked into their averages
+function getPaceMultiplier(playerTeam, oppTeam, ts){
+  if(!ts||!ts._leagueAvg||!ts[playerTeam]||!ts[oppTeam]) return 1;
+  const ptPace=ts[playerTeam].pace, opPace=ts[oppTeam].pace, lgPace=ts._leagueAvg.pace;
+  if(!ptPace||!opPace||!lgPace) return 1;
+  return (ptPace+opPace)/(ptPace+lgPace);
+}
+
+// Compute DvP multiplier: opponent allowed stat vs league average
+// Dampened 50% toward 1.0 — team-level stats don't fully translate to individual props
+// For composite markets (PRA, R+A), average the component multipliers
+const DVP_DAMPEN = 0.5;
+function getDvPMultiplier(oppTeam, market, ts){
+  if(!ts||!ts._leagueAvg||!ts[oppTeam]?.allows) return 1;
+  const keys=MARKET_DVP_MAP[market];
+  if(!keys) return 1;
+  let totalMult=0, count=0;
+  for(const k of keys){
+    const oppVal=ts[oppTeam].allows[k], lgVal=ts._leagueAvg[k];
+    if(oppVal && lgVal){ totalMult+=oppVal/lgVal; count++; }
+  }
+  if(!count) return 1;
+  const raw=totalMult/count;
+  return 1+(raw-1)*DVP_DAMPEN;
+}
+
+// Unified filter stacking: Smart Minutes + DNP + Injury Impact + Matchup Adjust compound multiplicatively
 // on avg, then modelProb/edge/EV/VS computed once from the final adjusted values.
 function applyAllAdjustments(p){
   const tags=[];
@@ -4054,7 +4136,8 @@ function applyAllAdjustments(p){
   }
 
   // Nothing to adjust — pass through skipped info if any
-  if(!projMin && !injRatio){
+  const hasTeamAdj=_teamStatsOn && _teamStatsCache && p.team;
+  if(!projMin && !injRatio && !hasTeamAdj){
     if(injMeta._injSkipped?.length) return {...p,_injSkipped:injMeta._injSkipped};
     return p;
   }
@@ -4079,6 +4162,26 @@ function applyAllAdjustments(p){
     adjAvg=+(adjAvg*injRatio).toFixed(1);
   }
 
+  // --- Step 4b: Matchup adjustment (pace differential + DvP) ---
+  if(_teamStatsOn && _teamStatsCache){
+    const playerTeam=p.team||'';
+    const oppTeam=playerTeam===p.homeTeam?p.awayTeam:(playerTeam===p.awayTeam?p.homeTeam:'');
+    if(playerTeam && oppTeam){
+      const paceMult=getPaceMultiplier(playerTeam,oppTeam,_teamStatsCache);
+      const dvpMult=getDvPMultiplier(oppTeam,p.market||S.market,_teamStatsCache);
+      const combinedMult=paceMult*dvpMult;
+      if(Math.abs(combinedMult-1.0)>=0.005){
+        adjAvg=+(adjAvg*combinedMult).toFixed(1);
+        tags.push('pace:'+paceMult.toFixed(3));
+        tags.push('dvp:'+dvpMult.toFixed(3));
+        adj._matchupPace=paceMult;
+        adj._matchupDvP=dvpMult;
+        adj._matchupCombined=combinedMult;
+        adj._matchupOpp=oppTeam;
+      }
+    }
+  }
+
   // --- Step 5: Derive probability from final adjusted avg (single source of truth) ---
   const adjStd=Math.max(0.5,p.stdDev||2);
   const adjProb=p.line>0?Math.min(0.97,Math.max(0.03,1-normalCDF((p.line-adjAvg)/adjStd))):(p.modelProb||0.5);
@@ -4089,6 +4192,40 @@ function applyAllAdjustments(p){
   adj.hitRate=Math.round((isOver?adjProb:1-adjProb)*100);
   adj.evOver=calcEV(adjProb,p.overOdds);
   adj.evUnder=calcEV(1-adjProb,p.underOdds);
+
+  // --- Step 5b: Directional blowout confidence penalty ---
+  // Blowout risk is directional: what matters is whether THIS matchup is likely a blowout.
+  // Direction 1: player's team wins big (their blowout win % + opp blowout loss %)
+  // Direction 2: player's team loses big (their blowout loss % + opp blowout win %)
+  // Two good teams (high blowout wins, low blowout losses) = competitive game = low penalty.
+  // Good team vs bad team = high blowout risk in one direction = high penalty.
+  // Uses blended directional percentages (60% season + 25% L15 + 15% L5).
+  if(_teamStatsOn && _teamStatsCache){
+    const ptTeam=p.team||'';
+    const opTeam=ptTeam===p.homeTeam?p.awayTeam:(ptTeam===p.awayTeam?p.homeTeam:'');
+    const ptBlow=_teamStatsCache[ptTeam]?.blowout;
+    const opBlow=_teamStatsCache[opTeam]?.blowout;
+    if(ptBlow && opBlow){
+      const ptWinPct=ptBlow.blowoutWinPct||0;
+      const ptLossPct=ptBlow.blowoutLossPct||0;
+      const opWinPct=opBlow.blowoutWinPct||0;
+      const opLossPct=opBlow.blowoutLossPct||0;
+      // Directional risk: use MAX direction — the most likely blowout scenario
+      const winBig=(ptWinPct+opLossPct)/2;   // player's team blows out opponent
+      const loseBig=(ptLossPct+opWinPct)/2;  // opponent blows out player's team
+      const blowoutRisk=Math.max(winBig,loseBig);
+      if(blowoutRisk>15){
+        // 15% = no penalty (baseline), 40%+ = max -15 pts
+        const penalty=Math.min(15,Math.round((blowoutRisk-15)/25*15));
+        adj.confidence=Math.max(0,(adj.confidence||p.confidence||0)-penalty);
+        adj._blowoutPenalty=penalty;
+        adj._blowoutRisk=+blowoutRisk.toFixed(1);
+        adj._blowoutDir={winBig:+winBig.toFixed(1),loseBig:+loseBig.toFixed(1)};
+        tags.push('blow:-'+penalty);
+      }
+    }
+  }
+
   if(tags.length) adj._adjTags=tags;
 
   // Store post-adjustment values for injury delta display
@@ -6280,6 +6417,277 @@ async function updateSocNotifBadge() {
     if (topBtn) topBtn.style.display = 'flex';
     if (topCount) { topCount.textContent = total > 0 ? total : ''; topCount.style.display = total > 0 ? 'inline-flex' : 'none'; }
   } catch {}
+}
+
+// ══════════════════════════════════════════════
+// GAME LINES
+// ══════════════════════════════════════════════
+let _glCache=null;
+
+// Win probability from net rating differential
+// Uses team-specific home/away net ratings when available, falls back to overall + 3.5 HCA
+const FALLBACK_HCA = 3.5; // fallback if no home/away splits
+function glWinProb(hStats, aStats) {
+  // Use home team's home net rating vs away team's away net rating if available
+  const homeNR = hStats.homeNetRtg != null ? hStats.homeNetRtg : hStats.netRtg;
+  const awayNR = aStats.awayNetRtg != null ? aStats.awayNetRtg : aStats.netRtg;
+  // When using split ratings, HCA is already baked in; when using overall, add static HCA
+  const hcaAdj = (hStats.homeNetRtg != null && aStats.awayNetRtg != null) ? 0 : FALLBACK_HCA;
+  const margin = (homeNR - awayNR) / 2 + hcaAdj;
+  const prob = 1 / (1 + Math.pow(10, -margin / 12));
+  return Math.min(0.97, Math.max(0.03, prob));
+}
+
+// B2B detection: returns true if team played yesterday relative to game date
+function glIsB2B(teamStats, gameDate) {
+  if (!teamStats?.lastGameDate || !gameDate) return false;
+  const last = new Date(teamStats.lastGameDate);
+  const game = new Date(gameDate);
+  const diffMs = game.getTime() - last.getTime();
+  const diffDays = diffMs / (1000 * 60 * 60 * 24);
+  return diffDays > 0 && diffDays <= 1.5; // within ~1 day
+}
+const B2B_HOME_ADJ = 1.0; // home B2B — crowd offsets fatigue
+const B2B_AWAY_ADJ = 2.0; // away B2B — travel + fatigue compounds
+const MAX_INJURY_ADJ = 8; // cap total injury net rating penalty per team
+
+// Compute net rating adjustment for a team's out players using on/off impact data
+// Returns negative number (team is worse without these players)
+function glInjuryAdj(teamStats, injuries) {
+  if (!teamStats?.playerImpact?.length || !injuries?.length) return 0;
+  const outPlayers = injuries.filter(i => i.status === 'Out' || i.status === 'Doubtful');
+  if (!outPlayers.length) return 0;
+  let totalAdj = 0;
+  const matched = [];
+  for (const inj of outPlayers) {
+    // Match injury player name to playerImpact by last name (names may differ slightly)
+    const injLast = inj.player?.split(' ').pop()?.toLowerCase();
+    if (!injLast) continue;
+    const match = teamStats.playerImpact.find(p => {
+      const pLast = p.name?.split(' ').pop()?.toLowerCase();
+      return pLast === injLast;
+    });
+    if (match && match.impact > 0) {
+      // Only penalize if player has positive impact (team is worse without them)
+      totalAdj -= match.impact;
+      matched.push({ name: match.name, impact: match.impact });
+    }
+  }
+  // Cap at MAX_INJURY_ADJ
+  return Math.max(totalAdj, -MAX_INJURY_ADJ);
+}
+
+// Predicted total from team pace and offensive ratings (uses home/away splits when available)
+function glPredictedTotal(hStats, aStats) {
+  const hPace = hStats.homePace || hStats.pace;
+  const aPace = aStats.awayPace || aStats.pace;
+  const hOffRtg = hStats.homeOffRtg || hStats.offRtg;
+  const aOffRtg = aStats.awayOffRtg || aStats.offRtg;
+  const hDefRtg = hStats.homeDefRtg || hStats.defRtg;
+  const aDefRtg = aStats.awayDefRtg || aStats.defRtg;
+  const gamePace = (hPace + aPace) / 2;
+  const homeExpPts = (hOffRtg + aDefRtg) / 2 * gamePace / 100;
+  const awayExpPts = (aOffRtg + hDefRtg) / 2 * gamePace / 100;
+  return +(homeExpPts + awayExpPts).toFixed(1);
+}
+
+function glImpliedProb(odds) {
+  if (!odds) return 0.5;
+  const o = +odds;
+  return o > 0 ? 100 / (o + 100) : Math.abs(o) / (Math.abs(o) + 100);
+}
+
+function glFmtOdds(odds) {
+  if (!odds) return '—';
+  return +odds > 0 ? '+' + odds : String(odds);
+}
+
+function glEdgeColor(edge) {
+  if (edge >= 5) return 'var(--g)';
+  if (edge >= 2) return 'rgba(74,222,128,.7)';
+  if (edge <= -5) return 'var(--r)';
+  if (edge <= -2) return 'rgba(248,113,113,.7)';
+  return 'var(--t2)';
+}
+
+async function renderGameLines() {
+  const grid = document.getElementById('glGrid');
+  const loading = document.getElementById('glLoading');
+  const empty = document.getElementById('glEmpty');
+  if (!grid) return;
+
+  if (!_glCache) {
+    loading.style.display = '';
+    grid.innerHTML = '';
+    empty.style.display = 'none';
+    try {
+      const r = await fetch('/api/game-lines');
+      if (r.ok) _glCache = await r.json();
+    } catch {}
+    loading.style.display = 'none';
+  }
+
+  if (!_glCache || !_glCache.games?.length) {
+    empty.style.display = '';
+    grid.innerHTML = '';
+    return;
+  }
+
+  const { games, teamStats: ts } = _glCache;
+  empty.style.display = 'none';
+  loading.style.display = 'none';
+
+  // Fetch injuries for cross-referencing with player impact
+  const allInjuries = await getInjuries() || [];
+
+  // Sort by commence time
+  const sorted = [...games].sort((a, b) => new Date(a.commence) - new Date(b.commence));
+
+  grid.innerHTML = sorted.map(g => {
+    const hStats = ts?.[g.home], aStats = ts?.[g.away];
+
+    // B2B detection
+    const gameDate = g.commence?.split('T')[0];
+    const homeB2B = hStats ? glIsB2B(hStats, gameDate) : false;
+    const awayB2B = aStats ? glIsB2B(aStats, gameDate) : false;
+
+    // Injury impact adjustments (minutes-weighted on/off)
+    const hInjuries = getTeamInjuries(allInjuries, g.home);
+    const aInjuries = getTeamInjuries(allInjuries, g.away);
+    const hInjAdj = glInjuryAdj(hStats, hInjuries); // negative = team weaker
+    const aInjAdj = glInjuryAdj(aStats, aInjuries);
+
+    // Predicted spread from model margin (uses home/away net ratings + B2B + injuries)
+    let predSpread = null;
+    let adjHomeWinProb = null, adjAwayWinProb = null;
+    if (hStats && aStats) {
+      const homeNR = hStats.homeNetRtg != null ? hStats.homeNetRtg : hStats.netRtg;
+      const awayNR = aStats.awayNetRtg != null ? aStats.awayNetRtg : aStats.netRtg;
+      const hcaAdj = (hStats.homeNetRtg != null && aStats.awayNetRtg != null) ? 0 : FALLBACK_HCA;
+      let margin = (homeNR - awayNR) / 2 + hcaAdj;
+      // B2B adjustments
+      if (homeB2B) margin -= B2B_HOME_ADJ;
+      if (awayB2B) margin += B2B_AWAY_ADJ;
+      // Injury adjustments (positive hInjAdj = home weaker, shifts margin down)
+      margin += (hInjAdj - aInjAdj) / 2;
+      predSpread = +margin.toFixed(1);
+      // Win prob from adjusted margin
+      const prob = 1 / (1 + Math.pow(10, -margin / 12));
+      adjHomeWinProb = Math.min(0.97, Math.max(0.03, prob));
+      adjAwayWinProb = 1 - adjHomeWinProb;
+    }
+    // Fall back to base win prob if no adjustments
+    const homeWinProb = adjHomeWinProb ?? ((hStats && aStats) ? glWinProb(hStats, aStats) : null);
+    const awayWinProb = homeWinProb != null ? 1 - homeWinProb : null;
+
+    // Predicted total (uses home/away splits internally)
+    let predTotal = null;
+    if (hStats && aStats && hStats.pace && aStats.pace) {
+      predTotal = glPredictedTotal(hStats, aStats);
+    }
+
+    // Moneyline edge
+    let hMLEdge = null, aMLEdge = null;
+    if (homeWinProb != null && g.h2h) {
+      const hImpl = glImpliedProb(g.h2h.home);
+      const aImpl = glImpliedProb(g.h2h.away);
+      hMLEdge = +((homeWinProb - hImpl) * 100).toFixed(1);
+      aMLEdge = +((awayWinProb - aImpl) * 100).toFixed(1);
+    }
+
+    // Spread edge
+    let spreadEdge = null;
+    if (predSpread != null && g.spread) {
+      // If our predicted spread is more favorable than the book's, there's value
+      // Negative spread = favored. If model says -7 and book says -5.5, home covers more often.
+      spreadEdge = +((predSpread - g.spread.homeSpread) * -1).toFixed(1);
+    }
+
+    // Total edge
+    let totalEdge = null;
+    if (predTotal != null && g.total) {
+      totalEdge = +(predTotal - g.total.line).toFixed(1);
+    }
+
+    // Game time formatting
+    const gd = new Date(g.commence);
+    const timeStr = gd.toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' }) + ' ET';
+
+    // Best edge highlight
+    const bestEdge = Math.max(Math.abs(hMLEdge || 0), Math.abs(aMLEdge || 0), Math.abs(spreadEdge || 0), Math.abs(totalEdge || 0));
+    const hasBigEdge = bestEdge >= 5;
+
+    // Team record strings
+    const hRec = hStats ? `${hStats.w}-${hStats.l}` : '';
+    const aRec = aStats ? `${aStats.w}-${aStats.l}` : '';
+
+    // Blowout risk indicator
+    let blowoutTag = '';
+    if (hStats?.blowout && aStats?.blowout) {
+      const ptW = hStats.blowout.blowoutWinPct || 0, ptL = hStats.blowout.blowoutLossPct || 0;
+      const opW = aStats.blowout.blowoutWinPct || 0, opL = aStats.blowout.blowoutLossPct || 0;
+      const risk = Math.max((ptW + opL) / 2, (ptL + opW) / 2);
+      if (risk > 25) blowoutTag = `<span style="font-size:10px;color:var(--r);opacity:.8;margin-left:6px;">⚠ Blowout risk ${risk.toFixed(0)}%</span>`;
+    }
+
+    // Injury impact summary for card
+    let injuryTag = '';
+    const hOutCount = hInjuries.filter(i => i.status === 'Out').length;
+    const aOutCount = aInjuries.filter(i => i.status === 'Out').length;
+    if (hInjAdj || aInjAdj) {
+      const parts = [];
+      if (hInjAdj) parts.push(`${g.home} ${hInjAdj > 0 ? '+' : ''}${hInjAdj.toFixed(1)}`);
+      if (aInjAdj) parts.push(`${g.away} ${aInjAdj > 0 ? '+' : ''}${aInjAdj.toFixed(1)}`);
+      injuryTag = `<span style="font-size:10px;color:#f59e0b;opacity:.8;margin-left:6px;">🏥 ${parts.join(', ')} NR adj</span>`;
+    }
+
+    return `<div class="gl-card${hasBigEdge ? ' gl-edge' : ''}" style="background:var(--bg1);border:1px solid ${hasBigEdge ? 'rgba(74,222,128,.3)' : 'var(--bd)'};border-radius:12px;padding:16px;${hasBigEdge ? 'box-shadow:0 0 12px rgba(74,222,128,.08);' : ''}">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <span style="font-size:11px;color:var(--t3);">${timeStr}</span>
+        <span style="font-size:10px;color:var(--t3);">${Object.keys(g.books || {}).length} books${blowoutTag}${injuryTag}</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center;margin-bottom:14px;">
+        <div style="text-align:left;">
+          <div style="font-size:16px;font-weight:800;color:var(--t1);">${g.away}${awayB2B ? '<span style="font-size:9px;background:rgba(251,191,36,.2);color:rgb(251,191,36);border-radius:4px;padding:1px 4px;margin-left:5px;font-weight:600;">B2B</span>' : ''}</div>
+          <div style="font-size:11px;color:var(--t3);">${aRec}${aStats ? ` · ${aStats.awayNetRtg != null ? (aStats.awayNetRtg > 0 ? '+' : '') + aStats.awayNetRtg.toFixed(1) + ' Away' : (aStats.netRtg > 0 ? '+' : '') + aStats.netRtg.toFixed(1) + ' NR'}` : ''}</div>
+          ${awayWinProb != null ? `<div style="font-size:12px;font-weight:700;color:${awayWinProb > 0.5 ? 'var(--g)' : 'var(--t2)'};">${(awayWinProb * 100).toFixed(0)}% win</div>` : ''}
+        </div>
+        <div style="font-size:12px;color:var(--t3);font-weight:700;">@</div>
+        <div style="text-align:right;">
+          <div style="font-size:16px;font-weight:800;color:var(--t1);">${g.home}${homeB2B ? '<span style="font-size:9px;background:rgba(251,191,36,.2);color:rgb(251,191,36);border-radius:4px;padding:1px 4px;margin-left:5px;font-weight:600;">B2B</span>' : ''}</div>
+          <div style="font-size:11px;color:var(--t3);">${hRec}${hStats ? ` · ${hStats.homeNetRtg != null ? (hStats.homeNetRtg > 0 ? '+' : '') + hStats.homeNetRtg.toFixed(1) + ' Home' : (hStats.netRtg > 0 ? '+' : '') + hStats.netRtg.toFixed(1) + ' NR'}` : ''}</div>
+          ${homeWinProb != null ? `<div style="font-size:12px;font-weight:700;color:${homeWinProb > 0.5 ? 'var(--g)' : 'var(--t2)'};">${(homeWinProb * 100).toFixed(0)}% win</div>` : ''}
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;font-size:12px;">
+        ${g.h2h ? `<div style="background:var(--bg2);border-radius:8px;padding:10px;text-align:center;">
+          <div style="font-size:10px;color:var(--t3);margin-bottom:4px;font-weight:600;">MONEYLINE</div>
+          <div style="display:flex;justify-content:space-between;gap:4px;">
+            <div><span style="color:var(--t2);font-size:10px;">${g.away}</span><br><span style="font-weight:700;color:var(--t1);">${glFmtOdds(g.h2h.away)}</span>${aMLEdge != null ? `<br><span style="font-size:10px;font-weight:600;color:${glEdgeColor(aMLEdge)};">${aMLEdge > 0 ? '+' : ''}${aMLEdge}%</span>` : ''}</div>
+            <div><span style="color:var(--t2);font-size:10px;">${g.home}</span><br><span style="font-weight:700;color:var(--t1);">${glFmtOdds(g.h2h.home)}</span>${hMLEdge != null ? `<br><span style="font-size:10px;font-weight:600;color:${glEdgeColor(hMLEdge)};">${hMLEdge > 0 ? '+' : ''}${hMLEdge}%</span>` : ''}</div>
+          </div>
+        </div>` : '<div></div>'}
+        ${g.spread ? `<div style="background:var(--bg2);border-radius:8px;padding:10px;text-align:center;">
+          <div style="font-size:10px;color:var(--t3);margin-bottom:4px;font-weight:600;">SPREAD</div>
+          <div style="font-weight:700;color:var(--t1);">${g.spread.homeSpread > 0 ? '+' : ''}${g.spread.homeSpread}</div>
+          <div style="font-size:10px;color:var(--t2);">${glFmtOdds(g.spread.home)} / ${glFmtOdds(g.spread.away)}</div>
+          ${predSpread != null ? `<div style="font-size:10px;margin-top:2px;"><span style="color:var(--t3);">Model:</span> <span style="font-weight:600;color:${glEdgeColor(spreadEdge)};">${predSpread > 0 ? '+' : ''}${predSpread}</span></div>` : ''}
+        </div>` : '<div></div>'}
+        ${g.total ? `<div style="background:var(--bg2);border-radius:8px;padding:10px;text-align:center;">
+          <div style="font-size:10px;color:var(--t3);margin-bottom:4px;font-weight:600;">TOTAL</div>
+          <div style="font-weight:700;color:var(--t1);">${g.total.line}</div>
+          <div style="font-size:10px;color:var(--t2);">O ${glFmtOdds(g.total.over)} / U ${glFmtOdds(g.total.under)}</div>
+          ${predTotal != null ? `<div style="font-size:10px;margin-top:2px;"><span style="color:var(--t3);">Model:</span> <span style="font-weight:600;color:${glEdgeColor(totalEdge)};">${predTotal}</span></div>` : ''}
+        </div>` : '<div></div>'}
+      </div>
+      ${(hStats && aStats) ? `<div style="display:flex;gap:12px;margin-top:10px;padding-top:10px;border-top:1px solid var(--bd);font-size:10px;color:var(--t3);flex-wrap:wrap;">
+        <span>Pace: ${(aStats.awayPace||aStats.pace)?.toFixed(1)} / ${(hStats.homePace||hStats.pace)?.toFixed(1)}</span>
+        <span>ORTG: ${(aStats.awayOffRtg||aStats.offRtg)?.toFixed(1)} / ${(hStats.homeOffRtg||hStats.offRtg)?.toFixed(1)}</span>
+        <span>DRTG: ${(aStats.awayDefRtg||aStats.defRtg)?.toFixed(1)} / ${(hStats.homeDefRtg||hStats.defRtg)?.toFixed(1)}</span>
+        <span>Avg Margin: ${aStats.blowout?.avgMargin > 0 ? '+' : ''}${aStats.blowout?.avgMargin} / ${hStats.blowout?.avgMargin > 0 ? '+' : ''}${hStats.blowout?.avgMargin}</span>
+      </div>` : ''}
+    </div>`;
+  }).join('');
 }
 
 function goToSocial() {
