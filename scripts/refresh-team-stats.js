@@ -1,7 +1,12 @@
 // ============================================================
 // Standalone script: Fetch NBA.com team stats → write to Supabase
-// Runs via GitHub Actions (NBA.com blocks cloud IPs like Vercel)
+// Run locally: node scripts/refresh-team-stats.js
+// NBA.com blocks cloud IPs (Vercel, GitHub Actions), so this
+// must run from a residential IP (your machine).
 // ============================================================
+
+// Load .env from project root if available
+try { require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') }); } catch {}
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY;

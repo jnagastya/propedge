@@ -1,12 +1,11 @@
 name: Refresh NBA Team Stats
 
+# NBA.com blocks cloud IPs — this action is disabled.
+# Run locally instead: node scripts/refresh-team-stats.js
+# Keeping file for future proxy/alternative API migration.
+
 on:
-  schedule:
-    # Weekdays: 10:45 AM PT (18:45 UTC) — after refresh-stats
-    - cron: '45 18 * * 1-5'
-    # Weekends: 9:30 AM PT (17:30 UTC) — after refresh-stats
-    - cron: '30 17 * * 0,6'
-  workflow_dispatch: # Allow manual trigger
+  workflow_dispatch: # Manual trigger only
 
 jobs:
   refresh:
@@ -17,7 +16,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
 
       - name: Fetch NBA.com stats and write to Supabase
         env:
