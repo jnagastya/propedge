@@ -3537,20 +3537,42 @@ app.get('/api/cron/grade-agent-bets', async (req, res) => {
     const { data: openBets, error: fetchErr } = await query;
     if (fetchErr) return res.status(500).json({ error: fetchErr.message });
 
+    // Filter bets that are ready to grade
+    const betsToGrade = [];
     for (const bet of (openBets || [])) {
-      // Skip time check if force-grading by date
       if (!forceDate) {
         if (!bet.game_time || (now - new Date(bet.game_time).getTime()) < GRADE_AFTER_MS) {
           summary.skipped++;
           continue;
         }
       }
+      const gameDate = lookupDate || (bet.game_time ? getEtDate(bet.game_time) : null) || forceDate || bet.game_date;
+      if (!gameDate) { summary.skipped++; continue; }
+      bet._gameDate = gameDate;
+      betsToGrade.push(bet);
+    }
 
+    // Pre-fetch unique players from BDL in parallel (5 concurrent) to warm Supabase cache
+    const uniquePlayers = [...new Set(betsToGrade.map(b => b.player_name))];
+    const gameDateForLookup = betsToGrade[0]?._gameDate;
+    if (gameDateForLookup && uniquePlayers.length) {
+      const prefetchBatch = async (items, fn, concurrency) => {
+        for (let i = 0; i < items.length; i += concurrency) {
+          await Promise.all(items.slice(i, i + concurrency).map(fn));
+        }
+      };
+      await prefetchBatch(uniquePlayers, async (name) => {
+        try {
+          // This call triggers BDL fallback if missing, caching for all subsequent bets
+          await getActualStat(name, gameDateForLookup, 'player_points');
+        } catch (e) { /* ignore — individual bet grading will handle errors */ }
+      }, 5);
+    }
+
+    // Now grade all bets — stats are cached, so this is fast
+    for (const bet of betsToGrade) {
       try {
-        // Use lookup_date override, then game_time ET conversion, then game_date fallback
-        const gameDate = lookupDate || (bet.game_time ? getEtDate(bet.game_time) : null) || forceDate || bet.game_date;
-        if (!gameDate) { summary.skipped++; continue; }
-        const { status, value } = await getActualStat(bet.player_name, gameDate, bet.market);
+        const { status, value } = await getActualStat(bet.player_name, bet._gameDate, bet.market);
 
         if (status === 'missing') { summary.skipped++; continue; }
 
@@ -3575,7 +3597,8 @@ app.get('/api/cron/grade-agent-bets', async (req, res) => {
       }
     }
 
-    res.json({ success: true, ...summary });
+    const elapsed = ((Date.now() - now) / 1000).toFixed(1);
+    res.json({ success: true, playersPreFetched: uniquePlayers.length, elapsed: `${elapsed}s`, ...summary });
   } catch (err) {
     res.status(500).json({ error: err.message, ...summary });
   }
