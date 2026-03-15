@@ -1366,7 +1366,7 @@ function parsePlayerEntry(text) {
 
 // In-memory cache for injury data
 let _injuryCache = { data: null, fetchedAt: 0 };
-const INJURY_CACHE_TTL = 2 * 60 * 60 * 1000; // 2 hours
+const INJURY_CACHE_TTL = 30 * 60 * 1000; // 30 minutes
 
 async function fetchInjuryReport() {
   const now = Date.now();
@@ -3133,6 +3133,55 @@ async function sendDiscordResults(allBets, latestDate) {
     }
   }
 
+  // Pre-Tipoff vs Placement Injury Changes
+  {
+    const withTipoff = settledValue.filter(b => b.tipoff_injury_adj_pct !== null && b.tipoff_injury_adj_pct !== undefined);
+    if (withTipoff.length >= 3) {
+      // Bets where injury picture changed between placement and tipoff
+      const changed = withTipoff.filter(b => {
+        const placementAdj = b.injury_adj_pct || 0;
+        const tipoffAdj = b.tipoff_injury_adj_pct || 0;
+        return Math.abs(tipoffAdj - placementAdj) >= 1; // 1%+ change
+      });
+      const bigChange = withTipoff.filter(b => {
+        const placementAdj = b.injury_adj_pct || 0;
+        const tipoffAdj = b.tipoff_injury_adj_pct || 0;
+        return Math.abs(tipoffAdj - placementAdj) >= 3; // 3%+ change
+      });
+      // New injuries: no adjustment at placement, adjustment at tipoff
+      const newInjury = withTipoff.filter(b => (!b.injury_adj_pct || b.injury_adj_pct === 0) && b.tipoff_injury_adj_pct && b.tipoff_injury_adj_pct !== 0);
+
+      const wrFmt = (bets) => {
+        if (!bets.length) return 'N/A';
+        const won = bets.filter(b => b.result === 'won').length;
+        const pnl = bets.reduce((s, b) => s + (b.pnl || 0), 0);
+        const staked = bets.reduce((s, b) => s + b.stake, 0);
+        const roi = staked ? (pnl / staked * 100).toFixed(1) : '0.0';
+        return `${won}-${bets.length - won} (${(won / bets.length * 100).toFixed(1)}%) · ROI ${roi}% · ${pnlFmt(pnl)}`;
+      };
+
+      let desc = `📊 **Bets tracked**: ${withTipoff.length} bets with pre-tipoff snapshots\n`;
+      desc += `🔄 **Injury changed (1%+)**: ${changed.length} bets · ${wrFmt(changed)}\n`;
+      desc += `⚠️ **Large shift (3%+)**: ${bigChange.length} bets · ${wrFmt(bigChange)}\n`;
+      desc += `🆕 **New injury after placement**: ${newInjury.length} bets · ${wrFmt(newInjury)}\n`;
+
+      // Compare: unchanged vs changed
+      const unchanged = withTipoff.filter(b => {
+        const placementAdj = b.injury_adj_pct || 0;
+        const tipoffAdj = b.tipoff_injury_adj_pct || 0;
+        return Math.abs(tipoffAdj - placementAdj) < 1;
+      });
+      desc += `\n✅ **Unchanged**: ${wrFmt(unchanged)}\n🔄 **Changed**: ${wrFmt(changed)}`;
+
+      embeds.push({
+        title: '⏰ Pre-Tipoff Injury Shift Analysis',
+        description: desc,
+        color: 0x8b5cf6,
+        footer: { text: 'Compares injury state at bet placement vs near tip-off — helps decide if a 2nd cron run is needed' },
+      });
+    }
+  }
+
   // Recommendations based on data
   if (settledValue.length >= 20) {
     const recs = [];
@@ -3604,9 +3653,11 @@ app.get('/api/cron/agent-bet', async (req, res) => {
         if (data) data.forEach(r => gameLogMap.set(r.player_name, r.game_log));
       }
     }
-    // BDL fallback for injured players still missing from Supabase (3 concurrent, max 15)
-    const stillMissing = missingInjured.filter(n => !gameLogMap.has(n.resolved) && !gameLogMap.has(n.orig)).slice(0, 15);
+    // BDL fallback for injured players still missing from Supabase (3 concurrent)
+    const stillMissing = missingInjured.filter(n => !gameLogMap.has(n.resolved) && !gameLogMap.has(n.orig));
+    let injuredBdlFetched = 0;
     if (stillMissing.length) {
+      console.log(`[agent-bet] ${stillMissing.length} injured teammates missing from Supabase, fetching from BDL: ${stillMissing.map(n => n.resolved).join(', ')}`);
       const fetchBatch = async (items, fn, concurrency) => {
         for (let i = 0; i < items.length; i += concurrency) {
           await Promise.all(items.slice(i, i + concurrency).map(fn));
@@ -3620,11 +3671,13 @@ app.get('/api/cron/agent-bet', async (req, res) => {
           if (games?.length) {
             gameLogMap.set(resolved, games);
             await sbSetGameLog(resolved, bdl.id, games, bdl.position);
+            injuredBdlFetched++;
           }
         } catch (e) {
           console.warn(`BDL fallback for injured teammate ${resolved}: ${e.message}`);
         }
       }, 3);
+      console.log(`[agent-bet] BDL fetched ${injuredBdlFetched}/${stillMissing.length} injured teammates`);
     }
 
     // 4. For each player/market combo, compute stats and value score
@@ -3845,7 +3898,143 @@ app.get('/api/cron/grade-agent-bets', async (req, res) => {
     }
 
     const elapsed = ((Date.now() - now) / 1000).toFixed(1);
-    res.json({ success: true, playersPreFetched: uniquePlayers.length, elapsed: `${elapsed}s`, ...summary });
+    res.json({ success: true, playersPreFetched: uniquePlayers.length, injuredTeammates: { total: injuredTeammateNames.length, missingFromSupabase: stillMissing.length, fetchedFromBDL: injuredBdlFetched }, elapsed: `${elapsed}s`, ...summary });
+  } catch (err) {
+    res.status(500).json({ error: err.message, ...summary });
+  }
+});
+
+// ============================================================
+// CRON: Pre-tipoff injury snapshot — runs every 30 min (3:30-7pm PST)
+// Only processes bets whose game tips off within the next 45 min
+// and that haven't already been snapshotted. Re-checks injury report
+// and stores updated tipoff values for newsletter comparison.
+// ============================================================
+app.get('/api/cron/tipoff-snapshot', async (req, res) => {
+  const secret = (req.headers.authorization || '').replace('Bearer ', '') || req.headers['x-cron-secret'] || req.query.secret;
+  if (process.env.CRON_SECRET && secret !== process.env.CRON_SECRET) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  if (!supabase) return res.status(503).json({ error: 'Supabase not configured' });
+
+  const startTime = Date.now();
+  const now = new Date();
+  const today = req.query.date || now.toISOString().slice(0, 10);
+  const WINDOW_MS = 45 * 60 * 1000; // process bets tipping off within 45 min
+  const summary = { updated: 0, unchanged: 0, skipped: 0, alreadySnapshotted: 0, notInWindow: 0, errors: [] };
+
+  try {
+    // 1. Fetch today's ungraded agent bets
+    const { data: bets, error: fetchErr } = await supabase.from('agent_bets')
+      .select('*').eq('game_date', today).is('result', null);
+    if (fetchErr) return res.status(500).json({ error: fetchErr.message });
+    if (!bets?.length) return res.json({ success: true, message: 'No ungraded bets for today', ...summary });
+
+    // 2. Filter to bets tipping off within the window and not already snapshotted
+    const eligible = bets.filter(b => {
+      // Skip bets already snapshotted
+      if (b.tipoff_injury_adj_pct !== null && b.tipoff_injury_adj_pct !== undefined) {
+        summary.alreadySnapshotted++;
+        return false;
+      }
+      // Skip bets with no game time (can't determine window)
+      if (!b.game_time) return true; // no game time = process anyway
+      const tipoff = new Date(b.game_time);
+      const msUntilTip = tipoff.getTime() - now.getTime();
+      // Process if game tips off within the next 45 min or has already started (up to 30 min ago)
+      if (msUntilTip <= WINDOW_MS && msUntilTip >= -30 * 60 * 1000) return true;
+      summary.notInWindow++;
+      return false;
+    });
+
+    if (!eligible.length) {
+      return res.json({ success: true, message: 'No bets in current tipoff window', totalBets: bets.length, ...summary });
+    }
+
+    // 3. Invalidate injury cache so we get the latest report
+    _injuryCache = { data: null, fetchedAt: 0 };
+    const injuries = await fetchInjuryReport();
+    if (!injuries?.length) return res.json({ success: true, message: 'No injury data available', ...summary });
+
+    // 4. Fetch game logs for eligible bet players + injured teammates
+    const uniqueNames = [...new Set(eligible.map(b => b.player_name))];
+    const gameLogMap = new Map();
+    for (let i = 0; i < uniqueNames.length; i += 50) {
+      const batch = uniqueNames.slice(i, i + 50);
+      const { data } = await supabase.from('player_stats').select('player_name, game_log, season').eq('season', NBA_SEASON).in('player_name', batch);
+      if (data) data.forEach(r => gameLogMap.set(r.player_name, r.game_log));
+    }
+
+    // Fetch injured teammates' game logs
+    const injuredTeammateNames = [...new Set(injuries.filter(i => i.status === 'Out').map(i => i.player))];
+    const resolvedInjuredNames = injuredTeammateNames.map(n => ({ orig: n, resolved: resolvePlayerName(n) }));
+    const missingInjured = resolvedInjuredNames.filter(n => !gameLogMap.has(n.resolved) && !gameLogMap.has(n.orig));
+    if (missingInjured.length && supabase) {
+      const namesToFetch = [...new Set(missingInjured.flatMap(n => [n.resolved, n.orig]))];
+      for (let i = 0; i < namesToFetch.length; i += 50) {
+        const batch = namesToFetch.slice(i, i + 50);
+        const { data } = await supabase.from('player_stats').select('player_name, game_log, season').eq('season', NBA_SEASON).in('player_name', batch);
+        if (data) data.forEach(r => gameLogMap.set(r.player_name, r.game_log));
+      }
+    }
+    // BDL fallback for still-missing injured teammates (3 concurrent)
+    const stillMissingInj = missingInjured.filter(n => !gameLogMap.has(n.resolved) && !gameLogMap.has(n.orig));
+    if (stillMissingInj.length) {
+      for (let i = 0; i < stillMissingInj.length; i += 3) {
+        await Promise.all(stillMissingInj.slice(i, i + 3).map(async ({ resolved }) => {
+          try {
+            const bdl = await getBDLPlayerId(resolved);
+            if (!bdl?.id) return;
+            const games = await fetchBDLGameLog(bdl.id);
+            if (games?.length) {
+              gameLogMap.set(resolved, games);
+              await sbSetGameLog(resolved, bdl.id, games, bdl.position);
+            }
+          } catch (e) { console.warn(`[tipoff-snapshot] BDL fallback for ${resolved}: ${e.message}`); }
+        }));
+      }
+    }
+
+    // 5. Re-run injury impact for each eligible bet
+    for (const bet of eligible) {
+      try {
+        const gameLog = gameLogMap.get(bet.player_name);
+        if (!gameLog?.length) { summary.skipped++; continue; }
+
+        const playerTeam = bet.team || guessTeam(bet.player_name);
+        if (!playerTeam || playerTeam === '???') { summary.skipped++; continue; }
+
+        // Compute base stats then apply injury impact with fresh injury report
+        const rawStats = serverComputeStats(gameLog, bet.line, bet.market, bet.odds, bet.odds);
+        if (!rawStats) { summary.skipped++; continue; }
+
+        let stats = serverApplySmartMinutes(gameLog, bet.line, bet.market, bet.odds, bet.odds, rawStats);
+        stats = serverApplyInjuryImpact(bet.player_name, gameLog, playerTeam, bet.market, bet.line, bet.odds, bet.odds, injuries, gameLogMap, stats);
+
+        const newAdjPct = stats._injuryImpact ? +((stats._injuryRatio - 1) * 100).toFixed(1) : null;
+        const newTeammates = stats._injuryTeammate || null;
+
+        // Always write the snapshot (even if same as placement) so we know it was captured
+        const { error: upErr } = await supabase.from('agent_bets').update({
+          tipoff_injury_adj_pct: newAdjPct,
+          tipoff_injury_teammates: newTeammates,
+        }).eq('id', bet.id);
+
+        if (upErr) {
+          summary.errors.push(`${bet.player_name}: ${upErr.message}`);
+        } else if (newAdjPct !== bet.injury_adj_pct || newTeammates !== bet.injury_teammates) {
+          summary.updated++;
+        } else {
+          summary.unchanged++;
+        }
+      } catch (e) {
+        summary.errors.push(`${bet.player_name}: ${e.message}`);
+      }
+    }
+
+    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+    console.log(`[tipoff-snapshot] ${eligible.length} eligible | ${summary.updated} changed, ${summary.unchanged} same, ${summary.skipped} skipped, ${summary.alreadySnapshotted} already done, ${summary.notInWindow} not in window | ${elapsed}s`);
+    res.json({ success: true, date: today, elapsed: `${elapsed}s`, totalBets: bets.length, eligible: eligible.length, ...summary });
   } catch (err) {
     res.status(500).json({ error: err.message, ...summary });
   }
@@ -4022,6 +4211,29 @@ app.get('/api/cron/newsletter', async (req, res) => {
       if ((adjPct > 0 && actualVsLine > 0) || (adjPct < 0 && actualVsLine < 0)) emailInjCorrectDir++;
     }
     const emailInjDirAcc = emailInjWithActual.length >= 3 ? (emailInjCorrectDir / emailInjWithActual.length * 100).toFixed(0) : null;
+
+    // Pre-tipoff injury shift analysis for email
+    const emailTipoffBets = emailSettled.filter(b => b.tipoff_injury_adj_pct !== null && b.tipoff_injury_adj_pct !== undefined);
+    const emailTipoffChanged = emailTipoffBets.filter(b => Math.abs((b.tipoff_injury_adj_pct || 0) - (b.injury_adj_pct || 0)) >= 1);
+    const emailTipoffBigChange = emailTipoffBets.filter(b => Math.abs((b.tipoff_injury_adj_pct || 0) - (b.injury_adj_pct || 0)) >= 3);
+    const emailTipoffNewInj = emailTipoffBets.filter(b => (!b.injury_adj_pct || b.injury_adj_pct === 0) && b.tipoff_injury_adj_pct && b.tipoff_injury_adj_pct !== 0);
+    const emailTipoffUnchanged = emailTipoffBets.filter(b => Math.abs((b.tipoff_injury_adj_pct || 0) - (b.injury_adj_pct || 0)) < 1);
+    const tipoffWrFmt = (bets) => {
+      if (!bets.length) return { record: 'N/A', wr: '—', roi: '—', pnl: '—' };
+      const w = bets.filter(b => b.result === 'won').length;
+      const p = bets.reduce((s, b) => s + (b.pnl || 0), 0);
+      const st = bets.reduce((s, b) => s + b.stake, 0);
+      return { record: `${w}-${bets.length - w}`, wr: `${(w / bets.length * 100).toFixed(0)}%`, roi: `${st ? (p / st * 100).toFixed(1) : '0.0'}%`, pnl: `${p >= 0 ? '+' : ''}$${p.toFixed(2)}`, pnlColor: p >= 0 ? '#16a34a' : '#dc2626' };
+    };
+    const tipoffRow = (label, bets) => {
+      const d = tipoffWrFmt(bets);
+      if (d.record === 'N/A') return '';
+      return `<tr><td style="padding:6px 12px;border-bottom:1px solid #e2e8f0;">${label}</td>
+        <td style="padding:6px 12px;border-bottom:1px solid #e2e8f0;text-align:center;">${d.record}</td>
+        <td style="padding:6px 12px;border-bottom:1px solid #e2e8f0;text-align:center;">${d.wr}</td>
+        <td style="padding:6px 12px;border-bottom:1px solid #e2e8f0;text-align:center;">${d.roi}</td>
+        <td style="padding:6px 12px;border-bottom:1px solid #e2e8f0;text-align:right;color:${d.pnlColor}">${d.pnl}</td></tr>`;
+    };
 
     // Yesterday's pick-by-pick results
     const fmtOdds = o => o > 0 ? `+${o}` : `${o}`;
@@ -4228,6 +4440,28 @@ app.get('/api/cron/newsletter', async (req, res) => {
     ${emailInjDirAcc ? `<div style="margin-top:12px;padding:12px;background:#f0fdf4;border-radius:8px;font-size:13px;">
       <span style="font-weight:600;">🎯 Directional Accuracy:</span> ${emailInjDirAcc}% of injury adjustments moved the right way (${emailInjCorrectDir}/${emailInjWithActual.length})
     </div>` : ''}
+  </div>` : ''}
+
+  <!-- PRE-TIPOFF INJURY SHIFT ANALYSIS -->
+  ${emailTipoffBets.length >= 3 ? `<div style="padding:24px;border-top:1px solid #e2e8f0;">
+    <div style="font-size:16px;font-weight:700;color:#1e293b;margin-bottom:4px;">Pre-Tipoff Injury Shift Analysis</div>
+    <div style="font-size:12px;color:#94a3b8;margin-bottom:12px;">Did injury changes between bet placement and tip-off affect outcomes?</div>
+    <table style="width:100%;border-collapse:collapse;font-size:12px;">
+      <thead><tr style="background:#f8fafc;">
+        <th style="padding:8px 12px;text-align:left;font-weight:600;color:#64748b;border-bottom:2px solid #e2e8f0;">Group</th>
+        <th style="padding:8px 12px;text-align:center;font-weight:600;color:#64748b;border-bottom:2px solid #e2e8f0;">Record</th>
+        <th style="padding:8px 12px;text-align:center;font-weight:600;color:#64748b;border-bottom:2px solid #e2e8f0;">Win %</th>
+        <th style="padding:8px 12px;text-align:center;font-weight:600;color:#64748b;border-bottom:2px solid #e2e8f0;">ROI</th>
+        <th style="padding:8px 12px;text-align:right;font-weight:600;color:#64748b;border-bottom:2px solid #e2e8f0;">P&L</th>
+      </tr></thead>
+      <tbody>
+        ${tipoffRow('✅ Unchanged', emailTipoffUnchanged)}
+        ${tipoffRow('🔄 Changed (1%+)', emailTipoffChanged)}
+        ${tipoffRow('⚠️ Large Shift (3%+)', emailTipoffBigChange)}
+        ${tipoffRow('🆕 New Injury Post-Placement', emailTipoffNewInj)}
+      </tbody>
+    </table>
+    <div style="margin-top:8px;font-size:11px;color:#94a3b8;">Tracked: ${emailTipoffBets.length} bets with pre-tipoff snapshots</div>
   </div>` : ''}
 
   <!-- FOOTER -->
