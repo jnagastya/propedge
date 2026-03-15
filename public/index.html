@@ -1238,11 +1238,11 @@ input[type=range].min-slider::-moz-range-track{height:6px;border-radius:3px;back
 <nav class="nav-tabs">
   <button class="nav-tab nav-primary on" onclick="switchView('props',this)">Player Props</button>
   <button class="nav-tab nav-primary alert-tab" onclick="switchView('alerts',this)">Value Alerts <span class="alert-dot" id="alertDot" style="display:none"></span></button>
+  <button class="nav-tab nav-primary" onclick="switchView('gamelines',this)">Game Lines</button>
   <button class="nav-tab nav-primary sim-tab" onclick="switchView('simulator',this)">Simulator 🎲</button>
   <button class="nav-tab nav-secondary" onclick="switchView('favorites',this)">Watchlist ⭐ <span class="fav-count-badge" id="favCountBadge" style="display:none"></span></button>
   <button class="nav-tab nav-secondary" onclick="switchView('parlay',this)">Parlay Builder 🎯 <span id="parlayNavBadge" class="parlay-nav-badge" style="display:none">0</span></button>
   <button class="nav-tab nav-secondary" onclick="switchView('analytics',this)">Analytics 📊</button>
-  <button class="nav-tab nav-secondary" onclick="switchView('gamelines',this)">Game Lines 🏀</button>
   <button class="nav-tab nav-secondary" onclick="switchView('glossary',this)">Glossary 📖</button>
   <button class="nav-tab nav-secondary" onclick="switchView('social',this)">Social 💬 <span id="socNotifBadge" class="soc-notif-badge" style="display:none"></span></button>
   <button class="nav-tab nav-more" onclick="toggleNavMore(this)">More ▾</button>
@@ -5198,6 +5198,8 @@ function closeBetModal() {
   modal.querySelector('.modal').classList.remove('modal-detail');
   _betPlayer = null;
   _sharedModalPlayer = null;
+  _glBetGame = null;
+  _glBetType = null;
 }
 function setBetDir(dir, btn) {
   _betDir = dir;
@@ -6423,36 +6425,41 @@ async function updateSocNotifBadge() {
 // GAME LINES
 // ══════════════════════════════════════════════
 let _glCache=null;
+let _glBetGame=null; // current game for bet modal
+let _glBetType=null; // 'ml_home','ml_away','spread_home','spread_away','total_over','total_under'
 
-// Win probability from net rating differential
-// Uses team-specific home/away net ratings when available, falls back to overall + 3.5 HCA
-const FALLBACK_HCA = 3.5; // fallback if no home/away splits
+const FALLBACK_HCA = 3.5;
+const B2B_HOME_ADJ = 1.0;
+const B2B_AWAY_ADJ = 2.0;
+const MAX_INJURY_ADJ = 8;
+
+const GL_BOOK_NAMES = {
+  fanduel:'FanDuel', draftkings:'DraftKings', betmgm:'BetMGM', pointsbetus:'PointsBet',
+  williamhill_us:'Caesars', wynnbet:'WynnBET', betrivers:'BetRivers', unibet_us:'Unibet',
+  barstool:'ESPN BET', superbook:'SuperBook', twinspires:'TwinSpires', betus:'BetUS',
+  betfair:'Betfair', pinnacle:'Pinnacle', fliff:'Fliff', hardrockbet:'Hard Rock',
+  espnbet:'ESPN BET', bet365:'Bet365', fanatics:'Fanatics',
+};
+const GL_EXCL_BOOKS = new Set(['bovada','betonlineag','mybookieag','lowvig']);
+
 function glWinProb(hStats, aStats) {
-  // Use home team's home net rating vs away team's away net rating if available
   const homeNR = hStats.homeNetRtg != null ? hStats.homeNetRtg : hStats.netRtg;
   const awayNR = aStats.awayNetRtg != null ? aStats.awayNetRtg : aStats.netRtg;
-  // When using split ratings, HCA is already baked in; when using overall, add static HCA
   const hcaAdj = (hStats.homeNetRtg != null && aStats.awayNetRtg != null) ? 0 : FALLBACK_HCA;
   const margin = (homeNR - awayNR) / 2 + hcaAdj;
   const prob = 1 / (1 + Math.pow(10, -margin / 12));
   return Math.min(0.97, Math.max(0.03, prob));
 }
 
-// B2B detection: returns true if team played yesterday relative to game date
 function glIsB2B(teamStats, gameDate) {
   if (!teamStats?.lastGameDate || !gameDate) return false;
   const last = new Date(teamStats.lastGameDate);
   const game = new Date(gameDate);
   const diffMs = game.getTime() - last.getTime();
   const diffDays = diffMs / (1000 * 60 * 60 * 24);
-  return diffDays > 0 && diffDays <= 1.5; // within ~1 day
+  return diffDays > 0 && diffDays <= 1.5;
 }
-const B2B_HOME_ADJ = 1.0; // home B2B — crowd offsets fatigue
-const B2B_AWAY_ADJ = 2.0; // away B2B — travel + fatigue compounds
-const MAX_INJURY_ADJ = 8; // cap total injury net rating penalty per team
 
-// Compute net rating adjustment for a team's out players using on/off impact data
-// Returns negative number (team is worse without these players)
 function glInjuryAdj(teamStats, injuries) {
   if (!teamStats?.playerImpact?.length || !injuries?.length) return 0;
   const outPlayers = injuries.filter(i => i.status === 'Out' || i.status === 'Doubtful');
@@ -6460,7 +6467,6 @@ function glInjuryAdj(teamStats, injuries) {
   let totalAdj = 0;
   const matched = [];
   for (const inj of outPlayers) {
-    // Match injury player name to playerImpact by last name (names may differ slightly)
     const injLast = inj.player?.split(' ').pop()?.toLowerCase();
     if (!injLast) continue;
     const match = teamStats.playerImpact.find(p => {
@@ -6468,16 +6474,26 @@ function glInjuryAdj(teamStats, injuries) {
       return pLast === injLast;
     });
     if (match && match.impact > 0) {
-      // Only penalize if player has positive impact (team is worse without them)
       totalAdj -= match.impact;
       matched.push({ name: match.name, impact: match.impact });
     }
   }
-  // Cap at MAX_INJURY_ADJ
   return Math.max(totalAdj, -MAX_INJURY_ADJ);
 }
 
-// Predicted total from team pace and offensive ratings (uses home/away splits when available)
+function glInjuryMatchedPlayers(teamStats, injuries) {
+  if (!teamStats?.playerImpact?.length || !injuries?.length) return [];
+  const outPlayers = injuries.filter(i => i.status === 'Out' || i.status === 'Doubtful');
+  const result = [];
+  for (const inj of outPlayers) {
+    const injLast = inj.player?.split(' ').pop()?.toLowerCase();
+    if (!injLast) continue;
+    const match = teamStats.playerImpact.find(p => p.name?.split(' ').pop()?.toLowerCase() === injLast);
+    if (match && match.impact > 0) result.push({ name: match.name, impact: match.impact, status: inj.status });
+  }
+  return result;
+}
+
 function glPredictedTotal(hStats, aStats) {
   const hPace = hStats.homePace || hStats.pace;
   const aPace = aStats.awayPace || aStats.pace;
@@ -6497,6 +6513,42 @@ function glImpliedProb(odds) {
   return o > 0 ? 100 / (o + 100) : Math.abs(o) / (Math.abs(o) + 100);
 }
 
+// Normal CDF approximation (Abramowitz & Stegun)
+function glNormCdf(x) {
+  const a1=0.254829592, a2=-0.284496736, a3=1.421413741, a4=-1.453152027, a5=1.061405429, p=0.3275911;
+  const sign = x < 0 ? -1 : 1;
+  x = Math.abs(x) / Math.SQRT2;
+  const t = 1 / (1 + p * x);
+  const y = 1 - (((((a5*t+a4)*t)+a3)*t+a2)*t+a1)*t * Math.exp(-x*x);
+  return 0.5 * (1 + sign * y);
+}
+
+// Spread cover probability: P(home margin > bookSpread)
+// Uses normal distribution with predicted margin as mean, sigma=12 (NBA game variance)
+const GL_SPREAD_SIGMA = 12;
+function glSpreadProb(predMargin, bookSpread) {
+  // P(margin > bookSpread) = P(Z > (bookSpread - predMargin) / sigma)
+  return 1 - glNormCdf((bookSpread - predMargin) / GL_SPREAD_SIGMA);
+}
+
+// Total probability: P(actual total > bookLine)
+// Uses normal distribution with predicted total as mean, sigma=15 (NBA total variance)
+const GL_TOTAL_SIGMA = 15;
+function glTotalOverProb(predTotal, bookLine) {
+  return 1 - glNormCdf((bookLine - predTotal) / GL_TOTAL_SIGMA);
+}
+
+// EV calculation: (modelProb * payout) - ((1-modelProb) * stake), per $1 staked
+function glEV(modelProb, odds) {
+  const dec = odds > 0 ? odds / 100 + 1 : 100 / Math.abs(odds) + 1;
+  return modelProb * dec - 1; // EV per $1 bet
+}
+
+function glFmtEV(ev) {
+  const pct = (ev * 100).toFixed(1);
+  return ev > 0 ? '+' + pct + '%' : pct + '%';
+}
+
 function glFmtOdds(odds) {
   if (!odds) return '—';
   return +odds > 0 ? '+' + odds : String(odds);
@@ -6508,6 +6560,115 @@ function glEdgeColor(edge) {
   if (edge <= -5) return 'var(--r)';
   if (edge <= -2) return 'rgba(248,113,113,.7)';
   return 'var(--t2)';
+}
+
+function glComputeGame(g, ts, allInjuries) {
+  const hStats = ts?.[g.home], aStats = ts?.[g.away];
+  const gameDate = g.commence?.split('T')[0];
+  const homeB2B = hStats ? glIsB2B(hStats, gameDate) : false;
+  const awayB2B = aStats ? glIsB2B(aStats, gameDate) : false;
+  const hInjuries = getTeamInjuries(allInjuries, g.home);
+  const aInjuries = getTeamInjuries(allInjuries, g.away);
+  const hInjAdj = glInjuryAdj(hStats, hInjuries);
+  const aInjAdj = glInjuryAdj(aStats, aInjuries);
+  const hInjPlayers = glInjuryMatchedPlayers(hStats, hInjuries);
+  const aInjPlayers = glInjuryMatchedPlayers(aStats, aInjuries);
+
+  let predSpread = null, adjHomeWinProb = null, adjAwayWinProb = null, baseMargin = null;
+  let b2bAdj = 0;
+  if (hStats && aStats) {
+    const homeNR = hStats.homeNetRtg != null ? hStats.homeNetRtg : hStats.netRtg;
+    const awayNR = aStats.awayNetRtg != null ? aStats.awayNetRtg : aStats.netRtg;
+    const hcaAdj = (hStats.homeNetRtg != null && aStats.awayNetRtg != null) ? 0 : FALLBACK_HCA;
+    baseMargin = +((homeNR - awayNR) / 2 + hcaAdj).toFixed(1);
+    let margin = baseMargin;
+    if (homeB2B) { margin -= B2B_HOME_ADJ; b2bAdj -= B2B_HOME_ADJ; }
+    if (awayB2B) { margin += B2B_AWAY_ADJ; b2bAdj += B2B_AWAY_ADJ; }
+    margin += (hInjAdj - aInjAdj) / 2;
+    predSpread = +margin.toFixed(1);
+    const prob = 1 / (1 + Math.pow(10, -margin / 12));
+    adjHomeWinProb = Math.min(0.97, Math.max(0.03, prob));
+    adjAwayWinProb = 1 - adjHomeWinProb;
+  }
+  const homeWinProb = adjHomeWinProb ?? ((hStats && aStats) ? glWinProb(hStats, aStats) : null);
+  const awayWinProb = homeWinProb != null ? 1 - homeWinProb : null;
+  let predTotal = null;
+  if (hStats && aStats && hStats.pace && aStats.pace) predTotal = glPredictedTotal(hStats, aStats);
+
+  // Model probabilities
+  let hMLEdge = null, aMLEdge = null, hMLEV = null, aMLEV = null;
+  if (homeWinProb != null && g.h2h) {
+    hMLEdge = +((homeWinProb - glImpliedProb(g.h2h.home)) * 100).toFixed(1);
+    aMLEdge = +((awayWinProb - glImpliedProb(g.h2h.away)) * 100).toFixed(1);
+    hMLEV = glEV(homeWinProb, g.h2h.home);
+    aMLEV = glEV(awayWinProb, g.h2h.away);
+  }
+
+  // Spread: proper probability via normal CDF
+  let spreadEdge = null, homeCoverProb = null, awayCoverProb = null, homeSpreadEV = null, awaySpreadEV = null;
+  if (predSpread != null && g.spread) {
+    spreadEdge = +((predSpread - g.spread.homeSpread) * -1).toFixed(1);
+    homeCoverProb = glSpreadProb(predSpread, g.spread.homeSpread);
+    awayCoverProb = 1 - homeCoverProb;
+    homeSpreadEV = glEV(homeCoverProb, g.spread.home);
+    awaySpreadEV = glEV(awayCoverProb, g.spread.away);
+  }
+
+  // Total: proper probability via normal CDF
+  let totalEdge = null, overProb = null, underProb = null, overEV = null, underEV = null;
+  if (predTotal != null && g.total) {
+    totalEdge = +(predTotal - g.total.line).toFixed(1);
+    overProb = glTotalOverProb(predTotal, g.total.line);
+    underProb = 1 - overProb;
+    overEV = glEV(overProb, g.total.over);
+    underEV = glEV(underProb, g.total.under);
+  }
+
+  let blowoutRisk = 0;
+  if (hStats?.blowout && aStats?.blowout) {
+    const ptW = hStats.blowout.blowoutWinPct || 0, ptL = hStats.blowout.blowoutLossPct || 0;
+    const opW = aStats.blowout.blowoutWinPct || 0, opL = aStats.blowout.blowoutLossPct || 0;
+    blowoutRisk = Math.max((ptW + opL) / 2, (ptL + opW) / 2);
+  }
+
+  return { hStats, aStats, homeB2B, awayB2B, hInjAdj, aInjAdj, hInjPlayers, aInjPlayers,
+    hInjuries, aInjuries, predSpread, homeWinProb, awayWinProb, predTotal,
+    hMLEdge, aMLEdge, hMLEV, aMLEV,
+    spreadEdge, homeCoverProb, awayCoverProb, homeSpreadEV, awaySpreadEV,
+    totalEdge, overProb, underProb, overEV, underEV,
+    blowoutRisk, baseMargin, b2bAdj };
+}
+
+// Best recommendation for a bet type
+function glBestRec(type, c, g) {
+  if (type === 'ml') {
+    if (c.hMLEdge != null && c.aMLEdge != null) {
+      const best = c.hMLEdge >= c.aMLEdge ? { team: g.home, edge: c.hMLEdge, odds: g.h2h?.home, prob: c.homeWinProb } : { team: g.away, edge: c.aMLEdge, odds: g.h2h?.away, prob: c.awayWinProb };
+      if (best.edge >= 3) return { ...best, strength: best.edge >= 7 ? 'strong' : 'lean' };
+    }
+    return null;
+  }
+  if (type === 'spread') {
+    if (c.spreadEdge != null) {
+      if (Math.abs(c.spreadEdge) >= 2) return { edge: c.spreadEdge, strength: Math.abs(c.spreadEdge) >= 5 ? 'strong' : 'lean', side: c.spreadEdge > 0 ? 'home' : 'away' };
+    }
+    return null;
+  }
+  if (type === 'total') {
+    if (c.totalEdge != null && Math.abs(c.totalEdge) >= 2) {
+      return { edge: c.totalEdge, strength: Math.abs(c.totalEdge) >= 5 ? 'strong' : 'lean', side: c.totalEdge > 0 ? 'over' : 'under' };
+    }
+    return null;
+  }
+  return null;
+}
+
+function glRecBadge(rec, label) {
+  if (!rec) return '';
+  const col = rec.strength === 'strong' ? 'var(--g)' : 'rgba(74,222,128,.7)';
+  const bg = rec.strength === 'strong' ? 'rgba(34,197,94,.12)' : 'rgba(34,197,94,.06)';
+  const bd = rec.strength === 'strong' ? 'rgba(34,197,94,.4)' : 'rgba(34,197,94,.2)';
+  return `<div style="display:inline-flex;align-items:center;gap:4px;background:${bg};border:1px solid ${bd};border-radius:6px;padding:3px 8px;font-size:10px;font-weight:700;color:${col};">${label}</div>`;
 }
 
 async function renderGameLines() {
@@ -6536,158 +6697,510 @@ async function renderGameLines() {
   const { games, teamStats: ts } = _glCache;
   empty.style.display = 'none';
   loading.style.display = 'none';
-
-  // Fetch injuries for cross-referencing with player impact
   const allInjuries = await getInjuries() || [];
-
-  // Sort by commence time
   const sorted = [...games].sort((a, b) => new Date(a.commence) - new Date(b.commence));
 
-  grid.innerHTML = sorted.map(g => {
-    const hStats = ts?.[g.home], aStats = ts?.[g.away];
+  grid.innerHTML = sorted.map((g, gi) => {
+    const c = glComputeGame(g, ts, allInjuries);
+    // Store computed data on the game object for modal use
+    g._computed = c;
 
-    // B2B detection
-    const gameDate = g.commence?.split('T')[0];
-    const homeB2B = hStats ? glIsB2B(hStats, gameDate) : false;
-    const awayB2B = aStats ? glIsB2B(aStats, gameDate) : false;
-
-    // Injury impact adjustments (minutes-weighted on/off)
-    const hInjuries = getTeamInjuries(allInjuries, g.home);
-    const aInjuries = getTeamInjuries(allInjuries, g.away);
-    const hInjAdj = glInjuryAdj(hStats, hInjuries); // negative = team weaker
-    const aInjAdj = glInjuryAdj(aStats, aInjuries);
-
-    // Predicted spread from model margin (uses home/away net ratings + B2B + injuries)
-    let predSpread = null;
-    let adjHomeWinProb = null, adjAwayWinProb = null;
-    if (hStats && aStats) {
-      const homeNR = hStats.homeNetRtg != null ? hStats.homeNetRtg : hStats.netRtg;
-      const awayNR = aStats.awayNetRtg != null ? aStats.awayNetRtg : aStats.netRtg;
-      const hcaAdj = (hStats.homeNetRtg != null && aStats.awayNetRtg != null) ? 0 : FALLBACK_HCA;
-      let margin = (homeNR - awayNR) / 2 + hcaAdj;
-      // B2B adjustments
-      if (homeB2B) margin -= B2B_HOME_ADJ;
-      if (awayB2B) margin += B2B_AWAY_ADJ;
-      // Injury adjustments (positive hInjAdj = home weaker, shifts margin down)
-      margin += (hInjAdj - aInjAdj) / 2;
-      predSpread = +margin.toFixed(1);
-      // Win prob from adjusted margin
-      const prob = 1 / (1 + Math.pow(10, -margin / 12));
-      adjHomeWinProb = Math.min(0.97, Math.max(0.03, prob));
-      adjAwayWinProb = 1 - adjHomeWinProb;
-    }
-    // Fall back to base win prob if no adjustments
-    const homeWinProb = adjHomeWinProb ?? ((hStats && aStats) ? glWinProb(hStats, aStats) : null);
-    const awayWinProb = homeWinProb != null ? 1 - homeWinProb : null;
-
-    // Predicted total (uses home/away splits internally)
-    let predTotal = null;
-    if (hStats && aStats && hStats.pace && aStats.pace) {
-      predTotal = glPredictedTotal(hStats, aStats);
-    }
-
-    // Moneyline edge
-    let hMLEdge = null, aMLEdge = null;
-    if (homeWinProb != null && g.h2h) {
-      const hImpl = glImpliedProb(g.h2h.home);
-      const aImpl = glImpliedProb(g.h2h.away);
-      hMLEdge = +((homeWinProb - hImpl) * 100).toFixed(1);
-      aMLEdge = +((awayWinProb - aImpl) * 100).toFixed(1);
-    }
-
-    // Spread edge
-    let spreadEdge = null;
-    if (predSpread != null && g.spread) {
-      // If our predicted spread is more favorable than the book's, there's value
-      // Negative spread = favored. If model says -7 and book says -5.5, home covers more often.
-      spreadEdge = +((predSpread - g.spread.homeSpread) * -1).toFixed(1);
-    }
-
-    // Total edge
-    let totalEdge = null;
-    if (predTotal != null && g.total) {
-      totalEdge = +(predTotal - g.total.line).toFixed(1);
-    }
-
-    // Game time formatting
+    // Time formatting — ET and PT
     const gd = new Date(g.commence);
-    const timeStr = gd.toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' }) + ' ET';
+    const etStr = gd.toLocaleString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' });
+    const ptStr = gd.toLocaleString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Los_Angeles' });
+    const dateStr = gd.toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'America/New_York' });
 
-    // Best edge highlight
-    const bestEdge = Math.max(Math.abs(hMLEdge || 0), Math.abs(aMLEdge || 0), Math.abs(spreadEdge || 0), Math.abs(totalEdge || 0));
+    const bestEdge = Math.max(Math.abs(c.hMLEdge || 0), Math.abs(c.aMLEdge || 0), Math.abs(c.spreadEdge || 0), Math.abs(c.totalEdge || 0));
     const hasBigEdge = bestEdge >= 5;
 
-    // Team record strings
-    const hRec = hStats ? `${hStats.w}-${hStats.l}` : '';
-    const aRec = aStats ? `${aStats.w}-${aStats.l}` : '';
+    const hRec = c.hStats ? `${c.hStats.w}-${c.hStats.l}` : '';
+    const aRec = c.aStats ? `${c.aStats.w}-${c.aStats.l}` : '';
 
-    // Blowout risk indicator
-    let blowoutTag = '';
-    if (hStats?.blowout && aStats?.blowout) {
-      const ptW = hStats.blowout.blowoutWinPct || 0, ptL = hStats.blowout.blowoutLossPct || 0;
-      const opW = aStats.blowout.blowoutWinPct || 0, opL = aStats.blowout.blowoutLossPct || 0;
-      const risk = Math.max((ptW + opL) / 2, (ptL + opW) / 2);
-      if (risk > 25) blowoutTag = `<span style="font-size:10px;color:var(--r);opacity:.8;margin-left:6px;">⚠ Blowout risk ${risk.toFixed(0)}%</span>`;
-    }
+    // Recommendations
+    const mlRec = glBestRec('ml', c, g);
+    const spreadRec = glBestRec('spread', c, g);
+    const totalRec = glBestRec('total', c, g);
+    const hasRec = mlRec || spreadRec || totalRec;
 
-    // Injury impact summary for card
-    let injuryTag = '';
-    const hOutCount = hInjuries.filter(i => i.status === 'Out').length;
-    const aOutCount = aInjuries.filter(i => i.status === 'Out').length;
-    if (hInjAdj || aInjAdj) {
+    // Injury tag
+    let injTag = '';
+    if (c.hInjAdj || c.aInjAdj) {
       const parts = [];
-      if (hInjAdj) parts.push(`${g.home} ${hInjAdj > 0 ? '+' : ''}${hInjAdj.toFixed(1)}`);
-      if (aInjAdj) parts.push(`${g.away} ${aInjAdj > 0 ? '+' : ''}${aInjAdj.toFixed(1)}`);
-      injuryTag = `<span style="font-size:10px;color:#f59e0b;opacity:.8;margin-left:6px;">🏥 ${parts.join(', ')} NR adj</span>`;
+      if (c.hInjAdj) parts.push(`${g.home} ${c.hInjAdj > 0 ? '+' : ''}${c.hInjAdj.toFixed(1)}`);
+      if (c.aInjAdj) parts.push(`${g.away} ${c.aInjAdj > 0 ? '+' : ''}${c.aInjAdj.toFixed(1)}`);
+      injTag = `<span style="font-size:10px;color:#f59e0b;margin-left:8px;">Inj: ${parts.join(', ')}</span>`;
     }
 
-    return `<div class="gl-card${hasBigEdge ? ' gl-edge' : ''}" style="background:var(--bg1);border:1px solid ${hasBigEdge ? 'rgba(74,222,128,.3)' : 'var(--bd)'};border-radius:12px;padding:16px;${hasBigEdge ? 'box-shadow:0 0 12px rgba(74,222,128,.08);' : ''}">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-        <span style="font-size:11px;color:var(--t3);">${timeStr}</span>
-        <span style="font-size:10px;color:var(--t3);">${Object.keys(g.books || {}).length} books${blowoutTag}${injuryTag}</span>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center;margin-bottom:14px;">
-        <div style="text-align:left;">
-          <div style="font-size:16px;font-weight:800;color:var(--t1);">${g.away}${awayB2B ? '<span style="font-size:9px;background:rgba(251,191,36,.2);color:rgb(251,191,36);border-radius:4px;padding:1px 4px;margin-left:5px;font-weight:600;">B2B</span>' : ''}</div>
-          <div style="font-size:11px;color:var(--t3);">${aRec}${aStats ? ` · ${aStats.awayNetRtg != null ? (aStats.awayNetRtg > 0 ? '+' : '') + aStats.awayNetRtg.toFixed(1) + ' Away' : (aStats.netRtg > 0 ? '+' : '') + aStats.netRtg.toFixed(1) + ' NR'}` : ''}</div>
-          ${awayWinProb != null ? `<div style="font-size:12px;font-weight:700;color:${awayWinProb > 0.5 ? 'var(--g)' : 'var(--t2)'};">${(awayWinProb * 100).toFixed(0)}% win</div>` : ''}
+    return `<div class="gl-card" style="background:var(--bg1);border:1px solid ${hasBigEdge ? 'rgba(74,222,128,.3)' : 'var(--bd)'};border-radius:14px;padding:0;overflow:hidden;${hasBigEdge ? 'box-shadow:0 0 16px rgba(74,222,128,.08);' : ''}cursor:pointer;" onclick="openGLDetailModal(${gi})">
+      <!-- Header: Date/Time -->
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px 0;">
+        <div>
+          <div style="font-size:14px;font-weight:700;color:var(--t1);">${dateStr}</div>
+          <div style="font-size:13px;color:var(--t2);font-weight:600;">${etStr} ET<span style="color:var(--t3);font-weight:400;margin-left:6px;">/ ${ptStr} PT</span></div>
         </div>
-        <div style="font-size:12px;color:var(--t3);font-weight:700;">@</div>
-        <div style="text-align:right;">
-          <div style="font-size:16px;font-weight:800;color:var(--t1);">${g.home}${homeB2B ? '<span style="font-size:9px;background:rgba(251,191,36,.2);color:rgb(251,191,36);border-radius:4px;padding:1px 4px;margin-left:5px;font-weight:600;">B2B</span>' : ''}</div>
-          <div style="font-size:11px;color:var(--t3);">${hRec}${hStats ? ` · ${hStats.homeNetRtg != null ? (hStats.homeNetRtg > 0 ? '+' : '') + hStats.homeNetRtg.toFixed(1) + ' Home' : (hStats.netRtg > 0 ? '+' : '') + hStats.netRtg.toFixed(1) + ' NR'}` : ''}</div>
-          ${homeWinProb != null ? `<div style="font-size:12px;font-weight:700;color:${homeWinProb > 0.5 ? 'var(--g)' : 'var(--t2)'};">${(homeWinProb * 100).toFixed(0)}% win</div>` : ''}
+        <div style="display:flex;align-items:center;gap:6px;">
+          ${c.blowoutRisk > 25 ? `<span style="font-size:10px;color:var(--r);opacity:.8;">Blowout ${c.blowoutRisk.toFixed(0)}%</span>` : ''}
+          ${injTag}
         </div>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;font-size:12px;">
-        ${g.h2h ? `<div style="background:var(--bg2);border-radius:8px;padding:10px;text-align:center;">
-          <div style="font-size:10px;color:var(--t3);margin-bottom:4px;font-weight:600;">MONEYLINE</div>
-          <div style="display:flex;justify-content:space-between;gap:4px;">
-            <div><span style="color:var(--t2);font-size:10px;">${g.away}</span><br><span style="font-weight:700;color:var(--t1);">${glFmtOdds(g.h2h.away)}</span>${aMLEdge != null ? `<br><span style="font-size:10px;font-weight:600;color:${glEdgeColor(aMLEdge)};">${aMLEdge > 0 ? '+' : ''}${aMLEdge}%</span>` : ''}</div>
-            <div><span style="color:var(--t2);font-size:10px;">${g.home}</span><br><span style="font-weight:700;color:var(--t1);">${glFmtOdds(g.h2h.home)}</span>${hMLEdge != null ? `<br><span style="font-size:10px;font-weight:600;color:${glEdgeColor(hMLEdge)};">${hMLEdge > 0 ? '+' : ''}${hMLEdge}%</span>` : ''}</div>
+
+      <!-- Teams -->
+      <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:6px;align-items:center;padding:14px 16px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          ${teamLogo(g.away)}
+          <div>
+            <div style="font-size:17px;font-weight:800;color:var(--t1);">${g.away}${c.awayB2B ? '<span style="font-size:9px;background:rgba(251,191,36,.2);color:rgb(251,191,36);border-radius:4px;padding:1px 4px;margin-left:5px;font-weight:600;">B2B</span>' : ''}</div>
+            <div style="font-size:11px;color:var(--t3);">${aRec}${c.aStats ? ` · ${c.aStats.awayNetRtg != null ? (c.aStats.awayNetRtg > 0 ? '+' : '') + c.aStats.awayNetRtg.toFixed(1) + ' Away' : (c.aStats.netRtg > 0 ? '+' : '') + c.aStats.netRtg.toFixed(1) + ' NR'}` : ''}</div>
           </div>
-        </div>` : '<div></div>'}
-        ${g.spread ? `<div style="background:var(--bg2);border-radius:8px;padding:10px;text-align:center;">
-          <div style="font-size:10px;color:var(--t3);margin-bottom:4px;font-weight:600;">SPREAD</div>
-          <div style="font-weight:700;color:var(--t1);">${g.spread.homeSpread > 0 ? '+' : ''}${g.spread.homeSpread}</div>
-          <div style="font-size:10px;color:var(--t2);">${glFmtOdds(g.spread.home)} / ${glFmtOdds(g.spread.away)}</div>
-          ${predSpread != null ? `<div style="font-size:10px;margin-top:2px;"><span style="color:var(--t3);">Model:</span> <span style="font-weight:600;color:${glEdgeColor(spreadEdge)};">${predSpread > 0 ? '+' : ''}${predSpread}</span></div>` : ''}
-        </div>` : '<div></div>'}
-        ${g.total ? `<div style="background:var(--bg2);border-radius:8px;padding:10px;text-align:center;">
-          <div style="font-size:10px;color:var(--t3);margin-bottom:4px;font-weight:600;">TOTAL</div>
-          <div style="font-weight:700;color:var(--t1);">${g.total.line}</div>
-          <div style="font-size:10px;color:var(--t2);">O ${glFmtOdds(g.total.over)} / U ${glFmtOdds(g.total.under)}</div>
-          ${predTotal != null ? `<div style="font-size:10px;margin-top:2px;"><span style="color:var(--t3);">Model:</span> <span style="font-weight:600;color:${glEdgeColor(totalEdge)};">${predTotal}</span></div>` : ''}
-        </div>` : '<div></div>'}
+        </div>
+        <div style="text-align:center;">
+          <div style="font-size:11px;color:var(--t3);font-weight:700;">@</div>
+          ${c.homeWinProb != null ? `<div style="font-size:11px;color:var(--t3);margin-top:2px;">${(c.awayWinProb * 100).toFixed(0)}-${(c.homeWinProb * 100).toFixed(0)}</div>` : ''}
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;justify-content:flex-end;">
+          <div style="text-align:right;">
+            <div style="font-size:17px;font-weight:800;color:var(--t1);">${g.home}${c.homeB2B ? '<span style="font-size:9px;background:rgba(251,191,36,.2);color:rgb(251,191,36);border-radius:4px;padding:1px 4px;margin-left:5px;font-weight:600;">B2B</span>' : ''}</div>
+            <div style="font-size:11px;color:var(--t3);">${hRec}${c.hStats ? ` · ${c.hStats.homeNetRtg != null ? (c.hStats.homeNetRtg > 0 ? '+' : '') + c.hStats.homeNetRtg.toFixed(1) + ' Home' : (c.hStats.netRtg > 0 ? '+' : '') + c.hStats.netRtg.toFixed(1) + ' NR'}` : ''}</div>
+          </div>
+          ${teamLogo(g.home)}
+        </div>
       </div>
-      ${(hStats && aStats) ? `<div style="display:flex;gap:12px;margin-top:10px;padding-top:10px;border-top:1px solid var(--bd);font-size:10px;color:var(--t3);flex-wrap:wrap;">
-        <span>Pace: ${(aStats.awayPace||aStats.pace)?.toFixed(1)} / ${(hStats.homePace||hStats.pace)?.toFixed(1)}</span>
-        <span>ORTG: ${(aStats.awayOffRtg||aStats.offRtg)?.toFixed(1)} / ${(hStats.homeOffRtg||hStats.offRtg)?.toFixed(1)}</span>
-        <span>DRTG: ${(aStats.awayDefRtg||aStats.defRtg)?.toFixed(1)} / ${(hStats.homeDefRtg||hStats.defRtg)?.toFixed(1)}</span>
-        <span>Avg Margin: ${aStats.blowout?.avgMargin > 0 ? '+' : ''}${aStats.blowout?.avgMargin} / ${hStats.blowout?.avgMargin > 0 ? '+' : ''}${hStats.blowout?.avgMargin}</span>
+
+      <!-- Betting Lines -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:var(--bd);">
+        ${g.h2h ? `<div style="background:var(--bg1);padding:12px 10px;text-align:center;" onclick="event.stopPropagation();">
+          <div style="font-size:10px;color:var(--t3);margin-bottom:6px;font-weight:600;text-transform:uppercase;">Moneyline</div>
+          <div style="display:flex;justify-content:space-around;gap:4px;">
+            <button onclick="event.stopPropagation();openGLBetModal(${gi},'ml_away')" style="flex:1;background:var(--bg2);border:1.5px solid ${(c.aMLEV||0) > 0 ? 'rgba(74,222,128,.4)' : 'var(--bd)'};border-radius:8px;padding:6px 4px;cursor:pointer;text-align:center;">
+              <div style="font-size:10px;color:var(--t3);">${g.away}</div>
+              <div style="font-size:14px;font-weight:700;color:var(--t1);">${glFmtOdds(g.h2h.away)}</div>
+              ${c.aMLEV != null ? `<div style="font-size:10px;font-weight:700;color:${c.aMLEV > 0 ? 'var(--g)' : 'var(--r)'};">EV ${glFmtEV(c.aMLEV)}</div>` : ''}
+            </button>
+            <button onclick="event.stopPropagation();openGLBetModal(${gi},'ml_home')" style="flex:1;background:var(--bg2);border:1.5px solid ${(c.hMLEV||0) > 0 ? 'rgba(74,222,128,.4)' : 'var(--bd)'};border-radius:8px;padding:6px 4px;cursor:pointer;text-align:center;">
+              <div style="font-size:10px;color:var(--t3);">${g.home}</div>
+              <div style="font-size:14px;font-weight:700;color:var(--t1);">${glFmtOdds(g.h2h.home)}</div>
+              ${c.hMLEV != null ? `<div style="font-size:10px;font-weight:700;color:${c.hMLEV > 0 ? 'var(--g)' : 'var(--r)'};">EV ${glFmtEV(c.hMLEV)}</div>` : ''}
+            </button>
+          </div>
+          ${mlRec ? `<div style="margin-top:6px;">${glRecBadge(mlRec, `${mlRec.strength === 'strong' ? 'STRONG' : 'LEAN'}: ${mlRec.team} ML`)}</div>` : ''}
+        </div>` : `<div style="background:var(--bg1);padding:12px 10px;text-align:center;color:var(--t3);font-size:11px;">No ML data</div>`}
+
+        ${g.spread ? `<div style="background:var(--bg1);padding:12px 10px;text-align:center;" onclick="event.stopPropagation();">
+          <div style="font-size:10px;color:var(--t3);margin-bottom:6px;font-weight:600;text-transform:uppercase;">Spread</div>
+          <div style="display:flex;justify-content:space-around;gap:4px;">
+            <button onclick="event.stopPropagation();openGLBetModal(${gi},'spread_away')" style="flex:1;background:var(--bg2);border:1.5px solid ${(c.awaySpreadEV||0) > 0 ? 'rgba(74,222,128,.4)' : 'var(--bd)'};border-radius:8px;padding:6px 4px;cursor:pointer;text-align:center;">
+              <div style="font-size:10px;color:var(--t3);">${g.away}</div>
+              <div style="font-size:14px;font-weight:700;color:var(--t1);">${g.spread.homeSpread < 0 ? '+' : ''}${(-g.spread.homeSpread)}</div>
+              <div style="font-size:10px;color:var(--t2);">${glFmtOdds(g.spread.away)}</div>
+              ${c.awaySpreadEV != null ? `<div style="font-size:10px;font-weight:700;color:${c.awaySpreadEV > 0 ? 'var(--g)' : 'var(--r)'};">EV ${glFmtEV(c.awaySpreadEV)}</div>` : ''}
+            </button>
+            <button onclick="event.stopPropagation();openGLBetModal(${gi},'spread_home')" style="flex:1;background:var(--bg2);border:1.5px solid ${(c.homeSpreadEV||0) > 0 ? 'rgba(74,222,128,.4)' : 'var(--bd)'};border-radius:8px;padding:6px 4px;cursor:pointer;text-align:center;">
+              <div style="font-size:10px;color:var(--t3);">${g.home}</div>
+              <div style="font-size:14px;font-weight:700;color:var(--t1);">${g.spread.homeSpread > 0 ? '+' : ''}${g.spread.homeSpread}</div>
+              <div style="font-size:10px;color:var(--t2);">${glFmtOdds(g.spread.home)}</div>
+              ${c.homeSpreadEV != null ? `<div style="font-size:10px;font-weight:700;color:${c.homeSpreadEV > 0 ? 'var(--g)' : 'var(--r)'};">EV ${glFmtEV(c.homeSpreadEV)}</div>` : ''}
+            </button>
+          </div>
+          <div style="margin-top:4px;font-size:10px;color:var(--t3);">Model: <span style="font-weight:700;color:${glEdgeColor(c.spreadEdge)};">${c.predSpread != null ? (c.predSpread > 0 ? '+' : '') + c.predSpread : '—'}</span></div>
+          ${spreadRec ? `<div style="margin-top:4px;">${glRecBadge(spreadRec, `${spreadRec.strength === 'strong' ? 'STRONG' : 'LEAN'}: ${spreadRec.side === 'home' ? g.home : g.away} ${spreadRec.side === 'home' ? (g.spread.homeSpread > 0 ? '+' : '') + g.spread.homeSpread : (g.spread.homeSpread < 0 ? '+' : '') + (-g.spread.homeSpread)}`)}</div>` : ''}
+        </div>` : `<div style="background:var(--bg1);padding:12px 10px;text-align:center;color:var(--t3);font-size:11px;">No spread data</div>`}
+
+        ${g.total ? `<div style="background:var(--bg1);padding:12px 10px;text-align:center;" onclick="event.stopPropagation();">
+          <div style="font-size:10px;color:var(--t3);margin-bottom:6px;font-weight:600;text-transform:uppercase;">Total</div>
+          <div style="display:flex;justify-content:space-around;gap:4px;">
+            <button onclick="event.stopPropagation();openGLBetModal(${gi},'total_over')" style="flex:1;background:var(--bg2);border:1.5px solid ${(c.overEV||0) > 0 ? 'rgba(74,222,128,.4)' : 'var(--bd)'};border-radius:8px;padding:6px 4px;cursor:pointer;text-align:center;">
+              <div style="font-size:10px;color:var(--t3);">Over</div>
+              <div style="font-size:14px;font-weight:700;color:var(--t1);">${g.total.line}</div>
+              <div style="font-size:10px;color:var(--t2);">${glFmtOdds(g.total.over)}</div>
+              ${c.overEV != null ? `<div style="font-size:10px;font-weight:700;color:${c.overEV > 0 ? 'var(--g)' : 'var(--r)'};">EV ${glFmtEV(c.overEV)}</div>` : ''}
+            </button>
+            <button onclick="event.stopPropagation();openGLBetModal(${gi},'total_under')" style="flex:1;background:var(--bg2);border:1.5px solid ${(c.underEV||0) > 0 ? 'rgba(74,222,128,.4)' : 'var(--bd)'};border-radius:8px;padding:6px 4px;cursor:pointer;text-align:center;">
+              <div style="font-size:10px;color:var(--t3);">Under</div>
+              <div style="font-size:14px;font-weight:700;color:var(--t1);">${g.total.line}</div>
+              <div style="font-size:10px;color:var(--t2);">${glFmtOdds(g.total.under)}</div>
+              ${c.underEV != null ? `<div style="font-size:10px;font-weight:700;color:${c.underEV > 0 ? 'var(--g)' : 'var(--r)'};">EV ${glFmtEV(c.underEV)}</div>` : ''}
+            </button>
+          </div>
+          <div style="margin-top:4px;font-size:10px;color:var(--t3);">Model: <span style="font-weight:700;color:${glEdgeColor(c.totalEdge)};">${c.predTotal ?? '—'}</span></div>
+          ${totalRec ? `<div style="margin-top:4px;">${glRecBadge(totalRec, `${totalRec.strength === 'strong' ? 'STRONG' : 'LEAN'}: ${totalRec.side === 'over' ? 'Over' : 'Under'} ${g.total.line}`)}</div>` : ''}
+        </div>` : `<div style="background:var(--bg1);padding:12px 10px;text-align:center;color:var(--t3);font-size:11px;">No total data</div>`}
+      </div>
+
+      <!-- Recs summary bar -->
+      ${hasRec ? `<div style="padding:8px 16px;background:rgba(34,197,94,.04);border-top:1px solid rgba(34,197,94,.15);display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <span style="font-size:10px;font-weight:700;color:var(--g);text-transform:uppercase;">Value Found</span>
+        ${mlRec ? `<span style="font-size:10px;color:var(--t2);">ML: ${mlRec.team} (EV ${glFmtEV(mlRec.team === g.home ? c.hMLEV : c.aMLEV)})</span>` : ''}
+        ${spreadRec ? `<span style="font-size:10px;color:var(--t2);">Spread: ${spreadRec.side === 'home' ? g.home : g.away} (EV ${glFmtEV(spreadRec.side === 'home' ? c.homeSpreadEV : c.awaySpreadEV)})</span>` : ''}
+        ${totalRec ? `<span style="font-size:10px;color:var(--t2);">Total: ${totalRec.side === 'over' ? 'Over' : 'Under'} (EV ${glFmtEV(totalRec.side === 'over' ? c.overEV : c.underEV)})</span>` : ''}
       </div>` : ''}
     </div>`;
   }).join('');
+}
+
+// ── Game Line Detail Modal ──
+function openGLDetailModal(gi) {
+  const { games, teamStats: ts } = _glCache;
+  const sorted = [...games].sort((a, b) => new Date(a.commence) - new Date(b.commence));
+  const g = sorted[gi];
+  if (!g) return;
+  const c = g._computed;
+  if (!c) return;
+  const modal = document.getElementById('betModal');
+  const mEl = modal.querySelector('.modal');
+  mEl.classList.add('modal-detail');
+  modal.querySelector('.modal-title').textContent = `${g.away} @ ${g.home}`;
+  const gd = new Date(g.commence);
+  const etStr = gd.toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' }) + ' ET';
+  const ptStr = gd.toLocaleString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Los_Angeles' }) + ' PT';
+
+  // Book comparison tables
+  const books = Object.entries(g.books || {}).filter(([k]) => !GL_EXCL_BOOKS.has(k));
+  const mlRows = books.filter(([,b]) => b.h2h).map(([k,b]) => `<tr><td style="font-weight:600">${GL_BOOK_NAMES[k]||k}</td><td style="color:${b.h2h.away>0?'var(--g)':'var(--r)'};font-weight:600">${glFmtOdds(b.h2h.away)}</td><td style="color:${b.h2h.home>0?'var(--g)':'var(--r)'};font-weight:600">${glFmtOdds(b.h2h.home)}</td></tr>`).join('');
+  const spRows = books.filter(([,b]) => b.spread).map(([k,b]) => `<tr><td style="font-weight:600">${GL_BOOK_NAMES[k]||k}</td><td>${b.spread.homeSpread < 0 ? '+' : ''}${(-b.spread.homeSpread)} (${glFmtOdds(b.spread.away)})</td><td>${b.spread.homeSpread > 0 ? '+' : ''}${b.spread.homeSpread} (${glFmtOdds(b.spread.home)})</td></tr>`).join('');
+  const totRows = books.filter(([,b]) => b.total).map(([k,b]) => `<tr><td style="font-weight:600">${GL_BOOK_NAMES[k]||k}</td><td>O ${glFmtOdds(b.total.over)}</td><td>U ${glFmtOdds(b.total.under)}</td><td>${b.total.line}</td></tr>`).join('');
+
+  // Model breakdown
+  const hNR = c.hStats?.homeNetRtg != null ? c.hStats.homeNetRtg.toFixed(1) : c.hStats?.netRtg?.toFixed(1) || '—';
+  const aNR = c.aStats?.awayNetRtg != null ? c.aStats.awayNetRtg.toFixed(1) : c.aStats?.netRtg?.toFixed(1) || '—';
+  const usingSplits = c.hStats?.homeNetRtg != null && c.aStats?.awayNetRtg != null;
+  const injAdjTotal = ((c.hInjAdj - c.aInjAdj) / 2).toFixed(1);
+
+  document.getElementById('modalBody').innerHTML = `
+    <div style="font-size:12px;color:var(--t3);margin-bottom:16px;">${etStr} / ${ptStr}</div>
+
+    <!-- Teams header -->
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
+      <div style="display:flex;align-items:center;gap:10px;">${teamLogo(g.away)}<div>
+        <div style="font-size:16px;font-weight:800;color:var(--t1);">${g.away}${c.awayB2B ? ' <span style="font-size:9px;background:rgba(251,191,36,.2);color:rgb(251,191,36);border-radius:4px;padding:1px 4px;font-weight:600;">B2B</span>' : ''}</div>
+        <div style="font-size:11px;color:var(--t3);">${c.aStats ? c.aStats.w + '-' + c.aStats.l : ''}</div>
+      </div></div>
+      <div style="font-size:13px;font-weight:700;color:var(--t3);">@</div>
+      <div style="display:flex;align-items:center;gap:10px;"><div style="text-align:right;">
+        <div style="font-size:16px;font-weight:800;color:var(--t1);">${g.home}${c.homeB2B ? ' <span style="font-size:9px;background:rgba(251,191,36,.2);color:rgb(251,191,36);border-radius:4px;padding:1px 4px;font-weight:600;">B2B</span>' : ''}</div>
+        <div style="font-size:11px;color:var(--t3);">${c.hStats ? c.hStats.w + '-' + c.hStats.l : ''}</div>
+      </div>${teamLogo(g.home)}</div>
+    </div>
+
+    <!-- Win Probability Bar -->
+    ${c.homeWinProb != null ? `<div style="margin-bottom:18px;">
+      <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;margin-bottom:4px;">
+        <span style="color:${c.awayWinProb > 0.5 ? 'var(--g)' : 'var(--t2)'};">${g.away} ${(c.awayWinProb*100).toFixed(0)}%</span>
+        <span style="color:${c.homeWinProb > 0.5 ? 'var(--g)' : 'var(--t2)'};">${(c.homeWinProb*100).toFixed(0)}% ${g.home}</span>
+      </div>
+      <div style="height:8px;border-radius:4px;background:var(--bg3);overflow:hidden;display:flex;">
+        <div style="width:${(c.awayWinProb*100).toFixed(0)}%;background:${c.awayWinProb > 0.5 ? 'var(--g)' : 'var(--r)'};border-radius:4px 0 0 4px;"></div>
+        <div style="width:${(c.homeWinProb*100).toFixed(0)}%;background:${c.homeWinProb > 0.5 ? 'var(--g)' : 'var(--r)'};border-radius:0 4px 4px 0;"></div>
+      </div>
+    </div>` : ''}
+
+    <!-- Model Calculation Breakdown -->
+    <div style="background:var(--bg2);border:1px solid var(--bd);border-radius:10px;padding:14px;margin-bottom:18px;">
+      <div style="font-size:12px;font-weight:700;color:var(--t1);margin-bottom:10px;">Model Breakdown</div>
+      <div style="display:grid;gap:6px;font-size:11px;">
+        <div style="display:flex;justify-content:space-between;"><span style="color:var(--t3);">Home Net Rtg (${usingSplits ? 'home split' : 'overall'})</span><span style="color:var(--t1);font-weight:600;">${hNR}</span></div>
+        <div style="display:flex;justify-content:space-between;"><span style="color:var(--t3);">Away Net Rtg (${usingSplits ? 'away split' : 'overall'})</span><span style="color:var(--t1);font-weight:600;">${aNR}</span></div>
+        <div style="display:flex;justify-content:space-between;"><span style="color:var(--t3);">HCA Adjustment</span><span style="color:var(--t1);font-weight:600;">${usingSplits ? 'Baked into splits' : '+' + FALLBACK_HCA + ' (fallback)'}</span></div>
+        <div style="display:flex;justify-content:space-between;border-top:1px solid var(--bd);padding-top:6px;"><span style="color:var(--t3);">Base Margin</span><span style="color:var(--t1);font-weight:700;">${c.baseMargin != null ? (c.baseMargin > 0 ? '+' : '') + c.baseMargin : '—'}</span></div>
+        ${c.homeB2B || c.awayB2B ? `<div style="display:flex;justify-content:space-between;"><span style="color:#f59e0b;">B2B Adjustment${c.homeB2B ? ' (' + g.home + ' home)' : ''}${c.awayB2B ? ' (' + g.away + ' away)' : ''}</span><span style="color:#f59e0b;font-weight:600;">${c.b2bAdj > 0 ? '+' : ''}${c.b2bAdj.toFixed(1)}</span></div>` : ''}
+        ${c.hInjAdj || c.aInjAdj ? `<div style="display:flex;justify-content:space-between;"><span style="color:#f59e0b;">Injury Adjustment</span><span style="color:#f59e0b;font-weight:600;">${injAdjTotal > 0 ? '+' : ''}${injAdjTotal}</span></div>` : ''}
+        <div style="display:flex;justify-content:space-between;border-top:1px solid var(--bd);padding-top:6px;"><span style="color:var(--t1);font-weight:700;">Final Predicted Spread</span><span style="color:var(--g);font-weight:800;font-size:13px;">${c.predSpread != null ? (c.predSpread > 0 ? '+' : '') + c.predSpread : '—'}</span></div>
+        <div style="display:flex;justify-content:space-between;"><span style="color:var(--t1);font-weight:700;">Predicted Total</span><span style="color:var(--g);font-weight:800;font-size:13px;">${c.predTotal ?? '—'}</span></div>
+        <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--bd);">
+          <div style="font-size:11px;font-weight:600;color:var(--t3);margin-bottom:6px;">Model Probabilities & EV</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;font-size:10px;">
+            ${c.homeWinProb != null ? `<div style="background:var(--bg1);border-radius:6px;padding:6px;text-align:center;">
+              <div style="color:var(--t3);margin-bottom:2px;">ML ${g.home}</div>
+              <div style="font-weight:700;color:var(--t1);">${(c.homeWinProb*100).toFixed(0)}%</div>
+              ${c.hMLEV != null ? `<div style="font-weight:700;color:${c.hMLEV > 0 ? 'var(--g)' : 'var(--r)'};">EV ${glFmtEV(c.hMLEV)}</div>` : ''}
+            </div>` : ''}
+            ${c.homeCoverProb != null ? `<div style="background:var(--bg1);border-radius:6px;padding:6px;text-align:center;">
+              <div style="color:var(--t3);margin-bottom:2px;">Cover ${g.home}</div>
+              <div style="font-weight:700;color:var(--t1);">${(c.homeCoverProb*100).toFixed(0)}%</div>
+              ${c.homeSpreadEV != null ? `<div style="font-weight:700;color:${c.homeSpreadEV > 0 ? 'var(--g)' : 'var(--r)'};">EV ${glFmtEV(c.homeSpreadEV)}</div>` : ''}
+            </div>` : ''}
+            ${c.overProb != null ? `<div style="background:var(--bg1);border-radius:6px;padding:6px;text-align:center;">
+              <div style="color:var(--t3);margin-bottom:2px;">Over</div>
+              <div style="font-weight:700;color:var(--t1);">${(c.overProb*100).toFixed(0)}%</div>
+              ${c.overEV != null ? `<div style="font-weight:700;color:${c.overEV > 0 ? 'var(--g)' : 'var(--r)'};">EV ${glFmtEV(c.overEV)}</div>` : ''}
+            </div>` : ''}
+            ${c.awayWinProb != null ? `<div style="background:var(--bg1);border-radius:6px;padding:6px;text-align:center;">
+              <div style="color:var(--t3);margin-bottom:2px;">ML ${g.away}</div>
+              <div style="font-weight:700;color:var(--t1);">${(c.awayWinProb*100).toFixed(0)}%</div>
+              ${c.aMLEV != null ? `<div style="font-weight:700;color:${c.aMLEV > 0 ? 'var(--g)' : 'var(--r)'};">EV ${glFmtEV(c.aMLEV)}</div>` : ''}
+            </div>` : ''}
+            ${c.awayCoverProb != null ? `<div style="background:var(--bg1);border-radius:6px;padding:6px;text-align:center;">
+              <div style="color:var(--t3);margin-bottom:2px;">Cover ${g.away}</div>
+              <div style="font-weight:700;color:var(--t1);">${(c.awayCoverProb*100).toFixed(0)}%</div>
+              ${c.awaySpreadEV != null ? `<div style="font-weight:700;color:${c.awaySpreadEV > 0 ? 'var(--g)' : 'var(--r)'};">EV ${glFmtEV(c.awaySpreadEV)}</div>` : ''}
+            </div>` : ''}
+            ${c.underProb != null ? `<div style="background:var(--bg1);border-radius:6px;padding:6px;text-align:center;">
+              <div style="color:var(--t3);margin-bottom:2px;">Under</div>
+              <div style="font-weight:700;color:var(--t1);">${(c.underProb*100).toFixed(0)}%</div>
+              ${c.underEV != null ? `<div style="font-weight:700;color:${c.underEV > 0 ? 'var(--g)' : 'var(--r)'};">EV ${glFmtEV(c.underEV)}</div>` : ''}
+            </div>` : ''}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Injury Detail -->
+    ${(c.hInjPlayers.length || c.aInjPlayers.length) ? `<div style="background:var(--bg2);border:1px solid var(--bd);border-radius:10px;padding:14px;margin-bottom:18px;">
+      <div style="font-size:12px;font-weight:700;color:var(--t1);margin-bottom:8px;">Injury Impact (On/Off)</div>
+      ${c.hInjPlayers.length ? `<div style="font-size:11px;color:var(--t3);margin-bottom:4px;font-weight:600;">${g.home} (${c.hInjAdj.toFixed(1)} NR adj)</div>
+      ${c.hInjPlayers.map(p => `<div style="display:flex;justify-content:space-between;font-size:11px;padding:2px 0;"><span style="color:var(--t2);">${p.name} <span style="color:var(--t3);">(${p.status})</span></span><span style="color:var(--r);font-weight:600;">-${p.impact.toFixed(1)} NR</span></div>`).join('')}` : ''}
+      ${c.aInjPlayers.length ? `<div style="font-size:11px;color:var(--t3);margin-bottom:4px;margin-top:8px;font-weight:600;">${g.away} (${c.aInjAdj.toFixed(1)} NR adj)</div>
+      ${c.aInjPlayers.map(p => `<div style="display:flex;justify-content:space-between;font-size:11px;padding:2px 0;"><span style="color:var(--t2);">${p.name} <span style="color:var(--t3);">(${p.status})</span></span><span style="color:var(--r);font-weight:600;">-${p.impact.toFixed(1)} NR</span></div>`).join('')}` : ''}
+    </div>` : ''}
+
+    <!-- Advanced Stats Comparison -->
+    ${(c.hStats && c.aStats) ? `<div style="background:var(--bg2);border:1px solid var(--bd);border-radius:10px;padding:14px;margin-bottom:18px;">
+      <div style="font-size:12px;font-weight:700;color:var(--t1);margin-bottom:8px;">Advanced Stats</div>
+      <table style="width:100%;font-size:11px;border-collapse:collapse;">
+        <thead><tr style="border-bottom:1px solid var(--bd);">
+          <th style="text-align:left;padding:4px;color:var(--t3);font-weight:600;">Stat</th>
+          <th style="text-align:center;padding:4px;color:var(--t3);font-weight:600;">${g.away}</th>
+          <th style="text-align:center;padding:4px;color:var(--t3);font-weight:600;">${g.home}</th>
+        </tr></thead>
+        <tbody>
+          <tr><td style="padding:4px;color:var(--t2);">Pace</td><td style="text-align:center;color:var(--t1);font-weight:600;">${(c.aStats.awayPace||c.aStats.pace)?.toFixed(1)}</td><td style="text-align:center;color:var(--t1);font-weight:600;">${(c.hStats.homePace||c.hStats.pace)?.toFixed(1)}</td></tr>
+          <tr><td style="padding:4px;color:var(--t2);">Off Rtg</td><td style="text-align:center;color:var(--t1);font-weight:600;">${(c.aStats.awayOffRtg||c.aStats.offRtg)?.toFixed(1)}</td><td style="text-align:center;color:var(--t1);font-weight:600;">${(c.hStats.homeOffRtg||c.hStats.offRtg)?.toFixed(1)}</td></tr>
+          <tr><td style="padding:4px;color:var(--t2);">Def Rtg</td><td style="text-align:center;color:var(--t1);font-weight:600;">${(c.aStats.awayDefRtg||c.aStats.defRtg)?.toFixed(1)}</td><td style="text-align:center;color:var(--t1);font-weight:600;">${(c.hStats.homeDefRtg||c.hStats.defRtg)?.toFixed(1)}</td></tr>
+          <tr><td style="padding:4px;color:var(--t2);">Net Rtg</td><td style="text-align:center;color:var(--t1);font-weight:600;">${(c.aStats.awayNetRtg ?? c.aStats.netRtg)?.toFixed(1)}</td><td style="text-align:center;color:var(--t1);font-weight:600;">${(c.hStats.homeNetRtg ?? c.hStats.netRtg)?.toFixed(1)}</td></tr>
+          <tr style="border-top:1px solid var(--bd);"><td style="padding:4px;color:var(--t2);">Avg Margin</td><td style="text-align:center;color:var(--t1);font-weight:600;">${c.aStats.blowout?.avgMargin > 0 ? '+' : ''}${c.aStats.blowout?.avgMargin ?? '—'}</td><td style="text-align:center;color:var(--t1);font-weight:600;">${c.hStats.blowout?.avgMargin > 0 ? '+' : ''}${c.hStats.blowout?.avgMargin ?? '—'}</td></tr>
+          <tr><td style="padding:4px;color:var(--t2);">Blowout Win%</td><td style="text-align:center;color:var(--t1);font-weight:600;">${c.aStats.blowout?.blowoutWinPct?.toFixed(0) ?? '—'}%</td><td style="text-align:center;color:var(--t1);font-weight:600;">${c.hStats.blowout?.blowoutWinPct?.toFixed(0) ?? '—'}%</td></tr>
+          <tr><td style="padding:4px;color:var(--t2);">Blowout Loss%</td><td style="text-align:center;color:var(--t1);font-weight:600;">${c.aStats.blowout?.blowoutLossPct?.toFixed(0) ?? '—'}%</td><td style="text-align:center;color:var(--t1);font-weight:600;">${c.hStats.blowout?.blowoutLossPct?.toFixed(0) ?? '—'}%</td></tr>
+        </tbody>
+      </table>
+    </div>` : ''}
+
+    <!-- Book Comparison: Moneyline -->
+    ${mlRows ? `<div style="background:var(--bg2);border:1px solid var(--bd);border-radius:10px;padding:14px;margin-bottom:12px;">
+      <div style="font-size:12px;font-weight:700;color:var(--t1);margin-bottom:8px;">Moneyline by Book</div>
+      <table style="width:100%;font-size:11px;border-collapse:collapse;">
+        <thead><tr style="border-bottom:1px solid var(--bd);"><th style="text-align:left;padding:4px;color:var(--t3);">Book</th><th style="text-align:center;padding:4px;color:var(--t3);">${g.away}</th><th style="text-align:center;padding:4px;color:var(--t3);">${g.home}</th></tr></thead>
+        <tbody>${mlRows}</tbody>
+      </table>
+    </div>` : ''}
+
+    <!-- Book Comparison: Spread -->
+    ${spRows ? `<div style="background:var(--bg2);border:1px solid var(--bd);border-radius:10px;padding:14px;margin-bottom:12px;">
+      <div style="font-size:12px;font-weight:700;color:var(--t1);margin-bottom:8px;">Spread by Book</div>
+      <table style="width:100%;font-size:11px;border-collapse:collapse;">
+        <thead><tr style="border-bottom:1px solid var(--bd);"><th style="text-align:left;padding:4px;color:var(--t3);">Book</th><th style="text-align:center;padding:4px;color:var(--t3);">${g.away}</th><th style="text-align:center;padding:4px;color:var(--t3);">${g.home}</th></tr></thead>
+        <tbody>${spRows}</tbody>
+      </table>
+    </div>` : ''}
+
+    <!-- Book Comparison: Total -->
+    ${totRows ? `<div style="background:var(--bg2);border:1px solid var(--bd);border-radius:10px;padding:14px;margin-bottom:12px;">
+      <div style="font-size:12px;font-weight:700;color:var(--t1);margin-bottom:8px;">Total by Book</div>
+      <table style="width:100%;font-size:11px;border-collapse:collapse;">
+        <thead><tr style="border-bottom:1px solid var(--bd);"><th style="text-align:left;padding:4px;color:var(--t3);">Book</th><th style="text-align:center;padding:4px;color:var(--t3);">Over</th><th style="text-align:center;padding:4px;color:var(--t3);">Under</th><th style="text-align:center;padding:4px;color:var(--t3);">Line</th></tr></thead>
+        <tbody>${totRows}</tbody>
+      </table>
+    </div>` : ''}
+  `;
+  modal.classList.add('show');
+}
+
+// ── Game Line Bet Modal ──
+function openGLBetModal(gi, betType) {
+  const { games } = _glCache;
+  const sorted = [...games].sort((a, b) => new Date(a.commence) - new Date(b.commence));
+  const g = sorted[gi];
+  if (!g) return;
+  const c = g._computed;
+  _glBetGame = { game: g, computed: c, gi };
+  _glBetType = betType;
+
+  const sim = simLoad();
+  const modal = document.getElementById('betModal');
+  const mEl = modal.querySelector('.modal');
+  mEl.classList.remove('modal-detail');
+
+  let betLabel = '', odds = -110, modelProb = 0.5, edge = 0, ev = 0, probMethod = '';
+
+  if (betType === 'ml_home') {
+    betLabel = `${g.home} ML`;
+    odds = g.h2h?.home || -110;
+    modelProb = c.homeWinProb || 0.5;
+    edge = c.hMLEdge || 0;
+    ev = c.hMLEV || 0;
+    probMethod = 'Logistic (net rating margin / 12)';
+  } else if (betType === 'ml_away') {
+    betLabel = `${g.away} ML`;
+    odds = g.h2h?.away || -110;
+    modelProb = c.awayWinProb || 0.5;
+    edge = c.aMLEdge || 0;
+    ev = c.aMLEV || 0;
+    probMethod = 'Logistic (net rating margin / 12)';
+  } else if (betType === 'spread_home') {
+    betLabel = `${g.home} ${g.spread?.homeSpread > 0 ? '+' : ''}${g.spread?.homeSpread}`;
+    odds = g.spread?.home || -110;
+    modelProb = c.homeCoverProb || 0.5;
+    edge = c.spreadEdge || 0;
+    ev = c.homeSpreadEV || 0;
+    probMethod = `Normal CDF (pred ${c.predSpread > 0 ? '+' : ''}${c.predSpread}, σ=${GL_SPREAD_SIGMA})`;
+  } else if (betType === 'spread_away') {
+    betLabel = `${g.away} ${g.spread?.homeSpread < 0 ? '+' : ''}${(-g.spread?.homeSpread)}`;
+    odds = g.spread?.away || -110;
+    modelProb = c.awayCoverProb || 0.5;
+    edge = c.spreadEdge ? -c.spreadEdge : 0;
+    ev = c.awaySpreadEV || 0;
+    probMethod = `Normal CDF (pred ${c.predSpread > 0 ? '+' : ''}${c.predSpread}, σ=${GL_SPREAD_SIGMA})`;
+  } else if (betType === 'total_over') {
+    betLabel = `Over ${g.total?.line}`;
+    odds = g.total?.over || -110;
+    modelProb = c.overProb || 0.5;
+    edge = c.totalEdge || 0;
+    ev = c.overEV || 0;
+    probMethod = `Normal CDF (pred ${c.predTotal}, σ=${GL_TOTAL_SIGMA})`;
+  } else if (betType === 'total_under') {
+    betLabel = `Under ${g.total?.line}`;
+    odds = g.total?.under || -110;
+    modelProb = c.underProb || 0.5;
+    edge = c.totalEdge ? -c.totalEdge : 0;
+    ev = c.underEV || 0;
+    probMethod = `Normal CDF (pred ${c.predTotal}, σ=${GL_TOTAL_SIGMA})`;
+  }
+
+  const implProb = glImpliedProb(odds);
+  const fullKelly = computeKelly(modelProb, odds);
+  const quarterKelly = fullKelly * 0.25;
+  const kellySuggest = Math.max(1, Math.floor(sim.balance * quarterKelly));
+  const kellyPct = (quarterKelly * 100).toFixed(1);
+  const kellyColor = fullKelly > 0.05 ? 'var(--g)' : fullKelly > 0 ? 'var(--a)' : 'var(--r)';
+  const isValue = ev > 0;
+  const oddsStr = glFmtOdds(odds);
+  const evColor = ev > 0 ? 'var(--g)' : 'var(--r)';
+
+  modal.querySelector('.modal-title').textContent = 'Place Game Bet';
+  document.getElementById('modalBody').innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+      ${teamLogo(g.away)}<span style="font-size:14px;font-weight:700;color:var(--t1);">${g.away} @ ${g.home}</span>${teamLogo(g.home)}
+    </div>
+    <div class="modal-row"><span class="modal-lbl">Bet</span><span class="modal-val" style="font-weight:700;">${betLabel}</span></div>
+    <div class="modal-row"><span class="modal-lbl">Odds</span><span class="modal-val" style="color:${odds > 0 ? 'var(--g)' : 'var(--r)'};font-weight:700;">${oddsStr}</span></div>
+
+    <!-- EV highlight -->
+    <div class="modal-row" style="background:${ev > 0 ? 'rgba(34,197,94,.08)' : 'rgba(239,68,68,.06)'};border-radius:6px;padding:8px 4px;border:1px solid ${ev > 0 ? 'rgba(34,197,94,.25)' : 'rgba(239,68,68,.15)'};">
+      <span class="modal-lbl" style="color:${evColor};">Expected Value</span>
+      <span class="modal-val" style="color:${evColor};font-weight:800;font-size:14px;">${glFmtEV(ev)}${isValue ? ' ⚡' : ''}</span>
+    </div>
+
+    <div class="modal-row"><span class="modal-lbl">Model Prob</span><span class="modal-val">${(modelProb*100).toFixed(1)}% <span style="font-size:10px;color:var(--t3);">(implied: ${(implProb*100).toFixed(1)}%)</span></span></div>
+    <div class="modal-row"><span class="modal-lbl">Prob Method</span><span class="modal-val" style="font-size:10px;color:var(--t3);">${probMethod}</span></div>
+    <div class="modal-row" style="background:${kellyColor}10;border-radius:6px;padding:8px 4px;">
+      <span class="modal-lbl">1/4 Kelly</span>
+      <span class="modal-val" style="color:${kellyColor}">
+        ${kellyPct}% = <strong>$${kellySuggest}</strong>
+        <button onclick="document.getElementById('glStakeInp').value=${kellySuggest};updateGLPayoutPreview();" style="margin-left:8px;padding:2px 8px;border-radius:5px;border:1px solid ${kellyColor};background:${kellyColor}20;color:${kellyColor};font-size:10px;font-weight:700;cursor:pointer;">Use</button>
+      </span>
+    </div>
+    <div class="modal-row"><span class="modal-lbl">Balance</span><span class="modal-val">$${sim.balance.toFixed(2)}</span></div>
+    <div class="stake-row" style="margin-top:14px;">
+      <div class="stake-lbl">Stake ($)</div>
+      <input class="stake-input" type="number" id="glStakeInp" min="1" max="${sim.balance.toFixed(0)}" step="5" value="${kellySuggest}" oninput="updateGLPayoutPreview()"/>
+    </div>
+    <div class="payout-preview" id="glPayoutPreview">
+      <span>To Win: <strong id="glToWinAmt">—</strong></span>
+      <span>Total Return: <strong id="glTotalRetAmt">—</strong></span>
+    </div>
+    <button class="place-btn" onclick="placeGLBet()">Place Bet</button>
+  `;
+  modal.classList.add('show');
+  updateGLPayoutPreview();
+}
+
+function updateGLPayoutPreview() {
+  if (!_glBetGame) return;
+  const stake = parseFloat(document.getElementById('glStakeInp')?.value) || 0;
+  const g = _glBetGame.game;
+  const c = _glBetGame.computed;
+  let odds = -110;
+  if (_glBetType === 'ml_home') odds = g.h2h?.home || -110;
+  else if (_glBetType === 'ml_away') odds = g.h2h?.away || -110;
+  else if (_glBetType === 'spread_home') odds = g.spread?.home || -110;
+  else if (_glBetType === 'spread_away') odds = g.spread?.away || -110;
+  else if (_glBetType === 'total_over') odds = g.total?.over || -110;
+  else if (_glBetType === 'total_under') odds = g.total?.under || -110;
+  const toWin = calcPayout(stake, odds);
+  document.getElementById('glToWinAmt').textContent = `$${toWin.toFixed(2)}`;
+  document.getElementById('glTotalRetAmt').textContent = `$${(stake + toWin).toFixed(2)}`;
+}
+
+function placeGLBet() {
+  if (!_glBetGame) return;
+  playBetSound();
+  const sim = simLoad();
+  const stake = parseFloat(document.getElementById('glStakeInp')?.value) || 0;
+  if (stake <= 0 || stake > sim.balance) { alert('Invalid stake amount.'); return; }
+  const g = _glBetGame.game;
+  const c = _glBetGame.computed;
+  let betLabel = '', odds = -110, edge = 0, marketLabel = '';
+  if (_glBetType === 'ml_home') { betLabel = `${g.home} ML`; odds = g.h2h?.home || -110; edge = c.hMLEdge || 0; marketLabel = 'Moneyline'; }
+  else if (_glBetType === 'ml_away') { betLabel = `${g.away} ML`; odds = g.h2h?.away || -110; edge = c.aMLEdge || 0; marketLabel = 'Moneyline'; }
+  else if (_glBetType === 'spread_home') { betLabel = `${g.home} ${g.spread?.homeSpread > 0 ? '+' : ''}${g.spread?.homeSpread}`; odds = g.spread?.home || -110; edge = c.spreadEdge || 0; marketLabel = 'Spread'; }
+  else if (_glBetType === 'spread_away') { betLabel = `${g.away} ${g.spread?.homeSpread < 0 ? '+' : ''}${(-g.spread?.homeSpread)}`; odds = g.spread?.away || -110; edge = c.spreadEdge ? -c.spreadEdge : 0; marketLabel = 'Spread'; }
+  else if (_glBetType === 'total_over') { betLabel = `Over ${g.total?.line}`; odds = g.total?.over || -110; edge = c.totalEdge || 0; marketLabel = 'Total'; }
+  else if (_glBetType === 'total_under') { betLabel = `Under ${g.total?.line}`; odds = g.total?.under || -110; edge = c.totalEdge ? -c.totalEdge : 0; marketLabel = 'Total'; }
+
+  const toWin = calcPayout(stake, odds);
+  const bet = {
+    id: Date.now() + '-' + Math.random().toString(36).slice(2, 7),
+    placedAt: new Date().toISOString(),
+    type: 'game_line',
+    player: betLabel,
+    team: `${g.away} @ ${g.home}`,
+    matchup: `${g.away} @ ${g.home}`,
+    market: _glBetType,
+    marketLabel,
+    line: betLabel,
+    direction: _glBetType.includes('over') ? 'over' : _glBetType.includes('under') ? 'under' : _glBetType.includes('home') ? 'home' : 'away',
+    odds, stake, toWin, edge,
+    confidence: Math.min(99, Math.max(1, 50 + edge)),
+    isValue: edge >= 3,
+    gameTime: g.commence || null,
+    status: 'open', settledAt: null, actualResult: null, pnl: null,
+  };
+  sim.balance -= stake;
+  sim.bets.unshift(bet);
+  simSave(sim);
+  if (document.getElementById('simView').classList.contains('show')) renderSimulator();
+
+  // Confirmation screen
+  const oddsStr = glFmtOdds(odds);
+  const _col = edge >= 3 ? 'var(--g)' : 'var(--b)';
+  const _colBg = edge >= 3 ? 'rgba(34,197,94,.08)' : 'rgba(99,102,241,.08)';
+  const _colBd = edge >= 3 ? 'rgba(34,197,94,.35)' : 'rgba(99,102,241,.35)';
+  document.getElementById('betModal').querySelector('.modal-title').textContent = 'Bet Confirmed';
+  document.getElementById('modalBody').innerHTML = `
+    <div class="bet-confirm">
+      <div class="bet-confirm-check" style="background:${_colBg};border-color:${_col};color:${_col};">✓</div>
+      <div class="bet-confirm-hero" style="background:${_colBg};border-color:${_colBd};">
+        <div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:6px;">
+          ${teamLogo(g.away)}<span style="font-size:14px;font-weight:700;color:var(--t1);">${g.away} @ ${g.home}</span>${teamLogo(g.home)}
+        </div>
+        <div style="font-size:16px;font-weight:800;color:${_col};margin-top:6px;">${betLabel}</div>
+        <div style="font-size:12px;color:var(--t2);margin-top:2px;">${oddsStr} · ${marketLabel}</div>
+      </div>
+      <div class="bet-confirm-payout">
+        <div class="bet-confirm-payout-cell">
+          <div class="bet-confirm-payout-lbl">Stake</div>
+          <div class="bet-confirm-payout-val">$${stake.toFixed(2)}</div>
+        </div>
+        <div class="bet-confirm-payout-cell" style="border-color:${_colBd};background:${_colBg};">
+          <div class="bet-confirm-payout-lbl" style="color:${_col};">To Win</div>
+          <div class="bet-confirm-payout-val" style="color:${_col};">$${toWin.toFixed(2)}</div>
+        </div>
+      </div>
+      <div style="text-align:center;font-size:12px;color:var(--t3);margin-bottom:16px;">
+        Total return if won: <strong style="color:var(--t1);">$${(stake+toWin).toFixed(2)}</strong>
+        &nbsp;·&nbsp; New balance: <strong style="color:var(--t1);">$${sim.balance.toFixed(2)}</strong>
+      </div>
+      <button class="bet-confirm-done" style="background:${_col};" onclick="closeBetModal()">Done</button>
+    </div>`;
 }
 
 function goToSocial() {
