@@ -1,0 +1,26 @@
+name: Refresh NBA Team Stats
+
+on:
+  schedule:
+    # Weekdays: 10:45 AM PT (18:45 UTC) — after refresh-stats
+    - cron: '45 18 * * 1-5'
+    # Weekends: 9:30 AM PT (17:30 UTC) — after refresh-stats
+    - cron: '30 17 * * 0,6'
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Fetch NBA.com stats and write to Supabase
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: node scripts/refresh-team-stats.js
