@@ -1517,7 +1517,11 @@ app.get('/api/injury-impact', async (req, res) => {
 
     // Stack ALL out teammates — compute independent rate ratios and multiply
     const teamFilter = team.toUpperCase();
-    const playerPlayed = playerLog.filter(g => parseInt(g.min || '0') > 0 && (!g.team || g.team === teamFilter));
+    const playerPlayedTeam = playerLog.filter(g => parseInt(g.min || '0') > 0 && (!g.team || g.team === teamFilter));
+    const playerPlayedAll = playerLog.filter(g => parseInt(g.min || '0') > 0);
+    // For recently traded players with few same-team games, use all games for averages
+    const recentlyTraded = playerPlayedTeam.length < 10;
+    const playerPlayed = recentlyTraded ? playerPlayedAll : playerPlayedTeam;
     const teammateImpacts = [];
 
     for (const inj of outTeammates) {
@@ -1535,19 +1539,19 @@ app.get('/api/injury-impact', async (req, res) => {
       }
 
       // Skip if teammate has been out long enough that recent stats already reflect it
-      const l10 = playerPlayed.slice(0, 10);
+      const l10 = playerPlayedTeam.slice(0, 10);
       const l10Without = l10.filter(g => tmDnpDates.has(g.date)).length;
       if (l10Without >= 7) continue; // 7+ of last 10 already without → impact baked in
 
       const wo = [], wi = [];
-      for (const g of playerPlayed) {
+      for (const g of playerPlayedTeam) {
         if (tmDnpDates.has(g.date)) wo.push(g);
         else if (tmPlayedDates.has(g.date)) wi.push(g);
       }
 
       const tmAvg = tmPlayed.reduce((s, g) => s + _statVal(g, market), 0) / tmPlayed.length;
 
-      if (wo.length >= 3 && wi.length >= 3) {
+      if (!recentlyTraded && wo.length >= 3 && wi.length >= 3) {
         // Enough split data — use actual with/without rate comparison
         const wiRates = wi.map(g => _statVal(g, market) / (parseFloat(g.min) || 1));
         const woRates = wo.map(g => _statVal(g, market) / (parseFloat(g.min) || 1));
@@ -1560,7 +1564,7 @@ app.get('/api/injury-impact', async (req, res) => {
 
         teammateImpacts.push({ name: inj.player, ratio: +ratio.toFixed(3), tmAvg: +tmAvg.toFixed(1), wo: wo.length, wi: wi.length, speculative: false });
       } else {
-        // Fallback: production share estimate (speculative)
+        // Fallback: production share estimate (speculative — always used for recently traded players)
         const playerAvg = playerPlayed.reduce((s, g) => s + _statVal(g, market), 0) / playerPlayed.length;
         if (!tmAvg || !playerAvg) continue;
 
@@ -3576,8 +3580,12 @@ function serverApplyInjuryImpact(playerName, playerGameLog, playerTeam, market, 
   );
   if (!outTeammates.length) return baseStats;
 
-  // 2. Stack ALL out teammates — compute independent rate ratios and multiply
-  const playerPlayed = playerGameLog.filter(g => parseInt(g.min || '0') > 0 && (!g.team || g.team === playerTeam));
+  // 2. Stack ALL out teammates — compute independent rate ratios
+  const playerPlayedTeam = playerGameLog.filter(g => parseInt(g.min || '0') > 0 && (!g.team || g.team === playerTeam));
+  const playerPlayedAll = playerGameLog.filter(g => parseInt(g.min || '0') > 0);
+  // For recently traded players with few same-team games, use all games for averages
+  const recentlyTraded = playerPlayedTeam.length < 10;
+  const playerPlayed = recentlyTraded ? playerPlayedAll : playerPlayedTeam;
   const teammateImpacts = [];
 
   for (const inj of outTeammates) {
@@ -3599,19 +3607,18 @@ function serverApplyInjuryImpact(playerName, playerGameLog, playerTeam, market, 
     }
 
     // Skip if teammate has been out long enough that recent stats already reflect it
-    // Check how many of the player's last 10 games were without this teammate
-    const l10 = playerPlayed.slice(0, 10);
+    const l10 = playerPlayedTeam.slice(0, 10);
     const l10Without = l10.filter(g => tmDnpDates.has(g.date)).length;
     if (l10Without >= 7) continue; // 7+ of last 10 already without → impact baked in
 
-    // Split player's games into with/without this teammate
+    // Split player's same-team games into with/without this teammate
     const wo = [], wi = [];
-    for (const g of playerPlayed) {
+    for (const g of playerPlayedTeam) {
       if (tmDnpDates.has(g.date)) wo.push(g);
       else if (tmPlayedDates.has(g.date)) wi.push(g);
     }
 
-    if (wo.length >= 3 && wi.length >= 3) {
+    if (!recentlyTraded && wo.length >= 3 && wi.length >= 3) {
       // Enough split data — use actual with/without rate comparison
       const wiRates = wi.map(g => _statVal(g, market) / (parseFloat(g.min) || 1));
       const woRates = wo.map(g => _statVal(g, market) / (parseFloat(g.min) || 1));
@@ -3625,7 +3632,7 @@ function serverApplyInjuryImpact(playerName, playerGameLog, playerTeam, market, 
 
       teammateImpacts.push({ name: inj.player, ratio: capped, withoutGames: wo.length, withGames: wi.length, speculative: false });
     } else {
-      // Fallback: production share estimate (speculative)
+      // Fallback: production share estimate (speculative — always used for recently traded players)
       const tmAvg = tmPlayed.reduce((s, g) => s + _statVal(g, market), 0) / tmPlayed.length;
       const playerAvg = playerPlayed.reduce((s, g) => s + _statVal(g, market), 0) / playerPlayed.length;
       if (!tmAvg || !playerAvg) continue;
