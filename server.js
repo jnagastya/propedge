@@ -450,7 +450,7 @@ const BDL_PLAYER_OVERRIDES = {
   'Jaylin Williams':         { id: 38017706,      position: 'F', team: 'OKC' },
   "Ja'Kobe Walter":          { id: 1028029111,    position: 'G', team: 'TOR' },
   'Aaron Wiggins':           { id: 17896078,      position: 'G', team: 'OKC' },
-  'Khris Middleton':         { id: 246,           position: 'F', team: 'DAL' },
+  'Khris Middleton':         { id: 315,           position: 'F', team: 'DAL' },
 };
 
 // Search BDL for player ID + position by name, cached 24h
