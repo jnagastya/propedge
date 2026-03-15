@@ -1465,10 +1465,9 @@ input[type=range].min-slider::-moz-range-track{height:6px;border-radius:3px;back
           <button class="wt-reset" onclick="resetWeights()">Reset</button>
         </div>
       </div>
-      <div class="wt-row"><span class="wt-lbl">Edge %</span><input type="range" class="wt-slider" min="0" max="100" value="25" id="wEdge" oninput="syncWeightFromSlider('wEdge','wEdgeNum')"><input type="number" class="wt-num" min="0" max="100" value="25" id="wEdgeNum" oninput="syncWeightFromNum('wEdge','wEdgeNum')"><span class="wt-prop" id="wEdgeProp">25%</span></div>
-      <div class="wt-row"><span class="wt-lbl">Hit Rate</span><input type="range" class="wt-slider" min="0" max="100" value="25" id="wHr" oninput="syncWeightFromSlider('wHr','wHrNum')"><input type="number" class="wt-num" min="0" max="100" value="25" id="wHrNum" oninput="syncWeightFromNum('wHr','wHrNum')"><span class="wt-prop" id="wHrProp">25%</span></div>
-      <div class="wt-row"><span class="wt-lbl">Confidence</span><input type="range" class="wt-slider" min="0" max="100" value="25" id="wConf" oninput="syncWeightFromSlider('wConf','wConfNum')"><input type="number" class="wt-num" min="0" max="100" value="25" id="wConfNum" oninput="syncWeightFromNum('wConf','wConfNum')"><span class="wt-prop" id="wConfProp">25%</span></div>
-      <div class="wt-row"><span class="wt-lbl">EV</span><input type="range" class="wt-slider" min="0" max="100" value="25" id="wEv" oninput="syncWeightFromSlider('wEv','wEvNum')"><input type="number" class="wt-num" min="0" max="100" value="25" id="wEvNum" oninput="syncWeightFromNum('wEv','wEvNum')"><span class="wt-prop" id="wEvProp">25%</span></div>
+      <div class="wt-row"><span class="wt-lbl">Model Prob</span><input type="range" class="wt-slider" min="0" max="100" value="20" id="wMp" oninput="syncWeightFromSlider('wMp','wMpNum')"><input type="number" class="wt-num" min="0" max="100" value="20" id="wMpNum" oninput="syncWeightFromNum('wMp','wMpNum')"><span class="wt-prop" id="wMpProp">20%</span></div>
+      <div class="wt-row"><span class="wt-lbl">Confidence</span><input type="range" class="wt-slider" min="0" max="100" value="40" id="wConf" oninput="syncWeightFromSlider('wConf','wConfNum')"><input type="number" class="wt-num" min="0" max="100" value="40" id="wConfNum" oninput="syncWeightFromNum('wConf','wConfNum')"><span class="wt-prop" id="wConfProp">40%</span></div>
+      <div class="wt-row"><span class="wt-lbl">EV</span><input type="range" class="wt-slider" min="0" max="100" value="40" id="wEv" oninput="syncWeightFromSlider('wEv','wEvNum')"><input type="number" class="wt-num" min="0" max="100" value="40" id="wEvNum" oninput="syncWeightFromNum('wEv','wEvNum')"><span class="wt-prop" id="wEvProp">40%</span></div>
     </div>
     <div class="va-grid" id="vaGrid"></div>
   </div>
@@ -2712,15 +2711,16 @@ function getDirectionalEV(p){
   const evUnder=p.evUnder??calcEV(1-(p.hitRate||50)/100,p.underOdds);
   return (p.edge||0)>=0?evOver:evUnder;
 }
-let vsWeights={edge:25,hr:25,conf:25,ev:25}; // sum=100, user-adjustable
+let vsWeights={mp:20,conf:40,ev:40}; // sum=100, user-adjustable
 function valueScore(p){
   const dirEV=getDirectionalEV(p);
   const evScore=Math.min(Math.max(dirEV,-20),20);
   const isOver=(p.edge||0)>=0;
-  const dirHR=isOver?(p.hitRate||50):(100-(p.hitRate||50));
-  const tot=vsWeights.edge+vsWeights.hr+vsWeights.conf+vsWeights.ev||100;
-  const we=vsWeights.edge/tot, wh=vsWeights.hr/tot, wc=vsWeights.conf/tot, wv=vsWeights.ev/tot;
-  return Math.round(Math.abs(p.edge||0)*we+Math.max(0,dirHR-50)*wh+(p.confidence||0)*wc+(evScore+20)*wv);
+  const dirMP=isOver?(p.modelProb||0.5):(1-(p.modelProb||0.5));
+  const mpPts=dirMP*100;
+  const tot=vsWeights.mp+vsWeights.conf+vsWeights.ev||100;
+  const wm=vsWeights.mp/tot, wc=vsWeights.conf/tot, wv=vsWeights.ev/tot;
+  return Math.round(mpPts*wm+(p.confidence||0)*wc+(evScore+20)*wv);
 }
 function leanInfo(edge){
   // Lean is purely edge-based — edge is the ground truth direction signal
@@ -3064,13 +3064,20 @@ function applyPlayerStats(p, games){
   const dirHR=Math.round(dirModelProb*100);
   const dirImpliedProb=isOverBet?(p.impliedProbOver||0.5):(p.impliedProbUnder||0.5);
   const evEdge=dirModelProb-dirImpliedProb;
-  // Market Edge (0–40): neutral at 0% edge = 20pts, +15% = 40pts, -15% = 0pts
-  const edgePts=Math.min(40,Math.max(0,evEdge/0.15*20+20));
-  // Hit Rate (0–40): 25%=0pts, 50%=20pts, 75%=40pts
-  const hrPts=Math.min(40,Math.max(0,(dirHR-25)*0.8));
+  // Model vs Book (0–25): how much our model disagrees with the book
+  const evEdgePts=Math.min(25,Math.max(0,evEdge/0.15*12.5+12.5));
+  // Alignment (0–25): how well L5/L10/season hit rates agree (low spread = high)
+  const hrSpread=Math.max(l5HitRate,l10HitRate,hitRate)-Math.min(l5HitRate,l10HitRate,hitRate);
+  const alignPts=Math.min(25,Math.max(0,25-hrSpread*0.5));
+  // Line Sharpness (0–20): lopsided odds = sharper line, more points for disagreeing
+  const overImpl=p.impliedProbOver||impliedProb(p.overOdds),underImpl=p.impliedProbUnder||impliedProb(p.underOdds);
+  const vigGap=Math.abs(overImpl-underImpl);
+  const sharpPts=Math.min(20,Math.max(0,vigGap*100));
   // Consistency (0–20): CV≤0.20=20pts, CV≥0.60=0pts
   const cvPts=Math.min(20,Math.max(0,(0.6-Math.min(cv,0.6))/0.4*20));
-  const conf=Math.max(0,Math.min(100,Math.round(edgePts+hrPts+cvPts)));
+  // Sample Size (0–10): more games = more trust
+  const samplePts=Math.min(10,Math.max(0,(vals.length-5)/50*10));
+  const conf=Math.max(0,Math.min(100,Math.round(evEdgePts+alignPts+sharpPts+cvPts+samplePts)));
   const dnpCount=rawL10.filter(g=>parseInt(g.min||'0')===0).length;
   Object.assign(p,{avg,l10,rawL10,hitRate,l10HitRate,l5HitRate,modelProb,edge,stdDev,evOver,evUnder,confidence:conf,hasRealStats:true,statsError:null,gamesPlayed:vals.length,gameLog:sorted,returnFromInjury,minutesFlag,dnpCount});
   return true;
@@ -3231,23 +3238,19 @@ function renderOverview(el,p){
           const _isOv2=(p.edge||0)>=0;
           const _dirEV2=getDirectionalEV(p);
           const _evScore2=Math.min(Math.max(_dirEV2,-20),20);
-          const _dirHR2=_isOv2?(p.hitRate||50):(100-(p.hitRate||50));
-          const _tot2=vsWeights.edge+vsWeights.hr+vsWeights.conf+vsWeights.ev||1;
-          const _we2=vsWeights.edge/_tot2, _wh2=vsWeights.hr/_tot2, _wc2=vsWeights.conf/_tot2, _wv2=vsWeights.ev/_tot2;
-          const edgePts2=Math.abs(p.edge||0)*_we2;
-          const hrPts2=Math.max(0,_dirHR2-50)*_wh2;
+          const _dirMP2=_isOv2?(p.modelProb||0.5):(1-(p.modelProb||0.5));
+          const _mpPts2=_dirMP2*100;
+          const _tot2=vsWeights.mp+vsWeights.conf+vsWeights.ev||1;
+          const _wm2=vsWeights.mp/_tot2, _wc2=vsWeights.conf/_tot2, _wv2=vsWeights.ev/_tot2;
+          const mpPts2=_mpPts2*_wm2;
           const confPts2=(p.confidence||0)*_wc2;
           const evPts2=(_evScore2+20)*_wv2;
-          const total2=Math.round(edgePts2+hrPts2+confPts2+evPts2);
+          const total2=Math.round(mpPts2+confPts2+evPts2);
           const vsC2=total2>=40?'var(--g)':total2>=25?'var(--a)':'var(--r)';
           return`<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-            <span style="color:var(--b-text);">Edge:</span><strong>${Math.abs(p.edge||0).toFixed(1)}</strong>
-            <span style="color:var(--t2)">×${Math.round(_we2*100)}%</span>
-            <span style="color:var(--b-text);margin-left:4px;">= ${edgePts2.toFixed(1)}</span>
-            <span style="color:var(--bd2);margin:0 2px;">|</span>
-            <span style="color:var(--b-text);">HR:</span><strong>${Math.max(0,_dirHR2-50)}</strong>
-            <span style="color:var(--t2)">×${Math.round(_wh2*100)}%</span>
-            <span style="color:var(--b-text);margin-left:4px;">= ${hrPts2.toFixed(1)}</span>
+            <span style="color:var(--b-text);">MP:</span><strong>${(_dirMP2*100).toFixed(0)}%</strong>
+            <span style="color:var(--t2)">×${Math.round(_wm2*100)}%</span>
+            <span style="color:var(--b-text);margin-left:4px;">= ${mpPts2.toFixed(1)}</span>
             <span style="color:var(--bd2);margin:0 2px;">|</span>
             <span style="color:var(--b-text);">Conf:</span><strong>${p.confidence||0}</strong>
             <span style="color:var(--t2)">×${Math.round(_wc2*100)}%</span>
@@ -3361,12 +3364,12 @@ function renderOverview(el,p){
             const dirImplied=isOverBet?((p.impliedProbOver??impliedProb(p.overOdds))*100):((p.impliedProbUnder??impliedProb(p.underOdds))*100);
             const vs=valueScore(p);
             const evC=betDirEV>0?'var(--g)':'var(--r)';
-            const _t=vsWeights.edge+vsWeights.hr+vsWeights.conf+vsWeights.ev||1;
-            const _we=Math.round(vsWeights.edge/_t*100),_wh=Math.round(vsWeights.hr/_t*100),_wc=Math.round(vsWeights.conf/_t*100),_wv=Math.round(vsWeights.ev/_t*100);
-            return `<strong>Edge:</strong> <code>(${p.avg} − ${p.line}) / ${p.line} × 100 = ${(p.edge||0)>0?'+':''}${(p.edge||0).toFixed(1)}%</code><br>
-          <strong>Implied prob (${isOverBet?'Over':'Under'}):</strong> <code>${dirImplied.toFixed(1)}%</code> · <strong>Model hit rate (${isOverBet?'Over':'Under'}):</strong> <code>${dirHR}%</code><br>
+            const _t=vsWeights.mp+vsWeights.conf+vsWeights.ev||1;
+            const _wm=Math.round(vsWeights.mp/_t*100),_wc=Math.round(vsWeights.conf/_t*100),_wv=Math.round(vsWeights.ev/_t*100);
+            const _dirMP=isOverBet?(p.modelProb||0.5):(1-(p.modelProb||0.5));
+            return `<strong>Model Prob (${isOverBet?'Over':'Under'}):</strong> <code>${(_dirMP*100).toFixed(1)}%</code> · <strong>Implied prob:</strong> <code>${dirImplied.toFixed(1)}%</code><br>
           <strong>EV (${isOverBet?'Over':'Under'} ${betOddsFmt}):</strong> <code style="color:${evC}">${betDirEV>0?'+':''}${betDirEV}%</code> per $100 wagered<br>
-          <strong>Value score:</strong> <code>Edge ${Math.abs(p.edge||0).toFixed(1)}×${_we}% + HR ${Math.max(0,dirHR-50)}×${_wh}% + Conf ${p.confidence||0}×${_wc}% + EV×${_wv}% = <b>${vs}</b></code>`;
+          <strong>Value score:</strong> <code>MP ${(_dirMP*100).toFixed(0)}×${_wm}% + Conf ${p.confidence||0}×${_wc}% + EV×${_wv}% = <b>${vs}</b></code>`;
           })()}
         </div>
       </div>
@@ -3538,10 +3541,15 @@ function updateLineSim(){
     const evEdge=dirMP-dirImpl;
     // Confidence
     const cv=avg>0?sd/avg:0.5;
-    const edgePts=Math.min(40,Math.max(0,evEdge/0.15*20+20));
-    const hrPts=Math.min(40,Math.max(0,(dirHR-25)*0.8));
+    const simEvEdgePts=Math.min(25,Math.max(0,evEdge/0.15*12.5+12.5));
+    const simHrSpread=Math.max(p.l5HitRate||0,p.l10HitRate||0,p.hitRate||0)-Math.min(p.l5HitRate||100,p.l10HitRate||100,p.hitRate||100);
+    const simAlignPts=Math.min(25,Math.max(0,25-simHrSpread*0.5));
+    const simOverImpl=impliedProb(simOvOdds),simUnderImpl=impliedProb(simUvOdds);
+    const simVigGap=Math.abs(simOverImpl-simUnderImpl);
+    const simSharpPts=Math.min(20,Math.max(0,simVigGap*100));
     const cvPts=Math.min(20,Math.max(0,(0.6-Math.min(cv,0.6))/0.4*20));
-    const simConf=Math.max(0,Math.min(100,Math.round(edgePts+hrPts+cvPts)));
+    const simSamplePts=Math.min(10,Math.max(0,((p.gamesPlayed||10)-5)/50*10));
+    const simConf=Math.max(0,Math.min(100,Math.round(simEvEdgePts+simAlignPts+simSharpPts+cvPts+simSamplePts)));
 
     // Original baseline
     const origIsOver=(p.edge||0)>=0;
@@ -3733,15 +3741,13 @@ function toggleWeightPanel(){
 }
 function _readWeights(){
   vsWeights={
-    edge:Math.min(100,Math.max(0,+document.getElementById('wEdge').value||0)),
-    hr:Math.min(100,Math.max(0,+document.getElementById('wHr').value||0)),
+    mp:Math.min(100,Math.max(0,+document.getElementById('wMp').value||0)),
     conf:Math.min(100,Math.max(0,+document.getElementById('wConf').value||0)),
     ev:Math.min(100,Math.max(0,+document.getElementById('wEv').value||0)),
   };
-  const tot=vsWeights.edge+vsWeights.hr+vsWeights.conf+vsWeights.ev||1;
+  const tot=vsWeights.mp+vsWeights.conf+vsWeights.ev||1;
   const pct=k=>Math.round(vsWeights[k]/tot*100)+'%';
-  document.getElementById('wEdgeProp').textContent=pct('edge');
-  document.getElementById('wHrProp').textContent=pct('hr');
+  document.getElementById('wMpProp').textContent=pct('mp');
   document.getElementById('wConfProp').textContent=pct('conf');
   document.getElementById('wEvProp').textContent=pct('ev');
   renderAlerts();
@@ -3758,8 +3764,7 @@ function syncWeightFromNum(sliderId,numId){
 }
 function saveWeightProfile(){
   localStorage.setItem('propedge_weights',JSON.stringify({
-    edge:+document.getElementById('wEdge').value,
-    hr:+document.getElementById('wHr').value,
+    mp:+document.getElementById('wMp').value,
     conf:+document.getElementById('wConf').value,
     ev:+document.getElementById('wEv').value,
   }));
@@ -3771,7 +3776,7 @@ function loadWeightProfile(){
   try{
     const saved=JSON.parse(localStorage.getItem('propedge_weights'));
     if(!saved) return;
-    const map={edge:'wEdge',hr:'wHr',conf:'wConf',ev:'wEv'};
+    const map={mp:'wMp',conf:'wConf',ev:'wEv'};
     Object.entries(map).forEach(([k,id])=>{
       if(saved[k]!=null){
         document.getElementById(id).value=saved[k];
@@ -3782,10 +3787,9 @@ function loadWeightProfile(){
   }catch(e){}
 }
 function resetWeights(){
-  ['wEdge','wHr','wConf','wEv'].forEach(id=>{
-    document.getElementById(id).value=25;
-    document.getElementById(id+'Num').value=25;
-  });
+  document.getElementById('wMp').value=20;document.getElementById('wMpNum').value=20;
+  document.getElementById('wConf').value=40;document.getElementById('wConfNum').value=40;
+  document.getElementById('wEv').value=40;document.getElementById('wEvNum').value=40;
   _readWeights();
 }
 function updateRisk(v){

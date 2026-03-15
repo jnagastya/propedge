@@ -3192,11 +3192,10 @@ const MKT_LABELS = { player_points: 'PTS', player_rebounds: 'REB', player_assist
 const STAT_KEYS  = { player_points: 'pts', player_rebounds: 'reb', player_assists: 'ast', player_threes: 'fg3m', player_points_rebounds_assists: 'pra', player_rebounds_assists: 'ra' };
 
 // Server-side value scoring (mirrors client logic exactly)
-function serverValueScore(edge, hitRate, confidence, dirEV) {
+function serverValueScore(modelProb, confidence, dirEV) {
   const evScore = Math.min(Math.max(dirEV, -20), 20);
-  const isOver = edge >= 0;
-  const dirHR = isOver ? hitRate : (100 - hitRate);
-  return Math.round(Math.abs(edge) * 0.25 + Math.max(0, dirHR - 50) * 0.25 + confidence * 0.25 + (evScore + 20) * 0.25);
+  const mpPts = modelProb * 100; // 0-100 scale
+  return Math.round(mpPts * 0.20 + (evScore + 20) * 0.40 + confidence * 0.40);
 }
 
 function serverComputeStats(gameLog, line, market, overOdds, underOdds) {
@@ -3234,16 +3233,26 @@ function serverComputeStats(gameLog, line, market, overOdds, underOdds) {
   const dirModelProb = isOverBet ? modelProb : 1 - modelProb;
   const dirImplied = isOverBet ? impliedProb(overOdds) : impliedProb(underOdds);
   const evEdge = dirModelProb - dirImplied;
-  const edgePts = Math.min(40, Math.max(0, evEdge / 0.15 * 20 + 20));
-  const dirHR = Math.round(dirModelProb * 100);
-  const hrPts = Math.min(40, Math.max(0, (dirHR - 25) * 0.8));
+
+  // Confidence: model vs book (25pts) + alignment (25pts) + sharpness (20pts) + consistency (20pts) + sample (10pts)
+  const evEdgePts = Math.min(25, Math.max(0, evEdge / 0.15 * 12.5 + 12.5));
+  // Alignment: how well L5/L10/season hit rates agree (low spread = high alignment)
+  const hrSpread = Math.max(l5HitRate, l10HitRate, hitRate) - Math.min(l5HitRate, l10HitRate, hitRate);
+  const alignPts = Math.min(25, Math.max(0, 25 - hrSpread * 0.5));
+  // Line sharpness: how lopsided are the odds? Bigger vig gap = sharper line, more points for disagreeing
+  const overImpl = impliedProb(overOdds), underImpl = impliedProb(underOdds);
+  const vigGap = Math.abs(overImpl - underImpl);
+  const sharpPts = Math.min(20, Math.max(0, vigGap * 100));
+  // Consistency: low CV = reliable player
   const cvPts = Math.min(20, Math.max(0, (0.6 - Math.min(cv, 0.6)) / 0.4 * 20));
-  const confidence = Math.max(0, Math.min(100, Math.round(edgePts + hrPts + cvPts)));
+  // Sample size: more games = more trust
+  const samplePts = Math.min(10, Math.max(0, (vals.length - 5) / 50 * 10));
+  const confidence = Math.max(0, Math.min(100, Math.round(evEdgePts + alignPts + sharpPts + cvPts + samplePts)));
 
   const direction = isOverBet ? 'over' : 'under';
   const odds = isOverBet ? overOdds : underOdds;
   const dirEV = isOverBet ? evOver : evUnder;
-  const vs = serverValueScore(edge, hitRate, confidence, dirEV);
+  const vs = serverValueScore(dirModelProb, confidence, dirEV);
 
   // Detect alert flags: DNPs in last 10, minutes deviation, return from injury
   const rawL10 = sorted.slice(0, 10);
@@ -3317,16 +3326,22 @@ function serverApplySmartMinutes(gameLog, line, market, overOdds, underOdds, bas
   const dirImplied = isOverBet ? impliedProb(overOdds) : impliedProb(underOdds);
   const evEdge = dirModelProb - dirImplied;
   const cv = adjAvg ? adjStdDev / adjAvg : 0.4;
-  const edgePts = Math.min(40, Math.max(0, evEdge / 0.15 * 20 + 20));
-  const dirHR = Math.round(dirModelProb * 100);
-  const hrPts = Math.min(40, Math.max(0, (dirHR - 25) * 0.8));
-  const cvPts = Math.min(20, Math.max(0, (0.6 - Math.min(cv, 0.6)) / 0.4 * 20));
-  const confidence = Math.max(0, Math.min(100, Math.round(edgePts + hrPts + cvPts)));
+
+  // Confidence (smart-min adjusted): same 5-component formula
+  const _smEvEdgePts = Math.min(25, Math.max(0, evEdge / 0.15 * 12.5 + 12.5));
+  const _smHrSpread = Math.max(l5HR, l10HR, adjHR) - Math.min(l5HR, l10HR, adjHR);
+  const _smAlignPts = Math.min(25, Math.max(0, 25 - _smHrSpread * 0.5));
+  const _smOverImpl = impliedProb(overOdds), _smUnderImpl = impliedProb(underOdds);
+  const _smVigGap = Math.abs(_smOverImpl - _smUnderImpl);
+  const _smSharpPts = Math.min(20, Math.max(0, _smVigGap * 100));
+  const _smCvPts = Math.min(20, Math.max(0, (0.6 - Math.min(cv, 0.6)) / 0.4 * 20));
+  const _smSamplePts = Math.min(10, Math.max(0, (vals.length - 5) / 50 * 10));
+  const confidence = Math.max(0, Math.min(100, Math.round(_smEvEdgePts + _smAlignPts + _smSharpPts + _smCvPts + _smSamplePts)));
 
   const direction = isOverBet ? 'over' : 'under';
   const odds = isOverBet ? overOdds : underOdds;
   const dirEV = isOverBet ? evOver : evUnder;
-  const vs = serverValueScore(edge, adjHR, confidence, dirEV);
+  const vs = serverValueScore(dirModelProb, confidence, dirEV);
 
   return { ...baseStats, avg: adjAvg, hitRate: adjHR, edge, modelProb, confidence, evOver, evUnder, direction, odds, dirEV, vs, stdDev: adjStdDev, _smartMin: true, _adjMin: l3avg };
 }
@@ -3483,16 +3498,22 @@ function serverApplyInjuryImpact(playerName, playerGameLog, playerTeam, market, 
   const dirImplied = isOverBet ? impliedProb(overOdds) : impliedProb(underOdds);
   const evEdge = dirModelProb - dirImplied;
   const cv = adjAvg ? adjStdDev / adjAvg : 0.4;
-  const edgePts = Math.min(40, Math.max(0, evEdge / 0.15 * 20 + 20));
-  const dirHR = Math.round(dirModelProb * 100);
-  const hrPts = Math.min(40, Math.max(0, (dirHR - 25) * 0.8));
-  const cvPts = Math.min(20, Math.max(0, (0.6 - Math.min(cv, 0.6)) / 0.4 * 20));
-  const confidence = Math.max(0, Math.min(100, Math.round(edgePts + hrPts + cvPts)));
+
+  // Confidence (injury-adjusted): same 5-component formula
+  const _ievEdgePts = Math.min(25, Math.max(0, evEdge / 0.15 * 12.5 + 12.5));
+  const _ihrSpread = Math.max(l5HR, l10HR, adjHR) - Math.min(l5HR, l10HR, adjHR);
+  const _ialignPts = Math.min(25, Math.max(0, 25 - _ihrSpread * 0.5));
+  const _ioverImpl = impliedProb(overOdds), _iunderImpl = impliedProb(underOdds);
+  const _ivigGap = Math.abs(_ioverImpl - _iunderImpl);
+  const _isharpPts = Math.min(20, Math.max(0, _ivigGap * 100));
+  const _icvPts = Math.min(20, Math.max(0, (0.6 - Math.min(cv, 0.6)) / 0.4 * 20));
+  const _isamplePts = Math.min(10, Math.max(0, (vals.length - 5) / 50 * 10));
+  const confidence = Math.max(0, Math.min(100, Math.round(_ievEdgePts + _ialignPts + _isharpPts + _icvPts + _isamplePts)));
 
   const direction = isOverBet ? 'over' : 'under';
   const odds = isOverBet ? overOdds : underOdds;
   const dirEV = isOverBet ? evOver : evUnder;
-  const vs = serverValueScore(edge, adjHR, confidence, dirEV);
+  const vs = serverValueScore(dirModelProb, confidence, dirEV);
 
   return {
     ...baseStats, avg: adjAvg, hitRate: adjHR, edge, modelProb, confidence,
