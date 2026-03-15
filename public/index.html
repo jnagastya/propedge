@@ -1326,6 +1326,37 @@ input[type=range].min-slider::-moz-range-track{height:6px;border-radius:3px;back
     </div>
 
 
+    <!-- ADJUSTMENT TOGGLES (shared state with Value Alerts) -->
+    <div class="va-adj-bar" style="display:flex;gap:10px;align-items:stretch;padding:8px 0;flex-wrap:wrap;">
+      <label class="adj-toggle" id="ppAdjToggle-min" onclick="toggleSmartMin()">
+        <input type="checkbox" id="ppSmartMinToggle" style="display:none;">
+        <div class="adj-toggle-icon" style="background:rgba(139,92,246,.15);color:#a78bfa;">⏱</div>
+        <div class="adj-toggle-text">
+          <div class="adj-toggle-title">Smart Minutes</div>
+          <div class="adj-toggle-desc">L3 avg for flagged players</div>
+        </div>
+        <div class="adj-toggle-switch"><div class="adj-toggle-knob"></div></div>
+      </label>
+      <label class="adj-toggle" id="ppAdjToggle-dnp" onclick="toggleDnpAdj()">
+        <input type="checkbox" id="ppDnpAdjToggle" style="display:none;">
+        <div class="adj-toggle-icon" style="background:rgba(239,68,68,.15);color:#ef4444;">✗</div>
+        <div class="adj-toggle-text">
+          <div class="adj-toggle-title">DNP Adjusted</div>
+          <div class="adj-toggle-desc">Markdown minutes for DNP players</div>
+        </div>
+        <div class="adj-toggle-switch"><div class="adj-toggle-knob"></div></div>
+      </label>
+      <label class="adj-toggle" id="ppAdjToggle-inj" onclick="toggleInjuryImpact()">
+        <input type="checkbox" id="ppInjuryImpactToggle" style="display:none;">
+        <div class="adj-toggle-icon" style="background:rgba(245,158,11,.15);color:#f59e0b;">🏥</div>
+        <div class="adj-toggle-text">
+          <div class="adj-toggle-title">Injury Impact</div>
+          <div class="adj-toggle-desc">Adjust for missing teammates</div>
+        </div>
+        <div class="adj-toggle-switch"><div class="adj-toggle-knob"></div></div>
+      </label>
+    </div>
+
     <!-- CONTROLS -->
     <div class="ctrls">
       <div class="cl">
@@ -2873,6 +2904,16 @@ function renderTable(){
     const[fAway,fHome]=S.gameFilter.split(' @ ');
     d=d.filter(p=>p.matchup&&p.matchup.includes(fAway)&&p.matchup.includes(fHome));
   }
+  // Apply adjustment filters (same as Value Alerts)
+  if(_smartMinOn||_dnpAdjOn||_injuryImpactOn){
+    d=d.map(p=>{
+      let adj=p;
+      if(_smartMinOn){ const a=applySmartMinutes(adj); if(a._adjTag==='min') adj=a; }
+      if(_dnpAdjOn){ const a=applyDnpAdjustment(adj); if(a._adjTag==='dnp') adj=a; }
+      if(_injuryImpactOn){ const a=applyInjuryImpact(adj); if(a._injImpact) adj=a; }
+      return adj;
+    });
+  }
   const sf={
     edge:(a,b)=>Math.abs(b.edge||0)-Math.abs(a.edge||0),
     ev:(a,b)=>getDirectionalEV(b)-getDirectionalEV(a),
@@ -3910,19 +3951,20 @@ let alertMktCache={}; // {market_key: enriched player array}
 let _smartMinOn=false, _dnpAdjOn=false, _injuryImpactOn=false;
 let _injuryImpactCache={}; // playerName|market → {ratio, teammate, ...}
 
-function _flipToggle(id, labelId){ const cb=document.getElementById(id); cb.checked=!cb.checked; document.getElementById(labelId).classList.toggle('on',cb.checked); return cb.checked; }
-function toggleSmartMin(){ _smartMinOn=_flipToggle('smartMinToggle','adjToggle-min'); renderAlerts(); }
-function toggleDnpAdj(){ _dnpAdjOn=_flipToggle('dnpAdjToggle','adjToggle-dnp'); renderAlerts(); }
+function _flipToggle(id, labelId){ const cb=document.getElementById(id); if(cb){ cb.checked=!cb.checked; document.getElementById(labelId)?.classList.toggle('on',cb.checked); } return cb?.checked||false; }
+function _syncToggles(state, pairs){ pairs.forEach(([cbId, lblId])=>{ const cb=document.getElementById(cbId); if(cb){ cb.checked=state; document.getElementById(lblId)?.classList.toggle('on',state); } }); }
+function toggleSmartMin(){ _smartMinOn=!_smartMinOn; _syncToggles(_smartMinOn,[['smartMinToggle','adjToggle-min'],['ppSmartMinToggle','ppAdjToggle-min']]); renderAlerts(); renderTable(); }
+function toggleDnpAdj(){ _dnpAdjOn=!_dnpAdjOn; _syncToggles(_dnpAdjOn,[['dnpAdjToggle','adjToggle-dnp'],['ppDnpAdjToggle','ppAdjToggle-dnp']]); renderAlerts(); renderTable(); }
 function toggleInjuryImpact(){
-  _injuryImpactOn=_flipToggle('injuryImpactToggle','adjToggle-inj');
+  _injuryImpactOn=!_injuryImpactOn; _syncToggles(_injuryImpactOn,[['injuryImpactToggle','adjToggle-inj'],['ppInjuryImpactToggle','ppAdjToggle-inj']]);
   if(_injuryImpactOn && !Object.keys(_injuryImpactCache).length) fetchInjuryImpacts();
-  else renderAlerts();
+  else { renderAlerts(); renderTable(); }
 }
 
 async function fetchInjuryImpacts(){
-  // Fetch injury impact data for all players currently in view
-  const players=window._lastAlertPlayers||[];
-  if(!players.length){ renderAlerts(); return; }
+  // Fetch injury impact data for all players currently in view (alerts + props)
+  const players=[...(window._lastAlertPlayers||[]),...(S.data||[])];
+  if(!players.length){ renderAlerts(); renderTable(); return; }
   const fetches=[];
   const seen=new Set();
   for(const p of players){
@@ -3940,6 +3982,7 @@ async function fetchInjuryImpacts(){
   }
   await Promise.all(fetches);
   renderAlerts();
+  renderTable();
 }
 
 function applyInjuryImpact(p){
