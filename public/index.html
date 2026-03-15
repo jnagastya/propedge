@@ -4028,7 +4028,7 @@ function applyAllAdjustments(p){
     tags.push('dnp:'+projMin);
   }
 
-  // --- Step 2: Get injury impact ratio ---
+  // --- Step 2: Get injury impact ratio + projected minutes ---
   if(_injuryImpactOn){
     const key=`${p.name}|${p.market||S.market}`;
     const impact=_injuryImpactCache[key];
@@ -4038,6 +4038,15 @@ function applyAllAdjustments(p){
         injMeta={_injImpact:true,_injTeammate:impact.teammate,_injPctChange:impact.pctChange,
           _injTeammates:impact.teammates||[],_injSkipped:impact.skipped||[],_injSpeculative:impact.speculative||false};
         tags.push('inj:'+impact.teammate);
+        // Use injury-projected minutes if available and higher than current projection
+        // This captures the Day 1 minutes boost when a starter is newly out
+        if(impact.projMinutes && p.hasRealStats && games.length>0){
+          const seasonAvg=Math.round(games.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/games.length);
+          if(impact.projMinutes>seasonAvg && (!projMin || impact.projMinutes>projMin)){
+            projMin=impact.projMinutes;
+            if(!tags.some(t=>t.startsWith('min:'))) tags.unshift('min:'+projMin);
+          }
+        }
       } else if(impact.skipped?.length){
         injMeta._injSkipped=impact.skipped;
       }

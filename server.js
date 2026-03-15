@@ -1430,6 +1430,43 @@ app.get('/api/injuries', async (req, res) => {
   }
 });
 
+// Position-market affinity matrix for speculative injury impact model
+// Controls how much of an out player's production redistributes based on position matchup
+// Keys: outPosition → subjectPosition → market → multiplier (1.0 = neutral)
+const POS_AFFINITY = {
+  // Center out: rebounds/blocks go to bigs, assists/steals/threes go less to bigs
+  C: { C: { reb: 1.4, ast: 0.4, pts: 0.9, blk: 1.5, stl: 0.5, fg3m: 0.3, turnover: 0.6 },
+       F: { reb: 1.3, ast: 0.5, pts: 1.0, blk: 1.3, stl: 0.6, fg3m: 0.4, turnover: 0.7 },
+       G: { reb: 0.5, ast: 0.8, pts: 1.0, blk: 0.2, stl: 1.2, fg3m: 1.3, turnover: 1.0 } },
+  // Forward out: moderate redistribution across positions
+  F: { C: { reb: 1.2, ast: 0.4, pts: 0.8, blk: 1.2, stl: 0.5, fg3m: 0.3, turnover: 0.6 },
+       F: { reb: 1.2, ast: 0.7, pts: 1.1, blk: 1.0, stl: 0.8, fg3m: 0.9, turnover: 0.9 },
+       G: { reb: 0.5, ast: 1.0, pts: 1.0, blk: 0.2, stl: 1.2, fg3m: 1.2, turnover: 1.1 } },
+  // Guard out: assists/steals/threes go to guards, rebounds/blocks go less
+  G: { C: { reb: 0.4, ast: 0.3, pts: 0.8, blk: 0.3, stl: 0.5, fg3m: 0.2, turnover: 0.5 },
+       F: { reb: 0.5, ast: 0.6, pts: 1.0, blk: 0.3, stl: 0.8, fg3m: 0.9, turnover: 0.8 },
+       G: { reb: 0.3, ast: 1.4, pts: 1.1, blk: 0.3, stl: 1.3, fg3m: 1.3, turnover: 1.3 } },
+};
+// Map market keys to base stat for affinity lookup
+const _mktToStat = {
+  player_points: 'pts', player_rebounds: 'reb', player_assists: 'ast',
+  player_threes: 'fg3m', player_steals: 'stl', player_blocks: 'blk', player_turnovers: 'turnover',
+  player_points_rebounds_assists: 'pra', player_rebounds_assists: 'ra',
+};
+// Get positional affinity multiplier; combo stats blend component weights
+function getPosAffinity(outPos, subjectPos, market) {
+  if (!outPos || !subjectPos) return 1.0;
+  const o = outPos.charAt(0).toUpperCase(); // normalize to G/F/C
+  const s = subjectPos.charAt(0).toUpperCase();
+  const aff = POS_AFFINITY[o]?.[s];
+  if (!aff) return 1.0;
+  const stat = _mktToStat[market];
+  if (!stat) return 1.0;
+  if (stat === 'pra') return (aff.pts + aff.reb + aff.ast) / 3;
+  if (stat === 'ra') return (aff.reb + aff.ast) / 2;
+  return aff[stat] ?? 1.0;
+}
+
 // ============================================================
 // ROUTE: GET /api/injury-impact — compute injury impact for a player
 // Returns: { teammate, ratio, withoutGames, withGames, adjAvg, origAvg }
@@ -1511,6 +1548,17 @@ app.get('/api/injury-impact', async (req, res) => {
       }
     }
 
+    // Bulk-fetch positions from Supabase for subject player + all out teammates
+    const _posNames = [player, ...outTeammates.map(t => t.player), ...outTeammates.map(t => t.resolvedName)].filter((v, i, a) => a.indexOf(v) === i);
+    const _posMap = {};
+    if (supabase) {
+      try {
+        const { data: _posRows } = await supabase.from('player_stats').select('player_name, position').in('player_name', _posNames).eq('season', NBA_SEASON);
+        if (_posRows) _posRows.forEach(r => { if (r.position) _posMap[r.player_name] = r.position; });
+      } catch {}
+    }
+    const subjectPos = _posMap[player] || _posMap[resolvedPlayer] || null;
+
     // Stack ALL out teammates — compute independent rate ratios and multiply
     const teamFilter = team.toUpperCase();
     const playerPlayedTeam = playerLog.filter(g => parseInt(g.min || '0') > 0 && (!g.team || g.team === teamFilter));
@@ -1547,6 +1595,10 @@ app.get('/api/injury-impact', async (req, res) => {
 
       const tmAvg = tmPlayed.reduce((s, g) => s + _statVal(g, market), 0) / tmPlayed.length;
 
+      // Compute subject player's avg minutes with/without this teammate (for minutes projection)
+      const woMinAvg = wo.length ? Math.round(wo.reduce((s, g) => s + (parseFloat(g.min) || 0), 0) / wo.length) : null;
+      const wiMinAvg = wi.length ? Math.round(wi.reduce((s, g) => s + (parseFloat(g.min) || 0), 0) / wi.length) : null;
+
       if (!recentlyTraded && wo.length >= 7 && wi.length >= 7) {
         // Enough split data — minutes-weighted per-minute rate comparison
         const wiTotalMin = wi.reduce((s, g) => s + (parseFloat(g.min) || 1), 0);
@@ -1564,7 +1616,7 @@ app.get('/api/injury-impact', async (req, res) => {
         const ratio = Math.max(0.70, Math.min(1.30, shrunkRatio));
         if (Math.abs(ratio - 1.0) < 0.03) continue;
 
-        teammateImpacts.push({ name: inj.player, ratio: +ratio.toFixed(3), tmAvg: +tmAvg.toFixed(1), wo: wo.length, wi: wi.length, speculative: false });
+        teammateImpacts.push({ name: inj.player, ratio: +ratio.toFixed(3), tmAvg: +tmAvg.toFixed(1), wo: wo.length, wi: wi.length, woMinAvg, wiMinAvg, speculative: false });
       } else {
         // Fallback: production share estimate (speculative — always used for recently traded players)
         const playerAvg = playerPlayed.reduce((s, g) => s + _statVal(g, market), 0) / playerPlayed.length;
@@ -1581,12 +1633,27 @@ app.get('/api/injury-impact', async (req, res) => {
 
         const remainingTotal = teamTotal - tmAvg;
         const playerShare = remainingTotal > 0 ? playerAvg / remainingTotal : 0;
-        const boost = tmAvg * 0.35 * playerShare;
+        // Apply positional affinity: scale redistribution by how relevant the positions are for this market
+        const tmPos = _posMap[inj.player] || _posMap[inj.resolvedName] || null;
+        const affinity = getPosAffinity(tmPos, subjectPos, market);
+        const boost = tmAvg * 0.35 * playerShare * affinity;
         const ratio = (playerAvg + boost) / playerAvg;
         const capped = Math.max(0.70, Math.min(1.20, ratio));
         if (Math.abs(capped - 1.0) < 0.03) continue;
 
-        teammateImpacts.push({ name: inj.player, ratio: +capped.toFixed(3), tmAvg: +tmAvg.toFixed(1), wo: wo.length, wi: wi.length, speculative: true });
+        // For speculative model: estimate minutes boost if same position and out player is a starter
+        let specWoMinAvg = null;
+        const tmPos2 = _posMap[inj.player] || _posMap[inj.resolvedName] || null;
+        if (tmPos2 && subjectPos && tmPos2.charAt(0) === subjectPos.charAt(0)) {
+          // Same position group — estimate subject picks up ~40% of the gap
+          const tmMinAvg = tmPlayed.reduce((s, g) => s + (parseFloat(g.min) || 0), 0) / tmPlayed.length;
+          const subjectMinAvg = playerPlayed.reduce((s, g) => s + (parseFloat(g.min) || 0), 0) / playerPlayed.length;
+          if (tmMinAvg > 24 && subjectMinAvg < tmMinAvg) {
+            specWoMinAvg = Math.round(subjectMinAvg + (tmMinAvg - subjectMinAvg) * 0.4);
+          }
+        }
+
+        teammateImpacts.push({ name: inj.player, ratio: +capped.toFixed(3), tmAvg: +tmAvg.toFixed(1), wo: wo.length, wi: wi.length, woMinAvg: specWoMinAvg, wiMinAvg: null, speculative: true, posAffinity: +affinity.toFixed(2) });
       }
     }
 
@@ -1632,6 +1699,17 @@ app.get('/api/injury-impact', async (req, res) => {
     const combinedRatio = Math.max(0.80, Math.min(1.20, 1 + (_wTotal > 0 ? _wSum / _wTotal : 0)));
 
     const hasSpeculative = teammateImpacts.some(t => t.speculative);
+
+    // Compute projected minutes: take the max woMinAvg across impactful teammates
+    // (if multiple are out, the biggest minutes boost wins — they don't stack)
+    const playerSeasonMin = Math.round(playerPlayed.reduce((s, g) => s + (parseFloat(g.min) || 0), 0) / playerPlayed.length);
+    let projMinutes = null;
+    for (const t of teammateImpacts) {
+      if (t.woMinAvg && t.woMinAvg > playerSeasonMin) {
+        projMinutes = Math.max(projMinutes || 0, t.woMinAvg);
+      }
+    }
+
     res.json({
       impact: Math.abs(combinedRatio - 1.0) >= 0.03,
       teammate: teammateImpacts.map(t => t.name).join(' + '),
@@ -1640,6 +1718,7 @@ app.get('/api/injury-impact', async (req, res) => {
       ratio: +combinedRatio.toFixed(3),
       pctChange: +((combinedRatio - 1) * 100).toFixed(1),
       speculative: hasSpeculative,
+      projMinutes, // subject's projected minutes based on historical without-teammate data
     });
   } catch (e) {
     console.error('[injury-impact] Error:', e.message);
@@ -3672,7 +3751,7 @@ function _statVal(g, market) {
  * @param {Object} baseStats - Output from serverComputeStats
  * @returns {Object} Adjusted stats or original baseStats if no impact
  */
-function serverApplyInjuryImpact(playerName, playerGameLog, playerTeam, market, line, overOdds, underOdds, injuries, allGameLogs, baseStats) {
+function serverApplyInjuryImpact(playerName, playerGameLog, playerTeam, market, line, overOdds, underOdds, injuries, allGameLogs, baseStats, positionMap) {
   if (!injuries?.length || !playerGameLog?.length) return baseStats;
 
   // 1. Find teammates who are OUT today
@@ -3722,6 +3801,9 @@ function serverApplyInjuryImpact(playerName, playerGameLog, playerTeam, market, 
       else if (tmPlayedDates.has(g.date)) wi.push(g);
     }
 
+    // Compute subject player's avg minutes with/without this teammate
+    const woMinAvg = wo.length ? Math.round(wo.reduce((s, g) => s + (parseFloat(g.min) || 0), 0) / wo.length) : null;
+
     if (!recentlyTraded && wo.length >= 7 && wi.length >= 7) {
       // Enough split data — minutes-weighted per-minute rate comparison
       const wiTotalMin = wi.reduce((s, g) => s + (parseFloat(g.min) || 1), 0);
@@ -3738,7 +3820,7 @@ function serverApplyInjuryImpact(playerName, playerGameLog, playerTeam, market, 
       const capped = Math.max(0.70, Math.min(1.30, shrunkRatio));
       if (Math.abs(capped - 1.0) < 0.03) continue;
 
-      teammateImpacts.push({ name: inj.player, ratio: capped, withoutGames: wo.length, withGames: wi.length, speculative: false });
+      teammateImpacts.push({ name: inj.player, ratio: capped, withoutGames: wo.length, withGames: wi.length, woMinAvg, speculative: false });
     } else {
       // Fallback: production share estimate (speculative — always used for recently traded players)
       const tmAvg = tmPlayed.reduce((s, g) => s + _statVal(g, market), 0) / tmPlayed.length;
@@ -3755,15 +3837,27 @@ function serverApplyInjuryImpact(playerName, playerGameLog, playerTeam, market, 
       }
       if (!teamTotal) continue;
 
-      // ~35% of missing production redistributes, weighted by player's share
+      // ~35% of missing production redistributes, weighted by player's share and positional affinity
       const remainingTotal = teamTotal - tmAvg;
       const playerShare = remainingTotal > 0 ? playerAvg / remainingTotal : 0;
-      const boost = tmAvg * 0.35 * playerShare;
+      const resolved = resolvePlayerName(inj.player);
+      const tmPos = positionMap?.get(inj.player) || positionMap?.get(resolved) || null;
+      const subjectPos = positionMap?.get(playerName) || null;
+      const affinity = getPosAffinity(tmPos, subjectPos, market);
+      const boost = tmAvg * 0.35 * playerShare * affinity;
       const ratio = (playerAvg + boost) / playerAvg;
       const capped = Math.max(0.70, Math.min(1.20, ratio)); // tighter cap for speculative
       if (Math.abs(capped - 1.0) < 0.03) continue;
 
-      teammateImpacts.push({ name: inj.player, ratio: capped, withoutGames: wo.length, withGames: wi.length, speculative: true });
+      // Estimate minutes boost for same-position speculative
+      let specWoMin = null;
+      if (tmPos && subjectPos && tmPos.charAt(0) === subjectPos.charAt(0)) {
+        const tmMinAvg = tmPlayed.reduce((s, g) => s + (parseFloat(g.min) || 0), 0) / tmPlayed.length;
+        const subjectMinAvg = playerPlayed.reduce((s, g) => s + (parseFloat(g.min) || 0), 0) / playerPlayed.length;
+        if (tmMinAvg > 24 && subjectMinAvg < tmMinAvg) specWoMin = Math.round(subjectMinAvg + (tmMinAvg - subjectMinAvg) * 0.4);
+      }
+
+      teammateImpacts.push({ name: inj.player, ratio: capped, withoutGames: wo.length, withGames: wi.length, woMinAvg: specWoMin, speculative: true });
     }
   }
 
@@ -3899,10 +3993,11 @@ app.get('/api/cron/agent-bet', async (req, res) => {
     // 3. Batch-fetch all game logs in one query (avoids per-player Supabase calls)
     const uniqueNames = [...new Set(upcoming.map(p => p.name))];
     const gameLogMap = new Map();
+    const positionMap = new Map();
     for (let i = 0; i < uniqueNames.length; i += 50) {
       const batch = uniqueNames.slice(i, i + 50);
-      const { data } = await supabase.from('player_stats').select('player_name, game_log, season').eq('season', NBA_SEASON).in('player_name', batch);
-      if (data) data.forEach(r => gameLogMap.set(r.player_name, r.game_log));
+      const { data } = await supabase.from('player_stats').select('player_name, game_log, position, season').eq('season', NBA_SEASON).in('player_name', batch);
+      if (data) data.forEach(r => { gameLogMap.set(r.player_name, r.game_log); if (r.position) positionMap.set(r.player_name, r.position); });
     }
 
     // 3b. Fetch injury report and injured teammates' game logs for injury impact
@@ -3916,8 +4011,8 @@ app.get('/api/cron/agent-bet', async (req, res) => {
       const namesToFetch = [...new Set(missingInjured.flatMap(n => [n.resolved, n.orig]))];
       for (let i = 0; i < namesToFetch.length; i += 50) {
         const batch = namesToFetch.slice(i, i + 50);
-        const { data } = await supabase.from('player_stats').select('player_name, game_log, season').eq('season', NBA_SEASON).in('player_name', batch);
-        if (data) data.forEach(r => gameLogMap.set(r.player_name, r.game_log));
+        const { data } = await supabase.from('player_stats').select('player_name, game_log, position, season').eq('season', NBA_SEASON).in('player_name', batch);
+        if (data) data.forEach(r => { gameLogMap.set(r.player_name, r.game_log); if (r.position) positionMap.set(r.player_name, r.position); });
       }
     }
     // BDL fallback for injured players still missing from Supabase (3 concurrent)
@@ -3973,7 +4068,7 @@ app.get('/api/cron/agent-bet', async (req, res) => {
         // Apply Injury Impact: adjust based on most impactful OUT teammate
         const playerTeam = _playerTeamCache[p.name] || guessTeam(p.name) || p.homeTeam;
         if (playerTeam && playerTeam !== '???') {
-          stats = serverApplyInjuryImpact(p.name, gameLog, playerTeam, p.market, p.line, p.overOdds, p.underOdds, injuries, gameLogMap, stats);
+          stats = serverApplyInjuryImpact(p.name, gameLog, playerTeam, p.market, p.line, p.overOdds, p.underOdds, injuries, gameLogMap, stats, positionMap);
         }
 
         const isValue = stats.vs >= 30;
@@ -4229,10 +4324,11 @@ app.get('/api/cron/tipoff-snapshot', async (req, res) => {
     // 4. Fetch game logs for eligible bet players + injured teammates
     const uniqueNames = [...new Set(eligible.map(b => b.player_name))];
     const gameLogMap = new Map();
+    const positionMap = new Map();
     for (let i = 0; i < uniqueNames.length; i += 50) {
       const batch = uniqueNames.slice(i, i + 50);
-      const { data } = await supabase.from('player_stats').select('player_name, game_log, season').eq('season', NBA_SEASON).in('player_name', batch);
-      if (data) data.forEach(r => gameLogMap.set(r.player_name, r.game_log));
+      const { data } = await supabase.from('player_stats').select('player_name, game_log, position, season').eq('season', NBA_SEASON).in('player_name', batch);
+      if (data) data.forEach(r => { gameLogMap.set(r.player_name, r.game_log); if (r.position) positionMap.set(r.player_name, r.position); });
     }
 
     // Fetch injured teammates' game logs
@@ -4243,8 +4339,8 @@ app.get('/api/cron/tipoff-snapshot', async (req, res) => {
       const namesToFetch = [...new Set(missingInjured.flatMap(n => [n.resolved, n.orig]))];
       for (let i = 0; i < namesToFetch.length; i += 50) {
         const batch = namesToFetch.slice(i, i + 50);
-        const { data } = await supabase.from('player_stats').select('player_name, game_log, season').eq('season', NBA_SEASON).in('player_name', batch);
-        if (data) data.forEach(r => gameLogMap.set(r.player_name, r.game_log));
+        const { data } = await supabase.from('player_stats').select('player_name, game_log, position, season').eq('season', NBA_SEASON).in('player_name', batch);
+        if (data) data.forEach(r => { gameLogMap.set(r.player_name, r.game_log); if (r.position) positionMap.set(r.player_name, r.position); });
       }
     }
     // BDL fallback for still-missing injured teammates (3 concurrent)
@@ -4280,7 +4376,7 @@ app.get('/api/cron/tipoff-snapshot', async (req, res) => {
 
         let stats = serverApplySmartMinutes(gameLog, bet.line, bet.market, bet.odds, bet.odds, rawStats);
         stats = serverApplyDNP(gameLog, bet.line, bet.market, bet.odds, bet.odds, stats);
-        stats = serverApplyInjuryImpact(bet.player_name, gameLog, playerTeam, bet.market, bet.line, bet.odds, bet.odds, injuries, gameLogMap, stats);
+        stats = serverApplyInjuryImpact(bet.player_name, gameLog, playerTeam, bet.market, bet.line, bet.odds, bet.odds, injuries, gameLogMap, stats, positionMap);
 
         const newAdjPct = stats._injuryImpact ? +((stats._injuryRatio - 1) * 100).toFixed(1) : null;
         const newTeammates = stats._injuryTeammate || null;
