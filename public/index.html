@@ -5718,15 +5718,25 @@ function renderSimulator() {
           </div>
         </div>`;
       }
-      const hs=getHeadshot(b.player); const ini=(b.player||'?').split(' ').map(n=>n[0]).join('').substring(0,2);
+      const isGL = b.type === 'game_line';
       const odds = (b.odds > 0 ? '+' : '') + b.odds;
+      let avHTML;
+      if (isGL) {
+        const primaryTeam = b.direction === 'home' ? b.homeTeam : b.direction === 'away' ? b.awayTeam : b.homeTeam;
+        const logoCode = NBA_LOGOS[primaryTeam];
+        avHTML = logoCode ? `<img src="https://a.espncdn.com/i/teamlogos/nba/500/${logoCode}.png" style="width:100%;height:100%;object-fit:contain;border-radius:8px;" alt="${primaryTeam}" onerror="this.style.display='none'">` : `<span>${(primaryTeam||'GL').substring(0,3)}</span>`;
+      } else {
+        const hs=getHeadshot(b.player); const ini=(b.player||'?').split(' ').map(n=>n[0]).join('').substring(0,2);
+        avHTML = hs?`<img src="${hs}" onerror="headshotError(this,'${ini}')" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" alt="">`:`<span>${ini}</span>`;
+      }
+      const dirLabel = b.direction==='over'?'▲ OVER':b.direction==='under'?'▼ UNDER':b.direction==='home'?'🏠 HOME':'✈️ AWAY';
       return `<div class="bet-card">
         <div style="display:flex;gap:14px;align-items:flex-start;">
-          <div class="bc-av" data-av="${(b.player||'').replace(/"/g,'&quot;')}">${hs?`<img src="${hs}" onerror="headshotError(this,'${ini}')" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" alt="">`:`<span>${ini}</span>`}</div>
+          <div class="bc-av" ${!isGL ? `data-av="${(b.player||'').replace(/"/g,'&quot;')}"` : ''} style="${isGL ? 'border-radius:8px;' : ''}">${avHTML}</div>
           <div style="flex:1;min-width:0;">
             <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
               <div class="bet-player" style="font-size:15px;">${b.player}</div>
-              <span class="bet-dir ${b.direction}">${b.direction==='over'?'▲ OVER':'▼ UNDER'}</span>
+              <span class="bet-dir ${b.direction}">${dirLabel}</span>
             </div>
             <div style="font-size:22px;font-weight:800;margin:5px 0;line-height:1.1;">${b.line} <span style="color:var(--t2);font-size:15px;font-weight:600;">${b.marketLabel}</span> <span style="color:var(--b);font-size:20px;">${odds}</span></div>
             <div class="bet-meta">${b.matchup} · Edge <span style="color:${b.edge>=0?'var(--g)':'var(--r)'}">${b.edge>=0?'+':''}${b.edge.toFixed(1)}%</span>${b.isValue?' ⚡ VALUE':''} · ${b.placedAt ? new Date(b.placedAt).toLocaleDateString() : '—'}</div>
@@ -5737,7 +5747,7 @@ function renderSimulator() {
           </div>
         </div>
         <div class="bet-actions">
-          <button class="bet-act auto" onclick="tryAutoResolve()">⟳ Auto</button>
+          ${!isGL ? '<button class="bet-act auto" onclick="tryAutoResolve()">⟳ Auto</button>' : ''}
           <button class="bet-act won" onclick="settleBet('${b.id}','won')">✓ Won</button>
           <button class="bet-act lost" onclick="settleBet('${b.id}','lost')">✗ Lost</button>
           <button class="bet-act void" onclick="settleBet('${b.id}','void')">— Void</button>
@@ -5789,13 +5799,24 @@ function renderSimulator() {
           <div class="bc-parlay-legs" id="pl-h${sid}" style="display:none;">${legsHtml}</div>
         </div>`;
       }
-      const hs=getHeadshot(b.player); const ini=(b.player||'?').split(' ').map(n=>n[0]).join('').substring(0,2);
+      const isGL = b.type === 'game_line';
+      let histAvHTML;
+      if (isGL) {
+        const primaryTeam = b.direction === 'home' ? b.homeTeam : b.direction === 'away' ? b.awayTeam : b.homeTeam;
+        const logoCode = NBA_LOGOS[primaryTeam];
+        histAvHTML = logoCode ? `<img src="https://a.espncdn.com/i/teamlogos/nba/500/${logoCode}.png" style="width:100%;height:100%;object-fit:contain;border-radius:6px;" alt="${primaryTeam}" onerror="this.style.display='none'">` : `<span>${(primaryTeam||'GL').substring(0,3)}</span>`;
+      } else {
+        const hs=getHeadshot(b.player); const ini=(b.player||'?').split(' ').map(n=>n[0]).join('').substring(0,2);
+        histAvHTML = hs?`<img src="${hs}" onerror="headshotError(this,'${ini}')" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" alt="">`:`<span>${ini}</span>`;
+      }
       const resultNote = b.actualResult != null ? ` · Actual: ${b.actualResult}` : '';
+      const histDirLabel = b.direction==='over'?'▲ OVER':b.direction==='under'?'▼ UNDER':b.direction==='home'?'🏠 HOME':'✈️ AWAY';
+      const histDirCol = (b.direction==='over'||b.direction==='home')?'var(--g)':'var(--r)';
       return `<div class="hist-row">
         <span class="hist-status ${b.status}">${b.status.toUpperCase()}</span>
-        <div class="hist-av" data-av="${(b.player||'').replace(/"/g,'&quot;')}">${hs?`<img src="${hs}" onerror="headshotError(this,'${ini}')" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" alt="">`:`<span>${ini}</span>`}</div>
+        <div class="hist-av" ${!isGL ? `data-av="${(b.player||'').replace(/"/g,'&quot;')}"` : ''} style="${isGL ? 'border-radius:6px;' : ''}">${histAvHTML}</div>
         <div style="flex:1;min-width:0;">
-          <div style="font-size:13px;font-weight:700;">${b.player} <span style="color:${b.direction==='over'?'var(--g)':'var(--r)'};">${b.direction==='over'?'▲':'▼'} ${b.direction.toUpperCase()}</span> ${b.line} ${b.marketLabel}</div>
+          <div style="font-size:13px;font-weight:700;">${b.player} <span style="color:${histDirCol};">${histDirLabel}</span> ${isGL ? '' : b.line + ' '}${b.marketLabel}</div>
           <div style="font-size:11px;color:var(--t3);">${b.matchup} · ${(b.odds>0?'+':'')+b.odds} · Edge ${b.edge>=0?'+':''}${b.edge?.toFixed(1)||0}%${b.isValue?' ⚡':''}${resultNote} · ${b.placedAt ? new Date(b.placedAt).toLocaleDateString() : '—'}</div>
         </div>
         <span class="hist-pnl ${b.pnl>=0?'pos':'neg'}">${pnlFmt}</span>
@@ -7208,6 +7229,8 @@ function placeGLBet() {
     type: 'game_line',
     player: betLabel,
     team: `${g.away} @ ${g.home}`,
+    homeTeam: g.home,
+    awayTeam: g.away,
     matchup: `${g.away} @ ${g.home}`,
     market: _glBetType,
     marketLabel,
