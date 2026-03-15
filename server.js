@@ -1648,11 +1648,7 @@ app.get('/api/cron/refresh-stats', async (req, res) => {
       return res.status(503).json({ error: 'No odds data in Supabase — run refresh-odds first' });
     }
     const playerSet = new Set(oddsPlayers.map(p => p.name).filter(Boolean));
-
-    // Also include players from ungraded agent bets (so grading can find their stats)
-    const { data: ungradedBets } = await supabase.from('agent_bets').select('player_name').is('result', null);
-    if (ungradedBets) ungradedBets.forEach(b => { if (b.player_name) playerSet.add(b.player_name); });
-
+    // Note: ungraded bet players no longer included here — getActualStat has BDL fallback for grading
     const playerNames = [...playerSet];
 
     // Batch-read existing records (metadata only — no game_log to keep query fast)
@@ -1689,9 +1685,15 @@ app.get('/api/cron/refresh-stats', async (req, res) => {
       }
     }
 
+    // Time guard: bail before Vercel's 300s timeout
+    const startTime = Date.now();
+    const MAX_RUNTIME_MS = 250_000; // 250s — leave 50s buffer
+    const isTimedOut = () => (Date.now() - startTime) > MAX_RUNTIME_MS;
+
     // Process incremental updates — 5 concurrent
     // Each fetches only last 3 days of games, then merges with stored data
     await processBatch(incremental, async ({ name, bdlId, position }) => {
+      if (isTimedOut()) { results.skipped.push(name); return; }
       try {
         // Fetch existing game_log for this player
         const record = await sbGetGameLogRecord(name);
@@ -1719,6 +1721,7 @@ app.get('/api/cron/refresh-stats', async (req, res) => {
     // Process new players — 3 concurrent, cap at 30 per run
     const newBatch = fullFetch.slice(0, 30);
     await processBatch(newBatch, async (name) => {
+      if (isTimedOut()) { results.skipped.push(name); return; }
       try {
         const { id: bdlId, position: bdlPos } = await getBDLPlayerId(name);
         if (!bdlId) { results.failed.push(`${name} (not found in BDL)`); return; }
@@ -1735,7 +1738,8 @@ app.get('/api/cron/refresh-stats', async (req, res) => {
       results.deferred = fullFetch.length - 30;
     }
 
-    res.json({ success: true, total: playerNames.length, incremental: incremental.length, newFetched: newBatch.length, skipped: results.skipped.length, ...results });
+    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+    res.json({ success: true, total: playerNames.length, incremental: incremental.length, newFetched: newBatch.length, skipped: results.skipped.length, elapsed: `${elapsed}s`, timedOut: isTimedOut(), ...results });
   } catch (err) {
     res.status(500).json({ error: err.message, ...results });
   }
