@@ -3078,6 +3078,61 @@ async function sendDiscordResults(allBets, latestDate) {
     }
   }
 
+  // Injury Impact Performance
+  {
+    const injAdjusted = settledValue.filter(b => b.injury_adj_pct != null && b.injury_adj_pct !== 0);
+    const injNone = settledValue.filter(b => b.injury_adj_pct == null || b.injury_adj_pct === 0);
+    if (injAdjusted.length >= 3) {
+      const injWon = injAdjusted.filter(b => b.status === 'won').length;
+      const injWr = (injWon / injAdjusted.length * 100).toFixed(1);
+      const injPnl = injAdjusted.reduce((s, b) => s + (b.pnl || 0), 0);
+      const injStaked = injAdjusted.reduce((s, b) => s + b.stake, 0);
+      const injRoi = injStaked ? (injPnl / injStaked * 100).toFixed(1) : '0.0';
+
+      const noInjWon = injNone.length ? injNone.filter(b => b.status === 'won').length : 0;
+      const noInjWr = injNone.length ? (noInjWon / injNone.length * 100).toFixed(1) : '0.0';
+      const noInjPnl = injNone.reduce((s, b) => s + (b.pnl || 0), 0);
+      const noInjStaked = injNone.reduce((s, b) => s + b.stake, 0);
+      const noInjRoi = noInjStaked ? (noInjPnl / noInjStaked * 100).toFixed(1) : '0.0';
+
+      let injDesc = `🏥 **Injury-Adjusted**: ${injWon}-${injAdjusted.length - injWon} (${injWr}%) · ROI ${injRoi}% · ${pnlFmt(injPnl)}\n` +
+        `✅ **No Adjustment**: ${noInjWon}-${injNone.length - noInjWon} (${noInjWr}%) · ROI ${noInjRoi}% · ${pnlFmt(noInjPnl)}`;
+
+      // Speculative vs data-backed
+      const specBets = injAdjusted.filter(b => b.injury_speculative);
+      const dataBets = injAdjusted.filter(b => !b.injury_speculative);
+      if (specBets.length >= 2 && dataBets.length >= 2) {
+        const specWr = (specBets.filter(b => b.status === 'won').length / specBets.length * 100).toFixed(1);
+        const dataWr = (dataBets.filter(b => b.status === 'won').length / dataBets.length * 100).toFixed(1);
+        injDesc += `\n\n📊 **Data-Backed** (3+ w/wo games): ${dataWr}% WR (${dataBets.length} bets)\n` +
+          `🔮 **Speculative** (production share est): ${specWr}% WR (${specBets.length} bets)`;
+      }
+
+      // Directional accuracy — did adjustment move avg closer to actual?
+      const withActual = injAdjusted.filter(b => b.actual_result != null && b.injury_adj_pct != null);
+      if (withActual.length >= 3) {
+        let correctDir = 0;
+        for (const b of withActual) {
+          const adjPct = b.injury_adj_pct / 100; // e.g. +8% = 0.08
+          const origAvg = b.line; // rough proxy — line is close to unadjusted avg
+          const adjDirection = adjPct > 0 ? 'boosted' : 'reduced';
+          const actualVsLine = +b.actual_result - b.line;
+          // Correct if boost and actual > line, or reduce and actual < line
+          if ((adjPct > 0 && actualVsLine > 0) || (adjPct < 0 && actualVsLine < 0)) correctDir++;
+        }
+        const dirAccuracy = (correctDir / withActual.length * 100).toFixed(0);
+        injDesc += `\n\n🎯 **Directional Accuracy**: ${dirAccuracy}% of injury adjustments moved the right way (${correctDir}/${withActual.length})`;
+      }
+
+      embeds.push({
+        title: '🏥 Injury Impact Performance',
+        description: injDesc,
+        color: 0xec4899,
+        footer: { text: 'Tracks whether teammate injury adjustments improve bet accuracy' },
+      });
+    }
+  }
+
   // Recommendations based on data
   if (settledValue.length >= 20) {
     const recs = [];
@@ -3596,6 +3651,9 @@ app.get('/api/cron/agent-bet', async (req, res) => {
         result: null,
         game_date: today,
         game_time: c.p.gameTime || null,
+        injury_adj_pct: c.stats._injuryImpact ? +((c.stats._injuryRatio - 1) * 100).toFixed(1) : null,
+        injury_speculative: c.stats._injurySpeculative || false,
+        injury_teammates: c.stats._injuryTeammate || null,
       });
       summary.value++;
     }
@@ -3625,6 +3683,9 @@ app.get('/api/cron/agent-bet', async (req, res) => {
         result: null,
         game_date: today,
         game_time: c.p.gameTime || null,
+        injury_adj_pct: c.stats._injuryImpact ? +((c.stats._injuryRatio - 1) * 100).toFixed(1) : null,
+        injury_speculative: c.stats._injurySpeculative || false,
+        injury_teammates: c.stats._injuryTeammate || null,
       });
       summary.control++;
     }
@@ -3889,6 +3950,33 @@ app.get('/api/cron/newsletter', async (req, res) => {
         <td style="padding:6px 12px;border-bottom:1px solid #e2e8f0;text-align:right;color:${dPnl >= 0 ? '#16a34a' : '#dc2626'}">${dPnl >= 0 ? '+' : ''}$${dPnl.toFixed(2)}</td></tr>`;
     };
 
+    // Injury impact analysis for email
+    const emailInjAdj = emailSettled.filter(b => b.injury_adj_pct != null && b.injury_adj_pct !== 0);
+    const emailInjNone = emailSettled.filter(b => b.injury_adj_pct == null || b.injury_adj_pct === 0);
+    const emailInjSpec = emailInjAdj.filter(b => b.injury_speculative);
+    const emailInjData = emailInjAdj.filter(b => !b.injury_speculative);
+    const injRow = (label, bets) => {
+      if (!bets.length) return '';
+      const w = bets.filter(b => b.status === 'won').length;
+      const iPnl = bets.reduce((s, b) => s + (b.pnl || 0), 0);
+      const iStaked = bets.reduce((s, b) => s + b.stake, 0);
+      const roi = iStaked ? (iPnl / iStaked * 100).toFixed(1) : '0.0';
+      return `<tr><td style="padding:6px 12px;border-bottom:1px solid #e2e8f0;">${label}</td>
+        <td style="padding:6px 12px;border-bottom:1px solid #e2e8f0;text-align:center;">${w}-${bets.length - w}</td>
+        <td style="padding:6px 12px;border-bottom:1px solid #e2e8f0;text-align:center;">${(w / bets.length * 100).toFixed(0)}%</td>
+        <td style="padding:6px 12px;border-bottom:1px solid #e2e8f0;text-align:center;">${roi}%</td>
+        <td style="padding:6px 12px;border-bottom:1px solid #e2e8f0;text-align:right;color:${iPnl >= 0 ? '#16a34a' : '#dc2626'}">${iPnl >= 0 ? '+' : ''}$${iPnl.toFixed(2)}</td></tr>`;
+    };
+    // Directional accuracy for email
+    const emailInjWithActual = emailInjAdj.filter(b => b.actual_result != null);
+    let emailInjCorrectDir = 0;
+    for (const b of emailInjWithActual) {
+      const adjPct = b.injury_adj_pct / 100;
+      const actualVsLine = +b.actual_result - b.line;
+      if ((adjPct > 0 && actualVsLine > 0) || (adjPct < 0 && actualVsLine < 0)) emailInjCorrectDir++;
+    }
+    const emailInjDirAcc = emailInjWithActual.length >= 3 ? (emailInjCorrectDir / emailInjWithActual.length * 100).toFixed(0) : null;
+
     // Yesterday's pick-by-pick results
     const fmtOdds = o => o > 0 ? `+${o}` : `${o}`;
     const pickRows = yesterdayValue.filter(b => b.status !== 'open').map(b => {
@@ -4071,6 +4159,30 @@ app.get('/api/cron/newsletter', async (req, res) => {
       <tbody>${dirRow('OVER ▲', emailOver)}${dirRow('UNDER ▼', emailUnder)}</tbody>
     </table>
   </div>
+
+  <!-- INJURY IMPACT PERFORMANCE -->
+  ${emailInjAdj.length >= 3 ? `<div style="padding:24px;border-top:1px solid #e2e8f0;">
+    <div style="font-size:16px;font-weight:700;color:#1e293b;margin-bottom:4px;">Injury Impact Performance</div>
+    <div style="font-size:12px;color:#94a3b8;margin-bottom:12px;">Do teammate injury adjustments improve bet accuracy?</div>
+    <table style="width:100%;border-collapse:collapse;font-size:12px;">
+      <thead><tr style="background:#f8fafc;">
+        <th style="padding:8px 12px;text-align:left;font-weight:600;color:#64748b;border-bottom:2px solid #e2e8f0;">Group</th>
+        <th style="padding:8px 12px;text-align:center;font-weight:600;color:#64748b;border-bottom:2px solid #e2e8f0;">Record</th>
+        <th style="padding:8px 12px;text-align:center;font-weight:600;color:#64748b;border-bottom:2px solid #e2e8f0;">Win %</th>
+        <th style="padding:8px 12px;text-align:center;font-weight:600;color:#64748b;border-bottom:2px solid #e2e8f0;">ROI</th>
+        <th style="padding:8px 12px;text-align:right;font-weight:600;color:#64748b;border-bottom:2px solid #e2e8f0;">P&L</th>
+      </tr></thead>
+      <tbody>
+        ${injRow('🏥 Injury-Adjusted', emailInjAdj)}
+        ${injRow('✅ No Adjustment', emailInjNone)}
+        ${emailInjData.length >= 2 ? injRow('📊 Data-Backed', emailInjData) : ''}
+        ${emailInjSpec.length >= 2 ? injRow('🔮 Speculative', emailInjSpec) : ''}
+      </tbody>
+    </table>
+    ${emailInjDirAcc ? `<div style="margin-top:12px;padding:12px;background:#f0fdf4;border-radius:8px;font-size:13px;">
+      <span style="font-weight:600;">🎯 Directional Accuracy:</span> ${emailInjDirAcc}% of injury adjustments moved the right way (${emailInjCorrectDir}/${emailInjWithActual.length})
+    </div>` : ''}
+  </div>` : ''}
 
   <!-- FOOTER -->
   <div style="padding:24px;background:#0f172a;text-align:center;">
