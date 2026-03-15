@@ -62,7 +62,8 @@ body{background:var(--bg0);background-image:radial-gradient(ellipse at 20% 0%,rg
 .logo-n{font-weight:800;font-size:18px;letter-spacing:-.5px;line-height:1;}
 .logo-n .prop{color:var(--t1)}.logo-n .edge{color:var(--b);}
 .logo-v{font-size:10px;font-weight:500;color:var(--t3);margin-top:2px;display:block;letter-spacing:.3px;text-transform:uppercase;position:relative;overflow:hidden;height:1.4em;line-height:1.4;}
-.logo-v .tagline-item{position:absolute;left:0;top:0;width:100%;opacity:0;transform:translateY(6px);transition:opacity .6s ease,transform .6s ease;white-space:nowrap;}
+.logo-v .tagline-item{position:absolute;left:0;top:0;width:max-content;opacity:0;transform:translateY(6px);transition:opacity .6s ease,transform .6s ease;white-space:nowrap;}
+.logo-v .tagline-sizer{visibility:hidden;height:0;white-space:nowrap;}
 .logo-v .tagline-item.active{opacity:1;transform:translateY(0);}
 .top-r{display:flex;align-items:center;gap:10px;}
 /* ── Settings ── */
@@ -904,7 +905,8 @@ input[type=range].min-slider::-moz-range-track{height:6px;border-radius:3px;back
 .login-logo{display:flex;align-items:center;gap:12px;margin-bottom:32px;}
 .login-logo-n{font-weight:800;font-size:22px;letter-spacing:-.5px;}
 .login-logo-sub{font-size:11px;color:var(--t3);font-weight:500;margin-top:2px;position:relative;overflow:hidden;height:1.4em;line-height:1.4;}
-.login-logo-sub .tagline-item{position:absolute;left:0;top:0;width:100%;opacity:0;transform:translateY(6px);transition:opacity .6s ease,transform .6s ease;white-space:nowrap;}
+.login-logo-sub .tagline-item{position:absolute;left:0;top:0;width:max-content;opacity:0;transform:translateY(6px);transition:opacity .6s ease,transform .6s ease;white-space:nowrap;}
+.login-logo-sub .tagline-sizer{visibility:hidden;height:0;white-space:nowrap;}
 .login-logo-sub .tagline-item.active{opacity:1;transform:translateY(0);}
 .login-title{font-size:20px;font-weight:800;color:var(--t1);margin-bottom:6px;}
 .login-sub{font-size:13px;color:var(--t3);margin-bottom:28px;line-height:1.5;}
@@ -1081,7 +1083,7 @@ input[type=range].min-slider::-moz-range-track{height:6px;border-radius:3px;back
       </svg>
       <div>
         <div class="login-logo-n"><span style="color:var(--t1)">Value</span><span style="color:var(--b)">Alert</span></div>
-        <div class="login-logo-sub tagline-rotate"><span class="tagline-item active">Not every bet. The right bet.</span><span class="tagline-item">The house doesn't always win.</span><span class="tagline-item">The line is wrong. We'll show you where.</span></div>
+        <div class="login-logo-sub tagline-rotate"><span class="tagline-sizer">The line is wrong. We'll show you where.</span><span class="tagline-item active">Not every bet. The right bet.</span><span class="tagline-item">The house doesn't always win.</span><span class="tagline-item">The line is wrong. We'll show you where.</span></div>
       </div>
     </div>
     <div class="login-title">Sign in</div>
@@ -1208,7 +1210,7 @@ input[type=range].min-slider::-moz-range-track{height:6px;border-radius:3px;back
     </svg>
     <div>
       <div class="logo-n"><span class="prop">Value</span><span class="edge">Alert</span></div>
-      <span class="logo-v tagline-rotate"><span class="tagline-item active">Not every bet. The right bet.</span><span class="tagline-item">The house doesn't always win.</span><span class="tagline-item">The line is wrong. We'll show you where.</span></span>
+      <span class="logo-v tagline-rotate"><span class="tagline-sizer">The line is wrong. We'll show you where.</span><span class="tagline-item active">Not every bet. The right bet.</span><span class="tagline-item">The house doesn't always win.</span><span class="tagline-item">The line is wrong. We'll show you where.</span></span>
     </div>
   </div>
   <div class="top-r">
