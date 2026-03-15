@@ -757,6 +757,7 @@ td{padding:13px 14px;white-space:nowrap;}
 .line-move-big{animation:movePulse 2s ease-in-out infinite;}
 @keyframes movePulse{0%,100%{opacity:1}50%{opacity:.6}}
 @keyframes glValuePulse{0%,100%{box-shadow:0 0 6px rgba(74,222,128,.25),inset 0 0 4px rgba(74,222,128,.05);}50%{box-shadow:0 0 14px rgba(74,222,128,.5),inset 0 0 8px rgba(74,222,128,.1);}}
+@keyframes glHotPulse{0%,100%{box-shadow:0 0 8px rgba(245,158,11,.3),inset 0 0 4px rgba(245,158,11,.06);}50%{box-shadow:0 0 18px rgba(245,158,11,.55),inset 0 0 10px rgba(245,158,11,.12);}}
 .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:800;align-items:center;justify-content:center;backdrop-filter:blur(4px);}
 .modal-overlay.show{display:flex;}
 .modal{background:var(--bg1);border:1px solid var(--bd);border-radius:var(--radius-lg);padding:24px;width:380px;max-width:95vw;box-shadow:var(--shadow-md);animation:cardIn .2s ease both;}
@@ -5721,10 +5722,15 @@ function renderSimulator() {
       const isGL = b.type === 'game_line';
       const odds = (b.odds > 0 ? '+' : '') + b.odds;
       let avHTML;
+      const isGLTotal = isGL && (b.direction === 'over' || b.direction === 'under');
       if (isGL) {
-        const primaryTeam = b.direction === 'home' ? b.homeTeam : b.direction === 'away' ? b.awayTeam : b.homeTeam;
-        const logoCode = NBA_LOGOS[primaryTeam];
-        avHTML = logoCode ? `<img src="https://a.espncdn.com/i/teamlogos/nba/500/${logoCode}.png" style="width:100%;height:100%;object-fit:contain;border-radius:8px;" alt="${primaryTeam}" onerror="this.style.display='none'">` : `<span>${(primaryTeam||'GL').substring(0,3)}</span>`;
+        const glLogoImg = (team) => { const lc = NBA_LOGOS[team]; return lc ? `<img src="https://a.espncdn.com/i/teamlogos/nba/500/${lc}.png" style="width:${isGLTotal?'20px':'100%'};height:${isGLTotal?'20px':'100%'};object-fit:contain;" alt="${team}" onerror="this.style.display='none'">` : ''; };
+        if (isGLTotal) {
+          avHTML = `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;width:100%;height:100%;">${glLogoImg(b.awayTeam||'')}<div style="font-size:7px;color:var(--t3);line-height:1;">@</div>${glLogoImg(b.homeTeam||'')}</div>`;
+        } else {
+          const primaryTeam = b.direction === 'home' ? b.homeTeam : b.awayTeam;
+          avHTML = glLogoImg(primaryTeam) || `<span>${(primaryTeam||'GL').substring(0,3)}</span>`;
+        }
       } else {
         const hs=getHeadshot(b.player); const ini=(b.player||'?').split(' ').map(n=>n[0]).join('').substring(0,2);
         avHTML = hs?`<img src="${hs}" onerror="headshotError(this,'${ini}')" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" alt="">`:`<span>${ini}</span>`;
@@ -5800,11 +5806,16 @@ function renderSimulator() {
         </div>`;
       }
       const isGL = b.type === 'game_line';
+      const isGLTotal2 = isGL && (b.direction === 'over' || b.direction === 'under');
       let histAvHTML;
       if (isGL) {
-        const primaryTeam = b.direction === 'home' ? b.homeTeam : b.direction === 'away' ? b.awayTeam : b.homeTeam;
-        const logoCode = NBA_LOGOS[primaryTeam];
-        histAvHTML = logoCode ? `<img src="https://a.espncdn.com/i/teamlogos/nba/500/${logoCode}.png" style="width:100%;height:100%;object-fit:contain;border-radius:6px;" alt="${primaryTeam}" onerror="this.style.display='none'">` : `<span>${(primaryTeam||'GL').substring(0,3)}</span>`;
+        const hLogoImg = (team, sz) => { const lc = NBA_LOGOS[team]; return lc ? `<img src="https://a.espncdn.com/i/teamlogos/nba/500/${lc}.png" style="width:${sz};height:${sz};object-fit:contain;" alt="${team}" onerror="this.style.display='none'">` : ''; };
+        if (isGLTotal2) {
+          histAvHTML = `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;width:100%;height:100%;">${hLogoImg(b.awayTeam||'','16px')}<div style="font-size:6px;color:var(--t3);line-height:1;">@</div>${hLogoImg(b.homeTeam||'','16px')}</div>`;
+        } else {
+          const primaryTeam = b.direction === 'home' ? b.homeTeam : b.awayTeam;
+          histAvHTML = hLogoImg(primaryTeam, '100%') || `<span>${(primaryTeam||'GL').substring(0,3)}</span>`;
+        }
       } else {
         const hs=getHeadshot(b.player); const ini=(b.player||'?').split(' ').map(n=>n[0]).join('').substring(0,2);
         histAvHTML = hs?`<img src="${hs}" onerror="headshotError(this,'${ini}')" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" alt="">`:`<span>${ini}</span>`;
@@ -6707,6 +6718,12 @@ function glRecBadge(rec, label) {
   return `<div style="display:inline-flex;flex-direction:column;background:${bg};border:1px solid ${bd};border-radius:6px;padding:4px 10px;font-size:10px;font-weight:700;color:${col};"><div>${label}</div>${probStr}</div>`;
 }
 
+function glEvGlow(ev) {
+  if (ev >= 0.25) return 'animation:glHotPulse 2s ease-in-out infinite;border-color:rgba(245,158,11,.5);';
+  if (ev >= 0.10) return 'animation:glValuePulse 2.5s ease-in-out infinite;';
+  return '';
+}
+
 async function renderGameLines() {
   const grid = document.getElementById('glGrid');
   const loading = document.getElementById('glLoading');
@@ -6811,12 +6828,12 @@ async function renderGameLines() {
         ${g.h2h ? `<div style="background:var(--bg1);padding:12px 10px;text-align:center;" onclick="event.stopPropagation();">
           <div style="font-size:11px;color:var(--b);margin-bottom:6px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;">Moneyline</div>
           <div style="display:flex;justify-content:space-around;gap:4px;">
-            <button onclick="event.stopPropagation();openGLBetModal(${gi},'ml_away')" style="flex:1;background:var(--bg2);border:1.5px solid ${(c.aMLEV||0) > 0 ? 'rgba(74,222,128,.4)' : 'var(--bd)'};border-radius:8px;padding:6px 4px;cursor:pointer;text-align:center;${(c.aMLEV||0) > 0 ? 'animation:glValuePulse 2.5s ease-in-out infinite;' : ''}">
+            <button onclick="event.stopPropagation();openGLBetModal(${gi},'ml_away')" style="flex:1;background:var(--bg2);border:1.5px solid ${(c.aMLEV||0) >= 0.10 ? ((c.aMLEV||0) >= 0.25 ? 'rgba(245,158,11,.5)' : 'rgba(74,222,128,.4)') : 'var(--bd)'};border-radius:8px;padding:6px 4px;cursor:pointer;text-align:center;${glEvGlow(c.aMLEV||0)}">
               <div style="font-size:11px;color:var(--b);font-weight:700;">${g.away}</div>
               <div style="font-size:15px;font-weight:700;color:var(--t1);">${glFmtOdds(g.h2h.away)}</div>
               ${c.aMLEV != null ? `<div style="font-size:12px;font-weight:700;color:${c.aMLEV > 0 ? 'var(--g)' : 'var(--r)'};">EV ${glFmtEV(c.aMLEV)}</div>` : ''}
             </button>
-            <button onclick="event.stopPropagation();openGLBetModal(${gi},'ml_home')" style="flex:1;background:var(--bg2);border:1.5px solid ${(c.hMLEV||0) > 0 ? 'rgba(74,222,128,.4)' : 'var(--bd)'};border-radius:8px;padding:6px 4px;cursor:pointer;text-align:center;${(c.hMLEV||0) > 0 ? 'animation:glValuePulse 2.5s ease-in-out infinite;' : ''}">
+            <button onclick="event.stopPropagation();openGLBetModal(${gi},'ml_home')" style="flex:1;background:var(--bg2);border:1.5px solid ${(c.hMLEV||0) >= 0.10 ? ((c.hMLEV||0) >= 0.25 ? 'rgba(245,158,11,.5)' : 'rgba(74,222,128,.4)') : 'var(--bd)'};border-radius:8px;padding:6px 4px;cursor:pointer;text-align:center;${glEvGlow(c.hMLEV||0)}">
               <div style="font-size:11px;color:var(--b);font-weight:700;">${g.home}</div>
               <div style="font-size:15px;font-weight:700;color:var(--t1);">${glFmtOdds(g.h2h.home)}</div>
               ${c.hMLEV != null ? `<div style="font-size:12px;font-weight:700;color:${c.hMLEV > 0 ? 'var(--g)' : 'var(--r)'};">EV ${glFmtEV(c.hMLEV)}</div>` : ''}
@@ -6828,13 +6845,13 @@ async function renderGameLines() {
         ${g.spread ? `<div style="background:var(--bg1);padding:12px 10px;text-align:center;" onclick="event.stopPropagation();">
           <div style="font-size:11px;color:var(--b);margin-bottom:6px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;">Spread</div>
           <div style="display:flex;justify-content:space-around;gap:4px;">
-            <button onclick="event.stopPropagation();openGLBetModal(${gi},'spread_away')" style="flex:1;background:var(--bg2);border:1.5px solid ${(c.awaySpreadEV||0) > 0 ? 'rgba(74,222,128,.4)' : 'var(--bd)'};border-radius:8px;padding:6px 4px;cursor:pointer;text-align:center;${(c.awaySpreadEV||0) > 0 ? 'animation:glValuePulse 2.5s ease-in-out infinite;' : ''}">
+            <button onclick="event.stopPropagation();openGLBetModal(${gi},'spread_away')" style="flex:1;background:var(--bg2);border:1.5px solid ${(c.awaySpreadEV||0) >= 0.10 ? ((c.awaySpreadEV||0) >= 0.25 ? 'rgba(245,158,11,.5)' : 'rgba(74,222,128,.4)') : 'var(--bd)'};border-radius:8px;padding:6px 4px;cursor:pointer;text-align:center;${glEvGlow(c.awaySpreadEV||0)}">
               <div style="font-size:11px;color:var(--b);font-weight:700;">${g.away}</div>
               <div style="font-size:15px;font-weight:700;color:var(--t1);">${g.spread.homeSpread < 0 ? '+' : ''}${(-g.spread.homeSpread)}</div>
               <div style="font-size:11px;color:var(--t2);">${glFmtOdds(g.spread.away)}</div>
               ${c.awaySpreadEV != null ? `<div style="font-size:12px;font-weight:700;color:${c.awaySpreadEV > 0 ? 'var(--g)' : 'var(--r)'};">EV ${glFmtEV(c.awaySpreadEV)}</div>` : ''}
             </button>
-            <button onclick="event.stopPropagation();openGLBetModal(${gi},'spread_home')" style="flex:1;background:var(--bg2);border:1.5px solid ${(c.homeSpreadEV||0) > 0 ? 'rgba(74,222,128,.4)' : 'var(--bd)'};border-radius:8px;padding:6px 4px;cursor:pointer;text-align:center;${(c.homeSpreadEV||0) > 0 ? 'animation:glValuePulse 2.5s ease-in-out infinite;' : ''}">
+            <button onclick="event.stopPropagation();openGLBetModal(${gi},'spread_home')" style="flex:1;background:var(--bg2);border:1.5px solid ${(c.homeSpreadEV||0) >= 0.10 ? ((c.homeSpreadEV||0) >= 0.25 ? 'rgba(245,158,11,.5)' : 'rgba(74,222,128,.4)') : 'var(--bd)'};border-radius:8px;padding:6px 4px;cursor:pointer;text-align:center;${glEvGlow(c.homeSpreadEV||0)}">
               <div style="font-size:11px;color:var(--b);font-weight:700;">${g.home}</div>
               <div style="font-size:15px;font-weight:700;color:var(--t1);">${g.spread.homeSpread > 0 ? '+' : ''}${g.spread.homeSpread}</div>
               <div style="font-size:11px;color:var(--t2);">${glFmtOdds(g.spread.home)}</div>
@@ -6848,13 +6865,13 @@ async function renderGameLines() {
         ${g.total ? `<div style="background:var(--bg1);padding:12px 10px;text-align:center;" onclick="event.stopPropagation();">
           <div style="font-size:11px;color:var(--b);margin-bottom:6px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;">Total</div>
           <div style="display:flex;justify-content:space-around;gap:4px;">
-            <button onclick="event.stopPropagation();openGLBetModal(${gi},'total_over')" style="flex:1;background:var(--bg2);border:1.5px solid ${(c.overEV||0) > 0 ? 'rgba(74,222,128,.4)' : 'var(--bd)'};border-radius:8px;padding:6px 4px;cursor:pointer;text-align:center;${(c.overEV||0) > 0 ? 'animation:glValuePulse 2.5s ease-in-out infinite;' : ''}">
+            <button onclick="event.stopPropagation();openGLBetModal(${gi},'total_over')" style="flex:1;background:var(--bg2);border:1.5px solid ${(c.overEV||0) >= 0.10 ? ((c.overEV||0) >= 0.25 ? 'rgba(245,158,11,.5)' : 'rgba(74,222,128,.4)') : 'var(--bd)'};border-radius:8px;padding:6px 4px;cursor:pointer;text-align:center;${glEvGlow(c.overEV||0)}">
               <div style="font-size:11px;color:var(--b);font-weight:700;">Over</div>
               <div style="font-size:15px;font-weight:700;color:var(--t1);">${g.total.line}</div>
               <div style="font-size:11px;color:var(--t2);">${glFmtOdds(g.total.over)}</div>
               ${c.overEV != null ? `<div style="font-size:12px;font-weight:700;color:${c.overEV > 0 ? 'var(--g)' : 'var(--r)'};">EV ${glFmtEV(c.overEV)}</div>` : ''}
             </button>
-            <button onclick="event.stopPropagation();openGLBetModal(${gi},'total_under')" style="flex:1;background:var(--bg2);border:1.5px solid ${(c.underEV||0) > 0 ? 'rgba(74,222,128,.4)' : 'var(--bd)'};border-radius:8px;padding:6px 4px;cursor:pointer;text-align:center;${(c.underEV||0) > 0 ? 'animation:glValuePulse 2.5s ease-in-out infinite;' : ''}">
+            <button onclick="event.stopPropagation();openGLBetModal(${gi},'total_under')" style="flex:1;background:var(--bg2);border:1.5px solid ${(c.underEV||0) >= 0.10 ? ((c.underEV||0) >= 0.25 ? 'rgba(245,158,11,.5)' : 'rgba(74,222,128,.4)') : 'var(--bd)'};border-radius:8px;padding:6px 4px;cursor:pointer;text-align:center;${glEvGlow(c.underEV||0)}">
               <div style="font-size:11px;color:var(--b);font-weight:700;">Under</div>
               <div style="font-size:15px;font-weight:700;color:var(--t1);">${g.total.line}</div>
               <div style="font-size:11px;color:var(--t2);">${glFmtOdds(g.total.under)}</div>
