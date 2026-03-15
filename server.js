@@ -159,7 +159,7 @@ const _playerTeamCache = {
   'Ivica Zubac':'IND','Gui Santos':'GSW','Marcus Sasser':'DET',
   'Cody Williams':'UTA','Mitchell Robinson':'NYK','Brice Sensabaugh':'TOR',
   'Ace Bailey':'UTA','Sandro Mamukelashvili':'TOR','Matas Buzelis':'CHI',
-  'Keon Ellis':'SAC','Olivier-Maxence Prosper':'DAL','Isaiah Collier':'UTA',
+  'Keon Ellis':'CLE','Olivier-Maxence Prosper':'DAL','Isaiah Collier':'UTA',
   'Kyle Filipowski':'UTA','Jaylon Tyson':'CLE','Dennis Schroder':'CLE',
   'Taylor Hendricks':'UTA','G.G. Jackson':'MEM','Royce O\'Neale':'PHX',
   'Ty Jerome':'MEM','Jarace Walker':'IND','Landry Shamet':'NYK',
@@ -201,7 +201,7 @@ const _playerTeamCache = {
 const _frozenTeams = new Set([
   'James Harden','Max Christie','Ron Holland','Sandro Mamukelashvili',
   'Brandon Ingram','Jrue Holiday','Dennis Schroder','Khris Middleton',
-  'Duncan Robinson',
+  'Duncan Robinson','Keon Ellis',
 ]);
 const ODDS_BASE = 'https://api.the-odds-api.com/v4';
 const BDL_BASE = 'https://api.balldontlie.io/nba/v1';
