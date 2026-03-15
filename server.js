@@ -4195,7 +4195,8 @@ app.get('/api/cron/grade-agent-bets', async (req, res) => {
   const lookupDate = req.query.lookup_date; // e.g. ?lookup_date=2026-03-13 — override date for stat lookup
   const GRADE_AFTER_MS = 10 * 60 * 60 * 1000;
   const now = Date.now();
-  const summary = { graded: 0, skipped: 0, errors: [] };
+  const todayET = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+  const summary = { graded: 0, skipped: 0, skippedToday: 0, errors: [] };
 
   try {
     let query = supabase.from('agent_bets').select('*').is('result', null);
@@ -4206,6 +4207,11 @@ app.get('/api/cron/grade-agent-bets', async (req, res) => {
     // Filter bets that are ready to grade
     const betsToGrade = [];
     for (const bet of (openBets || [])) {
+      // Safeguard: never grade today's bets — only yesterday or earlier (unless forceDate overrides)
+      if (!forceDate && bet.game_date === todayET) {
+        summary.skippedToday++;
+        continue;
+      }
       if (!forceDate) {
         if (!bet.game_time || (now - new Date(bet.game_time).getTime()) < GRADE_AFTER_MS) {
           summary.skipped++;
