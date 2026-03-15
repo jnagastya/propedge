@@ -2948,6 +2948,136 @@ async function sendDiscordResults(allBets, latestDate) {
     }
   }
 
+  // Margin analysis — how much are we winning/losing by?
+  if (settledValue.length >= 5) {
+    const withMargin = settledValue.filter(b => b.actual_result != null && b.line != null);
+    if (withMargin.length) {
+      const wonBets = withMargin.filter(b => b.status === 'won');
+      const lostBets = withMargin.filter(b => b.status === 'lost');
+
+      const calcMargin = (b) => {
+        const actual = +b.actual_result;
+        const line = +b.line;
+        return b.direction === 'over' ? actual - line : line - actual;
+      };
+
+      const avgWonMargin = wonBets.length ? (wonBets.reduce((s, b) => s + calcMargin(b), 0) / wonBets.length).toFixed(1) : '0';
+      const avgLostMargin = lostBets.length ? (lostBets.reduce((s, b) => s + calcMargin(b), 0) / lostBets.length).toFixed(1) : '0';
+
+      // Cover distribution
+      const coverBy = (threshold) => wonBets.filter(b => calcMargin(b) >= threshold).length;
+      const cover1 = coverBy(1), cover3 = coverBy(3), cover5 = coverBy(5);
+
+      // Best and worst bets of the day (from yesterday)
+      const yWithMargin = yesterdayValue.filter(b => (b.status === 'won' || b.status === 'lost') && b.actual_result != null);
+      const sorted = [...yWithMargin].sort((a, b) => calcMargin(b) - calcMargin(a));
+      const best3 = sorted.slice(0, 3);
+      const worst3 = sorted.slice(-3).reverse();
+
+      let marginDesc = `📏 **Avg Win Margin**: +${avgWonMargin} past the line\n` +
+        `📏 **Avg Loss Margin**: ${avgLostMargin} short of the line\n\n` +
+        `**Cover Distribution** (${wonBets.length} wins):\n` +
+        `　Won by 1+: \`${cover1}\` (${(cover1/Math.max(wonBets.length,1)*100).toFixed(0)}%)\n` +
+        `　Won by 3+: \`${cover3}\` (${(cover3/Math.max(wonBets.length,1)*100).toFixed(0)}%)\n` +
+        `　Won by 5+: \`${cover5}\` (${(cover5/Math.max(wonBets.length,1)*100).toFixed(0)}%)`;
+
+      if (best3.length) {
+        marginDesc += '\n\n**Best Bets Today:**\n' + best3.map(b => {
+          const m = calcMargin(b);
+          return `🔥 **${b.player_name}** ${b.direction === 'over' ? '▲' : '▼'} ${b.line} ${(MKT_LABELS[b.market]||b.market)} — Actual: \`${b.actual_result}\` (${m >= 0 ? '+' : ''}${m.toFixed(1)})`;
+        }).join('\n');
+      }
+      if (worst3.length) {
+        marginDesc += '\n\n**Worst Bets Today:**\n' + worst3.map(b => {
+          const m = calcMargin(b);
+          return `💀 **${b.player_name}** ${b.direction === 'over' ? '▲' : '▼'} ${b.line} ${(MKT_LABELS[b.market]||b.market)} — Actual: \`${b.actual_result}\` (${m >= 0 ? '+' : ''}${m.toFixed(1)})`;
+        }).join('\n');
+      }
+
+      embeds.push({
+        title: '📏 Margin Analysis',
+        description: marginDesc,
+        color: 0x06b6d4,
+      });
+    }
+  }
+
+  // Edge accuracy — do higher-edge bets actually win more?
+  if (settledValue.length >= 10) {
+    const edgeTiers = [
+      { label: '10%+ Edge', min: 10 },
+      { label: '5-10% Edge', min: 5, max: 10 },
+      { label: '2-5% Edge', min: 2, max: 5 },
+      { label: '<2% Edge', min: 0, max: 2 },
+    ];
+    const edgeLines = edgeTiers.map(t => {
+      const inTier = settledValue.filter(b => {
+        const e = Math.abs(b.edge || 0);
+        return e >= t.min && (t.max == null || e < t.max);
+      });
+      if (!inTier.length) return null;
+      const won = inTier.filter(b => b.status === 'won').length;
+      const wr = (won / inTier.length * 100).toFixed(1);
+      const tierPnl = inTier.reduce((s, b) => s + (b.pnl || 0), 0);
+      const icon = parseFloat(wr) >= 52 ? '🟢' : '🔴';
+      return `${icon} **${t.label}**: ${won}-${inTier.length - won} (${wr}%) · ${pnlFmt(tierPnl)}`;
+    }).filter(Boolean).join('\n');
+
+    if (edgeLines) {
+      embeds.push({
+        title: '🎯 Edge Accuracy',
+        description: edgeLines + '\n\n_Higher edge should correlate with higher win rate_',
+        color: 0x14b8a6,
+      });
+    }
+  }
+
+  // Over vs Under split
+  if (settledValue.length >= 10) {
+    const overBets = settledValue.filter(b => b.direction === 'over');
+    const underBets = settledValue.filter(b => b.direction === 'under');
+    const splitLine = (label, bets, emoji) => {
+      if (!bets.length) return null;
+      const won = bets.filter(b => b.status === 'won').length;
+      const wr = (won / bets.length * 100).toFixed(1);
+      const splitPnl = bets.reduce((s, b) => s + (b.pnl || 0), 0);
+      const splitStaked = bets.reduce((s, b) => s + b.stake, 0);
+      const roi = splitStaked ? (splitPnl / splitStaked * 100).toFixed(1) : '0.0';
+      return `${emoji} **${label}**: ${won}-${bets.length - won} (${wr}%) · ROI ${roi}% · ${pnlFmt(splitPnl)}`;
+    };
+    const overLine = splitLine('OVER', overBets, '🟢');
+    const underLine = splitLine('UNDER', underBets, '🔴');
+    if (overLine || underLine) {
+      embeds.push({
+        title: '↕️ Over vs Under',
+        description: [overLine, underLine].filter(Boolean).join('\n'),
+        color: 0x6366f1,
+      });
+    }
+  }
+
+  // Home vs Away split
+  if (settledValue.length >= 10) {
+    // Infer from bet data — check if we stored home/away info
+    const homeBets = settledValue.filter(b => b.is_home === true);
+    const awayBets = settledValue.filter(b => b.is_home === false);
+    if (homeBets.length >= 3 && awayBets.length >= 3) {
+      const splitLine2 = (label, bets, emoji) => {
+        const won = bets.filter(b => b.status === 'won').length;
+        const wr = (won / bets.length * 100).toFixed(1);
+        const splitPnl = bets.reduce((s, b) => s + (b.pnl || 0), 0);
+        const splitStaked = bets.reduce((s, b) => s + b.stake, 0);
+        const roi = splitStaked ? (splitPnl / splitStaked * 100).toFixed(1) : '0.0';
+        return `${emoji} **${label}**: ${won}-${bets.length - won} (${wr}%) · ROI ${roi}% · ${pnlFmt(splitPnl)}`;
+      };
+      embeds.push({
+        title: '🏠 Home vs Away',
+        description: splitLine2('Home', homeBets, '🏠') + '\n' + splitLine2('Away', awayBets, '✈️'),
+        color: 0xf97316,
+      });
+    }
+  }
+
   // Recommendations based on data
   if (settledValue.length >= 20) {
     const recs = [];
@@ -3704,6 +3834,61 @@ app.get('/api/cron/newsletter', async (req, res) => {
         <td style="padding:6px 12px;border-bottom:1px solid #e2e8f0;text-align:right;color:${pnl >= 0 ? '#16a34a' : '#dc2626'}">${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)}</td></tr>`;
     }).filter(Boolean).join('');
 
+    // Margin analysis for email
+    const emailSettled = allValue.filter(b => b.status === 'won' || b.status === 'lost');
+    const emailWithMargin = emailSettled.filter(b => b.actual_result != null && b.line != null);
+    const emailCalcMargin = (b) => {
+      const actual = +b.actual_result, line = +b.line;
+      return b.direction === 'over' ? actual - line : line - actual;
+    };
+    const emailWonBets = emailWithMargin.filter(b => b.status === 'won');
+    const emailLostBets = emailWithMargin.filter(b => b.status === 'lost');
+    const emailAvgWonMargin = emailWonBets.length ? (emailWonBets.reduce((s, b) => s + emailCalcMargin(b), 0) / emailWonBets.length).toFixed(1) : '0';
+    const emailAvgLostMargin = emailLostBets.length ? (emailLostBets.reduce((s, b) => s + emailCalcMargin(b), 0) / emailLostBets.length).toFixed(1) : '0';
+    const emailCover1 = emailWonBets.filter(b => emailCalcMargin(b) >= 1).length;
+    const emailCover3 = emailWonBets.filter(b => emailCalcMargin(b) >= 3).length;
+    const emailCover5 = emailWonBets.filter(b => emailCalcMargin(b) >= 5).length;
+
+    // Best/worst bets of the day for email
+    const ySettledMargin = yesterdayValue.filter(b => (b.status === 'won' || b.status === 'lost') && b.actual_result != null);
+    const ySorted = [...ySettledMargin].sort((a, b) => emailCalcMargin(b) - emailCalcMargin(a));
+    const emailBest3 = ySorted.slice(0, 3);
+    const emailWorst3 = ySorted.slice(-3).reverse();
+
+    // Edge accuracy for email
+    const emailEdgeTiers = [
+      { label: '10%+ Edge', min: 10, max: Infinity },
+      { label: '5-10% Edge', min: 5, max: 10 },
+      { label: '2-5% Edge', min: 2, max: 5 },
+      { label: '<2% Edge', min: 0, max: 2 },
+    ];
+    const edgeRows = emailEdgeTiers.map(t => {
+      const inTier = emailSettled.filter(b => { const e = Math.abs(b.edge || 0); return e >= t.min && e < t.max; });
+      if (!inTier.length) return '';
+      const w = inTier.filter(b => b.status === 'won').length;
+      const tPnl = inTier.reduce((s, b) => s + (b.pnl || 0), 0);
+      return `<tr><td style="padding:6px 12px;border-bottom:1px solid #e2e8f0;">${t.label}</td>
+        <td style="padding:6px 12px;border-bottom:1px solid #e2e8f0;text-align:center;">${w}-${inTier.length - w}</td>
+        <td style="padding:6px 12px;border-bottom:1px solid #e2e8f0;text-align:center;">${(w / inTier.length * 100).toFixed(0)}%</td>
+        <td style="padding:6px 12px;border-bottom:1px solid #e2e8f0;text-align:right;color:${tPnl >= 0 ? '#16a34a' : '#dc2626'}">${tPnl >= 0 ? '+' : ''}$${tPnl.toFixed(2)}</td></tr>`;
+    }).filter(Boolean).join('');
+
+    // Over vs Under for email
+    const emailOver = emailSettled.filter(b => b.direction === 'over');
+    const emailUnder = emailSettled.filter(b => b.direction === 'under');
+    const dirRow = (label, bets) => {
+      if (!bets.length) return '';
+      const w = bets.filter(b => b.status === 'won').length;
+      const dPnl = bets.reduce((s, b) => s + (b.pnl || 0), 0);
+      const dStaked = bets.reduce((s, b) => s + b.stake, 0);
+      const roi = dStaked ? (dPnl / dStaked * 100).toFixed(1) : '0.0';
+      return `<tr><td style="padding:6px 12px;border-bottom:1px solid #e2e8f0;">${label}</td>
+        <td style="padding:6px 12px;border-bottom:1px solid #e2e8f0;text-align:center;">${w}-${bets.length - w}</td>
+        <td style="padding:6px 12px;border-bottom:1px solid #e2e8f0;text-align:center;">${(w / bets.length * 100).toFixed(0)}%</td>
+        <td style="padding:6px 12px;border-bottom:1px solid #e2e8f0;text-align:center;">${roi}%</td>
+        <td style="padding:6px 12px;border-bottom:1px solid #e2e8f0;text-align:right;color:${dPnl >= 0 ? '#16a34a' : '#dc2626'}">${dPnl >= 0 ? '+' : ''}$${dPnl.toFixed(2)}</td></tr>`;
+    };
+
     // Yesterday's pick-by-pick results
     const fmtOdds = o => o > 0 ? `+${o}` : `${o}`;
     const pickRows = yesterdayValue.filter(b => b.status !== 'open').map(b => {
@@ -3826,6 +4011,64 @@ app.get('/api/cron/newsletter', async (req, res) => {
         <th style="padding:8px 12px;text-align:right;font-weight:600;color:#64748b;border-bottom:2px solid #e2e8f0;">P&L</th>
       </tr></thead>
       <tbody>${confRows}</tbody>
+    </table>
+  </div>
+
+  <!-- MARGIN ANALYSIS -->
+  <div style="padding:24px;background:#f8fafc;border-top:1px solid #e2e8f0;">
+    <div style="font-size:16px;font-weight:700;color:#1e293b;margin-bottom:12px;">Margin Analysis</div>
+    <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:16px;">
+      <tr>
+        <td style="padding:8px 0;color:#64748b;">Avg Win Margin</td>
+        <td style="padding:8px 0;text-align:right;font-weight:700;color:#16a34a;">+${emailAvgWonMargin}</td>
+      </tr>
+      <tr>
+        <td style="padding:8px 0;color:#64748b;">Avg Loss Margin</td>
+        <td style="padding:8px 0;text-align:right;font-weight:700;color:#dc2626;">${emailAvgLostMargin}</td>
+      </tr>
+      <tr><td style="padding:8px 0;color:#64748b;">Won by 1+</td><td style="padding:8px 0;text-align:right;font-weight:700;">${emailCover1} (${(emailCover1/Math.max(emailWonBets.length,1)*100).toFixed(0)}%)</td></tr>
+      <tr><td style="padding:8px 0;color:#64748b;">Won by 3+</td><td style="padding:8px 0;text-align:right;font-weight:700;">${emailCover3} (${(emailCover3/Math.max(emailWonBets.length,1)*100).toFixed(0)}%)</td></tr>
+      <tr><td style="padding:8px 0;color:#64748b;">Won by 5+</td><td style="padding:8px 0;text-align:right;font-weight:700;">${emailCover5} (${(emailCover5/Math.max(emailWonBets.length,1)*100).toFixed(0)}%)</td></tr>
+    </table>
+    ${emailBest3.length ? `<div style="font-size:13px;font-weight:600;color:#1e293b;margin-bottom:6px;">Best Bets Today</div>
+    <div style="font-size:12px;color:#475569;margin-bottom:12px;">${emailBest3.map(b => {
+      const m = emailCalcMargin(b);
+      return `🔥 ${b.player_name} ${b.direction === 'over' ? '▲' : '▼'} ${b.line} ${(MKT_LABELS[b.market]||b.market)} — Actual: ${b.actual_result} (${m >= 0 ? '+' : ''}${m.toFixed(1)})`;
+    }).join('<br>')}</div>` : ''}
+    ${emailWorst3.length ? `<div style="font-size:13px;font-weight:600;color:#1e293b;margin-bottom:6px;">Worst Bets Today</div>
+    <div style="font-size:12px;color:#475569;">${emailWorst3.map(b => {
+      const m = emailCalcMargin(b);
+      return `💀 ${b.player_name} ${b.direction === 'over' ? '▲' : '▼'} ${b.line} ${(MKT_LABELS[b.market]||b.market)} — Actual: ${b.actual_result} (${m >= 0 ? '+' : ''}${m.toFixed(1)})`;
+    }).join('<br>')}</div>` : ''}
+  </div>
+
+  <!-- EDGE ACCURACY -->
+  ${edgeRows ? `<div style="padding:24px;border-top:1px solid #e2e8f0;">
+    <div style="font-size:16px;font-weight:700;color:#1e293b;margin-bottom:4px;">Edge Accuracy</div>
+    <div style="font-size:12px;color:#94a3b8;margin-bottom:12px;">Higher edge should correlate with higher win rate</div>
+    <table style="width:100%;border-collapse:collapse;font-size:12px;">
+      <thead><tr style="background:#f8fafc;">
+        <th style="padding:8px 12px;text-align:left;font-weight:600;color:#64748b;border-bottom:2px solid #e2e8f0;">Edge Tier</th>
+        <th style="padding:8px 12px;text-align:center;font-weight:600;color:#64748b;border-bottom:2px solid #e2e8f0;">Record</th>
+        <th style="padding:8px 12px;text-align:center;font-weight:600;color:#64748b;border-bottom:2px solid #e2e8f0;">Win %</th>
+        <th style="padding:8px 12px;text-align:right;font-weight:600;color:#64748b;border-bottom:2px solid #e2e8f0;">P&L</th>
+      </tr></thead>
+      <tbody>${edgeRows}</tbody>
+    </table>
+  </div>` : ''}
+
+  <!-- OVER VS UNDER -->
+  <div style="padding:24px;background:#f8fafc;border-top:1px solid #e2e8f0;">
+    <div style="font-size:16px;font-weight:700;color:#1e293b;margin-bottom:12px;">Over vs Under</div>
+    <table style="width:100%;border-collapse:collapse;font-size:12px;">
+      <thead><tr>
+        <th style="padding:8px 12px;text-align:left;font-weight:600;color:#64748b;border-bottom:2px solid #e2e8f0;">Direction</th>
+        <th style="padding:8px 12px;text-align:center;font-weight:600;color:#64748b;border-bottom:2px solid #e2e8f0;">Record</th>
+        <th style="padding:8px 12px;text-align:center;font-weight:600;color:#64748b;border-bottom:2px solid #e2e8f0;">Win %</th>
+        <th style="padding:8px 12px;text-align:center;font-weight:600;color:#64748b;border-bottom:2px solid #e2e8f0;">ROI</th>
+        <th style="padding:8px 12px;text-align:right;font-weight:600;color:#64748b;border-bottom:2px solid #e2e8f0;">P&L</th>
+      </tr></thead>
+      <tbody>${dirRow('OVER ▲', emailOver)}${dirRow('UNDER ▼', emailUnder)}</tbody>
     </table>
   </div>
 
