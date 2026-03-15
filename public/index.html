@@ -4620,7 +4620,7 @@ function renderAlerts(){
   const grid=document.getElementById('vaGrid');
 
   if(!alerts.length){
-    grid.innerHTML=`<div style="padding:48px;text-align:center;color:var(--t3);font-size:13px;">No value alerts at the <b>${S.customMinVS||t.label}</b> level.<br><br>Minimum value score required: ${effectiveMinVS}/100<br><br>Try lowering the threshold or wait for real stats to finish loading.</div>`;
+    grid.innerHTML=`<div style="display:flex;align-items:center;justify-content:center;min-height:40vh;text-align:center;color:var(--t3);font-size:13px;"><div>No value alerts at the <b>${S.customMinVS||t.label}</b> level.<br><br>Minimum value score required: ${effectiveMinVS}/100<br><br>Try lowering the threshold or wait for real stats to finish loading.</div></div>`;
     return;
   }
   window._vaAlerts=alerts;
