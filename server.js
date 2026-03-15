@@ -1647,7 +1647,13 @@ app.get('/api/cron/refresh-stats', async (req, res) => {
     if (!oddsPlayers || !oddsPlayers.length) {
       return res.status(503).json({ error: 'No odds data in Supabase — run refresh-odds first' });
     }
-    const playerNames = [...new Set(oddsPlayers.map(p => p.name).filter(Boolean))];
+    const playerSet = new Set(oddsPlayers.map(p => p.name).filter(Boolean));
+
+    // Also include players from ungraded agent bets (so grading can find their stats)
+    const { data: ungradedBets } = await supabase.from('agent_bets').select('player_name').is('result', null);
+    if (ungradedBets) ungradedBets.forEach(b => { if (b.player_name) playerSet.add(b.player_name); });
+
+    const playerNames = [...playerSet];
 
     // Batch-read existing records (metadata only — no game_log to keep query fast)
     const { data: existingRecords } = await supabase
