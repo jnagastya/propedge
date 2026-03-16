@@ -34,7 +34,7 @@
     { "path": "/api/cron/refresh-game-lines", "schedule": "0 22 * * 0,6" },
     { "path": "/api/cron/refresh-game-lines", "schedule": "0 1 * * 0,1" },
 
-    { "path": "/api/cron/agent-bet", "schedule": "30 23 * * 1-5" },
+    { "path": "/api/cron/agent-bet", "schedule": "15 23 * * 1-5" },
     { "path": "/api/cron/agent-bet", "schedule": "45 17 * * 0,6" },
 
     { "path": "/api/cron/tipoff-snapshot", "schedule": "0 18 * * 0,6" },

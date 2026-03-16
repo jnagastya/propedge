@@ -1936,6 +1936,9 @@ app.get('/api/injury-impact', async (req, res) => {
       // Filter teammate games to current team only — require team field to avoid cross-team pollution
       const tmPlayed = tmLog.filter(g => parseInt(g.min || '0') > 0 && g.team === teamFilter);
       if (tmPlayed.length < 5) continue;
+      // Skip low-minutes players — their absence doesn't meaningfully impact teammates
+      const tmMinAvgCheck = tmPlayed.reduce((s, g) => s + (parseFloat(g.min) || 0), 0) / tmPlayed.length;
+      if (tmMinAvgCheck < 15) continue;
 
       const tmDnpDates = new Set(), tmPlayedDates = new Set();
       for (const g of tmLog) {
@@ -2052,6 +2055,8 @@ app.get('/api/injury-impact', async (req, res) => {
       if (!tmLog?.length) { skipped.push({ name: inj.player, team: inj.team, reason: 'no game log — upload player ID' }); continue; }
       const tmPlayed = tmLog.filter(g => parseInt(g.min || '0') > 0 && g.team === teamFilter);
       if (tmPlayed.length < 5) { skipped.push({ name: inj.player, team: inj.team, reason: `only ${tmPlayed.length} games on team (need 5)` }); continue; }
+      const _tmMinAvg = tmPlayed.reduce((s, g) => s + (parseFloat(g.min) || 0), 0) / tmPlayed.length;
+      if (_tmMinAvg < 15) { skipped.push({ name: inj.player, team: inj.team, reason: `avg ${_tmMinAvg.toFixed(1)} min/game (need 15)` }); continue; }
       skipped.push({ name: inj.player, team: inj.team, reason: 'impact < 3% or already baked in' });
     }
 
@@ -2296,6 +2301,8 @@ app.post('/api/injury-impact-batch', async (req, res) => {
 
           const tmPlayed = tmLog.filter(g => parseInt(g.min || '0') > 0 && g.team === teamFilter);
           if (tmPlayed.length < 5) continue;
+          const tmMinAvgCheck = tmPlayed.reduce((s, g) => s + (parseFloat(g.min) || 0), 0) / tmPlayed.length;
+          if (tmMinAvgCheck < 15) continue;
 
           const tmDnpDates = new Set(), tmPlayedDates = new Set();
           for (const g of tmLog) {
@@ -2385,6 +2392,8 @@ app.post('/api/injury-impact-batch', async (req, res) => {
           if (!tmLog?.length) { skipped.push({ name: inj.player, team: inj.team, reason: 'no game log' }); continue; }
           const tmPlayedF = tmLog.filter(g => parseInt(g.min || '0') > 0 && g.team === teamFilter);
           if (tmPlayedF.length < 5) { skipped.push({ name: inj.player, team: inj.team, reason: `only ${tmPlayedF.length} games on team (need 5)` }); continue; }
+          const _tmMinAvgF = tmPlayedF.reduce((s, g) => s + (parseFloat(g.min) || 0), 0) / tmPlayedF.length;
+          if (_tmMinAvgF < 15) { skipped.push({ name: inj.player, team: inj.team, reason: `avg ${_tmMinAvgF.toFixed(1)} min/game (need 15)` }); continue; }
           skipped.push({ name: inj.player, team: inj.team, reason: 'impact < 3% or baked in' });
         }
 
@@ -4901,6 +4910,9 @@ function serverApplyInjuryImpact(playerName, playerGameLog, playerTeam, market, 
     // Filter teammate games to current team only — require team field to avoid cross-team pollution from trades
     const tmPlayed = tmLog.filter(g => parseInt(g.min || '0') > 0 && g.team === playerTeam);
     if (tmPlayed.length < 5) continue;
+    // Skip low-minutes players — their absence doesn't meaningfully impact teammates
+    const tmMinAvgCheck = tmPlayed.reduce((s, g) => s + (parseFloat(g.min) || 0), 0) / tmPlayed.length;
+    if (tmMinAvgCheck < 15) continue;
 
     // Build DNP/played date sets for this teammate (current team only)
     const tmDnpDates = new Set();
