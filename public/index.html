@@ -2968,8 +2968,13 @@ function renderTable(){
   if(!S.data||!S.data.length){renderSkeletons();return;}
   let d=[...S.data];
   const now=new Date();
-  const _startedProps=d.filter(p=>p.gameTime&&new Date(p.gameTime)<=now);
+  const _allStarted=d.filter(p=>p.gameTime&&new Date(p.gameTime)<=now);
   d=d.filter(p=>!p.gameTime||new Date(p.gameTime)>now);
+  // Split started into in-progress vs completed using scores data
+  const _completedGames=new Set((S.scores||[]).filter(g=>g.completed).map(g=>`${g.away}|${g.home}`));
+  const _isPropCompleted=p=>_completedGames.has(`${p.awayTeam}|${p.homeTeam}`)||_completedGames.has(`${p.homeTeam}|${p.awayTeam}`);
+  const _startedProps=_allStarted.filter(p=>!_isPropCompleted(p));
+  const _completedProps=_allStarted.filter(p=>_isPropCompleted(p));
   const q=(document.getElementById('searchIn').value||'').toLowerCase();
   if(q)d=d.filter(p=>p.name.toLowerCase().includes(q)||(p.team||'').toLowerCase().includes(q)||(p.matchup||'').toLowerCase().includes(q));
   if(S.gameFilter){
@@ -3085,31 +3090,46 @@ function renderTable(){
   // ── Started / In-Progress props (collapsible) ──
   const startedSection=document.getElementById('startedPropsSection');
   if(startedSection){
-    let sp=[..._startedProps];
-    if(q)sp=sp.filter(p=>p.name.toLowerCase().includes(q)||(p.team||'').toLowerCase().includes(q)||(p.matchup||'').toLowerCase().includes(q));
-    if(S.gameFilter){const[fAway,fHome]=S.gameFilter.split(' @ ');sp=sp.filter(p=>p.matchup&&p.matchup.includes(fAway)&&p.matchup.includes(fHome));}
-    if(_smartMinOn||_dnpAdjOn||_injuryImpactOn||_teamStatsOn) sp=sp.map(p=>applyAllAdjustments(p));
-    sp.sort(sf[S.sort]||sf.edge);
-    if(!sp.length){startedSection.innerHTML='';} else {
-      startedSection.innerHTML=`<div style="margin-top:16px;">
+    const _filterStarted=(list)=>{
+      let f=[...list];
+      if(q)f=f.filter(p=>p.name.toLowerCase().includes(q)||(p.team||'').toLowerCase().includes(q)||(p.matchup||'').toLowerCase().includes(q));
+      if(S.gameFilter){const[fAway,fHome]=S.gameFilter.split(' @ ');f=f.filter(p=>p.matchup&&p.matchup.includes(fAway)&&p.matchup.includes(fHome));}
+      if(_smartMinOn||_dnpAdjOn||_injuryImpactOn||_teamStatsOn) f=f.map(p=>applyAllAdjustments(p));
+      f.sort(sf[S.sort]||sf.edge);
+      return f;
+    };
+    const sp=_filterStarted(_startedProps);
+    const cp=_filterStarted(_completedProps);
+    const _renderCollapsibleProps=(list,label,badge,badgeColor,desc)=>{
+      if(!list.length) return '';
+      return `<div style="margin-top:16px;">
         <div onclick="const c=this.nextElementSibling;c.style.display=c.style.display==='none'?'':'none';this.querySelector('.started-arrow').textContent=c.style.display==='none'?'▶':'▼'" style="cursor:pointer;display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--bg2);border:1px solid var(--bd);border-radius:8px;user-select:none;">
           <span class="started-arrow" style="font-size:10px;color:var(--t3);">▶</span>
-          <span style="font-size:12px;font-weight:700;color:var(--t2);">In Progress (${sp.length})</span>
-          <span style="font-size:10px;color:var(--t3);margin-left:auto;">Games already started</span>
+          <span style="font-size:12px;font-weight:700;color:var(--t2);">${label} (${list.length})</span>
+          <span style="font-size:10px;color:var(--t3);margin-left:auto;">${desc}</span>
         </div>
         <div style="display:none;margin-top:8px;opacity:.7;">
-          <table class="props-table" style="width:100%;"><tbody>${sp.map((p,i)=>{
+          <table class="props-table" style="width:100%;"><tbody>${list.map((p,i)=>{
             const edge=p.edge||0;const ec=edge>3?'pos':edge<-3?'neg':'flat';const es=edge>0?'+':'';
             const hs=getHeadshot(p.name);const initials=p.name.split(' ').map(n=>n[0]).join('').substring(0,2);
             const avInner=hs?`<img src="${hs}" onerror="headshotError(this,'${initials}')" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" alt="">`:`<span style="font-size:12px;font-weight:700;color:var(--t3)">${initials}</span>`;
             const oP=p.hitRate||50,uP=100-oP;
             const vs=valueScore(p);const dirEV=getDirectionalEV(p);
+            const isValue=vs>=30&&Math.abs(edge)>4&&(p.confidence||0)>=55&&dirEV>3;
             const evColor=dirEV>=10?'var(--g)':dirEV>=3?'var(--a)':dirEV>=0?'var(--t2)':'var(--r)';
+            const cc=(p.confidence||0)>=70?'var(--g)':(p.confidence||0)>=50?'var(--a)':'var(--r)';
             const overFmt=p.overOdds?(p.overOdds>0?'+':'')+p.overOdds:'—';
             const underFmt=p.underOdds?(p.underOdds>0?'+':'')+p.underOdds:'—';
+            const lean=leanInfo(edge);
             return`<tr style="position:relative;">
-              <td><div class="av-c"><div class="av">${avInner}</div></div></td>
-              <td><div class="pn">${p.name} <span style="font-size:9px;font-weight:700;padding:2px 5px;border-radius:4px;background:rgba(245,158,11,.15);color:#f59e0b;border:1px solid rgba(245,158,11,.3);">LIVE</span></div><div class="tm">${p.team||''} · ${(p.matchup||'').substring(0,20)}</div></td>
+              <td><div class="pc">
+                <div class="av">${avInner}</div>
+                <div class="pi">
+                  <span class="pn">${p.name} <span style="font-size:9px;font-weight:700;padding:2px 5px;border-radius:4px;background:${badgeColor};color:${badge==='LIVE'?'#f59e0b':'var(--t3)'};border:1px solid ${badgeColor.replace('.15','.3')};">${badge}</span></span>
+                  <span class="pm"><span class="ptb">${p.team||'—'}</span><span>${p.position||''}</span></span>
+                </div>
+              </div></td>
+              <td class="col-mob-hide" style="color:var(--t2);font-size:11px;">${(p.matchup||'—').replace(/^\?\?\?[·\s·]*/,'').substring(0,26)||'—'}</td>
               <td style="font-weight:700;font-size:14px;">${p.line}</td>
               <td><div class="odds-cell"><span class="odd over">O ${overFmt}</span><span class="odd under">U ${underFmt}</span></div></td>
               <td class="col-sm-hide" style="font-weight:600;">${p.avg}</td>
@@ -3117,12 +3137,22 @@ function renderTable(){
               <td class="col-mob-hide"><div class="ouv"><div class="oub"><div class="ouo" style="width:${oP}%"></div><div class="ouu" style="width:${uP}%"></div></div><span class="oul">${oP}/${uP}</span></div></td>
               <td class="col-mob-hide"><div class="spk">${mkSpk(p.l10,p.line)}</div></td>
               <td><span class="et ${ec}">${es}${edge.toFixed(1)}%</span></td>
+              <td class="col-mob-hide"><div class="lean-wrap"><span class="lean-lbl ${lean.cls}">${lean.label}</span><div class="lean-track"><div class="lean-dot" style="left:${lean.pct}%"></div></div></div></td>
+              <td class="col-sm-hide"><div class="cb-wrap"><div class="cb-bar"><div class="cb-fill" style="width:${p.confidence||0}%;background:${cc};"></div></div><span class="cb-l" style="color:${cc}">${p.confidence||0}</span></div></td>
               <td class="col-sm-hide"><span style="font-size:11px;font-weight:700;color:${evColor}">${dirEV>=0?'+':''}${dirEV.toFixed(1)}%</span></td>
-              <td><span style="font-size:12px;font-weight:700;color:${vs>=40?'var(--g)':vs>=25?'var(--a)':vs>=15?'var(--t2)':'var(--r)'}">${vs}</span></td>
+              <td>${(()=>{const vsColor=vs>=40?'var(--g)':vs>=25?'var(--a)':vs>=15?'var(--t2)':'var(--r)';if(isValue)return'<span class="val-badge">⚡ '+vs+'</span>';return'<span style="font-size:12px;font-weight:700;color:'+vsColor+'">'+vs+'</span>';})()}</td>
+              <td><button class="bet-btn" onclick="event.stopPropagation();openBetModal(${JSON.stringify(p).replace(/"/g,'&quot;')})">🎲 Bet</button></td>
+              <td class="col-sm-hide"><button class="fav-btn${favorites.has(p.name)?' on':''}" onclick="event.stopPropagation();toggleFav('${p.name.replace(/'/g,"\\'")}',event)">${favorites.has(p.name)?'⭐':'☆'}</button></td>
+              ${S.scnOn?`<td></td>`:''}
             </tr>`;
           }).join('')}</tbody></table>
         </div>
       </div>`;
+    };
+    if(!sp.length && !cp.length){ startedSection.innerHTML=''; }
+    else { startedSection.innerHTML=
+      _renderCollapsibleProps(sp,'In Progress','LIVE','rgba(245,158,11,.15)','Games in progress')+
+      _renderCollapsibleProps(cp,'Completed','FINAL','rgba(148,163,184,.15)','Games finished');
     }
   }
 }
@@ -4942,7 +4972,11 @@ function renderAlerts(){
   const _now=new Date();
   const _allAlertData=getAlertData();
   const _rawAlerts=_allAlertData.filter(p=>!p.gameTime||new Date(p.gameTime)>_now);
-  const _startedAlertData=_allAlertData.filter(p=>p.gameTime&&new Date(p.gameTime)<=_now);
+  const _allStartedAlerts=_allAlertData.filter(p=>p.gameTime&&new Date(p.gameTime)<=_now);
+  const _alertCompletedGames=new Set((S.scores||[]).filter(g=>g.completed).map(g=>`${g.away}|${g.home}`));
+  const _isAlertCompleted=p=>_alertCompletedGames.has(`${p.awayTeam}|${p.homeTeam}`)||_alertCompletedGames.has(`${p.homeTeam}|${p.awayTeam}`);
+  const _startedAlertData=_allStartedAlerts.filter(p=>!_isAlertCompleted(p));
+  const _completedAlertData=_allStartedAlerts.filter(p=>_isAlertCompleted(p));
   window._lastAlertPlayers=_rawAlerts; // for injury impact fetcher
   let alerts=_rawAlerts
     .map(p=>{
@@ -5169,28 +5203,29 @@ function renderAlerts(){
     </div>`;
   }).join('');
 
-  // ── Started / In-Progress alerts (collapsible) ──
-  let startedAlerts=_startedAlertData
-    .map(p=>{const adj=applyAllAdjustments(p);return{...adj,vs:valueScore(adj),_dirEV:getDirectionalEV(adj)};})
-    .filter(p=>p.vs>=effectiveMinVS&&Math.abs(p.edge||0)>=2&&p._dirEV>0);
-  if(alertDirF==='over') startedAlerts=startedAlerts.filter(p=>(p.edge||0)>=0);
-  else if(alertDirF==='under') startedAlerts=startedAlerts.filter(p=>(p.edge||0)<0);
-  if(alertConfF) startedAlerts=startedAlerts.filter(p=>(p.confidence||0)>=alertConfF);
-  if(alertMktF!=='all') startedAlerts=startedAlerts.filter(p=>(p.market||S.market)===alertMktF);
-  startedAlerts.sort(sortFns[alertSort]||sortFns.vs);
-  if(startedAlerts.length){
-    const startedBase=alerts.length; // offset for _vaAlerts index
-    window._vaAlerts=[...alerts,...startedAlerts];
-    grid.innerHTML+=`<div style="grid-column:1/-1;margin-top:16px;">
+  // ── Started / Completed alerts (collapsible) ──
+  const _filterAlertList=(list)=>{
+    let f=list.map(p=>{const adj=applyAllAdjustments(p);return{...adj,vs:valueScore(adj),_dirEV:getDirectionalEV(adj)};})
+      .filter(p=>p.vs>=effectiveMinVS&&Math.abs(p.edge||0)>=2&&p._dirEV>0);
+    if(alertDirF==='over') f=f.filter(p=>(p.edge||0)>=0);
+    else if(alertDirF==='under') f=f.filter(p=>(p.edge||0)<0);
+    if(alertConfF) f=f.filter(p=>(p.confidence||0)>=alertConfF);
+    if(alertMktF!=='all') f=f.filter(p=>(p.market||S.market)===alertMktF);
+    f.sort(sortFns[alertSort]||sortFns.vs);
+    return f;
+  };
+  const _renderAlertSection=(list,label,badge,badgeColor,desc,baseIdx)=>{
+    if(!list.length) return '';
+    return `<div style="grid-column:1/-1;margin-top:16px;">
       <div onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'':'none';this.querySelector('.started-arrow').textContent=this.nextElementSibling.style.display==='none'?'▶':'▼'" style="cursor:pointer;display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--bg2);border:1px solid var(--bd);border-radius:8px;user-select:none;">
         <span class="started-arrow" style="font-size:10px;color:var(--t3);">▶</span>
-        <span style="font-size:12px;font-weight:700;color:var(--t2);">In Progress (${startedAlerts.length})</span>
-        <span style="font-size:10px;color:var(--t3);margin-left:auto;">Games already started</span>
+        <span style="font-size:12px;font-weight:700;color:var(--t2);">${label} (${list.length})</span>
+        <span style="font-size:10px;color:var(--t3);margin-left:auto;">${desc}</span>
       </div>
       <div style="display:none;margin-top:8px;opacity:.7;">
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:12px;">
-        ${startedAlerts.map((p,si)=>{
-          const rank=startedBase+si;
+        ${list.map((p,si)=>{
+          const rank=baseIdx+si;
           const isOver=p.edge>0;const dir=isOver?'OVER':'UNDER';
           const hs=getHeadshot(p.name);const initials=p.name.split(' ').map(n=>n[0]).join('').substring(0,2);
           const avHTML=hs?`<img src="${hs}" onerror="headshotError(this,'${initials}')" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" alt="">`:`${initials}`;
@@ -5202,7 +5237,7 @@ function renderAlerts(){
           const dirModelProbPct=Math.round((isOver?rawModelProb:1-rawModelProb)*100);
           const cc2=(p.confidence||0)>=70?'var(--g)':(p.confidence||0)>=50?'var(--a)':'var(--r)';
           return`<div class="va-card ${strength}" onclick="openAlertDetail(_vaAlerts[${rank}])" style="cursor:pointer;position:relative;">
-            <div style="position:absolute;top:8px;right:10px;font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;background:rgba(245,158,11,.15);color:#f59e0b;border:1px solid rgba(245,158,11,.3);">LIVE</div>
+            <div style="position:absolute;top:8px;right:10px;font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;background:${badgeColor};color:${badge==='LIVE'?'#f59e0b':'var(--t3)'};border:1px solid ${badgeColor.replace('.15)','.3)')};">${badge}</div>
             <div class="va-top"><div class="va-av">${avHTML}</div><div class="va-info"><div class="va-name">${p.name}${showMktTag&&p.market?`<span class="va-mkt-tag">${MKT_SHORT[p.market]||p.market}</span>`:''}</div><div class="va-meta">${p.team||''} · ${(p.matchup||'').substring(0,25)}</div></div>
             <div class="va-right"><div class="va-edge-big ${evPct>0?'pos':'neg'}">${evPct>0?'+':''}${evPct}%</div><div class="va-direction ${isOver?'over':'under'}">${isOver?'▲':'▼'} BET ${dir}</div></div></div>
             <div style="font-size:13px;font-weight:700;color:var(--b-text);margin-bottom:8px;">${dir} ${p.line} ${MKT_SHORT[p.market||S.market]||''} · ${betOddsFmt}</div>
@@ -5218,7 +5253,13 @@ function renderAlerts(){
         </div>
       </div>
     </div>`;
-  }
+  };
+  const startedAlerts=_filterAlertList(_startedAlertData);
+  const completedAlerts=_filterAlertList(_completedAlertData);
+  const allExtra=[...startedAlerts,...completedAlerts];
+  if(allExtra.length) window._vaAlerts=[...alerts,...allExtra];
+  grid.innerHTML+=_renderAlertSection(startedAlerts,'In Progress','LIVE','rgba(245,158,11,.15)','Games in progress',alerts.length);
+  grid.innerHTML+=_renderAlertSection(completedAlerts,'Completed','FINAL','rgba(148,163,184,.15)','Games finished',alerts.length+startedAlerts.length);
 }
 
 // ── Sparkline ──
@@ -7034,7 +7075,10 @@ async function renderGameLines() {
   loading.style.display = 'none';
   const allInjuries = await getInjuries() || [];
   const now = new Date();
-  const _startedGames = [...games].filter(g => g.commence && new Date(g.commence) <= now).sort((a, b) => new Date(a.commence) - new Date(b.commence));
+  const _allStartedGL = [...games].filter(g => g.commence && new Date(g.commence) <= now).sort((a, b) => new Date(a.commence) - new Date(b.commence));
+  const _glCompletedSet=new Set((S.scores||[]).filter(g=>g.completed).map(g=>`${g.away}|${g.home}`));
+  const _startedGames = _allStartedGL.filter(g=>!_glCompletedSet.has(`${g.away}|${g.home}`));
+  const _completedGames = _allStartedGL.filter(g=>_glCompletedSet.has(`${g.away}|${g.home}`));
   const sorted = [...games].filter(g => !g.commence || new Date(g.commence) > now).sort((a, b) => new Date(a.commence) - new Date(b.commence));
   // Store filtered list for modal index alignment
   window._glSorted = sorted;
@@ -7179,47 +7223,52 @@ async function renderGameLines() {
     </div>`;
   }).join('');
 
-  // ── Started / In-Progress games (collapsible) ──
-  if(_startedGames.length){
-    grid.innerHTML+=`<div style="grid-column:1/-1;margin-top:16px;">
-      <div onclick="const c=this.nextElementSibling;c.style.display=c.style.display==='none'?'':'none';this.querySelector('.started-arrow').textContent=c.style.display==='none'?'▶':'▼'" style="cursor:pointer;display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--bg2);border:1px solid var(--bd);border-radius:8px;user-select:none;">
-        <span class="started-arrow" style="font-size:10px;color:var(--t3);">▶</span>
-        <span style="font-size:12px;font-weight:700;color:var(--t2);">In Progress (${_startedGames.length})</span>
-        <span style="font-size:10px;color:var(--t3);margin-left:auto;">Games already started</span>
-      </div>
-      <div style="display:none;margin-top:8px;opacity:.7;">
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:14px;">
-        ${_startedGames.map(g=>{
-          const c=glComputeGame(g,ts,allInjuries);
-          const gd=new Date(g.commence);
-          const etStr=gd.toLocaleString('en-US',{hour:'numeric',minute:'2-digit',timeZone:'America/New_York'});
-          const hLogo=getTeamLogo(g.home),aLogo=getTeamLogo(g.away);
-          const hRec=c.hStats?`${c.hStats.w}-${c.hStats.l}`:'';
-          const aRec=c.aStats?`${c.aStats.w}-${c.aStats.l}`:'';
-          return`<div style="background:var(--bg2);border:1px solid var(--bd);border-radius:12px;padding:14px;position:relative;">
-            <div style="position:absolute;top:8px;right:10px;font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;background:rgba(245,158,11,.15);color:#f59e0b;border:1px solid rgba(245,158,11,.3);">LIVE</div>
-            <div style="font-size:10px;color:var(--t3);margin-bottom:8px;">${etStr} ET</div>
-            <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
-              <div style="text-align:center;flex:1;">
-                ${aLogo?`<img src="${aLogo}" style="width:32px;height:32px;object-fit:contain;" alt="">`:''}
-                <div style="font-size:13px;font-weight:700;color:var(--t1);">${g.away}</div>
-                <div style="font-size:10px;color:var(--t3);">${aRec}</div>
-              </div>
-              <div style="font-size:11px;color:var(--t3);font-weight:600;">@</div>
-              <div style="text-align:center;flex:1;">
-                ${hLogo?`<img src="${hLogo}" style="width:32px;height:32px;object-fit:contain;" alt="">`:''}
-                <div style="font-size:13px;font-weight:700;color:var(--t1);">${g.home}</div>
-                <div style="font-size:10px;color:var(--t3);">${hRec}</div>
-              </div>
-            </div>
-            ${c.homeWinProb?`<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--t2);"><span>${g.away} ${(c.awayWinProb*100).toFixed(1)}%</span><span>${g.home} ${(c.homeWinProb*100).toFixed(1)}%</span></div>`:''}
-            ${c.predSpread!=null?`<div style="font-size:11px;color:var(--t3);margin-top:4px;">Spread: ${c.predSpread>0?'+':''}${c.predSpread} · Total: ${c.predTotal||'—'}</div>`:''}
-          </div>`;
-        }).join('')}
-        </div>
-      </div>
-    </div>`;
-  }
+  // ── Started / Completed games (collapsible) ──
+  const _scoreMap={};
+  (S.scores||[]).forEach(s=>{_scoreMap[s.away+'|'+s.home]=s;});
+  const _renderGLSection=(list,label,badge,badgeColor,desc)=>{
+    if(!list.length) return '';
+    const cards=list.map(g=>{
+      const c=glComputeGame(g,ts,allInjuries);
+      const gd=new Date(g.commence);
+      const etStr=gd.toLocaleString('en-US',{hour:'numeric',minute:'2-digit',timeZone:'America/New_York'});
+      const hLogo=getTeamLogo(g.home),aLogo=getTeamLogo(g.away);
+      const hRec=c.hStats?c.hStats.w+'-'+c.hStats.l:'';
+      const aRec=c.aStats?c.aStats.w+'-'+c.aStats.l:'';
+      const sd=_scoreMap[g.away+'|'+g.home];
+      let html='<div style="background:var(--bg2);border:1px solid var(--bd);border-radius:12px;padding:14px;position:relative;">';
+      html+='<div style="position:absolute;top:8px;right:10px;font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;background:'+badgeColor+';color:'+(badge==='LIVE'?'#f59e0b':'var(--t3)')+';border:1px solid '+badgeColor.replace('.15)','.3)')+';">'+badge+'</div>';
+      html+='<div style="font-size:10px;color:var(--t3);margin-bottom:8px;">'+etStr+' ET</div>';
+      html+='<div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">';
+      html+='<div style="text-align:center;flex:1;">';
+      if(aLogo) html+='<img src="'+aLogo+'" style="width:32px;height:32px;object-fit:contain;" alt="">';
+      html+='<div style="font-size:13px;font-weight:700;color:var(--t1);">'+g.away+'</div>';
+      html+='<div style="font-size:10px;color:var(--t3);">'+aRec+'</div>';
+      if(sd) html+='<div style="font-size:16px;font-weight:800;color:var(--t1);margin-top:2px;">'+sd.awayScore+'</div>';
+      html+='</div><div style="font-size:11px;color:var(--t3);font-weight:600;">@</div><div style="text-align:center;flex:1;">';
+      if(hLogo) html+='<img src="'+hLogo+'" style="width:32px;height:32px;object-fit:contain;" alt="">';
+      html+='<div style="font-size:13px;font-weight:700;color:var(--t1);">'+g.home+'</div>';
+      html+='<div style="font-size:10px;color:var(--t3);">'+hRec+'</div>';
+      if(sd) html+='<div style="font-size:16px;font-weight:800;color:var(--t1);margin-top:2px;">'+sd.homeScore+'</div>';
+      html+='</div></div>';
+      if(c.homeWinProb) html+='<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--t2);"><span>'+g.away+' '+(c.awayWinProb*100).toFixed(1)+'%</span><span>'+g.home+' '+(c.homeWinProb*100).toFixed(1)+'%</span></div>';
+      if(c.predSpread!=null) html+='<div style="font-size:11px;color:var(--t3);margin-top:4px;">Spread: '+(c.predSpread>0?'+':'')+c.predSpread+' · Total: '+(c.predTotal||'—')+'</div>';
+      html+='</div>';
+      return html;
+    }).join('');
+    return '<div style="grid-column:1/-1;margin-top:16px;">'+
+      '<div onclick="const c=this.nextElementSibling;c.style.display=c.style.display===\'none\'?\'\':\'none\';this.querySelector(\'.started-arrow\').textContent=c.style.display===\'none\'?\'▶\':\'▼\'" style="cursor:pointer;display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--bg2);border:1px solid var(--bd);border-radius:8px;user-select:none;">'+
+        '<span class="started-arrow" style="font-size:10px;color:var(--t3);">▶</span>'+
+        '<span style="font-size:12px;font-weight:700;color:var(--t2);">'+label+' ('+list.length+')</span>'+
+        '<span style="font-size:10px;color:var(--t3);margin-left:auto;">'+desc+'</span>'+
+      '</div>'+
+      '<div style="display:none;margin-top:8px;opacity:.7;">'+
+        '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:14px;">'+cards+'</div>'+
+      '</div>'+
+    '</div>';
+  };
+  grid.innerHTML+=_renderGLSection(_startedGames,'In Progress','LIVE','rgba(245,158,11,.15)','Games in progress');
+  grid.innerHTML+=_renderGLSection(_completedGames,'Completed','FINAL','rgba(148,163,184,.15)','Games finished');
 }
 
 // ── Game Line Detail Modal ──
