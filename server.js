@@ -1003,7 +1003,7 @@ app.get('/api/odds/scores', async (req, res) => {
     const cached = cacheGet(ck);
     if (cached) return res.json({ data: cached, cached: true });
 
-    const url = `${ODDS_BASE}/sports/basketball_nba/scores?apiKey=${ODDS_KEY}&daysFrom=1`;
+    const url = `${ODDS_BASE}/sports/basketball_nba/scores?apiKey=${ODDS_KEY}&daysFrom=2`;
     const resp = await fetch(url);
     if (!resp.ok) throw new Error(`Scores: ${resp.status}`);
     const raw = await resp.json();
@@ -1018,7 +1018,7 @@ app.get('/api/odds/scores', async (req, res) => {
       commence: g.commence_time,
     }));
 
-    cacheSet(ck, scores, parseInt(process.env.CACHE_TTL_SCORES) || 900);
+    cacheSet(ck, scores, parseInt(process.env.CACHE_TTL_SCORES) || 300);
     res.json({ data: scores, cached: false });
   } catch (err) {
     console.error('Scores error:', err.message);
@@ -2725,16 +2725,20 @@ app.get('/api/cron/refresh-odds', async (req, res) => {
   if (!ODDS_KEY) return res.status(503).json({ error: 'Odds API key not configured' });
 
   try {
-    // Fetch upcoming events
+    // Fetch upcoming events (include recently started games so their props survive in cache)
     const evtResp = await fetch(`${ODDS_BASE}/sports/basketball_nba/events?apiKey=${ODDS_KEY}&regions=us&oddsFormat=american`);
     if (!evtResp.ok) return res.status(502).json({ error: `Events fetch failed: ${evtResp.status}` });
     const events = await evtResp.json();
     const now = new Date();
     const upcoming = events.filter(e => new Date(e.commence_time) > now);
+    // Keep games started within last 14 hours so in-progress/completed props stay in cache
+    const cutoffMs = 14 * 60 * 60 * 1000;
+    const cutoff = new Date(now.getTime() - cutoffMs);
+    const recentlyStarted = events.filter(e => { const ct = new Date(e.commence_time); return ct <= now && ct >= cutoff; });
 
-    if (!upcoming.length) return res.json({ success: true, message: 'No upcoming games', stored: [] });
+    if (!upcoming.length && !recentlyStarted.length) return res.json({ success: true, message: 'No upcoming games', stored: [] });
 
-    // Fetch all games in parallel (fast — fits within 10s Hobby timeout)
+    // Fetch all upcoming games in parallel (fast — fits within 10s Hobby timeout)
     const rawProps = (await Promise.allSettled(upcoming.map(async evt => {
       const pUrl = `${ODDS_BASE}/sports/basketball_nba/events/${evt.id}/odds?apiKey=${ODDS_KEY}&regions=us&markets=${ALL_PROP_MARKETS}&oddsFormat=american`;
       const pResp = await fetch(pUrl);
@@ -2747,11 +2751,13 @@ app.get('/api/cron/refresh-odds', async (req, res) => {
     const prevByBook = {};
     books.forEach((b, i) => { prevByBook[b] = prevData[i]; });
 
+    // Build set of started-game matchups to preserve from previous cache
+    const startedMatchups = new Set(recentlyStarted.map(e => `${teamAbbr(e.away_team)}|${teamAbbr(e.home_team)}`));
+
     const stored = [];
     const writePromises = [];
     for (const book of books) {
       const players = aggregatePlayers(rawProps, book);
-      if (!players.length) continue;
       // Preserve previous lines for movement tracking
       const prevPlayers = prevByBook[book];
       if (prevPlayers && prevPlayers.length) {
@@ -2773,7 +2779,17 @@ app.get('/api/cron/refresh-odds', async (req, res) => {
             }
           }
         }
+        // Carry forward props from started games that are no longer in the upcoming feed
+        const newKeys = new Set(players.map(p => `${p.name}|${p.market}`));
+        for (const pp of prevPlayers) {
+          if (newKeys.has(`${pp.name}|${pp.market}`)) continue;
+          const matchup = `${pp.awayTeam}|${pp.homeTeam}`;
+          if (startedMatchups.has(matchup)) {
+            players.push(pp); // preserve started-game prop
+          }
+        }
       }
+      if (!players.length) continue;
       writePromises.push(sbSetOdds(book, players));
       stored.push({ book, players: players.length });
     }
@@ -2806,7 +2822,9 @@ app.get('/api/cron/refresh-game-lines', async (req, res) => {
     if (!glResp.ok) return res.status(502).json({ error: `Game lines fetch failed: ${glResp.status}` });
 
     const glEvents = await glResp.json();
-    const gameLines = glEvents.filter(e => new Date(e.commence_time) > now).map(evt => {
+    // Include games from last 14 hours so in-progress/completed games stay in cache
+    const glCutoff = new Date(now.getTime() - 14 * 60 * 60 * 1000);
+    const gameLines = glEvents.filter(e => new Date(e.commence_time) >= glCutoff).map(evt => {
       const home = teamAbbr(evt.home_team), away = teamAbbr(evt.away_team);
       const line = { id: evt.id, home, away, commence: evt.commence_time, matchup: `${away} @ ${home}`, books: {} };
       const EXCLUDED = new Set(['bovada', 'betonlineag', 'mybookieag', 'lowvig']);
@@ -2855,6 +2873,19 @@ app.get('/api/cron/refresh-game-lines', async (req, res) => {
       }
       return line;
     });
+
+    // Carry forward started games from previous cache that the API no longer returns
+    const prevGL = await sbGetOdds('game_lines');
+    if (prevGL && prevGL.length) {
+      const newIds = new Set(gameLines.map(g => g.id));
+      for (const pg of prevGL) {
+        if (newIds.has(pg.id)) continue;
+        const ct = new Date(pg.commence);
+        if (ct <= now && ct >= glCutoff) {
+          gameLines.push(pg); // preserve started game
+        }
+      }
+    }
 
     if (gameLines.length) {
       await sbSetOdds('game_lines', gameLines);

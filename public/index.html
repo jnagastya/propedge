@@ -2971,7 +2971,8 @@ function renderTable(){
   const _allStarted=d.filter(p=>p.gameTime&&new Date(p.gameTime)<=now);
   d=d.filter(p=>!p.gameTime||new Date(p.gameTime)>now);
   // Split started into in-progress vs completed using scores data
-  const _completedGames=new Set((S.scores||[]).filter(g=>g.completed).map(g=>`${g.away}|${g.home}`));
+  // Also treat games with scores that started >3.5 hours ago as completed (API delay fallback)
+  const _completedGames=new Set((S.scores||[]).filter(g=>g.completed||(g.awayScore&&g.homeScore&&g.commence&&(now-new Date(g.commence))>3.5*60*60*1000)).map(g=>`${g.away}|${g.home}`));
   const _isPropCompleted=p=>_completedGames.has(`${p.awayTeam}|${p.homeTeam}`)||_completedGames.has(`${p.homeTeam}|${p.awayTeam}`);
   const _startedProps=_allStarted.filter(p=>!_isPropCompleted(p));
   const _completedProps=_allStarted.filter(p=>_isPropCompleted(p));
@@ -4973,7 +4974,7 @@ function renderAlerts(){
   const _allAlertData=getAlertData();
   const _rawAlerts=_allAlertData.filter(p=>!p.gameTime||new Date(p.gameTime)>_now);
   const _allStartedAlerts=_allAlertData.filter(p=>p.gameTime&&new Date(p.gameTime)<=_now);
-  const _alertCompletedGames=new Set((S.scores||[]).filter(g=>g.completed).map(g=>`${g.away}|${g.home}`));
+  const _alertCompletedGames=new Set((S.scores||[]).filter(g=>g.completed||(g.awayScore&&g.homeScore&&g.commence&&(_now-new Date(g.commence))>3.5*60*60*1000)).map(g=>`${g.away}|${g.home}`));
   const _isAlertCompleted=p=>_alertCompletedGames.has(`${p.awayTeam}|${p.homeTeam}`)||_alertCompletedGames.has(`${p.homeTeam}|${p.awayTeam}`);
   const _startedAlertData=_allStartedAlerts.filter(p=>!_isAlertCompleted(p));
   const _completedAlertData=_allStartedAlerts.filter(p=>_isAlertCompleted(p));
@@ -5144,7 +5145,7 @@ function renderAlerts(){
 
   const grid=document.getElementById('vaGrid');
 
-  if(!alerts.length){
+  if(!alerts.length && !_startedAlertData.length && !_completedAlertData.length){
     grid.innerHTML=`<div style="grid-column:1/-1;display:flex;align-items:center;justify-content:center;min-height:40vh;text-align:center;color:var(--t3);font-size:13px;"><div>No value alerts at the <b>${S.customMinVS||t.label}</b> level.<br><br>Minimum value score required: ${effectiveMinVS}/100<br><br>Try lowering the threshold or wait for real stats to finish loading.</div></div>`;
     return;
   }
@@ -7076,7 +7077,7 @@ async function renderGameLines() {
   const allInjuries = await getInjuries() || [];
   const now = new Date();
   const _allStartedGL = [...games].filter(g => g.commence && new Date(g.commence) <= now).sort((a, b) => new Date(a.commence) - new Date(b.commence));
-  const _glCompletedSet=new Set((S.scores||[]).filter(g=>g.completed).map(g=>`${g.away}|${g.home}`));
+  const _glCompletedSet=new Set((S.scores||[]).filter(g=>g.completed||(g.awayScore&&g.homeScore&&g.commence&&(now-new Date(g.commence))>3.5*60*60*1000)).map(g=>`${g.away}|${g.home}`));
   const _startedGames = _allStartedGL.filter(g=>!_glCompletedSet.has(`${g.away}|${g.home}`));
   const _completedGames = _allStartedGL.filter(g=>_glCompletedSet.has(`${g.away}|${g.home}`));
   const sorted = [...games].filter(g => !g.commence || new Date(g.commence) > now).sort((a, b) => new Date(a.commence) - new Date(b.commence));
