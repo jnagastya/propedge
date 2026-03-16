@@ -512,6 +512,11 @@ async function sbSetTeamStats(statsObj) {
 
 // ---- BDL TEAM ID → ABBREVIATION MAP ----
 // BDL uses fixed numeric IDs for all 30 teams
+const BDL_TEAM_ID_MAP = {
+  1:'ATL',2:'BOS',3:'BKN',4:'CHA',5:'CHI',6:'CLE',7:'DAL',8:'DEN',9:'DET',10:'GSW',
+  11:'HOU',12:'IND',13:'LAC',14:'LAL',15:'MEM',16:'MIA',17:'MIL',18:'MIN',19:'NOP',20:'NYK',
+  21:'OKC',22:'ORL',23:'PHI',24:'PHX',25:'POR',26:'SAC',27:'SAS',28:'TOR',29:'UTA',30:'WAS',
+};
 
 // ---- NBA SEASON HELPER ----
 function currentNBASeason() {
@@ -580,14 +585,15 @@ async function fetchBDLGameLog(playerId, startDate = null) {
     // MATCHUP: determine home/away from team abbreviation in game context
     // BDL game object: { date, home_team_id, visitor_team_id }
     const home = g.game.home_team_id === g.team?.id;
-    const opp = home ? g.game.visitor_team_id : g.game.home_team_id;
+    const oppId = home ? g.game.visitor_team_id : g.game.home_team_id;
+    const oppAbbr = BDL_TEAM_ID_MAP[oppId] || null;
     return {
       date: (g.game.date || '').split('T')[0],
       pts: +g.pts || 0, reb: +g.reb || 0, ast: +g.ast || 0,
       fg3m: +g.fg3m || 0, stl: +g.stl || 0, blk: +g.blk || 0,
       turnover: +g.turnover || 0, min: String(g.min || '0'),
       team: g.team?.abbreviation || null,
-      home, wl: '', opp_team_id: opp || null,
+      home, wl: '', opp_team_id: oppId || null, opp: oppAbbr,
     };
   }).filter(g => g && g.date); // keep DNP rows (min=0) so client can show missed games + injury flags
 }
@@ -1213,6 +1219,125 @@ function computeSplits(games, line, statKey) {
     rest3plus: { avg: 0, gp: 0, hitRate: 0, note: 'Requires schedule data' },
   };
 }
+
+// ============================================================
+// ROUTE: GET /api/similar-players — find players with similar profile vs a specific opponent
+// ============================================================
+app.get('/api/similar-players', async (req, res) => {
+  try {
+    const { player, market, opponent, line } = req.query;
+    if (!player || !market || !opponent) return res.status(400).json({ error: 'Missing player, market, or opponent' });
+    const lineNum = parseFloat(line) || 0;
+
+    const STAT_KEY_MAP = { player_points: 'pts', player_rebounds: 'reb', player_assists: 'ast', player_threes: 'fg3m', player_points_rebounds_assists: 'pra', player_rebounds_assists: 'ra' };
+    const statKey = STAT_KEY_MAP[market] || 'pts';
+    const getVal = g => statKey === 'pra' ? (+g.pts||0)+(+g.reb||0)+(+g.ast||0) : statKey === 'ra' ? (+g.reb||0)+(+g.ast||0) : +(g[statKey]||0);
+
+    // Check cache
+    const ck = `similar_${player}_${market}_${opponent}`;
+    const cached = cacheGet(ck);
+    if (cached) return res.json({ ...cached, cached: true });
+
+    // 1. Get Player A's data
+    if (!supabase) return res.status(503).json({ error: 'Supabase not configured' });
+    const { data: playerRow } = await supabase.from('player_stats').select('player_name, game_log, position, season').eq('player_name', player).eq('season', NBA_SEASON).single();
+    if (!playerRow?.game_log?.length) return res.status(404).json({ error: `No game log for ${player}` });
+
+    const playerGames = playerRow.game_log.filter(g => parseInt(g.min || '0') > 0);
+    if (!playerGames.length) return res.status(404).json({ error: `No played games for ${player}` });
+
+    const playerAvg = +(playerGames.reduce((s, g) => s + getVal(g), 0) / playerGames.length).toFixed(1);
+    const playerMinAvg = +(playerGames.reduce((s, g) => s + (parseFloat(g.min) || 0), 0) / playerGames.length).toFixed(1);
+
+    // Position grouping: G (PG/SG/G), F (SF/PF/F), C
+    const pos = (playerRow.position || '').toUpperCase();
+    const posGroup = pos.includes('C') && !pos.includes('F') ? 'C' : (pos.includes('G') ? 'G' : 'F');
+    const posMatch = p => {
+      const pp = (p || '').toUpperCase();
+      if (posGroup === 'C') return pp.includes('C') && !pp.includes('F');
+      if (posGroup === 'G') return pp.includes('G');
+      return pp.includes('F') || (pp.includes('C') && pp.includes('F')); // F group includes C-F combos
+    };
+
+    // 2. Query all players at same position group
+    const { data: allPlayers } = await supabase.from('player_stats').select('player_name, game_log, position, season').eq('season', NBA_SEASON);
+    if (!allPlayers?.length) return res.json({ similar: [], summary: null });
+
+    // 3. Filter to similar players
+    const oppUpper = opponent.toUpperCase();
+    const similar = [];
+    const avgRange = { min: playerAvg * 0.75, max: playerAvg * 1.25 };
+    const minRange = { min: playerMinAvg - 6, max: playerMinAvg + 6 };
+
+    for (const row of allPlayers) {
+      if (row.player_name === player) continue;
+      if (!posMatch(row.position)) continue;
+      if (!row.game_log?.length) continue;
+
+      const played = row.game_log.filter(g => parseInt(g.min || '0') > 0);
+      if (played.length < 5) continue;
+
+      const avg = played.reduce((s, g) => s + getVal(g), 0) / played.length;
+      const minAvg = played.reduce((s, g) => s + (parseFloat(g.min) || 0), 0) / played.length;
+
+      if (avg < avgRange.min || avg > avgRange.max) continue;
+      if (minAvg < minRange.min || minAvg > minRange.max) continue;
+
+      // Find games vs this opponent (use opp abbreviation, fall back to BDL_TEAM_ID_MAP)
+      const vsOpp = played.filter(g => {
+        if (g.opp) return g.opp === oppUpper;
+        if (g.opp_team_id) return BDL_TEAM_ID_MAP[g.opp_team_id] === oppUpper;
+        return false;
+      });
+
+      if (!vsOpp.length) continue;
+
+      similar.push({
+        name: row.player_name,
+        position: row.position,
+        seasonAvg: +avg.toFixed(1),
+        avgMin: +minAvg.toFixed(1),
+        gamesVsOpp: vsOpp.map(g => ({
+          date: g.date, pts: g.pts, reb: g.reb, ast: g.ast, fg3m: g.fg3m, min: g.min,
+          statVal: getVal(g),
+        })),
+        avgVsOpp: +(vsOpp.reduce((s, g) => s + getVal(g), 0) / vsOpp.length).toFixed(1),
+      });
+    }
+
+    // 4. Build summary
+    const allGamesVsOpp = similar.flatMap(s => s.gamesVsOpp);
+    const avgVsOpp = allGamesVsOpp.length ? +(allGamesVsOpp.reduce((s, g) => s + g.statVal, 0) / allGamesVsOpp.length).toFixed(1) : 0;
+    const normalAvg = similar.length ? +(similar.reduce((s, p) => s + p.seasonAvg, 0) / similar.length).toFixed(1) : 0;
+    const overCount = lineNum > 0 ? allGamesVsOpp.filter(g => g.statVal >= lineNum).length : 0;
+    const overRate = allGamesVsOpp.length && lineNum > 0 ? Math.round(overCount / allGamesVsOpp.length * 100) : 0;
+
+    // Sort by most games vs opponent
+    similar.sort((a, b) => b.gamesVsOpp.length - a.gamesVsOpp.length);
+
+    const result = {
+      playerA: { name: player, position: pos, seasonAvg: playerAvg, avgMin: playerMinAvg },
+      similar,
+      opponent: oppUpper,
+      market,
+      line: lineNum,
+      summary: {
+        avgVsOpp,
+        normalAvg,
+        pctDiff: normalAvg > 0 ? +((avgVsOpp - normalAvg) / normalAvg * 100).toFixed(1) : 0,
+        overRate,
+        sampleSize: allGamesVsOpp.length,
+        playerCount: similar.length,
+      },
+    };
+
+    cacheSet(ck, result, 3 * 60 * 60); // cache 3 hours
+    res.json({ ...result, cached: false });
+  } catch (err) {
+    console.error('Similar players error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // ============================================================
 // ============================================================
@@ -4827,6 +4952,98 @@ function serverApplyInjuryImpact(playerName, playerGameLog, playerTeam, market, 
   };
 }
 
+// Server-side team stats / matchup adjustment (mirrors client-side applyAllAdjustments team stats logic)
+// Applies pace differential, DvP multiplier, and blowout confidence penalty
+const MARKET_DVP_MAP_SERVER = {
+  player_points: ['pts'], player_rebounds: ['reb'], player_assists: ['ast'],
+  player_threes: ['fg3m'], player_points_rebounds_assists: ['pts', 'reb', 'ast'],
+  player_rebounds_assists: ['reb', 'ast'],
+};
+const DVP_DAMPEN_SERVER = 0.5;
+
+function serverApplyTeamStats(playerTeam, oppTeam, market, line, overOdds, underOdds, teamStats, baseStats) {
+  if (!teamStats || !teamStats._leagueAvg || !teamStats[playerTeam] || !teamStats[oppTeam]) return baseStats;
+
+  // Pace differential multiplier
+  const ptPace = teamStats[playerTeam].pace, opPace = teamStats[oppTeam].pace, lgPace = teamStats._leagueAvg.pace;
+  const paceMult = (ptPace && opPace && lgPace) ? (ptPace + opPace) / (ptPace + lgPace) : 1;
+
+  // DvP multiplier (opponent allowed stat vs league avg, dampened 50%)
+  const dvpKeys = MARKET_DVP_MAP_SERVER[market];
+  let dvpMult = 1;
+  if (dvpKeys && teamStats[oppTeam].allows) {
+    let totalMult = 0, count = 0;
+    for (const k of dvpKeys) {
+      const oppVal = teamStats[oppTeam].allows[k], lgVal = teamStats._leagueAvg[k];
+      if (oppVal && lgVal) { totalMult += oppVal / lgVal; count++; }
+    }
+    if (count) {
+      const raw = totalMult / count;
+      dvpMult = 1 + (raw - 1) * DVP_DAMPEN_SERVER;
+    }
+  }
+
+  const combinedMult = paceMult * dvpMult;
+  if (Math.abs(combinedMult - 1.0) < 0.005) {
+    // Matchup adjustment too small — still apply blowout penalty if applicable
+    return serverApplyBlowoutPenalty(playerTeam, oppTeam, teamStats, baseStats);
+  }
+
+  // Adjust avg
+  const adjAvg = +(baseStats.avg * combinedMult).toFixed(1);
+  const adjStd = Math.max(0.5, baseStats.stdDev || 2);
+  const adjProb = line > 0 ? Math.min(0.97, Math.max(0.03, 1 - normalCDF((line - adjAvg) / adjStd))) : (baseStats.modelProb || 0.5);
+  const edge = line > 0 ? +((adjAvg - line) / line * 100).toFixed(1) : 0;
+  const isOverBet = edge >= 0;
+  const adjHR = Math.round((isOverBet ? adjProb : 1 - adjProb) * 100);
+  const evOver = calcEV(adjProb, overOdds);
+  const evUnder = calcEV(1 - adjProb, underOdds);
+  const dirEV = isOverBet ? evOver : evUnder;
+  const dirModelProb = isOverBet ? adjProb : 1 - adjProb;
+
+  // Blowout confidence penalty
+  let confidence = baseStats.confidence;
+  const ptBlow = teamStats[playerTeam]?.blowout;
+  const opBlow = teamStats[oppTeam]?.blowout;
+  if (ptBlow && opBlow) {
+    const ptWinPct = ptBlow.blowoutWinPct || 0, ptLossPct = ptBlow.blowoutLossPct || 0;
+    const opWinPct = opBlow.blowoutWinPct || 0, opLossPct = opBlow.blowoutLossPct || 0;
+    const blowRisk = Math.max((ptWinPct + opLossPct) / 2, (ptLossPct + opWinPct) / 2);
+    const lgAvgBlow = teamStats._leagueAvg?.blowoutPct || 0.20;
+    const excessRisk = Math.max(0, blowRisk - lgAvgBlow);
+    const penalty = Math.min(15, Math.round(excessRisk * 100));
+    confidence = Math.max(0, confidence - penalty);
+  }
+
+  const vs = serverValueScore(dirModelProb, confidence, dirEV);
+  const direction = isOverBet ? 'over' : 'under';
+  const odds = isOverBet ? overOdds : underOdds;
+
+  return {
+    ...baseStats, avg: adjAvg, hitRate: adjHR, edge, modelProb: adjProb, confidence,
+    evOver, evUnder, direction, odds, dirEV, vs, stdDev: adjStd,
+    _matchupPace: paceMult, _matchupDvP: dvpMult, _matchupCombined: combinedMult, _matchupOpp: oppTeam,
+  };
+}
+
+function serverApplyBlowoutPenalty(playerTeam, oppTeam, teamStats, baseStats) {
+  const ptBlow = teamStats[playerTeam]?.blowout;
+  const opBlow = teamStats[oppTeam]?.blowout;
+  if (!ptBlow || !opBlow) return baseStats;
+  const ptWinPct = ptBlow.blowoutWinPct || 0, ptLossPct = ptBlow.blowoutLossPct || 0;
+  const opWinPct = opBlow.blowoutWinPct || 0, opLossPct = opBlow.blowoutLossPct || 0;
+  const blowRisk = Math.max((ptWinPct + opLossPct) / 2, (ptLossPct + opWinPct) / 2);
+  const lgAvgBlow = teamStats._leagueAvg?.blowoutPct || 0.20;
+  const excessRisk = Math.max(0, blowRisk - lgAvgBlow);
+  const penalty = Math.min(15, Math.round(excessRisk * 100));
+  if (!penalty) return baseStats;
+  const confidence = Math.max(0, baseStats.confidence - penalty);
+  const isOverBet = (baseStats.edge || 0) >= 0;
+  const dirModelProb = isOverBet ? baseStats.modelProb : 1 - baseStats.modelProb;
+  const vs = serverValueScore(dirModelProb, confidence, baseStats.dirEV);
+  return { ...baseStats, confidence, vs };
+}
+
 // ============================================================
 // CRON: Place agent bets — runs daily at 3:30 PM PST
 // ============================================================
@@ -4932,6 +5149,13 @@ app.get('/api/cron/agent-bet', async (req, res) => {
       console.log(`[agent-bet] BDL fetched ${injuredBdlFetched}/${stillMissing.length} injured teammates`);
     }
 
+    // 3c. Fetch team stats for matchup adjustment (pace, DvP, blowout penalty)
+    let teamStats = cacheGet('team_stats');
+    if (!teamStats) {
+      teamStats = await sbGetTeamStats();
+      if (teamStats) cacheSet('team_stats', teamStats, 6 * 60 * 60);
+    }
+
     // 4. For each player/market combo, compute stats and value score
     const valueCandidates = [];
     const controlCandidates = [];
@@ -4959,6 +5183,14 @@ app.get('/api/cron/agent-bet', async (req, res) => {
         const playerTeam = _playerTeamCache[p.name] || guessTeam(p.name) || p.homeTeam;
         if (playerTeam && playerTeam !== '???') {
           stats = serverApplyInjuryImpact(p.name, gameLog, playerTeam, p.market, p.line, p.overOdds, p.underOdds, injuries, gameLogMap, stats, positionMap);
+        }
+
+        // Apply Team Stats / Matchup Adjustment: pace differential + DvP + blowout penalty
+        if (teamStats && playerTeam && playerTeam !== '???') {
+          const oppTeam = playerTeam === p.homeTeam ? p.awayTeam : (playerTeam === p.awayTeam ? p.homeTeam : '');
+          if (oppTeam) {
+            stats = serverApplyTeamStats(playerTeam, oppTeam, p.market, p.line, p.overOdds, p.underOdds, teamStats, stats);
+          }
         }
 
         const isValue = stats.vs >= 30;
