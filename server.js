@@ -703,6 +703,8 @@ const BDL_PLAYER_OVERRIDES = {
   'Julian Reese':            { id: 1060111739,     position: 'F', team: 'WAS' },
   'Nicolas Claxton':         { id: 666508,         position: 'C', team: 'BKN' },
   'Drake Powell':            { id: 1057279425,     position: 'F', team: 'BKN' },
+  'Patrick Williams':        { id: 3547248,        position: 'F', team: 'CHI' },
+  'Jordan Miller':           { id: 56677856,       position: 'G', team: 'LAC' },
 };
 
 // Search BDL for player ID + position by name, cached 24h
