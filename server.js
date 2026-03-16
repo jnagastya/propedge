@@ -2074,7 +2074,17 @@ app.get('/api/injury-impact', async (req, res) => {
         const shrunkRatio = 1.0 + (rawRatio - 1.0) * confidence;
         // Apply baked-in fadeout: only apply the portion not already reflected in recent stats
         const fadedRatio = 1.0 + (shrunkRatio - 1.0) * bakedInWeight;
-        const ratio = Math.max(0.70, Math.min(1.30, fadedRatio));
+        let ratio = Math.max(0.70, Math.min(1.30, fadedRatio));
+        // Production cap: adjustment can't exceed 40% of injured player's avg in this market
+        const _playerAvgForCap = playerPlayed.reduce((s, g) => s + _statVal(g, market), 0) / playerPlayed.length;
+        if (tmAvg > 0 && _playerAvgForCap > 0) {
+          const maxAbsAdj = tmAvg * 0.40;
+          const absAdj = Math.abs(ratio - 1.0) * _playerAvgForCap;
+          if (absAdj > maxAbsAdj) {
+            const sign = ratio >= 1.0 ? 1 : -1;
+            ratio = 1.0 + sign * (maxAbsAdj / _playerAvgForCap);
+          }
+        }
         if (Math.abs(ratio - 1.0) < 0.03) continue;
 
         teammateImpacts.push({ name: inj.player, team: inj.team, bdlTeams: _tmTeamCounts, gamesOnTeam: tmPlayed.length, bakedIn: +(1 - bakedInWeight).toFixed(2), ratio: +ratio.toFixed(3), tmAvg: +tmAvg.toFixed(1), wo: wo.length, wi: wi.length, woMinAvg, wiMinAvg, speculative: false });
@@ -2101,7 +2111,16 @@ app.get('/api/injury-impact', async (req, res) => {
         const rawRatio = (playerAvg + boost) / playerAvg;
         // Apply baked-in fadeout
         const fadedRatio = 1.0 + (rawRatio - 1.0) * bakedInWeight;
-        const capped = Math.max(0.70, Math.min(1.20, fadedRatio));
+        let capped = Math.max(0.70, Math.min(1.20, fadedRatio));
+        // Production cap: adjustment can't exceed 40% of injured player's avg in this market
+        if (tmAvg > 0 && playerAvg > 0) {
+          const maxAbsAdj = tmAvg * 0.40;
+          const absAdj = Math.abs(capped - 1.0) * playerAvg;
+          if (absAdj > maxAbsAdj) {
+            const sign = capped >= 1.0 ? 1 : -1;
+            capped = 1.0 + sign * (maxAbsAdj / playerAvg);
+          }
+        }
         if (Math.abs(capped - 1.0) < 0.03) continue;
 
         // For speculative model: estimate minutes boost if same position and out player is a starter
@@ -4771,7 +4790,7 @@ function serverComputeStats(gameLog, line, market, overOdds, underOdds) {
   const evOver = calcEV(modelProb, overOdds);
   const evUnder = calcEV(1 - modelProb, underOdds);
 
-  const isOverBet = edge >= 0;
+  const isOverBet = modelProb >= 0.5;
   const dirModelProb = isOverBet ? modelProb : 1 - modelProb;
   const dirImplied = isOverBet ? impliedProb(overOdds) : impliedProb(underOdds);
   const evEdge = dirModelProb - dirImplied;
@@ -4863,7 +4882,7 @@ function serverApplySmartMinutes(gameLog, line, market, overOdds, underOdds, bas
   const evUnder = calcEV(1 - modelProb, underOdds);
   const edge = line ? +((adjAvg - line) / line * 100).toFixed(1) : 0;
 
-  const isOverBet = edge >= 0;
+  const isOverBet = modelProb >= 0.5;
   const dirModelProb = isOverBet ? modelProb : 1 - modelProb;
   const dirImplied = isOverBet ? impliedProb(overOdds) : impliedProb(underOdds);
   const evEdge = dirModelProb - dirImplied;
@@ -4935,14 +4954,14 @@ function serverApplyDNP(gameLog, line, market, overOdds, underOdds, baseStats) {
   const evUnder = calcEV(1 - modelProb, underOdds);
   const edge = line ? +((adjAvg - line) / line * 100).toFixed(1) : 0;
 
-  const isOverBet = edge >= 0;
+  const isOverBet = modelProb >= 0.5;
   const dirModelProb = isOverBet ? modelProb : 1 - modelProb;
   const dirImplied = isOverBet ? impliedProb(overOdds) : impliedProb(underOdds);
   const cv = adjAvg ? adjStdDev / adjAvg : 0.4;
 
   const _evEdge = dirModelProb - dirImplied;
   const _evEdgePts = Math.min(30, Math.max(0, _evEdge * 300));
-  const _alignPts = (edge >= 0 && modelProb >= 0.5) || (edge < 0 && modelProb < 0.5) ? 20 : 0;
+  const _alignPts = (modelProb >= 0.5 && edge >= 0) || (modelProb < 0.5 && edge < 0) ? 20 : 0;
   const _vigGap = Math.abs(dirModelProb - dirImplied);
   const _sharpPts = Math.min(20, Math.max(0, _vigGap * 100));
   const _cvPts = Math.min(20, Math.max(0, (0.6 - Math.min(cv, 0.6)) / 0.4 * 20));
@@ -5043,6 +5062,9 @@ function serverApplyInjuryImpact(playerName, playerGameLog, playerTeam, market, 
     // Compute subject player's avg minutes with/without this teammate
     const woMinAvg = wo.length ? Math.round(wo.reduce((s, g) => s + (parseFloat(g.min) || 0), 0) / wo.length) : null;
 
+    // Compute injured teammate's avg production in this market (for production cap)
+    const tmStatAvg = tmPlayed.reduce((s, g) => s + _statVal(g, market), 0) / tmPlayed.length;
+
     if (!recentlyTraded && wo.length >= 7 && wi.length >= 7) {
       // Enough split data — minutes-weighted per-minute rate comparison
       const wiTotalMin = wi.reduce((s, g) => s + (parseFloat(g.min) || 1), 0);
@@ -5058,7 +5080,16 @@ function serverApplyInjuryImpact(playerName, playerGameLog, playerTeam, market, 
       const shrunkRatio = 1.0 + (rawRatio - 1.0) * confidence;
       // Apply baked-in fadeout
       const fadedRatio = 1.0 + (shrunkRatio - 1.0) * bakedInWeight;
-      const capped = Math.max(0.70, Math.min(1.30, fadedRatio));
+      let capped = Math.max(0.70, Math.min(1.30, fadedRatio));
+      // Production cap: absolute adjustment can't exceed 40% of injured player's avg in this market
+      if (tmStatAvg > 0 && baseStats.avg > 0) {
+        const maxAbsAdj = tmStatAvg * 0.40;
+        const absAdj = Math.abs(capped - 1.0) * baseStats.avg;
+        if (absAdj > maxAbsAdj) {
+          const sign = capped >= 1.0 ? 1 : -1;
+          capped = 1.0 + sign * (maxAbsAdj / baseStats.avg);
+        }
+      }
       if (Math.abs(capped - 1.0) < 0.03) continue;
 
       teammateImpacts.push({ name: inj.player, ratio: capped, withoutGames: wo.length, withGames: wi.length, woMinAvg, speculative: false });
@@ -5089,7 +5120,16 @@ function serverApplyInjuryImpact(playerName, playerGameLog, playerTeam, market, 
       const rawRatio2 = (playerAvg + boost) / playerAvg;
       // Apply baked-in fadeout
       const fadedRatio2 = 1.0 + (rawRatio2 - 1.0) * bakedInWeight;
-      const capped = Math.max(0.70, Math.min(1.20, fadedRatio2));
+      let capped = Math.max(0.70, Math.min(1.20, fadedRatio2));
+      // Production cap: absolute adjustment can't exceed 40% of injured player's avg in this market
+      if (tmStatAvg > 0 && playerAvg > 0) {
+        const maxAbsAdj = tmStatAvg * 0.40;
+        const absAdj = Math.abs(capped - 1.0) * playerAvg;
+        if (absAdj > maxAbsAdj) {
+          const sign = capped >= 1.0 ? 1 : -1;
+          capped = 1.0 + sign * (maxAbsAdj / playerAvg);
+        }
+      }
       if (Math.abs(capped - 1.0) < 0.03) continue;
 
       // Estimate minutes boost for same-position speculative
@@ -5146,7 +5186,7 @@ function serverApplyInjuryImpact(playerName, playerGameLog, playerTeam, market, 
   const evUnder = calcEV(1 - modelProb, underOdds);
   const edge = line ? +((adjAvg - line) / line * 100).toFixed(1) : 0;
 
-  const isOverBet = edge >= 0;
+  const isOverBet = modelProb >= 0.5;
   const dirModelProb = isOverBet ? modelProb : 1 - modelProb;
   const dirImplied = isOverBet ? impliedProb(overOdds) : impliedProb(underOdds);
   const evEdge = dirModelProb - dirImplied;
@@ -5222,7 +5262,7 @@ function serverApplyTeamStats(playerTeam, oppTeam, market, line, overOdds, under
   const adjStd = Math.max(0.5, baseStats.stdDev || 2);
   const adjProb = line > 0 ? Math.min(0.97, Math.max(0.03, 1 - normalCDF((line - adjAvg) / adjStd))) : (baseStats.modelProb || 0.5);
   const edge = line > 0 ? +((adjAvg - line) / line * 100).toFixed(1) : 0;
-  const isOverBet = edge >= 0;
+  const isOverBet = adjProb >= 0.5;
   const adjHR = Math.round((isOverBet ? adjProb : 1 - adjProb) * 100);
   const evOver = calcEV(adjProb, overOdds);
   const evUnder = calcEV(1 - adjProb, underOdds);
