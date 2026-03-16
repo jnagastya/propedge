@@ -159,16 +159,16 @@ const _playerTeamCache = {
   'Ivica Zubac':'IND','Gui Santos':'GSW','Marcus Sasser':'DET',
   'Cody Williams':'UTA','Mitchell Robinson':'NYK','Brice Sensabaugh':'UTA',
   'Ace Bailey':'UTA','Sandro Mamukelashvili':'TOR','Matas Buzelis':'CHI',
-  'Keon Ellis':'CLE','Olivier-Maxence Prosper':'DAL','Isaiah Collier':'UTA',
+  'Keon Ellis':'CLE','Olivier-Maxence Prosper':'MEM','Isaiah Collier':'UTA',
   'Kyle Filipowski':'UTA','Jaylon Tyson':'CLE','Dennis Schroder':'CLE',
   'Taylor Hendricks':'UTA','G.G. Jackson':'MEM','Royce O\'Neale':'PHX',
   'Ty Jerome':'MEM','Jarace Walker':'IND','Landry Shamet':'NYK',
   'Brandin Podziemski':'GSW','De\'Anthony Melton':'BKN','Cedric Coward':'LAC',
   'Duncan Robinson':'DET','Kristaps Porzingis':'GSW','Reed Sheppard':'HOU',
   'Julius Randle':'MIN','Derrick Jones':'LAC','Kobe Sanders':'LAC',
-  'R.J. Barrett':'TOR','Collin Gillespie':'DEN','Sam Merrill':'CLE',
+  'R.J. Barrett':'TOR','Collin Gillespie':'PHX','Sam Merrill':'CLE',
   'Aaron Nesmith':'IND','Oso Ighodaro':'PHX','Will Richard':'GSW',
-  'Toumani Camara':'POR','Bennedict Mathurin':'IND','Jaylen Wells':'MEM',
+  'Toumani Camara':'POR','Bennedict Mathurin':'LAC','Jaylen Wells':'MEM',
   'Dean Wade':'CLE','Robert Williams':'POR','Isaiah Stewart II':'DET',
   'Donovan Clingan':'POR','Cooper Flagg':'DAL','Saddiq Bey':'ATL',
   'Kris Dunn':'LAC','Kevin Huerter':'IND','Jabari Smith Jr':'HOU','Leonard Miller':'CHI',
@@ -201,6 +201,17 @@ const _playerTeamCache = {
   'Deni Avdija':'POR',
   'Devin Carter':'SAC',
   'Zach LaVine':'SAC',
+  'Walter Clayton Jr.':'MEM',
+  'Walter Clayton Jr':'MEM',
+  'Isaiah Jackson':'LAC',
+  'Bradley Beal':'LAC',
+  'Kevin Durant':'HOU',
+  'Josh Minott':'BKN',
+  'Jonathan Kuminga':'ATL',
+  'Jordan Goodwin':'PHX',
+  'Tristan Vukcevic':'WAS',
+  'Tristian Vukcevic':'WAS',
+  'Jalen Smith':'CHI',
 };
 // All manually-set teams are frozen — never overwritten by BDL/Supabase game log data
 const _frozenTeams = new Set(Object.keys(_playerTeamCache));
@@ -886,8 +897,8 @@ function aggregatePlayers(rawProps, book) {
         players.push({ ...p, line: avgLine, overOdds: bestOver, underOdds: bestUnder });
       });
     } else {
-      // Single-book mode
-      const bk = evt.bookmakers.find(b => b.key === book) || evt.bookmakers[0];
+      // Single-book mode — only use exact match (no fallback to avoid mixing books)
+      const bk = evt.bookmakers.find(b => b.key === book);
       if (!bk) return;
       bk.markets?.forEach(mkt => {
         const byPlayer = {};
@@ -1917,21 +1928,26 @@ app.get('/api/injury-impact', async (req, res) => {
     for (const inj of outTeammates) {
       const tmLog = tmLogMap.get(inj.player);
       if (!tmLog?.length) continue;
-      // Filter teammate games to current team only (avoid cross-team pollution from trades)
-      const tmPlayed = tmLog.filter(g => parseInt(g.min || '0') > 0 && (!g.team || g.team === teamFilter));
+
+      // Build team breakdown from BDL game log — shows which teams BDL actually has games for
+      const _tmTeamCounts = {};
+      for (const g of tmLog) { const t = g.team || '???'; _tmTeamCounts[t] = (_tmTeamCounts[t] || 0) + 1; }
+
+      // Filter teammate games to current team only — require team field to avoid cross-team pollution
+      const tmPlayed = tmLog.filter(g => parseInt(g.min || '0') > 0 && g.team === teamFilter);
       if (tmPlayed.length < 5) continue;
 
       const tmDnpDates = new Set(), tmPlayedDates = new Set();
       for (const g of tmLog) {
-        if (g.team && g.team !== teamFilter) continue;
+        if (g.team !== teamFilter) continue; // strict team match
         if (parseInt(g.min || '0') === 0) tmDnpDates.add(g.date);
         else tmPlayedDates.add(g.date);
       }
 
       // Gradual fadeout: scale impact by how much is NOT already baked into recent stats
-      // 0/10 recent games without = 100% impact, 5/10 = 50%, 10/10 = 0%
+      // A game counts as "without" if teammate was DNP OR had no entry (never played for team)
       const l10 = playerPlayedTeam.slice(0, 10);
-      const l10Without = l10.filter(g => tmDnpDates.has(g.date)).length;
+      const l10Without = l10.filter(g => !tmPlayedDates.has(g.date)).length;
       const bakedInWeight = Math.max(0, 1 - (l10Without / 10));
       if (bakedInWeight <= 0) continue; // fully baked in
 
@@ -1966,7 +1982,7 @@ app.get('/api/injury-impact', async (req, res) => {
         const ratio = Math.max(0.70, Math.min(1.30, fadedRatio));
         if (Math.abs(ratio - 1.0) < 0.03) continue;
 
-        teammateImpacts.push({ name: inj.player, ratio: +ratio.toFixed(3), tmAvg: +tmAvg.toFixed(1), wo: wo.length, wi: wi.length, woMinAvg, wiMinAvg, speculative: false });
+        teammateImpacts.push({ name: inj.player, team: inj.team, bdlTeams: _tmTeamCounts, gamesOnTeam: tmPlayed.length, bakedIn: +(1 - bakedInWeight).toFixed(2), ratio: +ratio.toFixed(3), tmAvg: +tmAvg.toFixed(1), wo: wo.length, wi: wi.length, woMinAvg, wiMinAvg, speculative: false });
       } else {
         // Fallback: production share estimate (speculative — always used for recently traded players)
         const playerAvg = playerPlayed.reduce((s, g) => s + _statVal(g, market), 0) / playerPlayed.length;
@@ -2005,7 +2021,7 @@ app.get('/api/injury-impact', async (req, res) => {
           }
         }
 
-        teammateImpacts.push({ name: inj.player, ratio: +capped.toFixed(3), tmAvg: +tmAvg.toFixed(1), wo: wo.length, wi: wi.length, woMinAvg: specWoMinAvg, wiMinAvg: null, speculative: true, posAffinity: +affinity.toFixed(2) });
+        teammateImpacts.push({ name: inj.player, team: inj.team, bdlTeams: _tmTeamCounts, gamesOnTeam: tmPlayed.length, bakedIn: +(1 - bakedInWeight).toFixed(2), ratio: +capped.toFixed(3), tmAvg: +tmAvg.toFixed(1), wo: wo.length, wi: wi.length, woMinAvg: specWoMinAvg, wiMinAvg: null, speculative: true, posAffinity: +affinity.toFixed(2) });
       }
     }
 
@@ -2033,10 +2049,10 @@ app.get('/api/injury-impact', async (req, res) => {
     for (const inj of outTeammates) {
       if (includedNames.has(inj.player)) continue;
       const tmLog = tmLogMap.get(inj.player);
-      if (!tmLog?.length) { skipped.push({ name: inj.player, reason: 'no game log — upload player ID' }); continue; }
-      const tmPlayed = tmLog.filter(g => parseInt(g.min || '0') > 0 && (!g.team || g.team === teamFilter));
-      if (tmPlayed.length < 5) { skipped.push({ name: inj.player, reason: `only ${tmPlayed.length} games on team (need 5)` }); continue; }
-      skipped.push({ name: inj.player, reason: 'impact < 3% or already baked in' });
+      if (!tmLog?.length) { skipped.push({ name: inj.player, team: inj.team, reason: 'no game log — upload player ID' }); continue; }
+      const tmPlayed = tmLog.filter(g => parseInt(g.min || '0') > 0 && g.team === teamFilter);
+      if (tmPlayed.length < 5) { skipped.push({ name: inj.player, team: inj.team, reason: `only ${tmPlayed.length} games on team (need 5)` }); continue; }
+      skipped.push({ name: inj.player, team: inj.team, reason: 'impact < 3% or already baked in' });
     }
 
     // Weighted average of individual ratios (most impactful weighted highest), cap at ±20%
@@ -2273,18 +2289,23 @@ app.post('/api/injury-impact-batch', async (req, res) => {
           if (inj.player.toLowerCase() === p.player.toLowerCase() || inj.player.toLowerCase() === resolvedPlayer.toLowerCase()) continue;
           const tmLog = tmLogMap.get(inj.player);
           if (!tmLog?.length) continue;
-          const tmPlayed = tmLog.filter(g => parseInt(g.min || '0') > 0 && (!g.team || g.team === teamFilter));
+
+          // Build team breakdown from BDL game log
+          const _tmTeamCounts = {};
+          for (const g of tmLog) { const t = g.team || '???'; _tmTeamCounts[t] = (_tmTeamCounts[t] || 0) + 1; }
+
+          const tmPlayed = tmLog.filter(g => parseInt(g.min || '0') > 0 && g.team === teamFilter);
           if (tmPlayed.length < 5) continue;
 
           const tmDnpDates = new Set(), tmPlayedDates = new Set();
           for (const g of tmLog) {
-            if (g.team && g.team !== teamFilter) continue;
+            if (g.team !== teamFilter) continue;
             if (parseInt(g.min || '0') === 0) tmDnpDates.add(g.date);
             else tmPlayedDates.add(g.date);
           }
 
           const l10 = playerPlayedTeam.slice(0, 10);
-          const l10Without = l10.filter(g => tmDnpDates.has(g.date)).length;
+          const l10Without = l10.filter(g => !tmPlayedDates.has(g.date)).length;
           const bakedInWeight = Math.max(0, 1 - (l10Without / 10));
           if (bakedInWeight <= 0) continue;
 
@@ -2313,7 +2334,7 @@ app.post('/api/injury-impact-batch', async (req, res) => {
             const ratio = Math.max(0.70, Math.min(1.30, fadedRatio));
             if (Math.abs(ratio - 1.0) < 0.03) continue;
 
-            teammateImpacts.push({ name: inj.player, ratio: +ratio.toFixed(3), tmAvg: +tmAvg.toFixed(1), wo: wo.length, wi: wi.length, woMinAvg, wiMinAvg, speculative: false });
+            teammateImpacts.push({ name: inj.player, team: inj.team, bdlTeams: _tmTeamCounts, gamesOnTeam: tmPlayed.length, bakedIn: +(1 - bakedInWeight).toFixed(2), ratio: +ratio.toFixed(3), tmAvg: +tmAvg.toFixed(1), wo: wo.length, wi: wi.length, woMinAvg, wiMinAvg, speculative: false });
           } else {
             const playerAvg = playerPlayed.reduce((s, g) => s + _statVal(g, market), 0) / playerPlayed.length;
             if (!tmAvg || !playerAvg) continue;
@@ -2346,7 +2367,7 @@ app.post('/api/injury-impact-batch', async (req, res) => {
               }
             }
 
-            teammateImpacts.push({ name: inj.player, ratio: +capped.toFixed(3), tmAvg: +tmAvg.toFixed(1), wo: wo.length, wi: wi.length, woMinAvg: specWoMinAvg, wiMinAvg: null, speculative: true, posAffinity: +affinity.toFixed(2) });
+            teammateImpacts.push({ name: inj.player, team: inj.team, bdlTeams: _tmTeamCounts, gamesOnTeam: tmPlayed.length, bakedIn: +(1 - bakedInWeight).toFixed(2), ratio: +capped.toFixed(3), tmAvg: +tmAvg.toFixed(1), wo: wo.length, wi: wi.length, woMinAvg: specWoMinAvg, wiMinAvg: null, speculative: true, posAffinity: +affinity.toFixed(2) });
           }
         }
 
@@ -2361,10 +2382,10 @@ app.post('/api/injury-impact-batch', async (req, res) => {
           if (inj.player.toLowerCase() === p.player.toLowerCase() || inj.player.toLowerCase() === resolvedPlayer.toLowerCase()) continue;
           if (includedNames.has(inj.player)) continue;
           const tmLog = tmLogMap.get(inj.player);
-          if (!tmLog?.length) { skipped.push({ name: inj.player, reason: 'no game log' }); continue; }
-          const tmPlayedF = tmLog.filter(g => parseInt(g.min || '0') > 0 && (!g.team || g.team === teamFilter));
-          if (tmPlayedF.length < 5) { skipped.push({ name: inj.player, reason: `only ${tmPlayedF.length} games` }); continue; }
-          skipped.push({ name: inj.player, reason: 'impact < 3% or baked in' });
+          if (!tmLog?.length) { skipped.push({ name: inj.player, team: inj.team, reason: 'no game log' }); continue; }
+          const tmPlayedF = tmLog.filter(g => parseInt(g.min || '0') > 0 && g.team === teamFilter);
+          if (tmPlayedF.length < 5) { skipped.push({ name: inj.player, team: inj.team, reason: `only ${tmPlayedF.length} games on team (need 5)` }); continue; }
+          skipped.push({ name: inj.player, team: inj.team, reason: 'impact < 3% or baked in' });
         }
 
         teammateImpacts.sort((a, b) => Math.abs(b.ratio - 1) - Math.abs(a.ratio - 1));
@@ -3090,6 +3111,52 @@ app.get('/api/debug/clear-player/:name', async (req, res) => {
 });
 
 // ============================================================
+// ROUTE: GET /api/debug/dfs — check what DFS bookmaker data the Odds API returns
+// ============================================================
+app.get('/api/debug/dfs', async (req, res) => {
+  if (!ODDS_KEY) return res.status(503).json({ error: 'Odds API key not configured' });
+  try {
+    const evtResp = await fetch(`${ODDS_BASE}/sports/basketball_nba/events?apiKey=${ODDS_KEY}&regions=us,us_dfs&oddsFormat=american`);
+    if (!evtResp.ok) return res.status(502).json({ error: `Events: ${evtResp.status}` });
+    const events = await evtResp.json();
+    const remaining = evtResp.headers.get('x-requests-remaining');
+    const upcoming = events.filter(e => new Date(e.commence_time) > new Date());
+    if (!upcoming.length) return res.json({ message: 'No upcoming games', remaining });
+
+    // Check first upcoming event for bookmaker keys
+    const evt = upcoming[0];
+    const pUrl = `${ODDS_BASE}/sports/basketball_nba/events/${evt.id}/odds?apiKey=${ODDS_KEY}&regions=us,us_dfs&markets=player_points&oddsFormat=american`;
+    const pResp = await fetch(pUrl);
+    if (!pResp.ok) return res.status(502).json({ error: `Props: ${pResp.status}` });
+    const data = await pResp.json();
+    const bookmakers = (data.bookmakers || []).map(bk => ({
+      key: bk.key,
+      title: bk.title,
+      markets: (bk.markets || []).map(m => m.key),
+      playerCount: (bk.markets || []).reduce((s, m) => s + (m.outcomes?.length || 0), 0),
+      samplePlayers: (bk.markets || []).flatMap(m => (m.outcomes || []).slice(0, 4).map(o => ({
+        name: o.description || o.name,
+        side: o.name,
+        line: o.point,
+        odds: o.price,
+      }))),
+    }));
+    const dfsBooks = bookmakers.filter(b => ['prizepicks', 'underdog', 'pick6', 'betr_us_dfs'].includes(b.key));
+    res.json({
+      event: `${evt.away_team} @ ${evt.home_team}`,
+      commence: evt.commence_time,
+      totalBookmakers: bookmakers.length,
+      allBookKeys: bookmakers.map(b => b.key),
+      dfsBooks,
+      allBooks: bookmakers,
+      remaining: pResp.headers.get('x-requests-remaining'),
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ============================================================
 // ROUTE: GET /api/debug/bdl — test BDL connectivity
 // ============================================================
 app.get('/api/debug/bdl', async (req, res) => {
@@ -3233,6 +3300,15 @@ app.get('/api/player/nba-id/:name', (req, res) => {
 });
 
 // ============================================================
+// ROUTE: GET /api/player/espn-map — bulk return entire ESPN name→ID map
+// Frontend uses this on init to pre-populate _nbaIdCache for instant headshots
+// ============================================================
+app.get('/api/player/espn-map', (req, res) => {
+  res.set('Cache-Control', 'public, max-age=86400');
+  res.json(ESPN_PLAYERS);
+});
+
+// ============================================================
 // ROUTE: GET /api/headshot/name/:name — resolve player name → ESPN headshot
 // Must be registered BEFORE /api/headshot/:id so "name" isn't treated as an ID
 // ============================================================
@@ -3252,14 +3328,32 @@ app.get('/api/headshot/name/:name', async (req, res) => {
   }
 });
 
+// In-memory headshot image cache (avoids re-fetching from ESPN CDN on every request)
+const _headshotCache = new Map(); // id → { buf, contentType, ts }
+const HEADSHOT_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
+
 // ============================================================
-// ROUTE: GET /api/headshot/:id — proxy ESPN CDN to avoid CORS
+// ROUTE: GET /api/headshot/:id — proxy ESPN CDN to avoid CORS (with server-side cache)
 // ============================================================
 app.get('/api/headshot/:id', async (req, res) => {
+  const id = req.params.id;
   try {
-    const resp = await fetch(`https://a.espncdn.com/i/headshots/nba/players/full/${req.params.id}.png`);
+    // Check in-memory cache
+    const cached = _headshotCache.get(id);
+    if (cached && (Date.now() - cached.ts) < HEADSHOT_CACHE_TTL) {
+      res.set('Content-Type', cached.contentType);
+      res.set('Cache-Control', 'public, max-age=86400');
+      return res.send(cached.buf);
+    }
+    const resp = await fetch(`https://a.espncdn.com/i/headshots/nba/players/full/${id}.png`);
     if (!resp.ok) return res.status(404).end();
     const buf = await resp.buffer();
+    // Cache in memory (limit to 500 entries to avoid memory bloat)
+    if (_headshotCache.size >= 500) {
+      const oldest = [..._headshotCache.entries()].sort((a, b) => a[1].ts - b[1].ts)[0];
+      if (oldest) _headshotCache.delete(oldest[0]);
+    }
+    _headshotCache.set(id, { buf, contentType: 'image/png', ts: Date.now() });
     res.set('Content-Type', 'image/png');
     res.set('Cache-Control', 'public, max-age=86400');
     res.send(buf);
@@ -4804,22 +4898,24 @@ function serverApplyInjuryImpact(playerName, playerGameLog, playerTeam, market, 
     const resolved = resolvePlayerName(inj.player);
     const tmLog = allGameLogs.get(resolved) || allGameLogs.get(inj.player);
     if (!tmLog?.length) continue;
-    // Filter teammate games to current team only (avoid cross-team pollution from trades)
-    const tmPlayed = tmLog.filter(g => parseInt(g.min || '0') > 0 && (!g.team || g.team === playerTeam));
+    // Filter teammate games to current team only — require team field to avoid cross-team pollution from trades
+    const tmPlayed = tmLog.filter(g => parseInt(g.min || '0') > 0 && g.team === playerTeam);
     if (tmPlayed.length < 5) continue;
 
-    // Build DNP/played date sets for this teammate
+    // Build DNP/played date sets for this teammate (current team only)
     const tmDnpDates = new Set();
     const tmPlayedDates = new Set();
     for (const g of tmLog) {
-      if (g.team && g.team !== playerTeam) continue;
+      if (g.team !== playerTeam) continue; // strict team match — no fallback
       if (parseInt(g.min || '0') === 0) tmDnpDates.add(g.date);
       else tmPlayedDates.add(g.date);
     }
 
     // Gradual fadeout: scale impact by how much is NOT already baked into recent stats
+    // A game counts as "without" if the teammate was DNP OR simply had no entry that date
+    // (covers players who haven't suited up for the team yet — e.g. traded but injured all season)
     const l10 = playerPlayedTeam.slice(0, 10);
-    const l10Without = l10.filter(g => tmDnpDates.has(g.date)).length;
+    const l10Without = l10.filter(g => !tmPlayedDates.has(g.date)).length;
     const bakedInWeight = Math.max(0, 1 - (l10Without / 10));
     if (bakedInWeight <= 0) continue; // fully baked in
 

@@ -778,7 +778,7 @@ td{padding:12px 13px;white-space:nowrap;font-size:13px;}
 .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:800;align-items:center;justify-content:center;backdrop-filter:blur(4px);}
 .modal-overlay.show{display:flex;}
 .modal{background:var(--bg1);border:1px solid var(--bd);border-radius:var(--radius-lg);padding:24px;width:380px;max-width:95vw;box-shadow:var(--shadow-md);animation:cardIn .2s ease both;}
-.modal-detail{width:960px;max-width:96vw;max-height:88vh;overflow-y:auto;}
+.modal-detail{width:1200px;max-width:96vw;max-height:88vh;overflow-y:auto;}
 .shared-modal-tabs{display:flex;gap:2px;border-bottom:1px solid var(--bd);margin:-8px -24px 14px;padding:0 24px;}
 .shared-modal-tab{padding:9px 16px;border:none;background:none;color:var(--t2);font-family:var(--sans);font-size:13px;font-weight:500;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .12s;}
 .shared-modal-tab:hover{color:var(--t1);}.shared-modal-tab.on{color:var(--b);border-bottom-color:var(--b);font-weight:600;}
@@ -2117,6 +2117,16 @@ function renderFavorites() {
 
 // ── Dynamic NBA ID cache — populated when stats load for any player ──
 const _nbaIdCache = {};
+// Bulk-load entire ESPN player→ID map on init for instant headshots
+(async function preloadEspnMap(){
+  try {
+    const r = await fetch('/api/player/espn-map');
+    if (r.ok) {
+      const map = await r.json();
+      Object.assign(_nbaIdCache, map);
+    }
+  } catch {}
+})();
 
 // ── NBA Player → NBA ID map (hardcoded fallback for instant display before stats load) ──
 // Book brand logos — colored badges with abbreviations + brand colors
@@ -2346,10 +2356,17 @@ function renderInjuryBreakdown(p){
     const tFmt=tPct>0?`+${tPct}%`:`${tPct}%`;
     const spec=t.speculative?` <span style="color:#f59e0b;font-size:10px;">~est</span>`:'';
     const tmAvgLabel=t.tmAvg?` <span style="font-size:10px;font-weight:400;color:var(--t3);">(${t.tmAvg} ${mktShort}/g)</span>`:'';
+    const bdlBadges=t.bdlTeams?Object.entries(t.bdlTeams).map(([tm,ct])=>{
+      const match=t.team&&tm===t.team;
+      const bg=match?'rgba(34,197,94,.15)':'rgba(239,68,68,.12)';
+      const col=match?'#22c55e':'#ef4444';
+      return`<span style="font-size:9px;font-weight:700;color:${col};background:${bg};padding:1px 4px;border-radius:3px;margin-left:2px;" title="BDL has ${ct} games for ${tm}">${tm}:${ct}</span>`;
+    }).join(''):'';
+    const bakedLabel=t.bakedIn!=null?` · <span style="font-size:9px;color:var(--t3);">${Math.round(t.bakedIn*100)}% baked</span>`:'';
     return`<tr>
-      <td style="padding:4px 8px;font-size:11px;font-weight:600;">${t.name}${spec}${tmAvgLabel}</td>
+      <td style="padding:4px 8px;font-size:11px;font-weight:600;">${t.name} ${bdlBadges}${spec}${tmAvgLabel}</td>
       <td style="padding:4px 8px;font-size:11px;font-weight:700;color:${tCol};">${tFmt}</td>
-      <td style="padding:4px 8px;font-size:11px;color:var(--t3);">${t.wo||'?'} games w/o, ${t.wi||'?'} w/</td>
+      <td style="padding:4px 8px;font-size:11px;color:var(--t3);">${t.wo||'?'} w/o, ${t.wi||'?'} w/${bakedLabel}</td>
     </tr>`;
   }).join('');
   // Compute deltas + color helpers
@@ -2419,7 +2436,7 @@ function renderInjuryBreakdown(p){
     ${specNote}
     ${(p._injSkipped||[]).length?`<div style="margin-top:6px;padding:6px 8px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:6px;font-size:11px;color:#ef4444;">
       <div style="font-weight:700;margin-bottom:3px;">⚠ Skipped teammates (not factored in):</div>
-      ${p._injSkipped.map(s=>`<div style="margin-left:8px;">• ${s.name} — <span style="color:var(--t3);">${s.reason}</span></div>`).join('')}
+      ${p._injSkipped.map(s=>`<div style="margin-left:8px;">• ${s.name}${s.team?` <span style="font-size:9px;font-weight:700;color:var(--t3);background:var(--bg3);padding:1px 4px;border-radius:3px;">${s.team}</span>`:''} — <span style="color:var(--t3);">${s.reason}</span></div>`).join('')}
     </div>`:''}
   </div>`;
 }
@@ -4493,11 +4510,32 @@ function renderSimilarPlayers(el,p,data){
       </div>`:''}
     </div>`;
 
-  // Chart: taller, Y-axis labels, proper line positioning, hover tooltips
-  const chartH=260;
-  const barAreaH=chartH-70; // space for bars (bottom 70px reserved for labels)
+  // Recommendation banner
+  const simOverPct=summary.overRate;
+  const simAvgVsLine=summary.avgVsOpp-line;
+  const simMedianVsLine=median-line;
+  const simStrong=simOverPct>=65&&simAvgVsLine>0&&simMedianVsLine>=0;
+  const simLean=simOverPct>=55&&(simAvgVsLine>0||simMedianVsLine>=0);
+  const simWeak=simOverPct<=35&&simAvgVsLine<0&&simMedianVsLine<=0;
+  const simLeanUnder=simOverPct<=45&&(simAvgVsLine<0||simMedianVsLine<=0);
+  let simVerdict,simVerdictCol,simVerdictBg,simVerdictBd;
+  if(simStrong){simVerdict='Similar players strongly favor OVER';simVerdictCol='#22c55e';simVerdictBg='rgba(34,197,94,.1)';simVerdictBd='rgba(34,197,94,.3)';}
+  else if(simLean){simVerdict='Similar players lean OVER';simVerdictCol='#22c55e';simVerdictBg='rgba(34,197,94,.06)';simVerdictBd='rgba(34,197,94,.2)';}
+  else if(simWeak){simVerdict='Similar players strongly favor UNDER';simVerdictCol='#ef4444';simVerdictBg='rgba(239,68,68,.1)';simVerdictBd='rgba(239,68,68,.3)';}
+  else if(simLeanUnder){simVerdict='Similar players lean UNDER';simVerdictCol='#ef4444';simVerdictBg='rgba(239,68,68,.06)';simVerdictBd='rgba(239,68,68,.2)';}
+  else{simVerdict='Similar players are mixed — no clear edge';simVerdictCol='var(--t3)';simVerdictBg='rgba(148,163,184,.06)';simVerdictBd='rgba(148,163,184,.15)';}
+  html+=`<div class="dc full" style="padding:10px 16px;">
+    <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:${simVerdictBg};border:1px solid ${simVerdictBd};border-radius:8px;">
+      <span style="font-size:13px;font-weight:700;color:${simVerdictCol};">${simVerdict}</span>
+      <span style="font-size:11px;color:var(--t3);margin-left:auto;">${simOverPct}% hit rate · avg ${simAvgVsLine>=0?'+':''}${simAvgVsLine.toFixed(1)} vs line · median ${simMedianVsLine>=0?'+':''}${simMedianVsLine.toFixed(1)}</span>
+    </div>
+  </div>`;
+
+  // Chart
+  const barAreaH=220;
+  const labelAreaH=80;
   const maxStat=Math.max(line*1.5,...similar.flatMap(s=>s.gamesVsOpp.map(g=>g.statVal)))+2;
-  const linePos=((line/maxStat)*barAreaH).toFixed(1);
+  const linePx=(line/maxStat*barAreaH).toFixed(1);
   // Y-axis tick marks
   const yTicks=[];
   const yStep=maxStat<=15?5:maxStat<=30?5:10;
@@ -4505,21 +4543,22 @@ function renderSimilarPlayers(el,p,data){
 
   html+=`<div class="dc full" style="padding:14px 16px;">
     <div style="font-size:11px;font-weight:700;color:var(--t2);margin-bottom:10px;">Performance vs ${opponent} — Line: ${line} ${mktLabel}</div>
-    <div style="position:relative;height:${chartH}px;display:flex;">
+    <div style="display:flex;">
       <!-- Y-axis -->
-      <div style="width:28px;flex-shrink:0;position:relative;height:${barAreaH}px;">
+      <div style="width:30px;flex-shrink:0;position:relative;height:${barAreaH}px;">
         ${yTicks.map(v=>`<span style="position:absolute;bottom:${(v/maxStat*barAreaH).toFixed(0)}px;right:4px;font-size:10px;color:var(--t3);transform:translateY(50%);">${v}</span>`).join('')}
       </div>
-      <!-- Chart area -->
-      <div style="flex:1;position:relative;">
-        <!-- Grid lines -->
-        ${yTicks.map(v=>`<div style="position:absolute;left:0;right:0;bottom:${(v/maxStat*barAreaH).toFixed(0)}px;border-bottom:1px solid var(--bd);opacity:.3;"></div>`).join('')}
-        <!-- Betting line -->
-        <div style="position:absolute;left:0;right:0;bottom:${linePos}px;border-bottom:2px dashed var(--b);z-index:2;opacity:.7;">
-          <span style="position:absolute;right:4px;bottom:2px;font-size:11px;color:var(--b);font-weight:700;background:var(--bg1);padding:0 4px;border-radius:3px;">${line}</span>
-        </div>
-        <!-- Bars container -->
-        <div style="display:flex;gap:6px;align-items:flex-end;height:${barAreaH}px;overflow-x:auto;padding-bottom:0;">`;
+      <!-- Scrollable chart area -->
+      <div style="flex:1;overflow-x:auto;position:relative;">
+        <div style="position:relative;min-width:min-content;">
+          <!-- Grid lines (stretch full width of scroll content) -->
+          ${yTicks.map(v=>`<div style="position:absolute;left:0;right:0;bottom:${(labelAreaH+v/maxStat*barAreaH).toFixed(0)}px;border-bottom:1px solid var(--bd);opacity:.3;pointer-events:none;"></div>`).join('')}
+          <!-- Betting line -->
+          <div style="position:absolute;left:0;right:0;bottom:${(labelAreaH+parseFloat(linePx)).toFixed(0)}px;border-bottom:2px dashed var(--b);opacity:.8;z-index:2;pointer-events:none;">
+            <span style="position:absolute;right:4px;bottom:2px;font-size:11px;color:var(--b);font-weight:700;background:var(--bg1);padding:0 4px;border-radius:3px;">${line}</span>
+          </div>
+          <!-- Bars row -->
+          <div style="display:flex;gap:0;">`;
 
   for(const sp of similar){
     const hs=getHeadshot(sp.name);
@@ -4528,14 +4567,15 @@ function renderSimilarPlayers(el,p,data){
     const hitPct=Math.round(hits/sp.gamesVsOpp.length*100);
     const hitCol=hitPct>=60?'var(--g)':hitPct>=45?'var(--a)':'var(--r)';
     const spAvg=+(sp.gamesVsOpp.reduce((s,g)=>s+g.statVal,0)/sp.gamesVsOpp.length).toFixed(1);
+    const groupW=Math.max(72,sp.gamesVsOpp.length*22+16);
 
-    html+=`<div style="display:flex;flex-direction:column;align-items:center;min-width:${Math.max(52,sp.gamesVsOpp.length*16+10)}px;flex-shrink:0;">
-      <div style="display:flex;gap:3px;align-items:flex-end;height:${barAreaH}px;position:relative;">`;
+    html+=`<div style="display:flex;flex-direction:column;align-items:center;min-width:${groupW}px;width:${groupW}px;flex-shrink:0;border-right:1px solid rgba(255,255,255,.04);padding:0 4px;height:${barAreaH+labelAreaH}px;">
+      <div style="display:flex;gap:3px;align-items:flex-end;height:${barAreaH}px;flex-shrink:0;justify-content:center;">`;
     for(const g of sp.gamesVsOpp){
-      const h=Math.max(6,(g.statVal/maxStat*barAreaH)).toFixed(0);
+      const h=Math.max(8,(g.statVal/maxStat*barAreaH)).toFixed(0);
       const col=g.statVal>=line?'var(--g)':'var(--r)';
-      html+=`<div class="sim-bar" style="width:12px;height:${h}px;background:${col};border-radius:3px 3px 0 0;opacity:.85;cursor:default;position:relative;" onmouseenter="this.querySelector('.sim-tip').style.display='block'" onmouseleave="this.querySelector('.sim-tip').style.display='none'">
-        <div class="sim-tip" style="display:none;position:absolute;bottom:calc(100% + 4px);left:50%;transform:translateX(-50%);background:var(--bg3);border:1px solid var(--bd);border-radius:5px;padding:4px 7px;font-size:10px;white-space:nowrap;z-index:10;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,.3);">
+      html+=`<div class="sim-bar" style="width:18px;height:${h}px;background:${col};border-radius:3px 3px 0 0;opacity:.85;cursor:default;position:relative;" onmouseenter="this.querySelector('.sim-tip').style.display='block'" onmouseleave="this.querySelector('.sim-tip').style.display='none'">
+        <div class="sim-tip" style="display:none;position:absolute;bottom:calc(100% + 4px);left:50%;transform:translateX(-50%);background:var(--bg3);border:1px solid var(--bd);border-radius:5px;padding:5px 8px;font-size:10px;white-space:nowrap;z-index:10;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,.3);">
           <div style="font-weight:700;color:${col};">${g.statVal} ${mktLabel}</div>
           <div style="color:var(--t3);">${sp.name.split(' ').pop()} · ${g.date?.substring(5)||''}</div>
           <div style="color:var(--t3);">${g.min||'?'} min</div>
@@ -4543,15 +4583,15 @@ function renderSimilarPlayers(el,p,data){
       </div>`;
     }
     html+=`</div>
-      <div style="font-size:10px;font-weight:700;color:${hitCol};margin-top:3px;">${hitPct}%</div>
-      <div style="font-size:10px;color:var(--t3);margin-top:0px;">${spAvg} avg</div>
-      <div style="width:30px;height:30px;border-radius:50%;overflow:hidden;background:var(--bg3);display:flex;align-items:center;justify-content:center;margin-top:3px;flex-shrink:0;">
-        ${hs?`<img src="${hs}" onerror="this.parentElement.innerHTML='<span style=\\'font-size:10px;font-weight:700;color:var(--t3)\\'>${init}</span>'" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`:`<span style="font-size:10px;font-weight:700;color:var(--t3)">${init}</span>`}
+      <div style="font-size:10px;font-weight:700;color:${hitCol};margin-top:4px;line-height:1.2;">${hitPct}%</div>
+      <div style="font-size:10px;color:var(--t3);line-height:1.2;">${spAvg} avg</div>
+      <div style="width:26px;height:26px;border-radius:50%;overflow:hidden;background:var(--bg3);display:flex;align-items:center;justify-content:center;margin-top:3px;flex-shrink:0;">
+        ${hs?`<img src="${hs}" onerror="this.parentElement.innerHTML='<span style=\\'font-size:9px;font-weight:700;color:var(--t3)\\'>${init}</span>'" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`:`<span style="font-size:9px;font-weight:700;color:var(--t3)">${init}</span>`}
       </div>
-      <div style="font-size:10px;color:var(--t3);white-space:nowrap;max-width:60px;overflow:hidden;text-overflow:ellipsis;text-align:center;" title="${sp.name}">${sp.name.split(' ').pop()}</div>
+      <div style="font-size:10px;color:var(--t3);white-space:nowrap;max-width:${groupW-8}px;overflow:hidden;text-overflow:ellipsis;text-align:center;margin-top:1px;" title="${sp.name}">${sp.name.split(' ').pop()}</div>
     </div>`;
   }
-  html+=`</div></div></div></div>`;
+  html+=`</div></div></div></div></div>`;
 
   // Scrollable game logs
   html+=`<div class="dc full" style="padding:14px 16px;">
