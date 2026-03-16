@@ -699,6 +699,8 @@ const BDL_PLAYER_OVERRIDES = {
   'Nick Richards':           { id: 3547282,        position: 'C', team: 'CHI' },
   'Harrison Barnes':         { id: 30,             position: 'F', team: 'SAS' },
   'Isaiah Jackson':          { id: 17896035,       position: 'F', team: 'LAC' },
+  'Yves Missi':              { id: 1028027567,     position: 'C', team: 'NOP' },
+  'Julian Reese':            { id: 1060111739,     position: 'F', team: 'WAS' },
 };
 
 // Search BDL for player ID + position by name, cached 24h
@@ -1275,6 +1277,26 @@ app.get('/api/similar-players', async (req, res) => {
       return pp.includes('F') || (pp.includes('C') && pp.includes('F')); // F group includes C-F combos
     };
 
+    // Position similarity: exact match = 1.0, adjacent = 0.7, distant = 0.3
+    const POS_ORDER = { PG: 0, SG: 1, G: 0.5, SF: 2, PF: 3, F: 2.5, C: 4 };
+    const parsePosVal = p => {
+      const pp = (p || '').toUpperCase().replace(/[^A-Z]/g, '');
+      // Try exact match first, then partial
+      if (POS_ORDER[pp] != null) return POS_ORDER[pp];
+      for (const k of ['PG','SG','SF','PF','C','G','F']) { if (pp.includes(k)) return POS_ORDER[k]; }
+      return 2; // default mid
+    };
+    const playerPosVal = parsePosVal(pos);
+    const posSimilarity = otherPos => {
+      const otherVal = parsePosVal(otherPos);
+      const diff = Math.abs(playerPosVal - otherVal);
+      // diff 0 = exact (1.0), diff 1 = adjacent (0.7), diff 2+ = distant (0.3)
+      if (diff <= 0.5) return 1.0;
+      if (diff <= 1.5) return 0.7;
+      if (diff <= 2.5) return 0.4;
+      return 0.2;
+    };
+
     // 2. Query all players at same position group
     const { data: allPlayers } = await supabase.from('player_stats').select('player_name, game_log, position, season').eq('season', NBA_SEASON);
     if (!allPlayers?.length) return res.json({ similar: [], summary: null });
@@ -1308,11 +1330,18 @@ app.get('/api/similar-players', async (req, res) => {
 
       if (!vsOpp.length) continue;
 
+      // Similarity score: 50% avg closeness, 20% minutes closeness, 30% position
+      const avgSim = playerAvg > 0 ? Math.max(0, 1 - Math.abs(avg - playerAvg) / playerAvg) : 0.5;
+      const minSim = playerMinAvg > 0 ? Math.max(0, 1 - Math.abs(minAvg - playerMinAvg) / playerMinAvg) : 0.5;
+      const posSim = posSimilarity(row.position);
+      const simScore = Math.round((avgSim * 0.50 + minSim * 0.20 + posSim * 0.30) * 100);
+
       similar.push({
         name: row.player_name,
         position: row.position,
         seasonAvg: +avg.toFixed(1),
         avgMin: +minAvg.toFixed(1),
+        similarity: simScore,
         gamesVsOpp: vsOpp.map(g => ({
           date: g.date, pts: g.pts, reb: g.reb, ast: g.ast, fg3m: g.fg3m, min: g.min,
           statVal: getVal(g),
@@ -1335,50 +1364,43 @@ app.get('/api/similar-players', async (req, res) => {
       return false;
     }).map(g => ({ date: g.date, pts: g.pts, reb: g.reb, ast: g.ast, fg3m: g.fg3m, min: g.min, statVal: getVal(g) }));
 
-    // Sort by most games vs opponent
-    similar.sort((a, b) => b.gamesVsOpp.length - a.gamesVsOpp.length);
+    // Sort by similarity score (highest first), break ties by game count
+    similar.sort((a, b) => b.similarity - a.similarity || b.gamesVsOpp.length - a.gamesVsOpp.length);
 
-    // Opponent defensive rank for this stat category
+    // Position-based defensive rank: compute from game logs of same-position players vs each team
     let oppDefense = null;
-    let teamStats = cacheGet('team_stats');
-    if (!teamStats) teamStats = await sbGetTeamStats();
-    if (teamStats) {
-      // Map market to the allows key
-      const dvpKeyMap = { player_points: 'pts', player_rebounds: 'reb', player_assists: 'ast', player_threes: 'fg3m', player_points_rebounds_assists: null, player_rebounds_assists: null };
-      const dvpKey = dvpKeyMap[market];
-      const oppTeamData = teamStats[oppUpper];
-      if (dvpKey && oppTeamData?.allows) {
-        // Rank all teams by how much they allow (higher = worse defense for that stat)
-        const allTeamAllows = Object.entries(teamStats)
-          .filter(([k, v]) => !k.startsWith('_') && v?.allows?.[dvpKey] != null)
-          .map(([abbr, t]) => ({ abbr, val: t.allows[dvpKey] }))
-          .sort((a, b) => b.val - a.val); // most allowed = rank 1 (worst defense)
-        const rank = allTeamAllows.findIndex(t => t.abbr === oppUpper) + 1;
-        const totalTeams = allTeamAllows.length;
-        const leagueAvg = teamStats._leagueAvg?.[dvpKey] || 0;
+    {
+      // For each team, compute average stat allowed to players in same position group
+      const teamAllowsPos = {}; // { teamAbbr: { total, count } }
+      for (const row of allPlayers) {
+        if (!posMatch(row.position)) continue;
+        if (!row.game_log?.length) continue;
+        const played = row.game_log.filter(g => parseInt(g.min || '0') > 0);
+        if (played.length < 5) continue;
+        for (const g of played) {
+          const opp = g.opp || (g.opp_team_id ? BDL_TEAM_ID_MAP[g.opp_team_id] : null);
+          if (!opp) continue;
+          if (!teamAllowsPos[opp]) teamAllowsPos[opp] = { total: 0, count: 0 };
+          teamAllowsPos[opp].total += getVal(g);
+          teamAllowsPos[opp].count++;
+        }
+      }
+      // Rank teams by avg allowed to this position (higher = worse defense = rank 1)
+      const posLabel = posGroup === 'G' ? 'Guards' : posGroup === 'C' ? 'Centers' : 'Forwards';
+      const teamAvgs = Object.entries(teamAllowsPos)
+        .filter(([, v]) => v.count >= 10) // need reasonable sample
+        .map(([abbr, v]) => ({ abbr, avg: +(v.total / v.count).toFixed(1), n: v.count }))
+        .sort((a, b) => b.avg - a.avg); // most allowed = rank 1
+      const leagueAvgPos = teamAvgs.length ? +(teamAvgs.reduce((s, t) => s + t.avg, 0) / teamAvgs.length).toFixed(1) : 0;
+      const oppEntry = teamAvgs.find(t => t.abbr === oppUpper);
+      if (oppEntry) {
+        const rank = teamAvgs.findIndex(t => t.abbr === oppUpper) + 1;
+        const statNames = { pts: 'Points', reb: 'Rebounds', ast: 'Assists', fg3m: '3-Pointers', pra: 'PRA', ra: 'R+A' };
         oppDefense = {
-          stat: dvpKey, rank, totalTeams, allows: +oppTeamData.allows[dvpKey].toFixed(1),
-          leagueAvg: +leagueAvg, diff: +(oppTeamData.allows[dvpKey] - leagueAvg).toFixed(1),
+          stat: statKey, rank, totalTeams: teamAvgs.length, allows: oppEntry.avg,
+          leagueAvg: leagueAvgPos, diff: +(oppEntry.avg - leagueAvgPos).toFixed(1),
+          posGroup: posLabel, sampleSize: oppEntry.n,
         };
-      } else if (market === 'player_points_rebounds_assists' && oppTeamData?.allows) {
-        // Composite: sum pts+reb+ast allowed
-        const allTeamPRA = Object.entries(teamStats)
-          .filter(([k, v]) => !k.startsWith('_') && v?.allows?.pts != null)
-          .map(([abbr, t]) => ({ abbr, val: (t.allows.pts || 0) + (t.allows.reb || 0) + (t.allows.ast || 0) }))
-          .sort((a, b) => b.val - a.val);
-        const rank = allTeamPRA.findIndex(t => t.abbr === oppUpper) + 1;
-        const oppVal = (oppTeamData.allows.pts || 0) + (oppTeamData.allows.reb || 0) + (oppTeamData.allows.ast || 0);
-        const lgAvg = (teamStats._leagueAvg?.pts || 0) + (teamStats._leagueAvg?.reb || 0) + (teamStats._leagueAvg?.ast || 0);
-        oppDefense = { stat: 'pra', rank, totalTeams: allTeamPRA.length, allows: +oppVal.toFixed(1), leagueAvg: +lgAvg.toFixed(1), diff: +(oppVal - lgAvg).toFixed(1) };
-      } else if (market === 'player_rebounds_assists' && oppTeamData?.allows) {
-        const allTeamRA = Object.entries(teamStats)
-          .filter(([k, v]) => !k.startsWith('_') && v?.allows?.reb != null)
-          .map(([abbr, t]) => ({ abbr, val: (t.allows.reb || 0) + (t.allows.ast || 0) }))
-          .sort((a, b) => b.val - a.val);
-        const rank = allTeamRA.findIndex(t => t.abbr === oppUpper) + 1;
-        const oppVal = (oppTeamData.allows.reb || 0) + (oppTeamData.allows.ast || 0);
-        const lgAvg = (teamStats._leagueAvg?.reb || 0) + (teamStats._leagueAvg?.ast || 0);
-        oppDefense = { stat: 'ra', rank, totalTeams: allTeamRA.length, allows: +oppVal.toFixed(1), leagueAvg: +lgAvg.toFixed(1), diff: +(oppVal - lgAvg).toFixed(1) };
       }
     }
 
@@ -3189,45 +3211,55 @@ app.get('/api/debug/clear-player/:name', async (req, res) => {
 
 // ============================================================
 // ROUTE: GET /api/debug/dfs — check what DFS bookmaker data the Odds API returns
+// ?all=1 to check all upcoming games (uses more API quota)
 // ============================================================
 app.get('/api/debug/dfs', async (req, res) => {
   if (!ODDS_KEY) return res.status(503).json({ error: 'Odds API key not configured' });
   try {
+    const checkAll = req.query.all === '1';
     const evtResp = await fetch(`${ODDS_BASE}/sports/basketball_nba/events?apiKey=${ODDS_KEY}&regions=us,us_dfs&oddsFormat=american`);
     if (!evtResp.ok) return res.status(502).json({ error: `Events: ${evtResp.status}` });
     const events = await evtResp.json();
-    const remaining = evtResp.headers.get('x-requests-remaining');
+    let remaining = evtResp.headers.get('x-requests-remaining');
     const upcoming = events.filter(e => new Date(e.commence_time) > new Date());
     if (!upcoming.length) return res.json({ message: 'No upcoming games', remaining });
 
-    // Check first upcoming event for bookmaker keys
-    const evt = upcoming[0];
-    const pUrl = `${ODDS_BASE}/sports/basketball_nba/events/${evt.id}/odds?apiKey=${ODDS_KEY}&regions=us,us_dfs&markets=player_points&oddsFormat=american`;
-    const pResp = await fetch(pUrl);
-    if (!pResp.ok) return res.status(502).json({ error: `Props: ${pResp.status}` });
-    const data = await pResp.json();
-    const bookmakers = (data.bookmakers || []).map(bk => ({
-      key: bk.key,
-      title: bk.title,
-      markets: (bk.markets || []).map(m => m.key),
-      playerCount: (bk.markets || []).reduce((s, m) => s + (m.outcomes?.length || 0), 0),
-      samplePlayers: (bk.markets || []).flatMap(m => (m.outcomes || []).slice(0, 4).map(o => ({
-        name: o.description || o.name,
-        side: o.name,
-        line: o.point,
-        odds: o.price,
-      }))),
-    }));
-    const dfsBooks = bookmakers.filter(b => ['prizepicks', 'underdog', 'pick6', 'betr_us_dfs'].includes(b.key));
-    res.json({
-      event: `${evt.away_team} @ ${evt.home_team}`,
-      commence: evt.commence_time,
-      totalBookmakers: bookmakers.length,
-      allBookKeys: bookmakers.map(b => b.key),
-      dfsBooks,
-      allBooks: bookmakers,
-      remaining: pResp.headers.get('x-requests-remaining'),
-    });
+    const eventsToCheck = checkAll ? upcoming.slice(0, 10) : [upcoming[0]];
+    const results = [];
+    for (const evt of eventsToCheck) {
+      const pUrl = `${ODDS_BASE}/sports/basketball_nba/events/${evt.id}/odds?apiKey=${ODDS_KEY}&regions=us,us_dfs&markets=player_points&oddsFormat=american`;
+      const pResp = await fetch(pUrl);
+      remaining = pResp.headers.get('x-requests-remaining');
+      if (!pResp.ok) { results.push({ event: `${evt.away_team} @ ${evt.home_team}`, error: pResp.status }); continue; }
+      const data = await pResp.json();
+      const bookmakers = (data.bookmakers || []).map(bk => ({
+        key: bk.key, title: bk.title,
+        markets: (bk.markets || []).map(m => m.key),
+        playerCount: (bk.markets || []).reduce((s, m) => s + (m.outcomes?.length || 0), 0),
+        samplePlayers: (bk.markets || []).flatMap(m => (m.outcomes || []).slice(0, 4).map(o => ({
+          name: o.description || o.name, side: o.name, line: o.point, odds: o.price,
+        }))),
+      }));
+      const dfsBooks = bookmakers.filter(b => ['prizepicks', 'underdog', 'pick6', 'betr_us_dfs'].includes(b.key));
+      results.push({
+        event: `${evt.away_team} @ ${evt.home_team}`,
+        commence: evt.commence_time,
+        totalBookmakers: bookmakers.length,
+        allBookKeys: bookmakers.map(b => b.key),
+        dfsBooks: dfsBooks.map(b => ({ key: b.key, title: b.title, playerCount: b.playerCount })),
+        ...(eventsToCheck.length === 1 ? { allBooks: bookmakers } : {}),
+      });
+      if (eventsToCheck.length > 1) await new Promise(r => setTimeout(r, 300));
+    }
+
+    if (results.length === 1) {
+      res.json({ ...results[0], remaining });
+    } else {
+      // Summary across all games
+      const summary = { prizepicks: 0, underdog: 0, betr_us_dfs: 0, pick6: 0 };
+      for (const r of results) for (const b of (r.dfsBooks || [])) summary[b.key] = (summary[b.key] || 0) + 1;
+      res.json({ gamesChecked: results.length, dfsCoverage: summary, games: results, remaining });
+    }
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

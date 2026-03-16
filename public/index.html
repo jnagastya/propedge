@@ -2130,24 +2130,36 @@ const _nbaIdCache = {};
 
 // ── NBA Player → NBA ID map (hardcoded fallback for instant display before stats load) ──
 // Book brand logos — colored badges with abbreviations + brand colors
+const _favicon=(d)=>`https://www.google.com/s2/favicons?domain=${d}&sz=64`;
 const BOOK_BRANDS = {
-  draftkings:  { label:'DK',  bg:'#53d337', color:'#000' },
-  fanduel:     { label:'FD',  bg:'#1493ff', color:'#fff' },
-  betmgm:      { label:'MGM', bg:'#c5a44e', color:'#000' },
-  prizepicks:  { label:'PP',  bg:'#7c3aed', color:'#fff' },
-  underdog:    { label:'UD',  bg:'#d97706', color:'#fff' },
-  combined:    { label:'ALL', bg:'var(--b)', color:'#fff' },
-  betonlineag: { label:'BO',  bg:'#e53e3e', color:'#fff' },
-  betrivers:   { label:'BR',  bg:'#1a73e8', color:'#fff' },
-  espnbet:     { label:'ESPN',bg:'#d00', color:'#fff' },
-  pointsbetus: { label:'FAN', bg:'#004c2f', color:'#fff' },
-  caesars:     { label:'CZR', bg:'#0a3d2e', color:'#d4af37' },
+  draftkings:    { label:'DK',  bg:'#53d337', color:'#000', img:_favicon('draftkings.com') },
+  fanduel:       { label:'FD',  bg:'#1493ff', color:'#fff', img:_favicon('fanduel.com') },
+  betmgm:        { label:'MGM', bg:'#c5a44e', color:'#000', img:_favicon('betmgm.com') },
+  prizepicks:    { label:'PP',  bg:'#7c3aed', color:'#fff', img:_favicon('prizepicks.com') },
+  underdog:      { label:'UD',  bg:'#d97706', color:'#fff', img:_favicon('underdogfantasy.com') },
+  combined:      { label:'ALL', bg:'var(--b)', color:'#fff' },
+  betonlineag:   { label:'BO',  bg:'#e53e3e', color:'#fff', img:_favicon('betonline.ag') },
+  betrivers:     { label:'BR',  bg:'#1a73e8', color:'#fff', img:_favicon('betrivers.com') },
+  espnbet:       { label:'ESPN',bg:'#d00',    color:'#fff', img:_favicon('espnbet.com') },
+  pointsbetus:   { label:'FAN', bg:'#004c2f', color:'#fff', img:_favicon('sportsbook.fanatics.com') },
+  fanatics:      { label:'FAN', bg:'#004c2f', color:'#fff', img:_favicon('sportsbook.fanatics.com') },
+  caesars:       { label:'CZR', bg:'#0a3d2e', color:'#d4af37', img:_favicon('caesars.com') },
+  williamhill_us:{ label:'CZR', bg:'#0a3d2e', color:'#d4af37', img:_favicon('caesars.com') },
+  pinnacle:      { label:'PIN', bg:'#c41230', color:'#fff', img:_favicon('pinnacle.com') },
+  bet365:        { label:'365', bg:'#027b5b', color:'#fff', img:_favicon('bet365.com') },
+  bovada:        { label:'BOV', bg:'#cc0000', color:'#fff', img:_favicon('bovada.lv') },
+  pick6:         { label:'P6',  bg:'#53d337', color:'#000', img:_favicon('pick6.draftkings.com') },
+  betr_us_dfs:   { label:'BTR', bg:'#ff6b00', color:'#fff', img:_favicon('betr.app') },
+  fliff:         { label:'FLF', bg:'#6c2bd9', color:'#fff', img:_favicon('getfliff.com') },
+  hardrockbet:   { label:'HR',  bg:'#000',    color:'#f5c518', img:_favicon('hardrocksportsbook.com') },
 };
 function bookBadge(key, size) {
   size = size || 18;
   const b = BOOK_BRANDS[key] || { label: (key||'?').substring(0,2).toUpperCase(), bg:'var(--bg3)', color:'var(--t1)' };
+  const r = Math.round(size*0.3);
+  if (b.img) return `<span style="display:inline-flex;align-items:center;justify-content:center;width:${size}px;height:${size}px;border-radius:${r}px;overflow:hidden;flex-shrink:0;"><img src="${b.img}" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentElement.innerHTML='<span style=\\'background:${b.bg};color:${b.color};width:${size}px;height:${size}px;display:inline-flex;align-items:center;justify-content:center;border-radius:${r}px;font-size:${Math.round(size*0.48)}px;font-weight:800;\\'>${b.label}</span>'"></span>`;
   const fs = b.label.length > 2 ? Math.round(size * 0.38) : Math.round(size * 0.48);
-  return `<span style="display:inline-flex;align-items:center;justify-content:center;min-width:${size}px;height:${size}px;border-radius:${Math.round(size*0.3)}px;background:${b.bg};color:${b.color};font-size:${fs}px;font-weight:800;flex-shrink:0;line-height:1;padding:0 ${b.label.length>2?'3':'1'}px;">${b.label}</span>`;
+  return `<span style="display:inline-flex;align-items:center;justify-content:center;min-width:${size}px;height:${size}px;border-radius:${r}px;background:${b.bg};color:${b.color};font-size:${fs}px;font-weight:800;flex-shrink:0;line-height:1;padding:0 ${b.label.length>2?'3':'1'}px;">${b.label}</span>`;
 }
 // Map bookmaker API key to display name
 function bookDisplayName(key) {
@@ -3304,21 +3316,37 @@ function renderDet(i,p){
   const scnTab=S.scnOn?`<button class="di-tab" onclick="showDTab('${i}','scenario',this)">Scenario</button>`:'';
   const booksTab=p.bookLines&&Object.keys(p.bookLines).length>1?`<button class="di-tab" onclick="showDTab('${i}','books',this)">📊 Books</button>`:'';
   const _dhs=getHeadshot(p.name);const _dinit=(p.name||'?').split(' ').map(n=>n[0]).join('').substring(0,2);
-  const mktLabel=({'player_points':'Points','player_rebounds':'Rebounds','player_assists':'Assists','player_threes':'3-Pointers','player_steals':'Steals','player_blocks':'Blocks','player_turnovers':'Turnovers','player_points_rebounds_assists':'PRA','player_rebounds_assists':'Reb+Ast'})[p.market||S.market]||'Stats';
+  const MKT_LABELS_FULL={'player_points':'Points','player_rebounds':'Rebounds','player_assists':'Assists','player_threes':'3-Pointers','player_steals':'Steals','player_blocks':'Blocks','player_turnovers':'Turnovers','player_points_rebounds_assists':'PRA','player_rebounds_assists':'Reb+Ast'};
+  const mktLabel=MKT_LABELS_FULL[p.market||S.market]||'Stats';
+  // Build market dropdown — find all markets for this player
+  const _mktOpts=[];const _mktSeen=new Set();
+  const _mktSources={[S.market]:S.data,...alertMktCache};
+  for(const [mkt,arr] of Object.entries(_mktSources)){
+    if(!arr||_mktSeen.has(mkt))continue;_mktSeen.add(mkt);
+    for(const prop of arr){
+      if(prop.name===p.name&&!_mktOpts.find(x=>x.market===mkt)){
+        const adj=applyAllAdjustments(prop);
+        _mktOpts.push({market:mkt,label:MKT_LABELS_FULL[mkt]||mkt,line:prop.line,vs:valueScore({...adj,market:mkt})});
+      }
+    }
+  }
+  _mktOpts.sort((a,b)=>b.vs-a.vs);
+  const _mktDropdown=_mktOpts.length>1?`<select id="detMktSelect-${i}" onchange="window._switchDetailMarket('${i}',this.value)" style="background:var(--bg3);color:var(--t1);border:1px solid var(--bd);border-radius:6px;padding:3px 8px;font-size:11px;font-weight:600;cursor:pointer;outline:none;margin-left:auto;">${_mktOpts.map(m=>`<option value="${m.market}" ${m.market===(p.market||S.market)?'selected':''}>${m.label} (${m.line}) — VS: ${m.vs}</option>`).join('')}</select>`:'';
   c.innerHTML=`<div class="di-player-hdr">
     <div class="di-player-hdr-av" data-av="${p.name.replace(/"/g,'&quot;')}">${_dhs?`<img src="${_dhs}" onerror="headshotError(this,'${_dinit}')" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" alt="">`:`<span>${_dinit}</span>`}</div>
-    <div>
+    <div style="flex:1;">
       <div class="di-player-hdr-name">${p.name}</div>
       <div class="di-player-hdr-meta">${[p.team,p.position,p.matchup,mktLabel+' · Line '+p.line+(p.prev_line!=null&&p.prev_line!==p.line?` (was ${p.prev_line})`:'')] .filter(Boolean).join(' · ')}</div>
     </div>
+    ${_mktDropdown}
   </div>
   <div class="di-tabs">
     <button class="di-tab on" onclick="showDTab('${i}','overview',this)">Overview</button>
+    <button class="di-tab" onclick="showDTab('${i}','simulator',this)">⚡ Line Sim</button>
+    <button class="di-tab" onclick="showDTab('${i}','similar',this)">👥 Similar</button>
     <button class="di-tab" onclick="showDTab('${i}','splits',this)">Splits</button>
     <button class="di-tab" onclick="showDTab('${i}','gamelog',this)">Game Log</button>
     ${booksTab}${scnTab}
-    <button class="di-tab" onclick="showDTab('${i}','simulator',this)">⚡ Line Sim</button>
-    <button class="di-tab" onclick="showDTab('${i}','similar',this)">👥 Similar</button>
   </div>
   <div class="dfs-toggle" id="dfs-toggle-${i}">
     <button class="dfs-toggle-btn on" onclick="switchDFSView('${i}','sportsbook',this)">${bookBadge('combined',14)} Sportsbook Avg</button>
@@ -3427,6 +3455,37 @@ async function enrichPlayerStats(i,p){
     console.warn('Stats enrich failed:',p.name,e.message);
   }
 }
+// Switch market from detail header dropdown — refreshes all tabs
+window._switchDetailMarket=function(i,newMarket){
+  const dataSources={[S.market]:S.data,...alertMktCache};
+  let matchProp=null;
+  const playerName=window._dp?.name;
+  if(!playerName)return;
+  for(const [mkt,arr] of Object.entries(dataSources)){
+    if(mkt!==newMarket)continue;
+    matchProp=arr.find(pr=>pr.name===playerName);
+    if(matchProp)break;
+  }
+  if(!matchProp)return;
+  // Apply adjustments to the new prop
+  const adj=applyAllAdjustments(matchProp);
+  Object.assign(matchProp,adj,{vs:valueScore(adj)});
+  // Clear cached tab data
+  delete matchProp._similarData;
+  // Update global detail player reference
+  window._dp=matchProp;
+  // Update header meta line
+  const MKT_LABELS_FULL={'player_points':'Points','player_rebounds':'Rebounds','player_assists':'Assists','player_threes':'3-Pointers','player_steals':'Steals','player_blocks':'Blocks','player_turnovers':'Turnovers','player_points_rebounds_assists':'PRA','player_rebounds_assists':'Reb+Ast'};
+  const newMktLabel=MKT_LABELS_FULL[newMarket]||'Stats';
+  const metaEl=document.querySelector(`#di-${i} .di-player-hdr-meta`);
+  if(metaEl)metaEl.textContent=[matchProp.team,matchProp.position,matchProp.matchup,newMktLabel+' · Line '+matchProp.line+(matchProp.prev_line!=null&&matchProp.prev_line!==matchProp.line?` (was ${matchProp.prev_line})`:'')] .filter(Boolean).join(' · ');
+  // Re-render active tab
+  const activeBtn=document.querySelector(`#di-${i} .di-tab.on`);
+  if(activeBtn)activeBtn.click();
+  // If we need real stats for this new market, enrich
+  if(!matchProp.hasRealStats)enrichPlayerStats(i,matchProp);
+};
+
 async function showDTab(i,tab,btn){
   const p=window._dp,el=document.getElementById(`dtc-${i}`);
   btn.parentElement.querySelectorAll('.di-tab').forEach(b=>b.classList.remove('on'));btn.classList.add('on');
@@ -3467,8 +3526,9 @@ async function switchDFSView(i, platform, btn) {
   if (!p[dfsKey]) {
     try {
       const r = await apiGet(`/api/analytics/merged?market=${p.market || S.market}&book=${platform}`);
-      if (r.players) {
-        const match = r.players.find(dp => dp.name === p.name && dp.market === (p.market || S.market));
+      const dfsPlayers = r.data || r.players || [];
+      if (dfsPlayers.length) {
+        const match = dfsPlayers.find(dp => dp.name === p.name && dp.market === (p.market || S.market));
         p[dfsKey] = match || null;
       }
     } catch (e) { console.warn('DFS fetch error:', e); }
@@ -4446,29 +4506,6 @@ function toggleInjuryImpact(){
 }
 
 // ── Similar Players Module ──
-// Switch similar players market via dropdown
-window._switchSimMarket=async function(newMarket,playerName,containerEl){
-  if(!containerEl)return;
-  // Find the matching prop for this player+market from all data sources
-  const dataSources={[S.market]:S.data,...alertMktCache};
-  let matchProp=null;
-  for(const [mkt,arr] of Object.entries(dataSources)){
-    if(mkt!==newMarket)continue;
-    matchProp=arr.find(pr=>pr.name===playerName);
-    if(matchProp)break;
-  }
-  if(!matchProp){containerEl.innerHTML='<div style="padding:24px;text-align:center;color:var(--r);font-size:13px;">No data for this market.</div>';return;}
-  containerEl.innerHTML='<div style="padding:24px;text-align:center;color:var(--t3);font-size:13px;">Loading similar players…</div>';
-  const playerTeam=matchProp.team||'';
-  const oppTeam=playerTeam===matchProp.homeTeam?matchProp.awayTeam:(playerTeam===matchProp.awayTeam?matchProp.homeTeam:'');
-  if(!oppTeam){containerEl.innerHTML='<div style="padding:24px;text-align:center;color:var(--t3);font-size:13px;">Cannot determine opponent.</div>';return;}
-  try{
-    const r=await apiGet(`/api/similar-players?player=${encodeURIComponent(playerName)}&market=${newMarket}&opponent=${oppTeam}&line=${matchProp.line}`);
-    if(r.similar){matchProp._similarData=r;renderSimilarPlayers(containerEl,matchProp,r);}
-    else containerEl.innerHTML=`<div style="padding:24px;text-align:center;color:var(--r);font-size:13px;">${r.error||'No data.'}</div>`;
-  }catch(e){containerEl.innerHTML=`<div style="padding:24px;text-align:center;color:var(--r);font-size:13px;">Error: ${e.message}</div>`;}
-};
-
 async function loadAndRenderSimilarPlayers(el,p){
   if(p._similarData){renderSimilarPlayers(el,p,p._similarData);return;}
   el.innerHTML='<div style="padding:24px;text-align:center;color:var(--t3);font-size:13px;">Loading similar players…</div>';
@@ -4490,22 +4527,6 @@ function renderSimilarPlayers(el,p,data){
     return;
   }
 
-  // Find all markets available for this player across cached data
-  const playerName=p.name;
-  const allPlayerProps=[];
-  const seenMkts=new Set();
-  const dataSources={[S.market]:S.data,...alertMktCache};
-  for(const [mkt,arr] of Object.entries(dataSources)){
-    if(!arr||seenMkts.has(mkt))continue; seenMkts.add(mkt);
-    for(const prop of arr){
-      if(prop.name===playerName&&!allPlayerProps.find(x=>x.market===mkt)){
-        const adj=applyAllAdjustments(prop);
-        allPlayerProps.push({market:mkt,label:MKT_LABELS[mkt]||mkt,line:prop.line,vs:valueScore({...adj,market:mkt}),edge:adj.edge||0});
-      }
-    }
-  }
-  allPlayerProps.sort((a,b)=>b.vs-a.vs);
-
   // Summary bar — color delta based on over bet (positive = good) vs under context
   const diffSign=summary.pctDiff>=0?'+':'';
   const isOverContext=(p.edge||0)>=0;
@@ -4520,23 +4541,9 @@ function renderSimilarPlayers(el,p,data){
   const bestPlayer=playerAvgs[0];
   const worstPlayer=playerAvgs[playerAvgs.length-1];
 
-  // Market dropdown HTML
-  let mktDropdownHtml='';
-  if(allPlayerProps.length>1){
-    const opts=allPlayerProps.map(mp=>{
-      const sel=mp.market===market?'selected':'';
-      const vsCol=mp.vs>=50?'#22c55e':mp.vs>=40?'#f59e0b':'#ef4444';
-      return `<option value="${mp.market}" ${sel} data-vs="${mp.vs}">${mp.label} (${mp.line}) — VS: ${mp.vs}</option>`;
-    }).join('');
-    mktDropdownHtml=`<select id="simMktSelect" onchange="window._switchSimMarket(this.value,'${playerName.replace(/'/g,"\\'")}',this.closest('.di-grid').parentElement)" style="background:var(--bg3);color:var(--t1);border:1px solid var(--bd);border-radius:6px;padding:4px 8px;font-size:11px;font-weight:600;cursor:pointer;outline:none;">${opts}</select>`;
-  }
-
   let html=`<div class="di-grid">
     <div class="dc full" style="padding:14px 16px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-        <div style="font-size:12px;font-weight:700;color:var(--t1);">Similar Players vs ${opponent}</div>
-        ${mktDropdownHtml}
-      </div>
+      <div style="font-size:12px;font-weight:700;color:var(--t1);margin-bottom:8px;">Similar Players vs ${opponent}</div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;">
         <div style="padding:8px 10px;background:var(--bg2);border-radius:6px;text-align:center;">
           <div style="font-size:10px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.3px;">Avg vs ${opponent}</div>
@@ -4595,6 +4602,7 @@ function renderSimilarPlayers(el,p,data){
     if(oppDef){
       const statNames={pts:'Points',reb:'Rebounds',ast:'Assists',fg3m:'3-Pointers',pra:'PRA',ra:'R+A'};
       const statName=statNames[oppDef.stat]||oppDef.stat;
+      const posLabel=oppDef.posGroup||'Players';
       // Rank 1 = most allowed = worst defense for that stat = good for offense
       const isEasy=oppDef.rank<=10;
       const isHard=oppDef.rank>=21;
@@ -4603,13 +4611,14 @@ function renderSimilarPlayers(el,p,data){
       const rankBd=isEasy?'rgba(34,197,94,.25)':isHard?'rgba(239,68,68,.25)':'rgba(245,158,11,.25)';
       const rankLabel=isEasy?'Easy matchup':isHard?'Tough matchup':'Average';
       const diffSign2=oppDef.diff>=0?'+':'';
+      const sampleNote=oppDef.sampleSize?` · ${oppDef.sampleSize} games`:'';
       html+=`<div style="flex:1;min-width:200px;padding:10px 12px;background:${rankBg};border:1px solid ${rankBd};border-radius:8px;">
         <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
-          <span style="font-size:11px;font-weight:700;color:${rankCol};">${opponent} Def vs ${statName}</span>
+          <span style="font-size:11px;font-weight:700;color:${rankCol};">${opponent} Def vs ${posLabel} ${statName}</span>
           <span style="font-size:10px;font-weight:800;color:${rankCol};background:${rankBg};border:1px solid ${rankBd};padding:1px 6px;border-radius:10px;">#${oppDef.rank}/${oppDef.totalTeams}</span>
         </div>
-        <div style="font-size:11px;color:var(--t2);">Allows <b>${oppDef.allows}</b> ${mktLabel}/game <span style="color:${rankCol};">(${diffSign2}${oppDef.diff} vs league avg)</span></div>
-        <div style="font-size:10px;color:var(--t3);margin-top:2px;">${rankLabel} — Rank 1 = most allowed</div>
+        <div style="font-size:11px;color:var(--t2);">Allows <b>${oppDef.allows}</b> ${mktLabel}/game to ${posLabel.toLowerCase()} <span style="color:${rankCol};">(${diffSign2}${oppDef.diff} vs avg)</span></div>
+        <div style="font-size:10px;color:var(--t3);margin-top:2px;">${rankLabel} — Rank 1 = most allowed${sampleNote}</div>
       </div>`;
     }
     if(recTrend){
@@ -4634,7 +4643,7 @@ function renderSimilarPlayers(el,p,data){
 
   // Chart
   const barAreaH=260;
-  const labelAreaH=80;
+  const labelAreaH=92;
   const tipMargin=36;
   const playerAGames=data.playerA?.gamesVsOpp||[];
   const allBarVals=[...similar.flatMap(s=>s.gamesVsOpp.map(g=>g.statVal)),...playerAGames.map(g=>g.statVal)];
@@ -4697,7 +4706,10 @@ function renderSimilarPlayers(el,p,data){
   }
 
   // Similar players bars
-  for(const sp of similar){
+  for(let si=0;si<similar.length;si++){
+    const sp=similar[si];
+    const isTop=si<5;
+    const fadeOp=isTop?1:.5;
     const hs=getHeadshot(sp.name);
     const init=sp.name.split(' ').map(n=>n[0]).join('').substring(0,2);
     const hits=sp.gamesVsOpp.filter(g=>g.statVal>=line).length;
@@ -4705,8 +4717,10 @@ function renderSimilarPlayers(el,p,data){
     const hitCol=hitPct>=60?'var(--g)':hitPct>=45?'var(--a)':'var(--r)';
     const spAvg=+(sp.gamesVsOpp.reduce((s,g)=>s+g.statVal,0)/sp.gamesVsOpp.length).toFixed(1);
     const groupW=Math.max(72,sp.gamesVsOpp.length*22+16);
+    const simPct=sp.similarity||0;
+    const simCol=simPct>=85?'#22c55e':simPct>=70?'#f59e0b':'var(--t3)';
 
-    html+=`<div style="display:flex;flex-direction:column;align-items:center;min-width:${groupW}px;width:${groupW}px;flex-shrink:0;border-right:1px solid rgba(255,255,255,.04);padding:0 4px;height:${barAreaH+labelAreaH+tipMargin}px;">
+    html+=`<div style="display:flex;flex-direction:column;align-items:center;min-width:${groupW}px;width:${groupW}px;flex-shrink:0;border-right:1px solid rgba(255,255,255,.04);padding:0 4px;height:${barAreaH+labelAreaH+tipMargin}px;opacity:${fadeOp};">
       <div style="display:flex;gap:3px;align-items:flex-end;height:${barAreaH}px;flex-shrink:0;justify-content:center;margin-top:${tipMargin}px;">`;
     for(const g of sp.gamesVsOpp){
       const h=Math.max(8,(g.statVal/maxStat*barAreaH)).toFixed(0);
@@ -4726,6 +4740,7 @@ function renderSimilarPlayers(el,p,data){
         ${hs?`<img src="${hs}" onerror="this.parentElement.innerHTML='<span style=\\'font-size:9px;font-weight:700;color:var(--t3)\\'>${init}</span>'" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`:`<span style="font-size:9px;font-weight:700;color:var(--t3)">${init}</span>`}
       </div>
       <div style="font-size:10px;color:var(--t3);white-space:nowrap;max-width:${groupW-8}px;overflow:hidden;text-overflow:ellipsis;text-align:center;margin-top:1px;" title="${sp.name}">${sp.name.split(' ').pop()}</div>
+      <div style="font-size:9px;font-weight:700;color:${simCol};margin-top:1px;">${simPct}% match</div>
     </div>`;
   }
   html+=`</div></div></div></div></div>`;
@@ -7337,7 +7352,7 @@ const GL_BOOK_NAMES = {
   betfair:'Betfair', pinnacle:'Pinnacle', fliff:'Fliff', hardrockbet:'Hard Rock',
   espnbet:'ESPN BET', bet365:'Bet365', fanatics:'Fanatics',
 };
-const GL_EXCL_BOOKS = new Set(['bovada','betonlineag','mybookieag','lowvig']);
+const GL_EXCL_BOOKS = new Set(['bovada','betonlineag','mybookieag','lowvig','betrivers','betmgm','pointsbetus','fanatics','williamhill_us','caesars']);
 
 function glWinProb(hStats, aStats) {
   const homeNR = hStats.homeNetRtg != null ? hStats.homeNetRtg : hStats.netRtg;
@@ -8619,10 +8634,11 @@ function renderSharedStatsTab(p, el) {
   </div>
   <div class="di-tabs">
     <button class="di-tab on" onclick="showSharedDTab('overview',this)">Overview</button>
+    <button class="di-tab" onclick="showSharedDTab('simulator',this)">⚡ Line Sim</button>
+    <button class="di-tab" onclick="showSharedDTab('similar',this)">👥 Similar</button>
     <button class="di-tab" onclick="showSharedDTab('splits',this)">Splits</button>
     <button class="di-tab" onclick="showSharedDTab('gamelog',this)">Game Log</button>
     ${booksTab}
-    <button class="di-tab" onclick="showSharedDTab('simulator',this)">⚡ Line Sim</button>
   </div>
   <div class="dfs-toggle" id="dfs-toggle-shared">
     <button class="dfs-toggle-btn on" onclick="switchDFSView('shared','sportsbook',this)">${bookBadge('combined',14)} Sportsbook Avg</button>
@@ -8656,6 +8672,7 @@ async function showSharedDTab(tab, btn) {
   else if (tab === 'gamelog') await loadAndRenderGameLog(el, p);
   else if (tab === 'books') renderBookComparison(el, p);
   else if (tab === 'simulator') renderLineSimulator(el, p);
+  else if (tab === 'similar') await loadAndRenderSimilarPlayers(el, p);
 }
 
 function openSharedBet(bd) {
