@@ -1450,6 +1450,7 @@ input[type=range].min-slider::-moz-range-track{height:6px;border-radius:3px;back
           </tr></thead>
           <tbody id="tBody"></tbody>
         </table>
+        <div id="startedPropsSection"></div>
       </div>
     </div>
   </div>
@@ -2967,7 +2968,7 @@ function renderTable(){
   if(!S.data||!S.data.length){renderSkeletons();return;}
   let d=[...S.data];
   const now=new Date();
-  // Hide players whose game has already started (data can go stale during a session)
+  const _startedProps=d.filter(p=>p.gameTime&&new Date(p.gameTime)<=now);
   d=d.filter(p=>!p.gameTime||new Date(p.gameTime)>now);
   const q=(document.getElementById('searchIn').value||'').toLowerCase();
   if(q)d=d.filter(p=>p.name.toLowerCase().includes(q)||(p.team||'').toLowerCase().includes(q)||(p.matchup||'').toLowerCase().includes(q));
@@ -3080,6 +3081,50 @@ function renderTable(){
 
   // Attach floating tooltip listeners for edge/conf cells
   attachTipListeners();
+
+  // ── Started / In-Progress props (collapsible) ──
+  const startedSection=document.getElementById('startedPropsSection');
+  if(startedSection){
+    let sp=[..._startedProps];
+    if(q)sp=sp.filter(p=>p.name.toLowerCase().includes(q)||(p.team||'').toLowerCase().includes(q)||(p.matchup||'').toLowerCase().includes(q));
+    if(S.gameFilter){const[fAway,fHome]=S.gameFilter.split(' @ ');sp=sp.filter(p=>p.matchup&&p.matchup.includes(fAway)&&p.matchup.includes(fHome));}
+    if(_smartMinOn||_dnpAdjOn||_injuryImpactOn||_teamStatsOn) sp=sp.map(p=>applyAllAdjustments(p));
+    sp.sort(sf[S.sort]||sf.edge);
+    if(!sp.length){startedSection.innerHTML='';} else {
+      startedSection.innerHTML=`<div style="margin-top:16px;">
+        <div onclick="const c=this.nextElementSibling;c.style.display=c.style.display==='none'?'':'none';this.querySelector('.started-arrow').textContent=c.style.display==='none'?'▶':'▼'" style="cursor:pointer;display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--bg2);border:1px solid var(--bd);border-radius:8px;user-select:none;">
+          <span class="started-arrow" style="font-size:10px;color:var(--t3);">▶</span>
+          <span style="font-size:12px;font-weight:700;color:var(--t2);">In Progress (${sp.length})</span>
+          <span style="font-size:10px;color:var(--t3);margin-left:auto;">Games already started</span>
+        </div>
+        <div style="display:none;margin-top:8px;opacity:.7;">
+          <table class="props-table" style="width:100%;"><tbody>${sp.map((p,i)=>{
+            const edge=p.edge||0;const ec=edge>3?'pos':edge<-3?'neg':'flat';const es=edge>0?'+':'';
+            const hs=getHeadshot(p.name);const initials=p.name.split(' ').map(n=>n[0]).join('').substring(0,2);
+            const avInner=hs?`<img src="${hs}" onerror="headshotError(this,'${initials}')" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" alt="">`:`<span style="font-size:12px;font-weight:700;color:var(--t3)">${initials}</span>`;
+            const oP=p.hitRate||50,uP=100-oP;
+            const vs=valueScore(p);const dirEV=getDirectionalEV(p);
+            const evColor=dirEV>=10?'var(--g)':dirEV>=3?'var(--a)':dirEV>=0?'var(--t2)':'var(--r)';
+            const overFmt=p.overOdds?(p.overOdds>0?'+':'')+p.overOdds:'—';
+            const underFmt=p.underOdds?(p.underOdds>0?'+':'')+p.underOdds:'—';
+            return`<tr style="position:relative;">
+              <td><div class="av-c"><div class="av">${avInner}</div></div></td>
+              <td><div class="pn">${p.name} <span style="font-size:9px;font-weight:700;padding:2px 5px;border-radius:4px;background:rgba(245,158,11,.15);color:#f59e0b;border:1px solid rgba(245,158,11,.3);">LIVE</span></div><div class="tm">${p.team||''} · ${(p.matchup||'').substring(0,20)}</div></td>
+              <td style="font-weight:700;font-size:14px;">${p.line}</td>
+              <td><div class="odds-cell"><span class="odd over">O ${overFmt}</span><span class="odd under">U ${underFmt}</span></div></td>
+              <td class="col-sm-hide" style="font-weight:600;">${p.avg}</td>
+              <td class="col-sm-hide" style="font-weight:600;">${oP}%</td>
+              <td class="col-mob-hide"><div class="ouv"><div class="oub"><div class="ouo" style="width:${oP}%"></div><div class="ouu" style="width:${uP}%"></div></div><span class="oul">${oP}/${uP}</span></div></td>
+              <td class="col-mob-hide"><div class="spk">${mkSpk(p.l10,p.line)}</div></td>
+              <td><span class="et ${ec}">${es}${edge.toFixed(1)}%</span></td>
+              <td class="col-sm-hide"><span style="font-size:11px;font-weight:700;color:${evColor}">${dirEV>=0?'+':''}${dirEV.toFixed(1)}%</span></td>
+              <td><span style="font-size:12px;font-weight:700;color:${vs>=40?'var(--g)':vs>=25?'var(--a)':vs>=15?'var(--t2)':'var(--r)'}">${vs}</span></td>
+            </tr>`;
+          }).join('')}</tbody></table>
+        </div>
+      </div>`;
+    }
+  }
 }
 
 // ── Floating tooltips (avoids overflow) ──
@@ -4156,18 +4201,12 @@ async function fetchInjuryImpacts(){
     batch.push({player:p.name,team,market:p.market||S.market});
   }
   if(!batch.length){ renderAlerts(); renderTable(); return; }
-  console.log('[injury-batch] sending',batch.length,'players, sample keys:', batch.slice(0,5).map(b=>b.player+'|'+b.market));
   try{
     const r=await fetch('/api/injury-impact-batch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({players:batch})});
-    console.log('[injury-batch] response status:', r.status);
     if(r.ok){
       const d=await r.json();
-      const keys=d.results?Object.keys(d.results):[];
-      console.log('[injury-batch] got',keys.length,'results, sample keys:', keys.slice(0,5));
-      const collierKeys=keys.filter(k=>k.toLowerCase().includes('collier'));
-      if(collierKeys.length) console.log('[injury-batch] Collier results:', collierKeys.map(k=>({key:k,impact:d.results[k]?.impact,ratio:d.results[k]?.ratio})));
       if(d.results) Object.assign(_injuryImpactCache,d.results);
-    } else { console.warn('[injury-batch] non-ok response:', r.status, await r.text()); }
+    }
   }catch(e){ console.warn('[fetchInjuryImpacts] batch failed:',e); }
   renderAlerts();
   renderTable();
@@ -4901,7 +4940,9 @@ function renderAlerts(){
   // Use custom slider value if set, otherwise preset
   const effectiveMinVS = S.customMinVS || t.minVS;
   const _now=new Date();
-  const _rawAlerts=getAlertData().filter(p=>!p.gameTime||new Date(p.gameTime)>_now);
+  const _allAlertData=getAlertData();
+  const _rawAlerts=_allAlertData.filter(p=>!p.gameTime||new Date(p.gameTime)>_now);
+  const _startedAlertData=_allAlertData.filter(p=>p.gameTime&&new Date(p.gameTime)<=_now);
   window._lastAlertPlayers=_rawAlerts; // for injury impact fetcher
   let alerts=_rawAlerts
     .map(p=>{
@@ -5127,6 +5168,57 @@ function renderAlerts(){
       </div>
     </div>`;
   }).join('');
+
+  // ── Started / In-Progress alerts (collapsible) ──
+  let startedAlerts=_startedAlertData
+    .map(p=>{const adj=applyAllAdjustments(p);return{...adj,vs:valueScore(adj),_dirEV:getDirectionalEV(adj)};})
+    .filter(p=>p.vs>=effectiveMinVS&&Math.abs(p.edge||0)>=2&&p._dirEV>0);
+  if(alertDirF==='over') startedAlerts=startedAlerts.filter(p=>(p.edge||0)>=0);
+  else if(alertDirF==='under') startedAlerts=startedAlerts.filter(p=>(p.edge||0)<0);
+  if(alertConfF) startedAlerts=startedAlerts.filter(p=>(p.confidence||0)>=alertConfF);
+  if(alertMktF!=='all') startedAlerts=startedAlerts.filter(p=>(p.market||S.market)===alertMktF);
+  startedAlerts.sort(sortFns[alertSort]||sortFns.vs);
+  if(startedAlerts.length){
+    const startedBase=alerts.length; // offset for _vaAlerts index
+    window._vaAlerts=[...alerts,...startedAlerts];
+    grid.innerHTML+=`<div style="grid-column:1/-1;margin-top:16px;">
+      <div onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'':'none';this.querySelector('.started-arrow').textContent=this.nextElementSibling.style.display==='none'?'▶':'▼'" style="cursor:pointer;display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--bg2);border:1px solid var(--bd);border-radius:8px;user-select:none;">
+        <span class="started-arrow" style="font-size:10px;color:var(--t3);">▶</span>
+        <span style="font-size:12px;font-weight:700;color:var(--t2);">In Progress (${startedAlerts.length})</span>
+        <span style="font-size:10px;color:var(--t3);margin-left:auto;">Games already started</span>
+      </div>
+      <div style="display:none;margin-top:8px;opacity:.7;">
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:12px;">
+        ${startedAlerts.map((p,si)=>{
+          const rank=startedBase+si;
+          const isOver=p.edge>0;const dir=isOver?'OVER':'UNDER';
+          const hs=getHeadshot(p.name);const initials=p.name.split(' ').map(n=>n[0]).join('').substring(0,2);
+          const avHTML=hs?`<img src="${hs}" onerror="headshotError(this,'${initials}')" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" alt="">`:`${initials}`;
+          const strength=p.vs>=40?'strong':p.vs>=25?'moderate':'risky';
+          const evPct=p._dirEV??0;const betOdds=isOver?p.overOdds:p.underOdds;
+          const betOddsFmt=betOdds?(betOdds>0?'+':'')+betOdds:'—';
+          const edgeAbs=Math.abs(p.edge||0).toFixed(1);const edgeCol=Math.abs(p.edge||0)>=8?'var(--g)':Math.abs(p.edge||0)>=5?'var(--a)':'var(--r)';
+          const rawModelProb=p.modelProb!=null?p.modelProb:(p.hitRate||50)/100;
+          const dirModelProbPct=Math.round((isOver?rawModelProb:1-rawModelProb)*100);
+          const cc2=(p.confidence||0)>=70?'var(--g)':(p.confidence||0)>=50?'var(--a)':'var(--r)';
+          return`<div class="va-card ${strength}" onclick="openAlertDetail(_vaAlerts[${rank}])" style="cursor:pointer;position:relative;">
+            <div style="position:absolute;top:8px;right:10px;font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;background:rgba(245,158,11,.15);color:#f59e0b;border:1px solid rgba(245,158,11,.3);">LIVE</div>
+            <div class="va-top"><div class="va-av">${avHTML}</div><div class="va-info"><div class="va-name">${p.name}${showMktTag&&p.market?`<span class="va-mkt-tag">${MKT_SHORT[p.market]||p.market}</span>`:''}</div><div class="va-meta">${p.team||''} · ${(p.matchup||'').substring(0,25)}</div></div>
+            <div class="va-right"><div class="va-edge-big ${evPct>0?'pos':'neg'}">${evPct>0?'+':''}${evPct}%</div><div class="va-direction ${isOver?'over':'under'}">${isOver?'▲':'▼'} BET ${dir}</div></div></div>
+            <div style="font-size:13px;font-weight:700;color:var(--b-text);margin-bottom:8px;">${dir} ${p.line} ${MKT_SHORT[p.market||S.market]||''} · ${betOddsFmt}</div>
+            <div class="va-stats">
+              <div class="va-stat"><div class="va-stat-v" style="color:${p.vs>=40?'var(--g)':p.vs>=25?'var(--a)':'var(--r)'}"><b>${p.vs}</b></div><div class="va-stat-l">Value Score</div></div>
+              <div class="va-stat"><div class="va-stat-v" style="color:${edgeCol}"><b>${edgeAbs}%</b></div><div class="va-stat-l">Edge</div></div>
+              <div class="va-stat"><div class="va-stat-v">${p.avg}</div><div class="va-stat-l">L10 Avg</div></div>
+              <div class="va-stat"><div class="va-stat-v">${dirModelProbPct}%</div><div class="va-stat-l">Model Prob</div></div>
+              <div class="va-stat"><div class="va-stat-v" style="color:${evPct>0?'var(--g)':'var(--r)'}">${evPct>0?'+':''}${evPct}%</div><div class="va-stat-l">Exp. Value</div></div>
+              <div class="va-stat"><div class="va-stat-v" style="color:${cc2}">${p.confidence||0}</div><div class="va-stat-l">Conf.</div></div>
+            </div></div>`;
+        }).join('')}
+        </div>
+      </div>
+    </div>`;
+  }
 }
 
 // ── Sparkline ──
@@ -6639,7 +6731,7 @@ const B2B_HOME_ADJ = 1.0;
 const B2B_AWAY_ADJ = 2.0;
 const MAX_INJURY_ADJ = 8;
 const MARGIN_REGRESS = 0.85;   // Regress raw net rtg margin toward mean (splits are noisy)
-const INJURY_DAMPEN  = 0.65;   // On/off data is noisier → keep 65% of signal
+const INJURY_DAMPEN  = 0.70;   // On/off data is noisier → keep 70% of signal (overlap discount handles stacking)
 
 const GL_BOOK_NAMES = {
   fanduel:'FanDuel', draftkings:'DraftKings', betmgm:'BetMGM', pointsbetus:'PointsBet',
@@ -6668,38 +6760,55 @@ function glIsB2B(teamStats, gameDate) {
   return diffDays > 0 && diffDays <= 1.5;
 }
 
-function glInjuryAdj(teamStats, injuries) {
-  if (!teamStats?.playerImpact?.length || !injuries?.length) return 0;
+// Minutes-overlap discount: estimates how much court time two players share
+// overlap = max(0, minA + minB - 48), discount = 1 - overlap / min(minA, minB)
+function _overlapDiscount(mpgA, mpgB) {
+  const overlap = Math.max(0, mpgA + mpgB - 48);
+  const denom = Math.min(mpgA, mpgB);
+  return denom > 0 ? 1 - (overlap / denom) : 1;
+}
+
+function _matchOutPlayers(teamStats, injuries) {
+  if (!teamStats?.playerImpact?.length || !injuries?.length) return [];
   const outPlayers = injuries.filter(i => i.status === 'Out' || i.status === 'Doubtful');
-  if (!outPlayers.length) return 0;
-  let totalAdj = 0;
+  if (!outPlayers.length) return [];
   const matched = [];
   for (const inj of outPlayers) {
     const injLast = inj.player?.split(' ').pop()?.toLowerCase();
     if (!injLast) continue;
-    const match = teamStats.playerImpact.find(p => {
-      const pLast = p.name?.split(' ').pop()?.toLowerCase();
-      return pLast === injLast;
-    });
-    if (match && match.impact > 0) {
-      totalAdj -= match.impact;
-      matched.push({ name: match.name, impact: match.impact });
-    }
+    const match = teamStats.playerImpact.find(p => p.name?.split(' ').pop()?.toLowerCase() === injLast);
+    if (match && match.impact > 0) matched.push({ name: match.name, impact: match.impact, min: match.min || 0, status: inj.status });
   }
+  // Sort by raw impact descending — biggest impact player gets full weight
+  matched.sort((a, b) => b.impact - a.impact);
+  // Apply diminishing returns via minutes overlap
+  const counted = []; // players already factored in
+  for (const p of matched) {
+    if (!counted.length) {
+      p.discount = 1.0;
+    } else {
+      // Discount by the MAX overlap with any already-counted player
+      let maxOverlap = 0;
+      for (const prev of counted) {
+        maxOverlap = Math.max(maxOverlap, 1 - _overlapDiscount(p.min, prev.min));
+      }
+      p.discount = Math.max(0.15, 1 - maxOverlap); // floor at 15% — even fully overlapping players have some independent value
+    }
+    p.adjImpact = +(p.impact * p.discount).toFixed(1);
+    counted.push(p);
+  }
+  return matched;
+}
+
+function glInjuryAdj(teamStats, injuries) {
+  const matched = _matchOutPlayers(teamStats, injuries);
+  if (!matched.length) return 0;
+  const totalAdj = matched.reduce((s, p) => s - p.adjImpact, 0);
   return Math.max(totalAdj, -MAX_INJURY_ADJ);
 }
 
 function glInjuryMatchedPlayers(teamStats, injuries) {
-  if (!teamStats?.playerImpact?.length || !injuries?.length) return [];
-  const outPlayers = injuries.filter(i => i.status === 'Out' || i.status === 'Doubtful');
-  const result = [];
-  for (const inj of outPlayers) {
-    const injLast = inj.player?.split(' ').pop()?.toLowerCase();
-    if (!injLast) continue;
-    const match = teamStats.playerImpact.find(p => p.name?.split(' ').pop()?.toLowerCase() === injLast);
-    if (match && match.impact > 0) result.push({ name: match.name, impact: match.impact, status: inj.status });
-  }
-  return result;
+  return _matchOutPlayers(teamStats, injuries);
 }
 
 function glPredictedTotal(hStats, aStats) {
@@ -6924,7 +7033,11 @@ async function renderGameLines() {
   empty.style.display = 'none';
   loading.style.display = 'none';
   const allInjuries = await getInjuries() || [];
-  const sorted = [...games].sort((a, b) => new Date(a.commence) - new Date(b.commence));
+  const now = new Date();
+  const _startedGames = [...games].filter(g => g.commence && new Date(g.commence) <= now).sort((a, b) => new Date(a.commence) - new Date(b.commence));
+  const sorted = [...games].filter(g => !g.commence || new Date(g.commence) > now).sort((a, b) => new Date(a.commence) - new Date(b.commence));
+  // Store filtered list for modal index alignment
+  window._glSorted = sorted;
 
   grid.innerHTML = sorted.map((g, gi) => {
     const c = glComputeGame(g, ts, allInjuries);
@@ -7065,12 +7178,53 @@ async function renderGameLines() {
       </div>` : ''}
     </div>`;
   }).join('');
+
+  // ── Started / In-Progress games (collapsible) ──
+  if(_startedGames.length){
+    grid.innerHTML+=`<div style="grid-column:1/-1;margin-top:16px;">
+      <div onclick="const c=this.nextElementSibling;c.style.display=c.style.display==='none'?'':'none';this.querySelector('.started-arrow').textContent=c.style.display==='none'?'▶':'▼'" style="cursor:pointer;display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--bg2);border:1px solid var(--bd);border-radius:8px;user-select:none;">
+        <span class="started-arrow" style="font-size:10px;color:var(--t3);">▶</span>
+        <span style="font-size:12px;font-weight:700;color:var(--t2);">In Progress (${_startedGames.length})</span>
+        <span style="font-size:10px;color:var(--t3);margin-left:auto;">Games already started</span>
+      </div>
+      <div style="display:none;margin-top:8px;opacity:.7;">
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:14px;">
+        ${_startedGames.map(g=>{
+          const c=glComputeGame(g,ts,allInjuries);
+          const gd=new Date(g.commence);
+          const etStr=gd.toLocaleString('en-US',{hour:'numeric',minute:'2-digit',timeZone:'America/New_York'});
+          const hLogo=getTeamLogo(g.home),aLogo=getTeamLogo(g.away);
+          const hRec=c.hStats?`${c.hStats.w}-${c.hStats.l}`:'';
+          const aRec=c.aStats?`${c.aStats.w}-${c.aStats.l}`:'';
+          return`<div style="background:var(--bg2);border:1px solid var(--bd);border-radius:12px;padding:14px;position:relative;">
+            <div style="position:absolute;top:8px;right:10px;font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;background:rgba(245,158,11,.15);color:#f59e0b;border:1px solid rgba(245,158,11,.3);">LIVE</div>
+            <div style="font-size:10px;color:var(--t3);margin-bottom:8px;">${etStr} ET</div>
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
+              <div style="text-align:center;flex:1;">
+                ${aLogo?`<img src="${aLogo}" style="width:32px;height:32px;object-fit:contain;" alt="">`:''}
+                <div style="font-size:13px;font-weight:700;color:var(--t1);">${g.away}</div>
+                <div style="font-size:10px;color:var(--t3);">${aRec}</div>
+              </div>
+              <div style="font-size:11px;color:var(--t3);font-weight:600;">@</div>
+              <div style="text-align:center;flex:1;">
+                ${hLogo?`<img src="${hLogo}" style="width:32px;height:32px;object-fit:contain;" alt="">`:''}
+                <div style="font-size:13px;font-weight:700;color:var(--t1);">${g.home}</div>
+                <div style="font-size:10px;color:var(--t3);">${hRec}</div>
+              </div>
+            </div>
+            ${c.homeWinProb?`<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--t2);"><span>${g.away} ${(c.awayWinProb*100).toFixed(1)}%</span><span>${g.home} ${(c.homeWinProb*100).toFixed(1)}%</span></div>`:''}
+            ${c.predSpread!=null?`<div style="font-size:11px;color:var(--t3);margin-top:4px;">Spread: ${c.predSpread>0?'+':''}${c.predSpread} · Total: ${c.predTotal||'—'}</div>`:''}
+          </div>`;
+        }).join('')}
+        </div>
+      </div>
+    </div>`;
+  }
 }
 
 // ── Game Line Detail Modal ──
 function openGLDetailModal(gi) {
-  const { games, teamStats: ts } = _glCache;
-  const sorted = [...games].sort((a, b) => new Date(a.commence) - new Date(b.commence));
+  const sorted = window._glSorted || [];
   const g = sorted[gi];
   if (!g) return;
   const c = g._computed;
@@ -7214,9 +7368,9 @@ function openGLDetailModal(gi) {
     ${(c.hInjPlayers.length || c.aInjPlayers.length) ? `<div style="background:var(--bg2);border:1px solid var(--bd);border-radius:10px;padding:14px;margin-bottom:18px;">
       <div style="font-size:12px;font-weight:700;color:var(--t1);margin-bottom:8px;">Injury Impact (On/Off)</div>
       ${c.hInjPlayers.length ? `<div style="font-size:11px;color:var(--t3);margin-bottom:4px;font-weight:600;">${g.home} (${c.hInjAdj.toFixed(1)} NR adj)</div>
-      ${c.hInjPlayers.map(p => `<div style="display:flex;justify-content:space-between;font-size:11px;padding:2px 0;"><span style="color:var(--t2);">${p.name} <span style="color:var(--t3);">(${p.status})</span></span><span style="color:var(--r);font-weight:600;">-${p.impact.toFixed(1)} NR</span></div>`).join('')}` : ''}
+      ${c.hInjPlayers.map(p => `<div style="display:flex;justify-content:space-between;font-size:11px;padding:2px 0;"><span style="color:var(--t2);">${p.name} <span style="color:var(--t3);">(${p.status})</span></span><span style="color:var(--r);font-weight:600;">-${p.adjImpact.toFixed(1)} NR${p.discount < 1 ? ` <span style="color:var(--t3);font-weight:400;">(${Math.round(p.discount*100)}% wt)</span>` : ''}</span></div>`).join('')}` : ''}
       ${c.aInjPlayers.length ? `<div style="font-size:11px;color:var(--t3);margin-bottom:4px;margin-top:8px;font-weight:600;">${g.away} (${c.aInjAdj.toFixed(1)} NR adj)</div>
-      ${c.aInjPlayers.map(p => `<div style="display:flex;justify-content:space-between;font-size:11px;padding:2px 0;"><span style="color:var(--t2);">${p.name} <span style="color:var(--t3);">(${p.status})</span></span><span style="color:var(--r);font-weight:600;">-${p.impact.toFixed(1)} NR</span></div>`).join('')}` : ''}
+      ${c.aInjPlayers.map(p => `<div style="display:flex;justify-content:space-between;font-size:11px;padding:2px 0;"><span style="color:var(--t2);">${p.name} <span style="color:var(--t3);">(${p.status})</span></span><span style="color:var(--r);font-weight:600;">-${p.adjImpact.toFixed(1)} NR${p.discount < 1 ? ` <span style="color:var(--t3);font-weight:400;">(${Math.round(p.discount*100)}% wt)</span>` : ''}</span></div>`).join('')}` : ''}
     </div>` : ''}
 
     <!-- Advanced Stats Comparison -->
@@ -7272,8 +7426,7 @@ function openGLDetailModal(gi) {
 
 // ── Game Line Bet Modal ──
 function openGLBetModal(gi, betType) {
-  const { games } = _glCache;
-  const sorted = [...games].sort((a, b) => new Date(a.commence) - new Date(b.commence));
+  const sorted = window._glSorted || [];
   const g = sorted[gi];
   if (!g) return;
   const c = g._computed;
