@@ -1282,7 +1282,7 @@ app.get('/api/similar-players', async (req, res) => {
     // 3. Filter to similar players
     const oppUpper = opponent.toUpperCase();
     const similar = [];
-    const avgRange = { min: playerAvg * 0.75, max: playerAvg * 1.25 };
+    const avgRange = { min: playerAvg * 0.80, max: playerAvg * 1.20 };
     const minRange = { min: playerMinAvg - 6, max: playerMinAvg + 6 };
 
     for (const row of allPlayers) {
@@ -1328,15 +1328,83 @@ app.get('/api/similar-players', async (req, res) => {
     const overCount = lineNum > 0 ? allGamesVsOpp.filter(g => g.statVal >= lineNum).length : 0;
     const overRate = allGamesVsOpp.length && lineNum > 0 ? Math.round(overCount / allGamesVsOpp.length * 100) : 0;
 
+    // Subject player's own games vs this opponent
+    const playerVsOpp = playerGames.filter(g => {
+      if (g.opp) return g.opp === oppUpper;
+      if (g.opp_team_id) return BDL_TEAM_ID_MAP[g.opp_team_id] === oppUpper;
+      return false;
+    }).map(g => ({ date: g.date, pts: g.pts, reb: g.reb, ast: g.ast, fg3m: g.fg3m, min: g.min, statVal: getVal(g) }));
+
     // Sort by most games vs opponent
     similar.sort((a, b) => b.gamesVsOpp.length - a.gamesVsOpp.length);
 
+    // Opponent defensive rank for this stat category
+    let oppDefense = null;
+    let teamStats = cacheGet('team_stats');
+    if (!teamStats) teamStats = await sbGetTeamStats();
+    if (teamStats) {
+      // Map market to the allows key
+      const dvpKeyMap = { player_points: 'pts', player_rebounds: 'reb', player_assists: 'ast', player_threes: 'fg3m', player_points_rebounds_assists: null, player_rebounds_assists: null };
+      const dvpKey = dvpKeyMap[market];
+      const oppTeamData = teamStats[oppUpper];
+      if (dvpKey && oppTeamData?.allows) {
+        // Rank all teams by how much they allow (higher = worse defense for that stat)
+        const allTeamAllows = Object.entries(teamStats)
+          .filter(([k, v]) => !k.startsWith('_') && v?.allows?.[dvpKey] != null)
+          .map(([abbr, t]) => ({ abbr, val: t.allows[dvpKey] }))
+          .sort((a, b) => b.val - a.val); // most allowed = rank 1 (worst defense)
+        const rank = allTeamAllows.findIndex(t => t.abbr === oppUpper) + 1;
+        const totalTeams = allTeamAllows.length;
+        const leagueAvg = teamStats._leagueAvg?.[dvpKey] || 0;
+        oppDefense = {
+          stat: dvpKey, rank, totalTeams, allows: +oppTeamData.allows[dvpKey].toFixed(1),
+          leagueAvg: +leagueAvg, diff: +(oppTeamData.allows[dvpKey] - leagueAvg).toFixed(1),
+        };
+      } else if (market === 'player_points_rebounds_assists' && oppTeamData?.allows) {
+        // Composite: sum pts+reb+ast allowed
+        const allTeamPRA = Object.entries(teamStats)
+          .filter(([k, v]) => !k.startsWith('_') && v?.allows?.pts != null)
+          .map(([abbr, t]) => ({ abbr, val: (t.allows.pts || 0) + (t.allows.reb || 0) + (t.allows.ast || 0) }))
+          .sort((a, b) => b.val - a.val);
+        const rank = allTeamPRA.findIndex(t => t.abbr === oppUpper) + 1;
+        const oppVal = (oppTeamData.allows.pts || 0) + (oppTeamData.allows.reb || 0) + (oppTeamData.allows.ast || 0);
+        const lgAvg = (teamStats._leagueAvg?.pts || 0) + (teamStats._leagueAvg?.reb || 0) + (teamStats._leagueAvg?.ast || 0);
+        oppDefense = { stat: 'pra', rank, totalTeams: allTeamPRA.length, allows: +oppVal.toFixed(1), leagueAvg: +lgAvg.toFixed(1), diff: +(oppVal - lgAvg).toFixed(1) };
+      } else if (market === 'player_rebounds_assists' && oppTeamData?.allows) {
+        const allTeamRA = Object.entries(teamStats)
+          .filter(([k, v]) => !k.startsWith('_') && v?.allows?.reb != null)
+          .map(([abbr, t]) => ({ abbr, val: (t.allows.reb || 0) + (t.allows.ast || 0) }))
+          .sort((a, b) => b.val - a.val);
+        const rank = allTeamRA.findIndex(t => t.abbr === oppUpper) + 1;
+        const oppVal = (oppTeamData.allows.reb || 0) + (oppTeamData.allows.ast || 0);
+        const lgAvg = (teamStats._leagueAvg?.reb || 0) + (teamStats._leagueAvg?.ast || 0);
+        oppDefense = { stat: 'ra', rank, totalTeams: allTeamRA.length, allows: +oppVal.toFixed(1), leagueAvg: +lgAvg.toFixed(1), diff: +(oppVal - lgAvg).toFixed(1) };
+      }
+    }
+
+    // Recency trend: compare similar players' recent games vs older games against this opponent
+    let recencyTrend = null;
+    const allGamesWithDates = similar.flatMap(s => s.gamesVsOpp.filter(g => g.date).map(g => ({ ...g, date: g.date })));
+    if (allGamesWithDates.length >= 4) {
+      allGamesWithDates.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+      const half = Math.ceil(allGamesWithDates.length / 2);
+      const recentHalf = allGamesWithDates.slice(0, half);
+      const olderHalf = allGamesWithDates.slice(half);
+      const recentAvg = +(recentHalf.reduce((s, g) => s + g.statVal, 0) / recentHalf.length).toFixed(1);
+      const olderAvg = +(olderHalf.reduce((s, g) => s + g.statVal, 0) / olderHalf.length).toFixed(1);
+      const recentOverRate = Math.round(recentHalf.filter(g => g.statVal >= lineNum).length / recentHalf.length * 100);
+      const olderOverRate = Math.round(olderHalf.filter(g => g.statVal >= lineNum).length / olderHalf.length * 100);
+      recencyTrend = { recentAvg, olderAvg, recentOverRate, olderOverRate, recentN: recentHalf.length, olderN: olderHalf.length, trending: recentAvg > olderAvg ? 'up' : recentAvg < olderAvg ? 'down' : 'flat' };
+    }
+
     const result = {
-      playerA: { name: player, position: pos, seasonAvg: playerAvg, avgMin: playerMinAvg },
+      playerA: { name: player, position: pos, seasonAvg: playerAvg, avgMin: playerMinAvg, gamesVsOpp: playerVsOpp, avgVsOpp: playerVsOpp.length ? +(playerVsOpp.reduce((s, g) => s + g.statVal, 0) / playerVsOpp.length).toFixed(1) : null },
       similar,
       opponent: oppUpper,
       market,
       line: lineNum,
+      oppDefense,
+      recencyTrend,
       summary: {
         avgVsOpp,
         normalAvg,

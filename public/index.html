@@ -4446,6 +4446,29 @@ function toggleInjuryImpact(){
 }
 
 // ── Similar Players Module ──
+// Switch similar players market via dropdown
+window._switchSimMarket=async function(newMarket,playerName,containerEl){
+  if(!containerEl)return;
+  // Find the matching prop for this player+market from all data sources
+  const dataSources={[S.market]:S.data,...alertMktCache};
+  let matchProp=null;
+  for(const [mkt,arr] of Object.entries(dataSources)){
+    if(mkt!==newMarket)continue;
+    matchProp=arr.find(pr=>pr.name===playerName);
+    if(matchProp)break;
+  }
+  if(!matchProp){containerEl.innerHTML='<div style="padding:24px;text-align:center;color:var(--r);font-size:13px;">No data for this market.</div>';return;}
+  containerEl.innerHTML='<div style="padding:24px;text-align:center;color:var(--t3);font-size:13px;">Loading similar players…</div>';
+  const playerTeam=matchProp.team||'';
+  const oppTeam=playerTeam===matchProp.homeTeam?matchProp.awayTeam:(playerTeam===matchProp.awayTeam?matchProp.homeTeam:'');
+  if(!oppTeam){containerEl.innerHTML='<div style="padding:24px;text-align:center;color:var(--t3);font-size:13px;">Cannot determine opponent.</div>';return;}
+  try{
+    const r=await apiGet(`/api/similar-players?player=${encodeURIComponent(playerName)}&market=${newMarket}&opponent=${oppTeam}&line=${matchProp.line}`);
+    if(r.similar){matchProp._similarData=r;renderSimilarPlayers(containerEl,matchProp,r);}
+    else containerEl.innerHTML=`<div style="padding:24px;text-align:center;color:var(--r);font-size:13px;">${r.error||'No data.'}</div>`;
+  }catch(e){containerEl.innerHTML=`<div style="padding:24px;text-align:center;color:var(--r);font-size:13px;">Error: ${e.message}</div>`;}
+};
+
 async function loadAndRenderSimilarPlayers(el,p){
   if(p._similarData){renderSimilarPlayers(el,p,p._similarData);return;}
   el.innerHTML='<div style="padding:24px;text-align:center;color:var(--t3);font-size:13px;">Loading similar players…</div>';
@@ -4460,11 +4483,29 @@ async function loadAndRenderSimilarPlayers(el,p){
 }
 function renderSimilarPlayers(el,p,data){
   const {similar,summary,opponent,line,market}=data;
-  const mktLabel=({'player_points':'PTS','player_rebounds':'REB','player_assists':'AST','player_threes':'3PM','player_points_rebounds_assists':'PRA','player_rebounds_assists':'R+A'})[market]||'STAT';
+  const MKT_LABELS={'player_points':'PTS','player_rebounds':'REB','player_assists':'AST','player_threes':'3PM','player_points_rebounds_assists':'PRA','player_rebounds_assists':'R+A'};
+  const mktLabel=MKT_LABELS[market]||'STAT';
   if(!similar.length){
     el.innerHTML=`<div style="padding:24px;text-align:center;color:var(--t3);font-size:13px;">No similar players found with games vs ${opponent}.</div>`;
     return;
   }
+
+  // Find all markets available for this player across cached data
+  const playerName=p.name;
+  const allPlayerProps=[];
+  const seenMkts=new Set();
+  const dataSources={[S.market]:S.data,...alertMktCache};
+  for(const [mkt,arr] of Object.entries(dataSources)){
+    if(!arr||seenMkts.has(mkt))continue; seenMkts.add(mkt);
+    for(const prop of arr){
+      if(prop.name===playerName&&!allPlayerProps.find(x=>x.market===mkt)){
+        const adj=applyAllAdjustments(prop);
+        allPlayerProps.push({market:mkt,label:MKT_LABELS[mkt]||mkt,line:prop.line,vs:valueScore({...adj,market:mkt}),edge:adj.edge||0});
+      }
+    }
+  }
+  allPlayerProps.sort((a,b)=>b.vs-a.vs);
+
   // Summary bar — color delta based on over bet (positive = good) vs under context
   const diffSign=summary.pctDiff>=0?'+':'';
   const isOverContext=(p.edge||0)>=0;
@@ -4479,9 +4520,23 @@ function renderSimilarPlayers(el,p,data){
   const bestPlayer=playerAvgs[0];
   const worstPlayer=playerAvgs[playerAvgs.length-1];
 
+  // Market dropdown HTML
+  let mktDropdownHtml='';
+  if(allPlayerProps.length>1){
+    const opts=allPlayerProps.map(mp=>{
+      const sel=mp.market===market?'selected':'';
+      const vsCol=mp.vs>=50?'#22c55e':mp.vs>=40?'#f59e0b':'#ef4444';
+      return `<option value="${mp.market}" ${sel} data-vs="${mp.vs}">${mp.label} (${mp.line}) — VS: ${mp.vs}</option>`;
+    }).join('');
+    mktDropdownHtml=`<select id="simMktSelect" onchange="window._switchSimMarket(this.value,'${playerName.replace(/'/g,"\\'")}',this.closest('.di-grid').parentElement)" style="background:var(--bg3);color:var(--t1);border:1px solid var(--bd);border-radius:6px;padding:4px 8px;font-size:11px;font-weight:600;cursor:pointer;outline:none;">${opts}</select>`;
+  }
+
   let html=`<div class="di-grid">
     <div class="dc full" style="padding:14px 16px;">
-      <div style="font-size:12px;font-weight:700;color:var(--t1);margin-bottom:8px;">Similar Players vs ${opponent}</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <div style="font-size:12px;font-weight:700;color:var(--t1);">Similar Players vs ${opponent}</div>
+        ${mktDropdownHtml}
+      </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;">
         <div style="padding:8px 10px;background:var(--bg2);border-radius:6px;text-align:center;">
           <div style="font-size:10px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.3px;">Avg vs ${opponent}</div>
@@ -4531,10 +4586,59 @@ function renderSimilarPlayers(el,p,data){
     </div>
   </div>`;
 
+  // Defensive rank badge + Recency trend row
+  const oppDef=data.oppDefense;
+  const recTrend=data.recencyTrend;
+  if(oppDef||recTrend){
+    html+=`<div class="dc full" style="padding:10px 16px;">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">`;
+    if(oppDef){
+      const statNames={pts:'Points',reb:'Rebounds',ast:'Assists',fg3m:'3-Pointers',pra:'PRA',ra:'R+A'};
+      const statName=statNames[oppDef.stat]||oppDef.stat;
+      // Rank 1 = most allowed = worst defense for that stat = good for offense
+      const isEasy=oppDef.rank<=10;
+      const isHard=oppDef.rank>=21;
+      const rankCol=isEasy?'#22c55e':isHard?'#ef4444':'#f59e0b';
+      const rankBg=isEasy?'rgba(34,197,94,.08)':isHard?'rgba(239,68,68,.08)':'rgba(245,158,11,.08)';
+      const rankBd=isEasy?'rgba(34,197,94,.25)':isHard?'rgba(239,68,68,.25)':'rgba(245,158,11,.25)';
+      const rankLabel=isEasy?'Easy matchup':isHard?'Tough matchup':'Average';
+      const diffSign2=oppDef.diff>=0?'+':'';
+      html+=`<div style="flex:1;min-width:200px;padding:10px 12px;background:${rankBg};border:1px solid ${rankBd};border-radius:8px;">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+          <span style="font-size:11px;font-weight:700;color:${rankCol};">${opponent} Def vs ${statName}</span>
+          <span style="font-size:10px;font-weight:800;color:${rankCol};background:${rankBg};border:1px solid ${rankBd};padding:1px 6px;border-radius:10px;">#${oppDef.rank}/${oppDef.totalTeams}</span>
+        </div>
+        <div style="font-size:11px;color:var(--t2);">Allows <b>${oppDef.allows}</b> ${mktLabel}/game <span style="color:${rankCol};">(${diffSign2}${oppDef.diff} vs league avg)</span></div>
+        <div style="font-size:10px;color:var(--t3);margin-top:2px;">${rankLabel} — Rank 1 = most allowed</div>
+      </div>`;
+    }
+    if(recTrend){
+      const trendUp=recTrend.trending==='up';
+      const trendCol=trendUp?'#22c55e':recTrend.trending==='down'?'#ef4444':'var(--t3)';
+      const trendIcon=trendUp?'↑':recTrend.trending==='down'?'↓':'→';
+      const trendBg=trendUp?'rgba(34,197,94,.08)':recTrend.trending==='down'?'rgba(239,68,68,.08)':'rgba(148,163,184,.06)';
+      const trendBd=trendUp?'rgba(34,197,94,.25)':recTrend.trending==='down'?'rgba(239,68,68,.25)':'rgba(148,163,184,.15)';
+      const avgDiff=+(recTrend.recentAvg-recTrend.olderAvg).toFixed(1);
+      const avgDiffSign=avgDiff>=0?'+':'';
+      html+=`<div style="flex:1;min-width:200px;padding:10px 12px;background:${trendBg};border:1px solid ${trendBd};border-radius:8px;">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+          <span style="font-size:11px;font-weight:700;color:${trendCol};">${trendIcon} Recency Trend</span>
+        </div>
+        <div style="font-size:11px;color:var(--t2);">Recent: <b>${recTrend.recentAvg}</b> avg, <b>${recTrend.recentOverRate}%</b> over <span style="color:var(--t3);">(${recTrend.recentN}g)</span></div>
+        <div style="font-size:11px;color:var(--t2);">Older: <b>${recTrend.olderAvg}</b> avg, <b>${recTrend.olderOverRate}%</b> over <span style="color:var(--t3);">(${recTrend.olderN}g)</span></div>
+        <div style="font-size:10px;color:${trendCol};margin-top:2px;font-weight:600;">${avgDiffSign}${avgDiff} ${mktLabel} shift recently</div>
+      </div>`;
+    }
+    html+=`</div></div>`;
+  }
+
   // Chart
-  const barAreaH=220;
+  const barAreaH=260;
   const labelAreaH=80;
-  const maxStat=Math.max(line*1.5,...similar.flatMap(s=>s.gamesVsOpp.map(g=>g.statVal)))+2;
+  const tipMargin=36;
+  const playerAGames=data.playerA?.gamesVsOpp||[];
+  const allBarVals=[...similar.flatMap(s=>s.gamesVsOpp.map(g=>g.statVal)),...playerAGames.map(g=>g.statVal)];
+  const maxStat=Math.max(line*1.5,...allBarVals)+2;
   const linePx=(line/maxStat*barAreaH).toFixed(1);
   // Y-axis tick marks
   const yTicks=[];
@@ -4545,7 +4649,7 @@ function renderSimilarPlayers(el,p,data){
     <div style="font-size:11px;font-weight:700;color:var(--t2);margin-bottom:10px;">Performance vs ${opponent} — Line: ${line} ${mktLabel}</div>
     <div style="display:flex;">
       <!-- Y-axis -->
-      <div style="width:30px;flex-shrink:0;position:relative;height:${barAreaH}px;">
+      <div style="width:30px;flex-shrink:0;position:relative;height:${barAreaH}px;margin-top:${tipMargin}px;">
         ${yTicks.map(v=>`<span style="position:absolute;bottom:${(v/maxStat*barAreaH).toFixed(0)}px;right:4px;font-size:10px;color:var(--t3);transform:translateY(50%);">${v}</span>`).join('')}
       </div>
       <!-- Scrollable chart area -->
@@ -4560,6 +4664,39 @@ function renderSimilarPlayers(el,p,data){
           <!-- Bars row -->
           <div style="display:flex;gap:0;">`;
 
+  // Subject player's own games vs opponent (accent color — first column)
+  if(playerAGames.length){
+    const paHs=getHeadshot(data.playerA.name);
+    const paInit=data.playerA.name.split(' ').map(n=>n[0]).join('').substring(0,2);
+    const paHits=playerAGames.filter(g=>g.statVal>=line).length;
+    const paHitPct=Math.round(paHits/playerAGames.length*100);
+    const paHitCol=paHitPct>=60?'var(--g)':paHitPct>=45?'var(--a)':'var(--r)';
+    const paAvg=data.playerA.avgVsOpp||+(playerAGames.reduce((s,g)=>s+g.statVal,0)/playerAGames.length).toFixed(1);
+    const paGroupW=Math.max(72,playerAGames.length*22+16);
+    html+=`<div style="display:flex;flex-direction:column;align-items:center;min-width:${paGroupW}px;width:${paGroupW}px;flex-shrink:0;border-right:2px solid rgba(99,102,241,.3);padding:0 4px;height:${barAreaH+labelAreaH+tipMargin}px;background:rgba(99,102,241,.04);">
+      <div style="display:flex;gap:3px;align-items:flex-end;height:${barAreaH}px;flex-shrink:0;justify-content:center;margin-top:${tipMargin}px;">`;
+    for(const g of playerAGames){
+      const h=Math.max(8,(g.statVal/maxStat*barAreaH)).toFixed(0);
+      const accentCol='#6366f1';
+      html+=`<div class="sim-bar" style="width:18px;height:${h}px;background:${accentCol};border-radius:3px 3px 0 0;opacity:.9;cursor:default;position:relative;" onmouseenter="this.querySelector('.sim-tip').style.display='block'" onmouseleave="this.querySelector('.sim-tip').style.display='none'">
+        <div class="sim-tip" style="display:none;position:absolute;bottom:calc(100% + 4px);left:50%;transform:translateX(-50%);background:var(--bg3);border:1px solid var(--bd);border-radius:5px;padding:5px 8px;font-size:10px;white-space:nowrap;z-index:10;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,.3);">
+          <div style="font-weight:700;color:${accentCol};">${g.statVal} ${mktLabel}</div>
+          <div style="color:var(--t3);">${data.playerA.name.split(' ').pop()} · ${g.date?.substring(5)||''}</div>
+          <div style="color:var(--t3);">${g.min||'?'} min</div>
+        </div>
+      </div>`;
+    }
+    html+=`</div>
+      <div style="font-size:10px;font-weight:700;color:${paHitCol};margin-top:4px;line-height:1.2;">${paHitPct}%</div>
+      <div style="font-size:10px;color:#6366f1;font-weight:600;line-height:1.2;">${paAvg} avg</div>
+      <div style="width:26px;height:26px;border-radius:50%;overflow:hidden;background:rgba(99,102,241,.15);border:2px solid #6366f1;display:flex;align-items:center;justify-content:center;margin-top:3px;flex-shrink:0;">
+        ${paHs?`<img src="${paHs}" onerror="this.parentElement.innerHTML='<span style=\\'font-size:9px;font-weight:700;color:#6366f1\\'>${paInit}</span>'" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`:`<span style="font-size:9px;font-weight:700;color:#6366f1">${paInit}</span>`}
+      </div>
+      <div style="font-size:10px;color:#6366f1;font-weight:700;white-space:nowrap;max-width:${paGroupW-8}px;overflow:hidden;text-overflow:ellipsis;text-align:center;margin-top:1px;" title="${data.playerA.name} (You)">${data.playerA.name.split(' ').pop()}</div>
+    </div>`;
+  }
+
+  // Similar players bars
   for(const sp of similar){
     const hs=getHeadshot(sp.name);
     const init=sp.name.split(' ').map(n=>n[0]).join('').substring(0,2);
@@ -4569,8 +4706,8 @@ function renderSimilarPlayers(el,p,data){
     const spAvg=+(sp.gamesVsOpp.reduce((s,g)=>s+g.statVal,0)/sp.gamesVsOpp.length).toFixed(1);
     const groupW=Math.max(72,sp.gamesVsOpp.length*22+16);
 
-    html+=`<div style="display:flex;flex-direction:column;align-items:center;min-width:${groupW}px;width:${groupW}px;flex-shrink:0;border-right:1px solid rgba(255,255,255,.04);padding:0 4px;height:${barAreaH+labelAreaH}px;">
-      <div style="display:flex;gap:3px;align-items:flex-end;height:${barAreaH}px;flex-shrink:0;justify-content:center;">`;
+    html+=`<div style="display:flex;flex-direction:column;align-items:center;min-width:${groupW}px;width:${groupW}px;flex-shrink:0;border-right:1px solid rgba(255,255,255,.04);padding:0 4px;height:${barAreaH+labelAreaH+tipMargin}px;">
+      <div style="display:flex;gap:3px;align-items:flex-end;height:${barAreaH}px;flex-shrink:0;justify-content:center;margin-top:${tipMargin}px;">`;
     for(const g of sp.gamesVsOpp){
       const h=Math.max(8,(g.statVal/maxStat*barAreaH)).toFixed(0);
       const col=g.statVal>=line?'var(--g)':'var(--r)';
