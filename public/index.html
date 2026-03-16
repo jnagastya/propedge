@@ -1421,7 +1421,7 @@ input[type=range].min-slider::-moz-range-track{height:6px;border-radius:3px;back
       <div class="cr">
         <select class="sel" id="sortS" onchange="renderTable()">
           <option value="val">Sort: Value Score</option>
-          <option value="edge">Sort: Edge %</option>
+          <option value="model">Sort: Model Prob</option>
           <option value="ev">Sort: Expected Value</option>
           <option value="conf">Sort: Confidence</option>
           <option value="hr">Sort: Hit Rate</option>
@@ -1460,7 +1460,7 @@ input[type=range].min-slider::-moz-range-track{height:6px;border-radius:3px;back
           <thead><tr>
             <th>Player</th><th class="col-mob-hide">Matchup</th><th data-sort="line" onclick="sortByCol('line')">Line</th><th>Odds</th>
             <th data-sort="edge" onclick="sortByCol('edge')" class="col-sm-hide">Avg</th><th data-sort="hr" onclick="sortByCol('hr')" class="col-sm-hide">Hit Rate</th><th class="col-mob-hide">O/U</th><th class="col-mob-hide">Trend</th>
-            <th data-sort="edge" onclick="sortByCol('edge')">Edge</th><th class="col-mob-hide">Lean</th><th data-sort="conf" onclick="sortByCol('conf')" class="col-sm-hide">Confidence</th><th data-sort="ev" onclick="sortByCol('ev')" class="col-sm-hide">EV</th><th data-sort="val" onclick="sortByCol('val')">Value</th><th>Bet</th><th class="col-sm-hide">⭐</th>
+            <th data-sort="model" onclick="sortByCol('model')">Model</th><th class="col-mob-hide">Lean</th><th data-sort="conf" onclick="sortByCol('conf')" class="col-sm-hide">Confidence</th><th data-sort="ev" onclick="sortByCol('ev')" class="col-sm-hide">EV</th><th data-sort="val" onclick="sortByCol('val')">Value</th><th>Bet</th><th class="col-sm-hide">⭐</th>
             <th id="scnTh" style="display:none">Scenario ⚡</th>
           </tr></thead>
           <tbody id="tBody"></tbody>
@@ -1562,7 +1562,7 @@ input[type=range].min-slider::-moz-range-track{height:6px;border-radius:3px;back
         <option value="ev">Sort: EV</option>
         <option value="conf">Sort: Confidence</option>
         <option value="mp">Sort: Model Prob</option>
-        <option value="edge">Sort: Edge %</option>
+        <option value="model">Sort: Model Prob</option>
         <option value="hr">Sort: Hit Rate</option>
       </select>
       <select class="sel" id="alertDirF" onchange="renderAlerts()" style="font-size:11px;padding:4px 8px;">
@@ -1645,10 +1645,10 @@ input[type=range].min-slider::-moz-range-track{height:6px;border-radius:3px;back
   <div class="gls-view view-pane" id="glossView">
     <div class="gls-grid">
       <div class="gls-card">
-        <div class="gls-card-hd"><div class="gls-card-dot" style="background:var(--g)"></div><span class="gls-card-name">Edge %</span></div>
-        <div class="gls-card-formula">Edge = (Season Avg − Prop Line) / Prop Line × 100</div>
-        <div class="gls-card-desc">Measures how much a player's season average exceeds (or falls short of) the prop line. A positive edge means the model average is above the line — lean <b>Over</b>. A negative edge means below the line — lean <b>Under</b>.</div>
-        <div class="gls-card-ex">Example: Avg 28.4, Line 26.5 → Edge = (28.4−26.5)/26.5×100 = <b>+7.2%</b></div>
+        <div class="gls-card-hd"><div class="gls-card-dot" style="background:var(--g)"></div><span class="gls-card-name">Model Probability</span></div>
+        <div class="gls-card-formula">Model Prob = weighted blend of hit rate, matchup adjustments, and recency</div>
+        <div class="gls-card-desc">The model's estimated probability of going <b>Over</b> the prop line. Accounts for season stats, recent form, pace, and defense-vs-position matchup. Shown as the directional probability (e.g. "62% O" means 62% chance of going over).</div>
+        <div class="gls-card-ex">Example: 62% O → model favors Over · 38% O (62% U) → model favors Under</div>
       </div>
       <div class="gls-card">
         <div class="gls-card-hd"><div class="gls-card-dot" style="background:var(--a)"></div><span class="gls-card-name">Hit Rate</span></div>
@@ -1683,15 +1683,15 @@ Negative odds: |odds| / (|odds| + 100)</div>
       </div>
       <div class="gls-card">
         <div class="gls-card-hd"><div class="gls-card-dot" style="background:var(--gold)"></div><span class="gls-card-name">Value Score</span></div>
-        <div class="gls-card-formula">Value = |Edge|×w₁ + max(0,HR−50)×w₂ + Confidence×w₃ + EV×w₄</div>
-        <div class="gls-card-desc">A composite ranking blending edge, hit rate, confidence, and EV using <b>adjustable weights</b> (default 25% each). Tune the weights in the Value Alerts tab settings. Players with Value Score ≥30, Edge &gt;4%, Confidence ≥55, and EV &gt;0 earn the <b>⚡ VALUE</b> badge.</div>
+        <div class="gls-card-formula">Value = ModelProb×w₁ + max(0,HR−50)×w₂ + Confidence×w₃ + EV×w₄</div>
+        <div class="gls-card-desc">A composite ranking blending model probability, hit rate, confidence, and EV using <b>adjustable weights</b> (default 25% each). Tune the weights in the Value Alerts tab settings. Players with Value Score ≥30, Model ≥55%, Confidence ≥55, and EV &gt;0 earn the <b>⚡ VALUE</b> badge.</div>
         <div class="gls-card-ex">Score ≥ 40 = Strong · 25–39 = Moderate · &lt;25 = Risky</div>
       </div>
       <div class="gls-card">
         <div class="gls-card-hd"><div class="gls-card-dot" style="background:var(--t2)"></div><span class="gls-card-name">Lean</span></div>
-        <div class="gls-card-formula">OVER if Edge &gt; 4% or EV &gt; 5% · UNDER if Edge &lt; −4% or EV &lt; −5%</div>
-        <div class="gls-card-desc">The Over/Under recommendation based on edge and EV combined. The track position shows strength of the lean — further right = stronger Over signal, further left = stronger Under signal.</div>
-        <div class="gls-card-ex">+8% edge → <b>OVER ▲</b> · −6% edge → <b>UNDER ▼</b> · ±2% → <b>EVEN</b></div>
+        <div class="gls-card-formula">OVER if Model ≥ 55% · UNDER if Model ≤ 45% · EVEN otherwise</div>
+        <div class="gls-card-desc">The Over/Under recommendation based on model probability. The track position shows strength of the lean — further right = stronger Over signal, further left = stronger Under signal.</div>
+        <div class="gls-card-ex">62% model → <b>OVER ▲</b> · 38% model → <b>UNDER ▼</b> · 48% → <b>EVEN</b></div>
       </div>
       <div class="gls-card">
         <div class="gls-card-hd"><div class="gls-card-dot" style="background:var(--b)"></div><span class="gls-card-name">Expected Value (EV)</span></div>
@@ -2202,7 +2202,7 @@ async function prefetchHeadshots(names) {
 // ── State ──
 let S = {
   data:[], scores:[], market:'player_points', book:'combined',
-  sort:'edge', scnOn:false, scnPlayers:[],
+  sort:'model', scnOn:false, scnPlayers:[],
   api:{odds:'err',stats:'err',scores:'err'}, risk:2,
   gameFilter:null,
   customMinVS: parseInt(localStorage.getItem('va_customMinVS'))||40,
@@ -2962,10 +2962,11 @@ function valueScore(p){
   const wm=vsWeights.mp/tot, wc=vsWeights.conf/tot, wv=vsWeights.ev/tot;
   return Math.round(mpPts*wm+(p.confidence||0)*wc+(evScore+20)*wv);
 }
-function leanInfo(edge){
-  // Lean is purely edge-based — edge is the ground truth direction signal
-  if(edge>2)return{label:'OVER ▲',cls:'over',pct:Math.min(90,55+edge*1.5)};
-  if(edge<-2)return{label:'UNDER ▼',cls:'under',pct:Math.max(10,45-Math.abs(edge)*1.5)};
+function leanInfo(modelProb){
+  // Lean is based on model probability — modelProb is P(over) as 0-1
+  const pct=Math.round((modelProb||0.5)*100);
+  if(pct>=55)return{label:'OVER ▲',cls:'over',pct:Math.min(90,pct)};
+  if(pct<=45)return{label:'UNDER ▼',cls:'under',pct:Math.max(10,pct)};
   return{label:'EVEN',cls:'even',pct:50};
 }
 // ── Refresh timer ──
@@ -3061,16 +3062,17 @@ function renderTable(){
     d=d.map(p=>applyAllAdjustments(p));
   }
   const sf={
+    model:(a,b)=>{const ma=Math.abs((a.modelProb||0.5)-0.5);const mb=Math.abs((b.modelProb||0.5)-0.5);return mb-ma;},
     edge:(a,b)=>Math.abs(b.edge||0)-Math.abs(a.edge||0),
     ev:(a,b)=>getDirectionalEV(b)-getDirectionalEV(a),
     conf:(a,b)=>(b.confidence||0)-(a.confidence||0),
-    val:(a,b)=>{const ia=+(valueScore(a)>=30&&Math.abs(a.edge||0)>4&&(a.confidence||0)>=55&&getDirectionalEV(a)>3);const ib=+(valueScore(b)>=30&&Math.abs(b.edge||0)>4&&(b.confidence||0)>=55&&getDirectionalEV(b)>3);if(ib!==ia)return ib-ia;return valueScore(b)-valueScore(a);},
+    val:(a,b)=>{const ia=+(valueScore(a)>=30&&(a.modelProb||0.5)>=0.55&&(a.confidence||0)>=55&&getDirectionalEV(a)>3);const ib=+(valueScore(b)>=30&&(b.modelProb||0.5)>=0.55&&(b.confidence||0)>=55&&getDirectionalEV(b)>3);if(ib!==ia)return ib-ia;return valueScore(b)-valueScore(a);},
     hr:(a,b)=>(b.hitRate||0)-(a.hitRate||0),
     move:(a,b)=>{const ma=a.prev_line!=null?Math.abs(a.line-a.prev_line):0;const mb=b.prev_line!=null?Math.abs(b.line-b.prev_line):0;return mb-ma;},
     name:(a,b)=>a.name.localeCompare(b.name),
   };
   S.sort=document.getElementById('sortS').value;
-  d.sort(sf[S.sort]||sf.edge);
+  d.sort(sf[S.sort]||sf.model);
 
   const mktLabels={player_points:'Points',player_rebounds:'Rebounds',player_assists:'Assists',player_threes:'3-Pointers',player_points_rebounds_assists:'PRA',player_rebounds_assists:'R+A'};
   document.getElementById('mktLbl').textContent=mktLabels[S.market]||'Props';
@@ -3078,8 +3080,12 @@ function renderTable(){
   const tb=document.getElementById('tBody');tb.innerHTML='';
   d.forEach((p,i)=>{
     const edge=p.edge||0;
-    const ec=edge>3?'pos':edge<-3?'neg':'flat';
-    const es=edge>0?'+':'';
+    const mProb0=p.modelProb||0.5;
+    const mProbPct=Math.round(mProb0*100);
+    const isOver=mProb0>=0.5;
+    const mProbDisplay=isOver?mProbPct:(100-mProbPct);
+    const mProbLabel=isOver?'O':'U';
+    const mProbColor=mProbDisplay>=60?'var(--g)':mProbDisplay>=55?'var(--a)':mProbDisplay>=50?'var(--t2)':'var(--r)';
     const hs=getHeadshot(p.name);
     const initials=p.name.split(' ').map(n=>n[0]).join('').substring(0,2);
     const avInner=hs?`<img src="${hs}" onerror="headshotError(this,'${initials}')" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" alt="">`:`<span style="font-size:12px;font-weight:700;color:var(--t3)">${initials}</span>`;
@@ -3088,19 +3094,17 @@ function renderTable(){
     const vs=valueScore(p);
     const evOver=p.evOver??calcEV((p.hitRate||50)/100,p.overOdds);
     const evUnder=p.evUnder??calcEV(1-(p.hitRate||50)/100,p.underOdds);
-    const dirEV=edge>=0?evOver:evUnder; // EV for the recommended bet direction
-    const isValue=vs>=30&&Math.abs(edge)>4&&(p.confidence||0)>=55&&dirEV>3;
-    const betOdds=edge>=0?p.overOdds:p.underOdds;
+    const dirEV=isOver?evOver:evUnder; // EV for the recommended bet direction
+    const isValue=vs>=30&&mProbDisplay>=55&&(p.confidence||0)>=55&&dirEV>3;
+    const betOdds=isOver?p.overOdds:p.underOdds;
     const evColor=dirEV>=10?'var(--g)':dirEV>=3?'var(--a)':dirEV>=0?'var(--t2)':'var(--r)';
     const overFmt=p.overOdds?(p.overOdds>0?'+':'')+p.overOdds:'—';
     const underFmt=p.underOdds?(p.underOdds>0?'+':'')+p.underOdds:'—';
-    const lean=leanInfo(edge);
+    const lean=leanInfo(mProb0);
     const hasBoost=S.scnOn&&(p.scenarioBoost||0)>0;
 
-    const isOver=edge>=0;
-    const edgeTip=`Edge = (Avg − Line) / Line × 100\n= (${p.avg} − ${p.line}) / ${p.line} × 100\n= ${es}${edge.toFixed(1)}%\n\nPositive edge → model avg exceeds the line\nNegative edge → model avg below the line`;
-    const baseMP=p.modelProb??(p.hitRate||50)/100;
-    const mProb=isOver?baseMP:1-baseMP; // directional model prob
+    const mProbTip=`Model Probability: ${mProbPct}% Over\n\nBased on season stats, recent form,\nand matchup adjustments.\n\n≥55% → Lean OVER\n≤45% → Lean UNDER\n45-55% → EVEN`;
+    const mProb=isOver?mProb0:1-mProb0; // directional model prob
     const implP=isOver?(p.impliedProbOver??impliedProb(p.overOdds)):(p.impliedProbUnder??impliedProb(p.underOdds));
     const dirHitRate=isOver?(p.hitRate||50):(100-(p.hitRate||50));
     const evEdge=mProb-implP;
@@ -3134,7 +3138,7 @@ function renderTable(){
       <td class="col-sm-hide" style="font-weight:600;">${oP}%</td>
       <td class="col-mob-hide"><div class="ouv"><div class="oub"><div class="ouo" style="width:${oP}%"></div><div class="ouu" style="width:${uP}%"></div></div><span class="oul">${oP}/${uP}</span></div></td>
       <td class="col-mob-hide"><div class="spk">${mkSpk(p.l10,p.line)}</div></td>
-      <td><span class="et ${ec}" data-edge="${edge.toFixed(1)}" data-tip="${edgeTip.replace(/"/g,'&quot;')}">${es}${edge.toFixed(1)}%</span></td>
+      <td><span style="font-size:12px;font-weight:700;color:${mProbColor};" data-tip="${mProbTip.replace(/"/g,'&quot;')}">${mProbDisplay}% ${mProbLabel}</span></td>
       <td class="col-mob-hide"><div class="lean-wrap">
         <span class="lean-lbl ${lean.cls}">${lean.label}</span>
         <div class="lean-track"><div class="lean-dot" style="left:${lean.pct}%"></div></div>
@@ -3170,7 +3174,7 @@ function renderTable(){
       if(q)f=f.filter(p=>p.name.toLowerCase().includes(q)||(p.team||'').toLowerCase().includes(q)||(p.matchup||'').toLowerCase().includes(q));
       if(S.gameFilter){const[fAway,fHome]=S.gameFilter.split(' @ ');f=f.filter(p=>p.matchup&&p.matchup.includes(fAway)&&p.matchup.includes(fHome));}
       if(_smartMinOn||_dnpAdjOn||_injuryImpactOn||_teamStatsOn) f=f.map(p=>applyAllAdjustments(p));
-      f.sort(sf[S.sort]||sf.edge);
+      f.sort(sf[S.sort]||sf.model);
       return f;
     };
     const sp=_filterStarted(_startedProps);
@@ -3185,17 +3189,20 @@ function renderTable(){
         </div>
         <div style="display:none;margin-top:8px;opacity:.7;">
           <table class="props-table" style="width:100%;"><tbody>${list.map((p,i)=>{
-            const edge=p.edge||0;const ec=edge>3?'pos':edge<-3?'neg':'flat';const es=edge>0?'+':'';
+            const edge=p.edge||0;
+            const mProb0=p.modelProb||0.5;const mProbPct=Math.round(mProb0*100);const isOver=mProb0>=0.5;
+            const mProbDisplay=isOver?mProbPct:(100-mProbPct);const mProbLabel=isOver?'O':'U';
+            const mProbColor=mProbDisplay>=60?'var(--g)':mProbDisplay>=55?'var(--a)':mProbDisplay>=50?'var(--t2)':'var(--r)';
             const hs=getHeadshot(p.name);const initials=p.name.split(' ').map(n=>n[0]).join('').substring(0,2);
             const avInner=hs?`<img src="${hs}" onerror="headshotError(this,'${initials}')" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" alt="">`:`<span style="font-size:12px;font-weight:700;color:var(--t3)">${initials}</span>`;
             const oP=p.hitRate||50,uP=100-oP;
             const vs=valueScore(p);const dirEV=getDirectionalEV(p);
-            const isValue=vs>=30&&Math.abs(edge)>4&&(p.confidence||0)>=55&&dirEV>3;
+            const isValue=vs>=30&&mProbDisplay>=55&&(p.confidence||0)>=55&&dirEV>3;
             const evColor=dirEV>=10?'var(--g)':dirEV>=3?'var(--a)':dirEV>=0?'var(--t2)':'var(--r)';
             const cc=(p.confidence||0)>=70?'var(--g)':(p.confidence||0)>=50?'var(--a)':'var(--r)';
             const overFmt=p.overOdds?(p.overOdds>0?'+':'')+p.overOdds:'—';
             const underFmt=p.underOdds?(p.underOdds>0?'+':'')+p.underOdds:'—';
-            const lean=leanInfo(edge);
+            const lean=leanInfo(mProb0);
             return`<tr style="position:relative;">
               <td><div class="pc">
                 <div class="av">${avInner}</div>
@@ -3211,7 +3218,7 @@ function renderTable(){
               <td class="col-sm-hide" style="font-weight:600;">${oP}%</td>
               <td class="col-mob-hide"><div class="ouv"><div class="oub"><div class="ouo" style="width:${oP}%"></div><div class="ouu" style="width:${uP}%"></div></div><span class="oul">${oP}/${uP}</span></div></td>
               <td class="col-mob-hide"><div class="spk">${mkSpk(p.l10,p.line)}</div></td>
-              <td><span class="et ${ec}">${es}${edge.toFixed(1)}%</span></td>
+              <td><span style="font-size:12px;font-weight:700;color:${mProbColor};">${mProbDisplay}% ${mProbLabel}</span></td>
               <td class="col-mob-hide"><div class="lean-wrap"><span class="lean-lbl ${lean.cls}">${lean.label}</span><div class="lean-track"><div class="lean-dot" style="left:${lean.pct}%"></div></div></div></td>
               <td class="col-sm-hide"><div class="cb-wrap"><div class="cb-bar"><div class="cb-fill" style="width:${p.confidence||0}%;background:${cc};"></div></div><span class="cb-l" style="color:${cc}">${p.confidence||0}</span></div></td>
               <td class="col-sm-hide"><span style="font-size:11px;font-weight:700;color:${evColor}">${dirEV>=0?'+':''}${dirEV.toFixed(1)}%</span></td>
@@ -3695,7 +3702,7 @@ function renderOverview(el,p){
     return`<div class="bar${isDNP?' dnp-bar':''}" style="height:${h}%;background:${bg}"><div class="bar-t">${isDNP?'DNP':v}</div></div>`;
   }).join('');
   const lP=p.line?(1-p.line/maxV)*100:50;
-  const lean=leanInfo(p.edge||0);
+  const lean=leanInfo(p.modelProb||0.5);
   // Build player flags
   const flags=[];
   if(p.returnFromInjury>=2)flags.push(`<span class="player-flag flag-injury">⚠ Returning — ${p.returnFromInjury} game${p.returnFromInjury>1?'s':''} missed</span>`);
