@@ -823,13 +823,24 @@ app.get('/api/status', (req, res) => {
 // ============================================================
 // ROUTE: GET /api/health — alias for /api/status (frontend compat)
 // ============================================================
-app.get('/api/health', (req, res) => {
+app.get('/api/health', async (req, res) => {
+  let oddsCache = null;
+  if (supabase) {
+    try {
+      const { data } = await supabase.from('odds_cache').select('last_fetched').eq('book', 'combined').single();
+      if (data?.last_fetched) {
+        const ageH = (Date.now() - new Date(data.last_fetched).getTime()) / (1000 * 60 * 60);
+        oddsCache = { last_fetched: data.last_fetched, age_hours: +ageH.toFixed(1) };
+      }
+    } catch (e) { /* ignore */ }
+  }
   res.json({
     server: 'ok',
     apis: {
       odds: ODDS_KEY ? 'configured' : 'missing',
       stats: BDL_KEY ? 'BDL configured' : 'BDL key missing',
     },
+    oddsCache,
     season: NBA_SEASON,
     uptime: process.uptime(),
   });
