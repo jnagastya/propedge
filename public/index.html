@@ -4156,12 +4156,18 @@ async function fetchInjuryImpacts(){
     batch.push({player:p.name,team,market:p.market||S.market});
   }
   if(!batch.length){ renderAlerts(); renderTable(); return; }
+  console.log('[injury-batch] sending',batch.length,'players, sample keys:', batch.slice(0,5).map(b=>b.player+'|'+b.market));
   try{
     const r=await fetch('/api/injury-impact-batch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({players:batch})});
+    console.log('[injury-batch] response status:', r.status);
     if(r.ok){
       const d=await r.json();
+      const keys=d.results?Object.keys(d.results):[];
+      console.log('[injury-batch] got',keys.length,'results, sample keys:', keys.slice(0,5));
+      const collierKeys=keys.filter(k=>k.toLowerCase().includes('collier'));
+      if(collierKeys.length) console.log('[injury-batch] Collier results:', collierKeys.map(k=>({key:k,impact:d.results[k]?.impact,ratio:d.results[k]?.ratio})));
       if(d.results) Object.assign(_injuryImpactCache,d.results);
-    }
+    } else { console.warn('[injury-batch] non-ok response:', r.status, await r.text()); }
   }catch(e){ console.warn('[fetchInjuryImpacts] batch failed:',e); }
   renderAlerts();
   renderTable();
