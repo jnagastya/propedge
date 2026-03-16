@@ -1975,11 +1975,11 @@ app.post('/api/injury-impact-batch', async (req, res) => {
     const teamPosMap = new Map(); // team → posMap
 
     for (const [team, teamPlayers] of teamGroups) {
-      // All player names on this team (for excluding from "out" list)
-      const playerNamesLower = new Set(teamPlayers.flatMap(p => [p.player.toLowerCase(), p.resolvedPlayer.toLowerCase()]));
-
+      // Don't exclude batch players here — the per-player loop skips self
+      // This way injured players (e.g. Markkanen) who appear in the props feed
+      // are still counted as "Out" teammates for other players on the team
       const outTeammates = injuries
-        .filter(inj => inj.team === team && inj.status === 'Out' && !playerNamesLower.has(inj.player.toLowerCase()) && !playerNamesLower.has(resolvePlayerName(inj.player).toLowerCase()))
+        .filter(inj => inj.team === team && inj.status === 'Out')
         .map(inj => ({ ...inj, resolvedName: resolvePlayerName(inj.player) }));
       // Deduplicate by player name
       const seenOut = new Set();
