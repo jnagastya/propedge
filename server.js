@@ -5472,8 +5472,8 @@ app.get('/api/cron/agent-bet', async (req, res) => {
           }
         }
 
-        const isValue = stats.vs >= 30;
-        const isControl = !isValue && stats.vs >= 20;
+        const isValue = stats.vs >= 40 && stats.dirEV > 3 && (stats.modelProb >= 0.55 || stats.modelProb <= 0.45);
+        const isControl = !isValue && stats.vs >= 30 && (stats.modelProb >= 0.52 || stats.modelProb <= 0.48);
 
         if (!isValue && !isControl) { summary.skipped++; continue; }
 
@@ -5485,11 +5485,19 @@ app.get('/api/cron/agent-bet', async (req, res) => {
       }
     }
 
-    // 5. Size value bets proportionally by VS
-    const totalVS = valueCandidates.reduce((s, c) => s + c.stats.vs, 0);
+    // 5. Cap total bets at 100 — take top value bets by VS, then fill with control
+    const MAX_BETS = 100;
+    valueCandidates.sort((a, b) => b.stats.vs - a.stats.vs);
+    controlCandidates.sort((a, b) => b.stats.vs - a.stats.vs);
+    const valueTrimmed = valueCandidates.slice(0, MAX_BETS);
+    const controlSlots = Math.max(0, MAX_BETS - valueTrimmed.length);
+    const controlTrimmed = controlCandidates.slice(0, controlSlots);
+
+    // Size value bets proportionally by VS
+    const totalVS = valueTrimmed.reduce((s, c) => s + c.stats.vs, 0);
     const betsToInsert = [];
 
-    for (const c of valueCandidates) {
+    for (const c of valueTrimmed) {
       const proportion = c.stats.vs / (totalVS || 1);
       const rawStake = +(dailyBudget * proportion).toFixed(2);
       const stake = Math.min(maxBet, Math.max(MIN_BET, rawStake));
@@ -5524,7 +5532,7 @@ app.get('/api/cron/agent-bet', async (req, res) => {
     }
 
     // 6. Control bets get flat small stake
-    for (const c of controlCandidates) {
+    for (const c of controlTrimmed) {
       const payout = c.stats.odds > 0 ? +(CONTROL_STAKE * c.stats.odds / 100).toFixed(2) : +(CONTROL_STAKE * 100 / Math.abs(c.stats.odds)).toFixed(2);
 
       betsToInsert.push({
