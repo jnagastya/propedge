@@ -701,6 +701,8 @@ const BDL_PLAYER_OVERRIDES = {
   'Isaiah Jackson':          { id: 17896035,       position: 'F', team: 'LAC' },
   'Yves Missi':              { id: 1028027567,     position: 'C', team: 'NOP' },
   'Julian Reese':            { id: 1060111739,     position: 'F', team: 'WAS' },
+  'Nicolas Claxton':         { id: 666508,         position: 'C', team: 'BKN' },
+  'Drake Powell':            { id: 1057279425,     position: 'F', team: 'BKN' },
 };
 
 // Search BDL for player ID + position by name, cached 24h
