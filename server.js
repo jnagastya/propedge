@@ -2036,16 +2036,21 @@ app.get('/api/injury-impact', async (req, res) => {
       const _tmTeamCounts = {};
       for (const g of tmLog) { const t = g.team || '???'; _tmTeamCounts[t] = (_tmTeamCounts[t] || 0) + 1; }
 
-      // Filter teammate games to current team only — require team field to avoid cross-team pollution
-      const tmPlayed = tmLog.filter(g => parseInt(g.min || '0') > 0 && g.team === teamFilter);
-      if (tmPlayed.length < 5) continue;
+      // Filter teammate games to current team — allow null team if majority of games are on this team
+      const tmTeamCounts = {};
+      for (const g of tmLog) { const t = g.team || 'null'; tmTeamCounts[t] = (tmTeamCounts[t] || 0) + 1; }
+      const tmMajorityTeam = Object.entries(tmTeamCounts).sort((a, b) => b[1] - a[1])[0]?.[0];
+      const tmAllowNull = tmMajorityTeam === teamFilter || tmMajorityTeam === 'null';
+      const tmTeamMatch = g => g.team === teamFilter || (tmAllowNull && !g.team);
+      const tmPlayed = tmLog.filter(g => parseInt(g.min || '0') > 0 && tmTeamMatch(g));
+      if (tmPlayed.length < 3) continue;
       // Skip low-minutes players — their absence doesn't meaningfully impact teammates
       const tmMinAvgCheck = tmPlayed.reduce((s, g) => s + (parseFloat(g.min) || 0), 0) / tmPlayed.length;
       if (tmMinAvgCheck < 15) continue;
 
       const tmDnpDates = new Set(), tmPlayedDates = new Set();
       for (const g of tmLog) {
-        if (g.team !== teamFilter) continue; // strict team match
+        if (!tmTeamMatch(g)) continue; // team match (allow null if majority)
         if (parseInt(g.min || '0') === 0) tmDnpDates.add(g.date);
         else tmPlayedDates.add(g.date);
       }
@@ -2113,12 +2118,15 @@ app.get('/api/injury-impact', async (req, res) => {
           if (avg > 0) teamTotal += avg;
         }
 
+        // Scale redistribution by injured player's minutes: starters (30+) get 50%, role players get 35%
+        const _tmMinAvg = tmPlayed.reduce((s, g) => s + (parseFloat(g.min) || 0), 0) / tmPlayed.length;
+        const redistPct = _tmMinAvg >= 30 ? 0.50 : _tmMinAvg >= 24 ? 0.42 : 0.35;
         const remainingTotal = teamTotal - tmAvg;
         const playerShare = remainingTotal > 0 ? playerAvg / remainingTotal : 0;
         // Apply positional affinity: scale redistribution by how relevant the positions are for this market
         const tmPos = _posMap[inj.player] || _posMap[inj.resolvedName] || null;
         const affinity = getPosAffinity(tmPos, subjectPos, market);
-        const boost = tmAvg * 0.35 * playerShare * affinity;
+        const boost = tmAvg * redistPct * playerShare * affinity;
         const rawRatio = (playerAvg + boost) / playerAvg;
         // Apply baked-in fadeout
         const fadedRatio = 1.0 + (rawRatio - 1.0) * bakedInWeight;
@@ -5039,9 +5047,14 @@ function serverApplyInjuryImpact(playerName, playerGameLog, playerTeam, market, 
     const resolved = resolvePlayerName(inj.player);
     const tmLog = allGameLogs.get(resolved) || allGameLogs.get(inj.player);
     if (!tmLog?.length) continue;
-    // Filter teammate games to current team only — require team field to avoid cross-team pollution from trades
-    const tmPlayed = tmLog.filter(g => parseInt(g.min || '0') > 0 && g.team === playerTeam);
-    if (tmPlayed.length < 5) continue;
+    // Filter teammate games to current team — allow null team if majority of games are on this team
+    const _tmTC = {};
+    for (const g of tmLog) { const t = g.team || 'null'; _tmTC[t] = (_tmTC[t] || 0) + 1; }
+    const _tmMaj = Object.entries(_tmTC).sort((a, b) => b[1] - a[1])[0]?.[0];
+    const _tmAllowNull = _tmMaj === playerTeam || _tmMaj === 'null';
+    const _tmMatch = g => g.team === playerTeam || (_tmAllowNull && !g.team);
+    const tmPlayed = tmLog.filter(g => parseInt(g.min || '0') > 0 && _tmMatch(g));
+    if (tmPlayed.length < 3) continue;
     // Skip low-minutes players — their absence doesn't meaningfully impact teammates
     const tmMinAvgCheck = tmPlayed.reduce((s, g) => s + (parseFloat(g.min) || 0), 0) / tmPlayed.length;
     if (tmMinAvgCheck < 15) continue;
@@ -5050,7 +5063,7 @@ function serverApplyInjuryImpact(playerName, playerGameLog, playerTeam, market, 
     const tmDnpDates = new Set();
     const tmPlayedDates = new Set();
     for (const g of tmLog) {
-      if (g.team !== playerTeam) continue; // strict team match — no fallback
+      if (!_tmMatch(g)) continue; // team match (allow null if majority)
       if (parseInt(g.min || '0') === 0) tmDnpDates.add(g.date);
       else tmPlayedDates.add(g.date);
     }
@@ -5120,14 +5133,16 @@ function serverApplyInjuryImpact(playerName, playerGameLog, playerTeam, market, 
       }
       if (!teamTotal) continue;
 
-      // ~35% of missing production redistributes, weighted by player's share and positional affinity
+      // Scale redistribution by injured player's minutes: starters (30+) get 50%, role players get 35%
+      const tmMinAvg = tmPlayed.reduce((s, g) => s + (parseFloat(g.min) || 0), 0) / tmPlayed.length;
+      const redistPct = tmMinAvg >= 30 ? 0.50 : tmMinAvg >= 24 ? 0.42 : 0.35;
       const remainingTotal = teamTotal - tmAvg;
       const playerShare = remainingTotal > 0 ? playerAvg / remainingTotal : 0;
       const resolved = resolvePlayerName(inj.player);
       const tmPos = positionMap?.get(inj.player) || positionMap?.get(resolved) || null;
       const subjectPos = positionMap?.get(playerName) || null;
       const affinity = getPosAffinity(tmPos, subjectPos, market);
-      const boost = tmAvg * 0.35 * playerShare * affinity;
+      const boost = tmAvg * redistPct * playerShare * affinity;
       const rawRatio2 = (playerAvg + boost) / playerAvg;
       // Apply baked-in fadeout
       const fadedRatio2 = 1.0 + (rawRatio2 - 1.0) * bakedInWeight;

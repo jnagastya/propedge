@@ -24,14 +24,10 @@
     { "path": "/api/cron/grade-bets", "schedule": "15 19 * * *" },
     { "path": "/api/cron/newsletter", "schedule": "30 19 * * *" },
 
-    { "path": "/api/cron/refresh-odds", "schedule": "0 23 * * *" },
+    { "path": "/api/cron/refresh-odds", "schedule": "0 23 * * 0,6" },
 
-    { "path": "/api/cron/refresh-game-lines", "schedule": "0 17 * * 1-5" },
     { "path": "/api/cron/refresh-game-lines", "schedule": "0 22 * * 1-5" },
-    { "path": "/api/cron/refresh-game-lines", "schedule": "0 1 * * 2-6" },
-    { "path": "/api/cron/refresh-game-lines", "schedule": "0 16 * * 0,6" },
-    { "path": "/api/cron/refresh-game-lines", "schedule": "0 19 * * 0,6" },
-    { "path": "/api/cron/refresh-game-lines", "schedule": "0 22 * * 0,6" },
+    { "path": "/api/cron/refresh-game-lines", "schedule": "0 17 * * 0,6" },
     { "path": "/api/cron/refresh-game-lines", "schedule": "0 1 * * 0,1" },
 
     { "path": "/api/cron/agent-bet", "schedule": "15 23 * * 1-5" },
