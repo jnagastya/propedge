@@ -4142,10 +4142,10 @@ function toggleInjuryImpact(){
 }
 
 async function fetchInjuryImpacts(){
-  // Fetch injury impact data for all players currently in view (alerts + props)
+  // Fetch injury impact data for all players in ONE batch call
   const players=[...(window._lastAlertPlayers||[]),...(S.data||[])];
   if(!players.length){ renderAlerts(); renderTable(); return; }
-  const fetches=[];
+  const batch=[];
   const seen=new Set();
   for(const p of players){
     const team=p.team||TEAM_MAP[p.name]||'';
@@ -4153,14 +4153,16 @@ async function fetchInjuryImpacts(){
     const key=`${p.name}|${p.market}`;
     if(seen.has(key)) continue;
     seen.add(key);
-    fetches.push(
-      fetch(`/api/injury-impact?player=${encodeURIComponent(p.name)}&team=${team}&market=${p.market||S.market}`)
-        .then(r=>r.json())
-        .then(d=>{ _injuryImpactCache[key]=d; })
-        .catch(()=>{})
-    );
+    batch.push({player:p.name,team,market:p.market||S.market});
   }
-  await Promise.all(fetches);
+  if(!batch.length){ renderAlerts(); renderTable(); return; }
+  try{
+    const r=await fetch('/api/injury-impact-batch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({players:batch})});
+    if(r.ok){
+      const d=await r.json();
+      if(d.results) Object.assign(_injuryImpactCache,d.results);
+    }
+  }catch(e){ console.warn('[fetchInjuryImpacts] batch failed:',e); }
   renderAlerts();
   renderTable();
 }

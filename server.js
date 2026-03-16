@@ -198,7 +198,9 @@ const _playerTeamCache = {
   'Jrue Holiday':'POR',
   'Myles Turner':'MIL',
   'Kyle Kuzma':'MIL',
-  'Deni Avdija':'NOP',
+  'Deni Avdija':'POR',
+  'Devin Carter':'SAC',
+  'Zach LaVine':'SAC',
 };
 // All manually-set teams are frozen — never overwritten by BDL/Supabase game log data
 const _frozenTeams = new Set(Object.keys(_playerTeamCache));
@@ -673,6 +675,8 @@ const BDL_PLAYER_OVERRIDES = {
   "Ja'Kobe Walter":          { id: 1028029111,    position: 'G', team: 'TOR' },
   'Aaron Wiggins':           { id: 17896078,      position: 'G', team: 'OKC' },
   'Khris Middleton':         { id: 315,           position: 'F', team: 'DAL' },
+  'Devin Carter':            { id: 1028025242,    position: 'G', team: 'SAC' },
+  'Zach LaVine':             { id: 268,           position: 'G', team: 'SAC' },
 };
 
 // Search BDL for player ID + position by name, cached 24h
@@ -1940,6 +1944,334 @@ app.get('/api/injury-impact', async (req, res) => {
     });
   } catch (e) {
     console.error('[injury-impact] Error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ============================================================
+// ROUTE: POST /api/injury-impact-batch — batch injury impact
+// Accepts { players: [{player, team, market}, ...] }
+// Fetches injury report ONCE, groups by team, reuses game logs
+// ============================================================
+app.post('/api/injury-impact-batch', async (req, res) => {
+  const { players } = req.body;
+  if (!Array.isArray(players) || !players.length) return res.status(400).json({ error: 'players array required' });
+  try {
+    // 1. Fetch injury report ONCE
+    const injuries = await fetchInjuryReport();
+
+    // 2. Group requests by team so we fetch teammate logs once per team
+    const teamGroups = new Map(); // team → [{player, market, resolvedPlayer}]
+    for (const p of players) {
+      if (!p.player || !p.team || !p.market) continue;
+      const team = p.team.toUpperCase();
+      if (!teamGroups.has(team)) teamGroups.set(team, []);
+      teamGroups.set(team, [...teamGroups.get(team), { ...p, team, resolvedPlayer: resolvePlayerName(p.player) }]);
+    }
+
+    // 3. For each team, compute out teammates and fetch their logs ONCE
+    const teamOutMap = new Map(); // team → outTeammates array
+    const teamTmLogMap = new Map(); // team → Map(injName → gameLog)
+    const teamPosMap = new Map(); // team → posMap
+
+    for (const [team, teamPlayers] of teamGroups) {
+      // All player names on this team (for excluding from "out" list)
+      const playerNamesLower = new Set(teamPlayers.flatMap(p => [p.player.toLowerCase(), p.resolvedPlayer.toLowerCase()]));
+
+      const outTeammates = injuries
+        .filter(inj => inj.team === team && inj.status === 'Out' && !playerNamesLower.has(inj.player.toLowerCase()) && !playerNamesLower.has(resolvePlayerName(inj.player).toLowerCase()))
+        .map(inj => ({ ...inj, resolvedName: resolvePlayerName(inj.player) }));
+      // Deduplicate by player name
+      const seenOut = new Set();
+      const uniqueOut = outTeammates.filter(inj => { if (seenOut.has(inj.player)) return false; seenOut.add(inj.player); return true; });
+      teamOutMap.set(team, uniqueOut);
+
+      if (!uniqueOut.length) {
+        teamTmLogMap.set(team, new Map());
+        teamPosMap.set(team, {});
+        continue;
+      }
+
+      // Fetch teammate game logs (Supabase batch → BDL fallback)
+      const tmLogMap = new Map();
+      if (supabase) {
+        const allTmNames = [];
+        const tmNameMapping = new Map();
+        for (const inj of uniqueOut) {
+          const names = [inj.resolvedName, inj.player].filter((v, i, a) => a.indexOf(v) === i);
+          names.forEach(n => { allTmNames.push(n); tmNameMapping.set(n, inj.player); });
+        }
+        const { data } = await supabase.from('player_stats').select('player_name, game_log, season').eq('season', NBA_SEASON).in('player_name', allTmNames);
+        if (data) data.forEach(r => {
+          const injName = tmNameMapping.get(r.player_name) || r.player_name;
+          tmLogMap.set(injName, r.game_log);
+        });
+      }
+      // BDL fallback for missing teammates
+      for (const inj of uniqueOut) {
+        if (tmLogMap.has(inj.player)) continue;
+        const names = [inj.resolvedName, inj.player].filter((v, i, a) => a.indexOf(v) === i);
+        for (const tmName of names) {
+          try {
+            const { id: tmBdlId, position: tmPos } = await getBDLPlayerId(tmName);
+            if (tmBdlId) {
+              const tmGames = await fetchBDLGameLog(tmBdlId);
+              if (tmGames?.length) {
+                tmLogMap.set(inj.player, tmGames);
+                await sbSetGameLog(tmName, tmBdlId, tmGames, tmPos);
+                break;
+              }
+            }
+          } catch (e) { console.warn(`[injury-batch] BDL fetch for teammate ${tmName} failed:`, e.message); }
+        }
+      }
+      teamTmLogMap.set(team, tmLogMap);
+
+      // Bulk-fetch positions for all teammates on this team
+      const posNames = [...new Set([...uniqueOut.map(t => t.player), ...uniqueOut.map(t => t.resolvedName), ...teamPlayers.map(p => p.player), ...teamPlayers.map(p => p.resolvedPlayer)])];
+      const posMap = {};
+      if (supabase) {
+        try {
+          const { data: posRows } = await supabase.from('player_stats').select('player_name, position').in('player_name', posNames).eq('season', NBA_SEASON);
+          if (posRows) posRows.forEach(r => { if (r.position) posMap[r.player_name] = r.position; });
+        } catch {}
+      }
+      teamPosMap.set(team, posMap);
+    }
+
+    // 4. Fetch ALL unique player game logs in one Supabase batch
+    const allPlayerNames = [];
+    const playerNameMap = new Map(); // lowercase key → original request
+    for (const [, teamPlayers] of teamGroups) {
+      for (const p of teamPlayers) {
+        const names = [p.resolvedPlayer, p.player].filter((v, i, a) => a.indexOf(v) === i);
+        names.forEach(n => { allPlayerNames.push(n); playerNameMap.set(n.toLowerCase(), p.player); });
+      }
+    }
+    const playerLogMap = new Map(); // original player name → game log
+    // Check memory cache first
+    for (const [, teamPlayers] of teamGroups) {
+      for (const p of teamPlayers) {
+        const names = [p.resolvedPlayer, p.player].filter((v, i, a) => a.indexOf(v) === i);
+        for (const pn of names) {
+          const ckMem = `gl_name_${NBA_SEASON}_${pn.toLowerCase().replace(/\s+/g,'_')}`;
+          const cached = cacheGet(ckMem);
+          if (cached) { playerLogMap.set(p.player, cached); break; }
+        }
+      }
+    }
+    // Supabase batch for uncached
+    const uncachedNames = [];
+    for (const [, teamPlayers] of teamGroups) {
+      for (const p of teamPlayers) {
+        if (playerLogMap.has(p.player)) continue;
+        uncachedNames.push(p.resolvedPlayer, p.player);
+      }
+    }
+    const uniqueUncached = [...new Set(uncachedNames)];
+    if (uniqueUncached.length && supabase) {
+      const { data } = await supabase.from('player_stats').select('player_name, game_log, season').eq('season', NBA_SEASON).in('player_name', uniqueUncached);
+      if (data) {
+        for (const r of data) {
+          const ckMem = `gl_name_${NBA_SEASON}_${r.player_name.toLowerCase().replace(/\s+/g,'_')}`;
+          cacheSet(ckMem, r.game_log, STATS_TTL);
+          // Map back to original player names
+          for (const [, teamPlayers] of teamGroups) {
+            for (const p of teamPlayers) {
+              if (playerLogMap.has(p.player)) continue;
+              if (p.player === r.player_name || p.resolvedPlayer === r.player_name) {
+                playerLogMap.set(p.player, r.game_log);
+              }
+            }
+          }
+        }
+      }
+    }
+    // BDL fallback for still-missing players
+    for (const [, teamPlayers] of teamGroups) {
+      for (const p of teamPlayers) {
+        if (playerLogMap.has(p.player)) continue;
+        const names = [p.resolvedPlayer, p.player].filter((v, i, a) => a.indexOf(v) === i);
+        for (const pn of names) {
+          try {
+            const { id: bdlId, position: bdlPos } = await getBDLPlayerId(pn);
+            if (bdlId) {
+              const gl = await fetchBDLGameLog(bdlId);
+              if (gl?.length) {
+                const ckMem = `gl_name_${NBA_SEASON}_${pn.toLowerCase().replace(/\s+/g,'_')}`;
+                cacheSet(ckMem, gl, STATS_TTL);
+                playerLogMap.set(p.player, gl);
+                await sbSetGameLog(pn, bdlId, gl, bdlPos);
+                break;
+              }
+            }
+          } catch {}
+        }
+      }
+    }
+
+    // 5. Compute impacts for each player request
+    const results = {};
+    for (const [team, teamPlayers] of teamGroups) {
+      const outTeammates = teamOutMap.get(team);
+      const tmLogMap = teamTmLogMap.get(team);
+      const _posMap = teamPosMap.get(team);
+
+      for (const p of teamPlayers) {
+        const key = `${p.player}|${p.market}`;
+        const playerLog = playerLogMap.get(p.player);
+        if (!playerLog?.length) {
+          results[key] = { impact: false, reason: 'no player game log' };
+          continue;
+        }
+        if (!outTeammates.length) {
+          results[key] = { impact: false, reason: 'no OUT teammates' };
+          continue;
+        }
+
+        const resolvedPlayer = p.resolvedPlayer;
+        const subjectPos = _posMap[p.player] || _posMap[resolvedPlayer] || null;
+        const teamFilter = team;
+        const playerPlayedTeam = playerLog.filter(g => parseInt(g.min || '0') > 0 && (!g.team || g.team === teamFilter));
+        const playerPlayedAll = playerLog.filter(g => parseInt(g.min || '0') > 0);
+        const recentlyTraded = playerPlayedTeam.length < 10;
+        const playerPlayed = recentlyTraded ? playerPlayedAll : playerPlayedTeam;
+        const market = p.market;
+        const teammateImpacts = [];
+
+        for (const inj of outTeammates) {
+          if (inj.player.toLowerCase() === p.player.toLowerCase() || inj.player.toLowerCase() === resolvedPlayer.toLowerCase()) continue;
+          const tmLog = tmLogMap.get(inj.player);
+          if (!tmLog?.length) continue;
+          const tmPlayed = tmLog.filter(g => parseInt(g.min || '0') > 0 && (!g.team || g.team === teamFilter));
+          if (tmPlayed.length < 5) continue;
+
+          const tmDnpDates = new Set(), tmPlayedDates = new Set();
+          for (const g of tmLog) {
+            if (g.team && g.team !== teamFilter) continue;
+            if (parseInt(g.min || '0') === 0) tmDnpDates.add(g.date);
+            else tmPlayedDates.add(g.date);
+          }
+
+          const l10 = playerPlayedTeam.slice(0, 10);
+          const l10Without = l10.filter(g => tmDnpDates.has(g.date)).length;
+          const bakedInWeight = Math.max(0, 1 - (l10Without / 10));
+          if (bakedInWeight <= 0) continue;
+
+          const wo = [], wi = [];
+          for (const g of playerPlayedTeam) {
+            if (tmDnpDates.has(g.date)) wo.push(g);
+            else if (tmPlayedDates.has(g.date)) wi.push(g);
+          }
+
+          const tmAvg = tmPlayed.reduce((s, g) => s + _statVal(g, market), 0) / tmPlayed.length;
+          const woMinAvg = wo.length ? Math.round(wo.reduce((s, g) => s + (parseFloat(g.min) || 0), 0) / wo.length) : null;
+          const wiMinAvg = wi.length ? Math.round(wi.reduce((s, g) => s + (parseFloat(g.min) || 0), 0) / wi.length) : null;
+
+          if (!recentlyTraded && wo.length >= 7 && wi.length >= 7) {
+            const wiTotalMin = wi.reduce((s, g) => s + (parseFloat(g.min) || 1), 0);
+            const woTotalMin = wo.reduce((s, g) => s + (parseFloat(g.min) || 1), 0);
+            const avgWi = wi.reduce((s, g) => { const m = parseFloat(g.min) || 1; return s + (_statVal(g, market) / m) * m; }, 0) / wiTotalMin;
+            const avgWo = wo.reduce((s, g) => { const m = parseFloat(g.min) || 1; return s + (_statVal(g, market) / m) * m; }, 0) / woTotalMin;
+            if (avgWi === 0) continue;
+
+            const rawRatio = avgWo / avgWi;
+            const totalGames = wo.length + wi.length;
+            const confidence = totalGames / (totalGames + 20);
+            const shrunkRatio = 1.0 + (rawRatio - 1.0) * confidence;
+            const fadedRatio = 1.0 + (shrunkRatio - 1.0) * bakedInWeight;
+            const ratio = Math.max(0.70, Math.min(1.30, fadedRatio));
+            if (Math.abs(ratio - 1.0) < 0.03) continue;
+
+            teammateImpacts.push({ name: inj.player, ratio: +ratio.toFixed(3), tmAvg: +tmAvg.toFixed(1), wo: wo.length, wi: wi.length, woMinAvg, wiMinAvg, speculative: false });
+          } else {
+            const playerAvg = playerPlayed.reduce((s, g) => s + _statVal(g, market), 0) / playerPlayed.length;
+            if (!tmAvg || !playerAvg) continue;
+
+            let teamTotal = playerAvg;
+            for (const [, tmGl] of tmLogMap) {
+              const played = (tmGl || []).filter(g => parseInt(g.min || '0') > 0 && (!g.team || g.team === teamFilter));
+              if (!played.length) continue;
+              const avg = played.reduce((s, g) => s + _statVal(g, market), 0) / played.length;
+              if (avg > 0) teamTotal += avg;
+            }
+
+            const remainingTotal = teamTotal - tmAvg;
+            const playerShare = remainingTotal > 0 ? playerAvg / remainingTotal : 0;
+            const tmPos = _posMap[inj.player] || _posMap[inj.resolvedName] || null;
+            const affinity = getPosAffinity(tmPos, subjectPos, market);
+            const boost = tmAvg * 0.35 * playerShare * affinity;
+            const rawRatio = (playerAvg + boost) / playerAvg;
+            const fadedRatio = 1.0 + (rawRatio - 1.0) * bakedInWeight;
+            const capped = Math.max(0.70, Math.min(1.20, fadedRatio));
+            if (Math.abs(capped - 1.0) < 0.03) continue;
+
+            let specWoMinAvg = null;
+            const tmPos2 = _posMap[inj.player] || _posMap[inj.resolvedName] || null;
+            if (tmPos2 && subjectPos && tmPos2.charAt(0) === subjectPos.charAt(0)) {
+              const tmMinAvg = tmPlayed.reduce((s, g) => s + (parseFloat(g.min) || 0), 0) / tmPlayed.length;
+              const subjectMinAvg = playerPlayed.reduce((s, g) => s + (parseFloat(g.min) || 0), 0) / playerPlayed.length;
+              if (tmMinAvg > 30 && subjectMinAvg < tmMinAvg) {
+                specWoMinAvg = Math.round(subjectMinAvg + (tmMinAvg - subjectMinAvg) * 0.4);
+              }
+            }
+
+            teammateImpacts.push({ name: inj.player, ratio: +capped.toFixed(3), tmAvg: +tmAvg.toFixed(1), wo: wo.length, wi: wi.length, woMinAvg: specWoMinAvg, wiMinAvg: null, speculative: true, posAffinity: +affinity.toFixed(2) });
+          }
+        }
+
+        if (!teammateImpacts.length) {
+          results[key] = { impact: false, reason: 'no teammate with sufficient data' };
+          continue;
+        }
+
+        const includedNames = new Set(teammateImpacts.map(t => t.name));
+        const skipped = [];
+        for (const inj of outTeammates) {
+          if (inj.player.toLowerCase() === p.player.toLowerCase() || inj.player.toLowerCase() === resolvedPlayer.toLowerCase()) continue;
+          if (includedNames.has(inj.player)) continue;
+          const tmLog = tmLogMap.get(inj.player);
+          if (!tmLog?.length) { skipped.push({ name: inj.player, reason: 'no game log' }); continue; }
+          const tmPlayedF = tmLog.filter(g => parseInt(g.min || '0') > 0 && (!g.team || g.team === teamFilter));
+          if (tmPlayedF.length < 5) { skipped.push({ name: inj.player, reason: `only ${tmPlayedF.length} games` }); continue; }
+          skipped.push({ name: inj.player, reason: 'impact < 3% or baked in' });
+        }
+
+        teammateImpacts.sort((a, b) => Math.abs(b.ratio - 1) - Math.abs(a.ratio - 1));
+        const _weights = [0.60, 0.30, 0.10];
+        let _wSum = 0, _wTotal = 0;
+        for (let i = 0; i < teammateImpacts.length; i++) {
+          const w = _weights[Math.min(i, _weights.length - 1)];
+          _wSum += (teammateImpacts[i].ratio - 1) * w;
+          _wTotal += w;
+        }
+        const combinedRatio = Math.max(0.80, Math.min(1.20, 1 + (_wTotal > 0 ? _wSum / _wTotal : 0)));
+        const hasSpeculative = teammateImpacts.some(t => t.speculative);
+
+        const playerSeasonMin = Math.round(playerPlayed.reduce((s, g) => s + (parseFloat(g.min) || 0), 0) / playerPlayed.length);
+        let projMinutes = null;
+        for (const t of teammateImpacts) {
+          if (t.woMinAvg && t.woMinAvg > playerSeasonMin) {
+            projMinutes = Math.max(projMinutes || 0, t.woMinAvg);
+          }
+        }
+
+        results[key] = {
+          impact: Math.abs(combinedRatio - 1.0) >= 0.03,
+          teammate: teammateImpacts.map(t => t.name).join(' + '),
+          teammates: teammateImpacts,
+          skipped: skipped.length ? skipped : undefined,
+          ratio: +combinedRatio.toFixed(3),
+          pctChange: +((combinedRatio - 1) * 100).toFixed(1),
+          speculative: hasSpeculative,
+          projMinutes,
+        };
+      }
+    }
+
+    res.json({ results });
+  } catch (e) {
+    console.error('[injury-impact-batch] Error:', e.message);
     res.status(500).json({ error: e.message });
   }
 });
