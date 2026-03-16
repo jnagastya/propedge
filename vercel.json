@@ -12,7 +12,7 @@
     { "src": "/(.*)", "dest": "server.js" }
   ],
   "crons": [
-    { "path": "/api/cron/refresh-odds", "schedule": "0 18 * * 1-5" },
+    { "path": "/api/cron/refresh-odds", "schedule": "45 22 * * 1-5" },
     { "path": "/api/cron/refresh-stats", "schedule": "30 18 * * 1-5" },
     { "path": "/api/cron/refresh-team-stats", "schedule": "15 18 * * 1-5" },
 
@@ -35,7 +35,7 @@
     { "path": "/api/cron/refresh-game-lines", "schedule": "0 1 * * 0,1" },
 
     { "path": "/api/cron/agent-bet", "schedule": "15 23 * * 1-5" },
-    { "path": "/api/cron/agent-bet", "schedule": "45 17 * * 0,6" },
+    { "path": "/api/cron/agent-bet", "schedule": "30 17 * * 0,6" },
 
     { "path": "/api/cron/tipoff-snapshot", "schedule": "0 18 * * 0,6" },
     { "path": "/api/cron/tipoff-snapshot", "schedule": "0 20 * * 0,6" },
