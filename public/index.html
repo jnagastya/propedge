@@ -5014,16 +5014,54 @@ function applyAllAdjustments(p){
     }
   }
 
-  // --- Step 5: Derive probability from final adjusted avg (single source of truth) ---
-  const adjStd=Math.max(0.5,p.stdDev||2);
-  const adjProb=p.line>0?Math.min(0.97,Math.max(0.03,1-normalCDF((p.line-adjAvg)/adjStd))):(p.modelProb||0.5);
+  // --- Step 5: Derive probability using blended hit-rate + CDF (matches server formula) ---
+  const totalRatio=p.avg>0?adjAvg/p.avg:1;
+  const _sMap={'player_points':'pts','player_rebounds':'reb','player_assists':'ast','player_threes':'fg3m','player_steals':'stl','player_blocks':'blk','player_turnovers':'turnover','player_points_rebounds_assists':'pra','player_rebounds_assists':'ra'};
+  const _sK=_sMap[p.market||S.market]||'pts';
+  const _gV=g=>_sK==='pra'?(+g.pts||0)+(+g.reb||0)+(+g.ast||0):_sK==='ra'?(+g.reb||0)+(+g.ast||0):+(g[_sK]||0);
+  const vals=games.map(g=>_gV(g));
+  // Scale stdDev by total ratio (server does: adjStdDev = stdDev * cappedRatio)
+  const adjStd=Math.max(0.5,(p.stdDev||2)*Math.abs(totalRatio));
   adj.avg=adjAvg;
-  adj.modelProb=adjProb;
   adj.edge=p.line>0?+((adjAvg-p.line)/p.line*100).toFixed(1):0;
-  const isOver=adj.edge>=0;
-  adj.hitRate=Math.round((isOver?adjProb:1-adjProb)*100);
-  adj.evOver=calcEV(adjProb,p.overOdds);
-  adj.evUnder=calcEV(1-adjProb,p.underOdds);
+  if(p.line>0 && vals.length>=5){
+    // Compute hit rates from game-log values scaled by ratio (matches server)
+    const adjHR=Math.round(vals.filter(v=>v*totalRatio>=p.line).length/vals.length*100);
+    const l10v=vals.slice(0,10);
+    const l10HR=l10v.length?Math.round(l10v.filter(v=>v*totalRatio>=p.line).length/l10v.length*100):adjHR;
+    const l5v=vals.slice(0,5);
+    const l5HR=l5v.length>=3?Math.round(l5v.filter(v=>v*totalRatio>=p.line).length/l5v.length*100):l10HR;
+    const statProb=adjStd>0?1-normalCDF((p.line-adjAvg)/adjStd):0.5;
+    const rawProb=(l5HR*0.25+l10HR*0.30+adjHR*0.25)/100+statProb*0.20;
+    const adjProb=Math.min(0.97,Math.max(0.03,(rawProb*vals.length+5)/(vals.length+10)));
+    adj.modelProb=adjProb;
+    const isOver=adjProb>=0.5;
+    adj.hitRate=Math.round((isOver?adjProb:1-adjProb)*100);
+    adj.evOver=calcEV(adjProb,p.overOdds);
+    adj.evUnder=calcEV(1-adjProb,p.underOdds);
+    // Recompute confidence with 5-component formula (matches server)
+    const dirMP=isOver?adjProb:1-adjProb;
+    const dirImpl=isOver?impliedProb(p.overOdds):impliedProb(p.underOdds);
+    const evEdge=dirMP-dirImpl;
+    const _evPts=Math.min(25,Math.max(0,evEdge/0.15*12.5+12.5));
+    const _hrSpread=Math.max(l5HR,l10HR,adjHR)-Math.min(l5HR,l10HR,adjHR);
+    const _alignPts=Math.min(25,Math.max(0,25-_hrSpread*0.5));
+    const _overImpl=impliedProb(p.overOdds),_underImpl=impliedProb(p.underOdds);
+    const _vigGap=Math.abs(_overImpl-_underImpl);
+    const _sharpPts=Math.min(20,Math.max(0,_vigGap*100));
+    const cv=adjAvg?adjStd/adjAvg:0.4;
+    const _cvPts=Math.min(20,Math.max(0,(0.6-Math.min(cv,0.6))/0.4*20));
+    const _samplePts=Math.min(10,Math.max(0,(vals.length-5)/50*10));
+    adj.confidence=Math.max(0,Math.min(100,Math.round(_evPts+_alignPts+_sharpPts+_cvPts+_samplePts)));
+  } else {
+    // Fallback: simple CDF when no game log or insufficient games
+    const adjProb=p.line>0?Math.min(0.97,Math.max(0.03,1-normalCDF((p.line-adjAvg)/adjStd))):(p.modelProb||0.5);
+    adj.modelProb=adjProb;
+    const isOver=(adj.edge||0)>=0;
+    adj.hitRate=Math.round((isOver?adjProb:1-adjProb)*100);
+    adj.evOver=calcEV(adjProb,p.overOdds);
+    adj.evUnder=calcEV(1-adjProb,p.underOdds);
+  }
 
   // --- Step 5b: Directional blowout confidence penalty ---
   // Blowout risk is directional: what matters is whether THIS matchup is likely a blowout.
