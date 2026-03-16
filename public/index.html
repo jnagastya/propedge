@@ -14,17 +14,17 @@
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg0:#0d0f14; --bg1:#161920; --bg2:#1c2029; --bg3:#222633; --bg4:#2a2f3d;
-  --bgh:rgba(99,102,241,.06); --bd:rgba(255,255,255,.10); --bd2:rgba(255,255,255,.20);
-  --t1:#f1f5f9; --t2:#a8bccf; --t3:#64748b;
+  --bg0:#0d0f14; --bg1:#161920; --bg2:#1c2029; --bg3:#252a36; --bg4:#2e3445;
+  --bgh:rgba(99,102,241,.06); --bd:rgba(255,255,255,.12); --bd2:rgba(255,255,255,.22);
+  --t1:#f1f5f9; --t2:#b4c5d6; --t3:#8494a7;
   --topbar-bg:rgba(22,25,32,.95);
-  --g:#10b981; --gd:rgba(16,185,129,.12); --gb:rgba(16,185,129,.2);
-  --r:#f43f5e; --rd:rgba(244,63,94,.12); --rb:rgba(244,63,94,.2);
-  --b:#6366f1; --bld:rgba(99,102,241,.12); --bb:rgba(99,102,241,.2);
+  --g:#34d399; --gd:rgba(52,211,153,.12); --gb:rgba(52,211,153,.22);
+  --r:#fb7185; --rd:rgba(251,113,133,.12); --rb:rgba(251,113,133,.22);
+  --b:#818cf8; --bld:rgba(129,140,248,.12); --bb:rgba(129,140,248,.22);
   --b-text:var(--b); --b-on:#fff;
-  --a:#f59e0b; --ad:rgba(245,158,11,.12);
-  --p:#a78bfa; --pd:rgba(167,139,250,.12); --pb:rgba(167,139,250,.2);
-  --c:#22d3ee; --gold:#f59e0b; --goldd:rgba(245,158,11,.12);
+  --a:#fbbf24; --ad:rgba(251,191,36,.12);
+  --p:#c4b5fd; --pd:rgba(196,181,253,.12); --pb:rgba(196,181,253,.22);
+  --c:#22d3ee; --gold:#fbbf24; --goldd:rgba(251,191,36,.12);
   --sans:'Outfit',sans-serif;
   --shadow:0 1px 3px rgba(0,0,0,.3),0 1px 2px rgba(0,0,0,.2);
   --shadow-md:0 4px 24px rgba(0,0,0,.4),0 2px 8px rgba(0,0,0,.2);
@@ -34,7 +34,9 @@
 body.light{
   --bg0:#f0f2f7; --bg1:#ffffff; --bg2:#f4f6fb; --bg3:#e8ecf4; --bg4:#dde2ef;
   --bgh:rgba(99,102,241,.06); --bd:rgba(0,0,0,.10); --bd2:rgba(0,0,0,.20);
-  --t1:#0f172a; --t2:#475569; --t3:#94a3b8;
+  --t1:#0f172a; --t2:#374151; --t3:#6b7280;
+  --g:#059669; --gd:rgba(5,150,105,.10); --gb:rgba(5,150,105,.18);
+  --r:#e11d48; --rd:rgba(225,29,72,.10); --rb:rgba(225,29,72,.18);
   --shadow:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.05);
   --shadow-md:0 4px 24px rgba(0,0,0,.12),0 2px 8px rgba(0,0,0,.06);
   --topbar-bg:rgba(255,255,255,.95);
@@ -82,7 +84,7 @@ body{background:var(--bg0);background-image:radial-gradient(ellipse at 20% 0%,rg
 .settings-close{background:none;border:none;color:var(--t3);cursor:pointer;font-size:18px;line-height:1;padding:0;}
 .settings-section{padding:14px 16px;border-bottom:1px solid var(--bd);}
 .settings-section:last-child{border-bottom:none;}
-.settings-sec-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--t3);margin-bottom:10px;}
+.settings-sec-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--t3);margin-bottom:10px;}
 .settings-row{display:flex;align-items:center;justify-content:space-between;font-size:13px;color:var(--t2);}
 .theme-toggle{width:44px;height:24px;border-radius:12px;background:var(--bg3);border:1px solid var(--bd);cursor:pointer;position:relative;transition:background .2s;flex-shrink:0;padding:0;}
 .theme-toggle::after{content:'';position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:var(--t2);transition:transform .2s,background .2s;}
@@ -109,7 +111,7 @@ body.light .theme-toggle::after{transform:translateX(20px);background:var(--b);}
 .settings-reset:hover{color:var(--t1);border-color:var(--bd2);}
 
 .api-st{display:flex;gap:4px;}
-.api-b{font-size:10px;font-weight:600;padding:3px 8px;border-radius:20px;display:flex;align-items:center;gap:4px;border:1px solid transparent;}
+.api-b{font-size:11px;font-weight:600;padding:3px 8px;border-radius:20px;display:flex;align-items:center;gap:4px;border:1px solid transparent;}
 .api-b .d{width:5px;height:5px;border-radius:50%;flex-shrink:0;}
 .api-b.ok{background:var(--gd);color:var(--g);border-color:var(--gb);}.api-b.ok .d{background:var(--g);}
 .api-b.err{background:var(--rd);color:var(--r);border-color:var(--rb);}.api-b.err .d{background:var(--r);}
@@ -120,7 +122,7 @@ body.light .theme-toggle::after{transform:translateX(20px);background:var(--b);}
 
 /* -- NAV TABS -- */
 .nav-tabs{display:flex;gap:2px;padding:0 24px;background:var(--topbar-bg);backdrop-filter:blur(12px);border-bottom:1px solid var(--bd);position:sticky;top:56px;z-index:299;}
-.nav-tab{padding:11px 16px;border:none;background:none;color:var(--t2);font-family:var(--sans);font-size:14px;font-weight:500;cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;margin-bottom:-1px;letter-spacing:.1px;}
+.nav-tab{padding:12px 18px;border:none;background:none;color:var(--t2);font-family:var(--sans);font-size:14px;font-weight:500;cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;margin-bottom:-1px;letter-spacing:.1px;}
 .nav-tab:hover{color:var(--t1);background:rgba(255,255,255,.03);border-radius:6px 6px 0 0;}
 .nav-tab.on{color:var(--b-text);background:var(--bld);border-bottom-color:var(--b);font-weight:700;border-radius:6px 6px 0 0;}
 .nav-more{display:none;}
@@ -160,11 +162,11 @@ body.light .theme-toggle::after{transform:translateX(20px);background:var(--b);}
 .var-av{width:34px;height:34px;border-radius:50%;border:1.5px solid rgba(245,158,11,.28);background:var(--bg3);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--t3);overflow:hidden;}
 .var-body{flex:1;min-width:0;}
 .var-top{display:flex;align-items:center;gap:4px;margin-bottom:1px;}
-.var-rnk{font-size:10px;line-height:1;}
+.var-rnk{font-size:11px;line-height:1;}
 .var-nm{font-size:11px;font-weight:700;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .var-ln{font-size:11px;color:var(--gold);font-weight:600;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.var-st{display:flex;gap:3px;align-items:center;font-size:10px;white-space:nowrap;flex-wrap:nowrap;}
-.var-mp{font-size:10px;color:var(--t2);font-weight:600;margin-top:2px;white-space:nowrap;}
+.var-st{display:flex;gap:3px;align-items:center;font-size:11px;white-space:nowrap;flex-wrap:nowrap;}
+.var-mp{font-size:11px;color:var(--t2);font-weight:600;margin-top:2px;white-space:nowrap;}
 .var-ev{color:var(--g);font-weight:700;}.var-sep{color:var(--t3);}
 .var-prob{color:var(--t2);}.var-odds{color:var(--t2);}
 .sc{flex-shrink:0;padding:10px 14px;background:var(--bg1);border:1px solid var(--bd);border-radius:var(--radius);min-width:172px;box-shadow:var(--shadow);cursor:pointer;transition:all .2s;user-select:none;}
@@ -175,12 +177,12 @@ body.light .theme-toggle::after{transform:translateX(20px);background:var(--b);}
 .sc-logo{width:22px;height:22px;object-fit:contain;flex-shrink:0;filter:drop-shadow(0 1px 2px rgba(0,0,0,.3));}
 .sc-team{display:flex;align-items:center;gap:5px;min-width:0;flex:1;}
 .sc-t{font-size:11px;font-weight:700;color:var(--t2);letter-spacing:.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}.sc-v{font-size:13px;font-weight:700;color:var(--t1);flex-shrink:0;}
-.sc-s{font-size:10px;color:var(--t3);text-align:center;margin-top:3px;}
+.sc-s{font-size:11px;color:var(--t3);text-align:center;margin-top:3px;}
 .sc-s.lv{color:var(--g);font-weight:600;}
-.sc-hint{font-size:9px;color:var(--b-text);text-align:center;margin-top:2px;font-weight:700;display:none;}
+.sc-hint{font-size:10px;color:var(--b-text);text-align:center;margin-top:2px;font-weight:700;display:none;}
 .sc:hover .sc-hint,.sc.active .sc-hint{display:block;}
 .sc-day-div{flex-shrink:0;display:flex;align-items:center;padding:0 2px;}
-.sc-day-div span{writing-mode:vertical-lr;text-orientation:mixed;transform:rotate(180deg);font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:var(--t3);padding:6px 2px;border-right:2px solid var(--bd2);white-space:nowrap;}
+.sc-day-div span{writing-mode:vertical-lr;text-orientation:mixed;transform:rotate(180deg);font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:var(--t3);padding:6px 2px;border-right:2px solid var(--bd2);white-space:nowrap;}
 .sc.sc-tmrw{border-color:rgba(139,92,246,.2);background:rgba(139,92,246,.04);}
 .sc.sc-tmrw .sc-s{color:#a78bfa;}
 .sc.sc-yest{opacity:.55;}
@@ -213,17 +215,17 @@ body.light .theme-toggle::after{transform:translateX(20px);background:var(--b);}
 
 /* -- GLOSSARY PILLS -- */
 .glossary{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;}
-.gls-pill{display:flex;align-items:center;gap:5px;padding:5px 11px;background:var(--bg1);border:1px solid var(--bd);border-radius:20px;font-size:11px;color:var(--t2);cursor:default;position:relative;box-shadow:var(--shadow);}
+.gls-pill{display:flex;align-items:center;gap:5px;padding:6px 12px;background:var(--bg1);border:1px solid var(--bd);border-radius:20px;font-size:12px;color:var(--t2);cursor:default;position:relative;box-shadow:var(--shadow);}
 .gls-pill strong{font-weight:700;color:var(--t1);}
 .gls-tip{display:none;position:fixed;background:var(--bg3);color:var(--t1);border:1px solid var(--bd2);border-radius:10px;padding:11px 14px;font-size:11px;line-height:1.6;z-index:1000;width:260px;box-shadow:var(--shadow-md);pointer-events:none;}
 .gls-tip strong{color:var(--b-text);}
-.gls-tip code{background:var(--bg4);padding:1px 5px;border-radius:3px;font-size:10px;}
+.gls-tip code{background:var(--bg4);padding:1px 5px;border-radius:3px;font-size:11px;}
 
 /* -- TABLE -- */
 .tw{background:var(--bg1);border:1px solid var(--bd);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:16px;box-shadow:var(--shadow);}
 .th-bar{display:flex;align-items:center;justify-content:space-between;padding:12px 18px;border-bottom:1px solid var(--bd);background:var(--bg2);}
 .tt{font-size:13px;font-weight:700;display:flex;align-items:center;gap:7px;color:var(--t1);}
-.bdg{font-size:10px;font-weight:700;padding:2px 9px;border-radius:20px;}
+.bdg{font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;}
 .bdg-b{background:var(--bld);color:var(--b-text);}
 .bdg-g{background:var(--gd);color:var(--g);}
 .bdg-game{background:var(--bld);color:var(--b-text);cursor:pointer;display:flex;align-items:center;gap:3px;}
@@ -240,11 +242,11 @@ table{width:100%;border-collapse:collapse;font-size:13px;}
 .skel-cell{height:11px;border-radius:4px;background:linear-gradient(90deg,var(--bg2) 25%,var(--bg3) 50%,var(--bg2) 75%);background-size:1600px 100%;animation:shimmer 1.6s infinite;}
 .skel-row td{padding:10px 11px;}
 /* -- EV gradient pill -- */
-.ev-pill{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap;}
-.ev-strong{background:rgba(34,197,94,.18);color:#22c55e;}
-.ev-good{background:rgba(34,197,94,.10);color:#4ade80;}
-.ev-weak{background:rgba(148,163,184,.08);color:var(--t2);}
-.ev-neg{background:rgba(239,68,68,.08);color:var(--r);}
+.ev-pill{display:inline-block;padding:3px 9px;border-radius:20px;font-size:12px;font-weight:700;white-space:nowrap;}
+.ev-strong{background:rgba(52,211,153,.18);color:#34d399;}
+.ev-good{background:rgba(52,211,153,.10);color:#6ee7b7;}
+.ev-weak{background:rgba(148,163,184,.10);color:var(--t2);}
+.ev-neg{background:rgba(251,113,133,.10);color:var(--r);}
 /* -- Mobile -- */
 @media(max-width:768px){
   .nav-tabs{overflow-x:auto;gap:0;scrollbar-width:none;}
@@ -384,7 +386,7 @@ table{width:100%;border-collapse:collapse;font-size:13px;}
   .parlay-stat{padding:10px;min-width:0;}
   .bet-card{padding:12px 14px;}
 }
-thead th{padding:9px 11px;text-align:left;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--t2);border-bottom:1px solid var(--bd);white-space:nowrap;background:var(--bg2);cursor:pointer;user-select:none;transition:color .12s,background .12s;}
+thead th{padding:10px 13px;text-align:left;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--t2);border-bottom:1px solid var(--bd);white-space:nowrap;background:var(--bg2);cursor:pointer;user-select:none;transition:color .12s,background .12s;}
 thead th:hover{color:var(--t1);background:var(--bg3);}
 thead th.sort-active{color:var(--b-text);}
 thead th.sort-asc::after{content:' ▲';font-size:8px;color:var(--b);}
@@ -395,52 +397,67 @@ tbody tr.exp{background:rgba(99,102,241,.04);}
 tbody tr.value-row{border-left:3px solid var(--gold);}
 tbody tr.scn-row{background:rgba(167,139,250,.04);}
 tbody tr.scn-row td:first-child{border-left:3px solid var(--p);}
-td{padding:13px 14px;white-space:nowrap;}
+td{padding:12px 13px;white-space:nowrap;font-size:13px;}
 
 /* -- Player cell -- */
 .pc{display:flex;align-items:center;gap:11px;min-width:210px;}
 .av{width:48px;height:48px;border-radius:50%;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--t3);flex-shrink:0;border:2px solid var(--bd);overflow:hidden;}
 .av img{width:100%;height:100%;object-fit:cover;border-radius:50%;}
 .pi{display:flex;flex-direction:column;}
-.pn{font-weight:700;font-size:15px;display:flex;align-items:center;gap:5px;}
-.scn-icon{font-size:10px;background:var(--pd);color:var(--p);border-radius:4px;padding:1px 4px;font-weight:700;}
-.pm{font-size:12px;color:var(--t3);display:flex;gap:5px;align-items:center;margin-top:2px;}
-.ptb{font-size:11px;font-weight:600;padding:1px 6px;border-radius:4px;background:var(--bg3);color:var(--t2);}
+.pn{font-weight:700;font-size:14px;display:flex;align-items:center;gap:5px;letter-spacing:-.2px;}
+.scn-icon{font-size:11px;background:var(--pd);color:var(--p);border-radius:4px;padding:1px 5px;font-weight:700;}
+.pm{font-size:12px;color:var(--t3);display:flex;gap:5px;align-items:center;margin-top:3px;}
+.ptb{font-size:11px;font-weight:600;padding:2px 7px;border-radius:4px;background:var(--bg3);color:var(--t2);}
 .odds-cell{display:flex;gap:5px;align-items:center;}
-.odd{padding:3px 8px;border-radius:6px;font-size:11px;font-weight:700;}
+.odd{padding:4px 9px;border-radius:6px;font-size:12px;font-weight:700;}
 .odd.over{background:var(--gd);color:var(--g);}
 .odd.under{background:var(--rd);color:var(--r);}
-.et{display:inline-flex;padding:4px 9px;border-radius:6px;font-size:12px;font-weight:700;position:relative;cursor:help;}
+.et{display:inline-flex;padding:5px 10px;border-radius:6px;font-size:13px;font-weight:700;position:relative;cursor:help;}
 .et.pos{background:var(--gd);color:var(--g);}
 .et.neg{background:var(--rd);color:var(--r);}
 .et.flat{background:var(--bg3);color:var(--t3);}
-.tip{display:none;position:fixed;background:var(--bg3);color:var(--t1);border:1px solid var(--bd2);border-radius:10px;padding:11px 14px;font-size:11px;line-height:1.65;white-space:pre;z-index:500;min-width:230px;box-shadow:var(--shadow-md);pointer-events:none;width:max-content;}
+.tip{display:none;position:fixed;background:var(--bg3);color:var(--t1);border:1px solid var(--bd2);border-radius:10px;padding:12px 16px;font-size:12px;line-height:1.65;white-space:pre;z-index:500;min-width:240px;box-shadow:var(--shadow-md);pointer-events:none;width:max-content;}
 .et:hover .tip,.cb-wrap:hover .tip{display:block;}
-.lean-wrap{display:flex;flex-direction:column;gap:3px;min-width:85px;}
-.lean-lbl{font-size:11px;font-weight:700;}
+.lean-wrap{display:flex;flex-direction:column;gap:4px;min-width:88px;}
+.lean-lbl{font-size:12px;font-weight:700;}
 .lean-lbl.over{color:var(--g);}.lean-lbl.under{color:var(--r);}.lean-lbl.even{color:var(--t3);}
 .lean-track{width:70px;height:5px;border-radius:3px;background:linear-gradient(90deg,var(--r) 0%,var(--bg4) 50%,var(--g) 100%);position:relative;}
 .lean-dot{width:9px;height:9px;border-radius:50%;background:var(--t1);border:2px solid var(--bg1);position:absolute;top:-2px;transform:translateX(-50%);box-shadow:0 1px 4px rgba(0,0,0,.4);}
 .cb-wrap{position:relative;cursor:help;display:flex;align-items:center;gap:5px;}
 .cb-bar{width:44px;height:5px;background:var(--bg4);border-radius:3px;overflow:hidden;}
 .cb-fill{height:100%;border-radius:3px;transition:width .5s ease;}
-.cb-l{font-size:12px;font-weight:700;}
+.cb-l{font-size:13px;font-weight:700;}
 .ouv{display:flex;align-items:center;gap:5px;}
 .oub{display:flex;width:52px;height:5px;border-radius:3px;overflow:hidden;}
 .ouo{background:var(--g);height:100%;}
 .ouu{background:var(--r);height:100%;}
-.oul{font-size:10px;color:var(--t3);}
+.oul{font-size:11px;color:var(--t3);}
 .spk{width:70px;height:22px;}.spk svg{width:100%;height:100%;}
-.val-badge{display:inline-flex;align-items:center;gap:3px;padding:3px 8px;border-radius:5px;font-size:10px;font-weight:700;background:rgba(245,158,11,.12);color:var(--gold);border:1px solid rgba(245,158,11,.2);}
+.val-badge{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;background:rgba(251,191,36,.12);color:var(--gold);border:1px solid rgba(251,191,36,.22);}
 .scn-boost{font-size:12px;font-weight:700;color:var(--p);}
 
 /* -- DETAIL ROW -- */
 .dr{display:none;}.dr.open{display:table-row;}
 .dr td{padding:0!important;background:var(--bg0)!important;border-bottom:1px solid var(--bd)!important;}
-.di{padding:18px;animation:fadeUp .2s ease both;}
-.di-tabs{display:flex;gap:2px;margin-bottom:14px;border-bottom:1px solid var(--bd);padding-bottom:0;}
-.di-tab{padding:7px 13px;border:none;background:none;color:var(--t2);font-family:var(--sans);font-size:13px;font-weight:500;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .12s;}
+.di{padding:20px;animation:fadeUp .2s ease both;}
+.di-tabs{display:flex;gap:2px;margin-bottom:16px;border-bottom:1px solid var(--bd);padding-bottom:0;}
+.di-tab{padding:8px 14px;border:none;background:none;color:var(--t2);font-family:var(--sans);font-size:13px;font-weight:500;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .12s;}
 .di-tab:hover{color:var(--t1);}.di-tab.on{color:var(--b);border-bottom-color:var(--b);font-weight:600;}
+.dfs-toggle{display:flex;gap:2px;background:var(--bg1);border-radius:8px;padding:2px;border:1px solid var(--bd);margin-bottom:12px;}
+.dfs-toggle-btn{flex:1;padding:7px 12px;border:none;background:none;color:var(--t2);font-family:var(--sans);font-size:12px;font-weight:500;cursor:pointer;border-radius:6px;transition:all .15s;white-space:nowrap;display:flex;align-items:center;justify-content:center;gap:5px;}
+.dfs-toggle-btn:hover{color:var(--t1);background:var(--bg2);}
+.dfs-toggle-btn.on{background:var(--b);color:#fff;font-weight:700;box-shadow:0 1px 3px rgba(0,0,0,.15);}
+.dfs-toggle-btn.on.pp{background:#7c3aed;}
+.dfs-toggle-btn.on.ud{background:#d97706;}
+.dfs-compare{padding:12px;background:var(--bg1);border-radius:8px;border:1px solid var(--bd);margin-bottom:12px;}
+.dfs-compare-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--bd);}
+.dfs-compare-row:last-child{border-bottom:none;}
+.dfs-compare-label{font-size:11px;color:var(--t2);font-weight:500;}
+.dfs-compare-val{font-size:13px;font-weight:700;}
+.dfs-tier{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;}
+.dfs-tier.goblin{background:rgba(34,197,94,.15);color:var(--g);}
+.dfs-tier.demon{background:rgba(239,68,68,.15);color:var(--r);}
+.dfs-tier.standard{background:rgba(139,92,246,.15);color:#a78bfa;}
 .di-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
 /* -- Line Simulator -- */
 .sim-panel{background:linear-gradient(135deg,rgba(99,102,241,.07),rgba(139,92,246,.04));border:1px solid rgba(99,102,241,.28);border-radius:10px;padding:16px 18px;}
@@ -451,7 +468,7 @@ td{padding:13px 14px;white-space:nowrap;}
 .sim-stat:last-child{border-bottom:none;}
 .sim-stat-lbl{color:var(--t3);font-weight:600;}
 .sim-stat-val{font-weight:700;display:flex;align-items:center;gap:2px;}
-.sim-delta{font-size:10px;font-weight:700;margin-left:3px;}
+.sim-delta{font-size:11px;font-weight:700;margin-left:3px;}
 .sim-delta.pos{color:var(--g);}
 .sim-delta.neg{color:var(--r);}
 .sim-inp{width:64px;text-align:center;font-size:11px;font-weight:600;background:var(--bg2);border:1px solid var(--bd);border-radius:5px;padding:3px 6px;outline:none;color:var(--t1);-moz-appearance:textfield;}
@@ -466,33 +483,33 @@ td{padding:13px 14px;white-space:nowrap;}
 .sim-dir-btn.on.auto{border-color:var(--b);background:var(--bld);color:var(--b);}
 .sim-dir-btn.on.over-btn{border-color:var(--g);background:var(--gd);color:var(--g);}
 .sim-dir-btn.on.under-btn{border-color:var(--r);background:var(--rd);color:var(--r);}
-.dc{background:var(--bg1);border:1px solid var(--bd);border-radius:var(--radius);padding:14px;}
+.dc{background:var(--bg1);border:1px solid var(--bd);border-radius:var(--radius);padding:16px;}
 .dc.full{grid-column:1/-1;}
-.dc-t{font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--b-text);margin-bottom:12px;display:flex;align-items:center;gap:6px;}
-.dc-t .dt{width:5px;height:5px;border-radius:50%;}
-.sr{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
-.sb2{padding:12px;background:var(--bg2);border-radius:8px;border:1px solid var(--bd);}
-.sb2-l{font-size:11px;font-weight:600;text-transform:uppercase;color:var(--b-text);margin-bottom:4px;letter-spacing:.3px;}
-.sb2-v{font-size:22px;font-weight:800;color:var(--t1);}
-.sb2-s{font-size:11px;color:var(--b-text);margin-top:3px;}
+.dc-t{font-size:12px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--t2);margin-bottom:14px;display:flex;align-items:center;gap:6px;}
+.dc-t .dt{width:6px;height:6px;border-radius:50%;}
+.sr{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
+.sb2{padding:14px;background:var(--bg2);border-radius:8px;border:1px solid var(--bd);}
+.sb2-l{font-size:11px;font-weight:700;text-transform:uppercase;color:var(--t2);margin-bottom:5px;letter-spacing:.4px;}
+.sb2-v{font-size:24px;font-weight:800;color:var(--t1);}
+.sb2-s{font-size:12px;color:var(--t2);margin-top:4px;}
 .up{color:var(--g);font-weight:600;}.dn{color:var(--r);font-weight:600;}
-.chb{width:100%;height:162px;background:var(--bg2);border-radius:8px;border:1px solid var(--bd);position:relative;overflow:visible;padding:8px;}
-.bars{display:flex;align-items:flex-end;gap:3px;height:110px;margin-top:24px;}
+.chb{width:100%;height:175px;background:var(--bg2);border-radius:8px;border:1px solid var(--bd);position:relative;overflow:visible;padding:10px;}
+.bars{display:flex;align-items:flex-end;gap:4px;height:118px;margin-top:24px;}
 .bar{flex:1;border-radius:3px 3px 0 0;position:relative;transition:filter .1s;}
 .bar:hover{filter:brightness(1.25);}
-.bar-t{display:block;position:absolute;top:-18px;left:50%;transform:translateX(-50%);font-size:9px;font-weight:700;color:var(--t2);white-space:nowrap;pointer-events:none;}
+.bar-t{display:block;position:absolute;top:-18px;left:50%;transform:translateX(-50%);font-size:11px;font-weight:700;color:var(--t2);white-space:nowrap;pointer-events:none;}
 .bar.dnp-bar{opacity:.35;border-radius:3px;}
 .bar.dnp-bar .bar-t{color:var(--t3);font-weight:600;}
 .lref{position:absolute;left:8px;right:8px;border-top:1.5px dashed var(--bd2);pointer-events:none;}
-.lref-l{position:absolute;right:0;top:-13px;font-size:9px;color:var(--t3);font-weight:600;}
+.lref-l{position:absolute;right:0;top:-13px;font-size:10px;color:var(--t3);font-weight:600;}
 .spt{width:100%;font-size:11px;border-collapse:collapse;}
-.spt th{font-size:10px;font-weight:700;text-transform:uppercase;color:var(--t2);padding:6px 10px;text-align:left;border-bottom:1px solid var(--bd);letter-spacing:.4px;}
+.spt th{font-size:11px;font-weight:700;text-transform:uppercase;color:var(--t2);padding:7px 10px;text-align:left;border-bottom:1px solid var(--bd);letter-spacing:.4px;}
 .spt td{padding:7px 10px;color:var(--t1);border-bottom:1px solid var(--bd);}
 .spt tr:last-child td{border-bottom:none;}
 .spt .hit{color:var(--g);font-weight:700;}.spt .miss{color:var(--r);font-weight:700;}
 .formula-box{background:var(--bg2);border:1px solid var(--bd);border-radius:var(--radius);padding:12px 14px;font-size:11px;color:var(--t2);line-height:1.7;margin-top:12px;}
 .formula-box .fml-title{font-weight:700;font-size:11px;color:var(--t1);margin-bottom:6px;}
-.formula-box code{background:var(--bg3);padding:1px 5px;border-radius:3px;font-size:10px;color:var(--b);}
+.formula-box code{background:var(--bg3);padding:1px 5px;border-radius:3px;font-size:11px;color:var(--b);}
 
 /* -- GAME PLAYERS MODAL -- */
 .game-panel{display:none;background:var(--bg1);border:1px solid var(--bd);border-radius:var(--radius-lg);padding:16px;margin-bottom:16px;box-shadow:var(--shadow-md);animation:fadeUp .2s ease both;}
@@ -509,7 +526,7 @@ td{padding:13px 14px;white-space:nowrap;}
 .gp-av{width:28px;height:28px;border-radius:50%;background:var(--bg4);overflow:hidden;flex-shrink:0;border:1px solid var(--bd);}
 .gp-av img{width:100%;height:100%;object-fit:cover;}
 .gp-pname{font-size:12px;font-weight:600;}
-.gp-pmeta{font-size:10px;color:var(--t3);}
+.gp-pmeta{font-size:11px;color:var(--t3);}
 .gp-edge{font-size:11px;font-weight:700;margin-left:auto;}
 
 /* -- VALUE ALERTS -- */
@@ -518,7 +535,7 @@ td{padding:13px 14px;white-space:nowrap;}
 .alert-mkt-btn{padding:6px 14px;border-radius:20px;border:1.5px solid var(--bd);background:var(--bg1);color:var(--t2);font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;white-space:nowrap;}
 .alert-mkt-btn.on{background:var(--b);color:var(--b-on);border-color:var(--b);box-shadow:0 2px 8px rgba(99,102,241,.3);}
 .alert-mkt-btn.loading{opacity:.5;pointer-events:none;}
-.va-mkt-tag{display:inline-block;font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;background:var(--bg3);color:var(--t3);margin-left:4px;vertical-align:middle;text-transform:uppercase;}
+.va-mkt-tag{display:inline-block;font-size:10px;font-weight:700;padding:1px 6px;border-radius:4px;background:var(--bg3);color:var(--t3);margin-left:4px;vertical-align:middle;text-transform:uppercase;}
 .gls-view{display:none;}.gls-view.show{display:block;}
 
 /* -- Parlay Builder -- */
@@ -563,7 +580,7 @@ td{padding:13px 14px;white-space:nowrap;}
 .parlay-bet-btn:hover{opacity:.85;}
 .parlay-clear-btn{width:100%;margin-top:8px;padding:8px;background:transparent;border:1px solid var(--bd);color:var(--t3);border-radius:8px;cursor:pointer;font-size:11px;font-weight:600;}
 .parlay-clear-btn:hover{border-color:var(--r);color:var(--r);}
-.p-leg-dir{font-size:10px;font-weight:700;padding:1px 7px;border-radius:10px;margin-left:6px;}
+.p-leg-dir{font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;margin-left:6px;}
 .p-leg-dir.over{background:var(--gd);color:var(--g);}
 .p-leg-dir.under{background:rgba(239,68,68,.12);color:var(--r);}
 .add-parlay-btn{padding:9px 16px;background:var(--bg2);border:1px solid var(--b);color:var(--b-text);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;width:100%;margin-top:8px;transition:all .15s;}
@@ -589,7 +606,7 @@ td{padding:13px 14px;white-space:nowrap;}
 .adj-toggle-icon{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;}
 .adj-toggle-text{flex:1;min-width:0;}
 .adj-toggle-title{font-size:13px;font-weight:700;color:var(--t1);line-height:1.2;}
-.adj-toggle-desc{font-size:10px;color:var(--t3);font-weight:400;line-height:1.3;margin-top:1px;}
+.adj-toggle-desc{font-size:11px;color:var(--t3);font-weight:400;line-height:1.3;margin-top:1px;}
 .adj-toggle-switch{width:36px;height:20px;border-radius:10px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);position:relative;flex-shrink:0;transition:all .2s;}
 .adj-toggle.on .adj-toggle-switch{background:rgba(139,92,246,.6);border-color:rgba(139,92,246,.8);}
 #adjToggle-dnp.on .adj-toggle-switch,#ppAdjToggle-dnp.on .adj-toggle-switch{background:rgba(239,68,68,.6);border-color:rgba(239,68,68,.8);}
@@ -620,38 +637,38 @@ td{padding:13px 14px;white-space:nowrap;}
 .wt-toggle:hover{opacity:.88;transform:translateY(-1px);}
 .wt-toggle.active{background:var(--bg2);color:var(--t2);border:1px solid var(--bd);box-shadow:none;transform:none;}
 .wt-actions{display:flex;gap:8px;align-items:center;}
-.wt-reset{font-size:10px;color:var(--t3);background:none;border:1px solid var(--bd);border-radius:5px;cursor:pointer;padding:3px 8px;transition:color .12s,border-color .12s;}
+.wt-reset{font-size:11px;color:var(--t3);background:none;border:1px solid var(--bd);border-radius:5px;cursor:pointer;padding:3px 8px;transition:color .12s,border-color .12s;}
 .wt-reset:hover{color:var(--r);border-color:var(--r);}
-.wt-save{font-size:10px;font-weight:700;color:var(--g);background:var(--gd);border:1px solid var(--gb);border-radius:5px;cursor:pointer;padding:3px 8px;transition:opacity .12s;}
+.wt-save{font-size:11px;font-weight:700;color:var(--g);background:var(--gd);border:1px solid var(--gb);border-radius:5px;cursor:pointer;padding:3px 8px;transition:opacity .12s;}
 .wt-save:hover{opacity:.8;}
-.wt-saved{font-size:10px;color:var(--g);font-weight:600;opacity:0;transition:opacity .3s;}
-.va-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:12px;}
-.va-card{background:var(--bg1);border:1px solid var(--bd);border-radius:var(--radius-lg);padding:17px;transition:all .2s;cursor:pointer;position:relative;overflow:hidden;box-shadow:var(--shadow);animation:cardIn .2s ease both;}
-.va-card:hover{transform:translateY(-2px);box-shadow:var(--shadow-md);border-color:rgba(99,102,241,.25);}
+.wt-saved{font-size:11px;color:var(--g);font-weight:600;opacity:0;transition:opacity .3s;}
+.va-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:14px;}
+.va-card{background:var(--bg1);border:1px solid var(--bd);border-radius:var(--radius-lg);padding:18px;transition:all .2s;cursor:pointer;position:relative;overflow:hidden;box-shadow:var(--shadow);animation:cardIn .2s ease both;}
+.va-card:hover{transform:translateY(-2px);box-shadow:var(--shadow-md);border-color:rgba(129,140,248,.25);}
 .va-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;}
 .va-card.strong::before{background:linear-gradient(90deg,var(--g),var(--c));}
 .va-card.moderate::before{background:linear-gradient(90deg,var(--a),var(--gold));}
 .va-card.risky::before{background:linear-gradient(90deg,var(--r),var(--a));}
-.va-card.fake-stats{box-shadow:0 0 0 1px rgba(239,68,68,.35),0 0 14px rgba(239,68,68,.18);}
-.va-top{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+.va-card.fake-stats{box-shadow:0 0 0 1px rgba(251,113,133,.35),0 0 14px rgba(251,113,133,.18);}
+.va-top{display:flex;align-items:center;gap:12px;margin-bottom:12px;}
 .va-av{width:58px;height:58px;border-radius:50%;background:var(--bg3);overflow:hidden;border:2px solid var(--bd);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:var(--t3);}
 .va-av img{width:100%;height:100%;object-fit:cover;}
 .va-info{flex:1;}
 .va-name{font-size:17px;font-weight:700;}
-.va-meta{font-size:13px;color:var(--t3);}
+.va-meta{font-size:13px;color:var(--t2);}
 .va-right{text-align:right;}
-.va-edge-big{font-size:22px;font-weight:800;}
+.va-edge-big{font-size:24px;font-weight:800;}
 .va-edge-big.pos{color:var(--g);}.va-edge-big.neg{color:var(--r);}
-.va-direction{display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:800;letter-spacing:.5px;margin-top:4px;}
+.va-direction{display:inline-flex;align-items:center;gap:5px;padding:5px 14px;border-radius:20px;font-size:12px;font-weight:800;letter-spacing:.5px;margin-top:5px;}
 .va-direction.over{background:var(--gb);color:var(--g);}
 .va-direction.under{background:var(--rb);color:var(--r);}
-.va-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-bottom:10px;}
-.va-stat{text-align:center;padding:7px;background:var(--bg2);border-radius:6px;border:1px solid var(--bd);}
-.va-stat-v{font-size:17px;font-weight:700;}
-.va-stat-l{font-size:9px;font-weight:600;color:var(--t3);text-transform:uppercase;margin-top:2px;letter-spacing:.4px;}
-.va-reason{font-size:11px;color:var(--t2);background:var(--bg2);padding:9px 11px;border-radius:6px;line-height:1.55;border:1px solid var(--bd);}
+.va-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px;}
+.va-stat{text-align:center;padding:9px 7px;background:var(--bg2);border-radius:7px;border:1px solid var(--bd);}
+.va-stat-v{font-size:18px;font-weight:700;}
+.va-stat-l{font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;margin-top:3px;letter-spacing:.3px;}
+.va-reason{font-size:12px;color:var(--t2);background:var(--bg2);padding:10px 12px;border-radius:7px;line-height:1.6;border:1px solid var(--bd);}
 .va-reason b{color:var(--t1);}
-.player-flag{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;margin-right:4px;}
+.player-flag{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;padding:3px 9px;border-radius:10px;margin-right:4px;}
 .flag-injury{background:rgba(251,191,36,.15);color:#fbbf24;border:1px solid rgba(251,191,36,.3);}
 .flag-minutes-up{background:rgba(34,197,94,.15);color:#4ade80;border:1px solid rgba(34,197,94,.3);}
 .flag-minutes-down{background:rgba(239,68,68,.15);color:#f87171;border:1px solid rgba(239,68,68,.3);}
@@ -687,7 +704,7 @@ td{padding:13px 14px;white-space:nowrap;}
 .lmr-odds-tag{display:inline-block;font-size:8px;font-weight:700;padding:1px 5px;border-radius:4px;background:rgba(168,85,247,.15);color:#c084fc;border:1px solid rgba(168,85,247,.3);vertical-align:middle;margin-left:4px;letter-spacing:.3px;}
 .lmr-sep{opacity:.4;}
 .lmr-ev{font-weight:600;}
-.lmr-delta{font-size:9px;font-weight:700;padding:1px 4px;border-radius:3px;}
+.lmr-delta{font-size:10px;font-weight:700;padding:1px 5px;border-radius:3px;}
 .lmr-delta.up{color:var(--g);background:var(--gd);}
 .lmr-delta.dn{color:var(--r);background:var(--rd);}
 .lm-impact{margin-top:10px;padding:10px 12px;background:rgba(168,85,247,.06);border:1px solid rgba(168,85,247,.2);border-radius:8px;font-size:11px;}
@@ -697,14 +714,14 @@ td{padding:13px 14px;white-space:nowrap;}
 .lm-impact-arrow{font-weight:800;font-size:12px;}
 .vs-slider-wrap{display:flex;align-items:center;gap:8px;margin-top:4px;padding:0 18px 6px;}
 .vs-slider-wrap input[type=range]{flex:1;max-width:200px;}
-.va-formula{margin-top:8px;font-size:10px;color:var(--t3);padding:8px 10px;background:var(--bg2);border-radius:6px;line-height:1.7;border:1px solid var(--bd);}
+.va-formula{margin-top:8px;font-size:11px;color:var(--t3);padding:8px 10px;background:var(--bg2);border-radius:6px;line-height:1.7;border:1px solid var(--bd);}
 .va-formula span{color:var(--b);font-weight:700;}
 
 /* -- SIMULATOR -- */
 .sim-view{display:none;}.sim-view.show{display:block;}
 .sim-hdr{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;}
 .sim-stat{background:var(--bg1);border:1px solid var(--bd);border-radius:var(--radius-lg);padding:16px 18px;box-shadow:var(--shadow);}
-.sim-stat-l{font-size:10px;font-weight:700;text-transform:uppercase;color:var(--t3);letter-spacing:.5px;margin-bottom:6px;}
+.sim-stat-l{font-size:11px;font-weight:700;text-transform:uppercase;color:var(--t3);letter-spacing:.5px;margin-bottom:6px;}
 .sim-stat-v{font-size:22px;font-weight:800;color:var(--t1);}
 .sim-stat-v.pos{color:var(--g);}.sim-stat-v.neg{color:var(--r);}
 .sim-section{margin-bottom:20px;}
@@ -748,10 +765,10 @@ td{padding:13px 14px;white-space:nowrap;}
 .hist-av{width:38px;height:38px;border-radius:50%;background:var(--bg3);overflow:hidden;border:2px solid var(--bd);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--t3);}
 .hist-av img{width:100%;height:100%;object-fit:cover;border-radius:50%;}
 .hist-parlay-hdr{display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none;width:100%;}
-.bet-btn{padding:4px 9px;background:var(--b);border:none;border-radius:6px;color:#fff;font-size:10px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:3px;font-family:var(--sans);transition:background .12s;}
+.bet-btn{padding:5px 10px;background:var(--b);border:none;border-radius:6px;color:#fff;font-size:11px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:3px;font-family:var(--sans);transition:background .12s;}
 .bet-btn:hover{background:var(--b);}
 /* Line movement indicators */
-.line-move{display:inline-flex;align-items:center;font-size:9px;font-weight:700;margin-left:3px;padding:1px 4px;border-radius:4px;vertical-align:middle;line-height:1.2;}
+.line-move{display:inline-flex;align-items:center;font-size:10px;font-weight:700;margin-left:3px;padding:1px 5px;border-radius:4px;vertical-align:middle;line-height:1.2;}
 .line-move.up{color:var(--r);background:var(--rd);}
 .line-move.dn{color:var(--g);background:var(--gd);}
 .line-move-big{animation:movePulse 2s ease-in-out infinite;}
@@ -835,7 +852,7 @@ td{padding:13px 14px;white-space:nowrap;}
 .an-name{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .an-meta{font-size:11px;color:var(--t3);margin-top:1px;}
 .an-val{font-size:15px;font-weight:800;flex-shrink:0;text-align:right;}
-.an-badge{font-size:10px;font-weight:700;padding:2px 6px;border-radius:5px;flex-shrink:0;}
+.an-badge{font-size:11px;font-weight:700;padding:2px 7px;border-radius:5px;flex-shrink:0;}
 .an-empty{padding:28px;text-align:center;color:var(--t3);font-size:13px;}
 .an-split{display:grid;grid-template-columns:1fr 1fr;gap:0;}
 .an-split-col{padding:16px;}
@@ -888,7 +905,7 @@ input[type=range].min-slider::-moz-range-track{height:6px;border-radius:3px;back
 .fav-props{display:flex;flex-direction:column;gap:5px;}
 .fav-prop-row{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg2);border-radius:8px;border:1px solid var(--bd);cursor:pointer;transition:border-color .12s;}
 .fav-prop-row:hover{border-color:rgba(99,102,241,.4);background:rgba(99,102,241,.05);}
-.fav-prop-mkt{font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.4px;min-width:32px;}
+.fav-prop-mkt{font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.4px;min-width:32px;}
 .fav-prop-line{font-size:16px;font-weight:800;color:var(--t1);min-width:28px;}
 .fav-prop-odds{display:flex;gap:4px;flex:1;}
 .fav-prop-edge{font-size:11px;font-weight:700;margin-left:auto;padding:2px 7px;border-radius:5px;}
@@ -934,7 +951,7 @@ input[type=range].min-slider::-moz-range-track{height:6px;border-radius:3px;back
 .save-btn.saved{border-color:var(--g);color:var(--g);}
 .save-btn:disabled{opacity:.6;cursor:default;}
 .save-wrap{display:flex;flex-direction:column;align-items:center;gap:1px;}
-.save-status{font-size:9px;color:var(--t3);white-space:nowrap;transition:color .2s;letter-spacing:.1px;}
+.save-status{font-size:10px;color:var(--t3);white-space:nowrap;transition:color .2s;letter-spacing:.1px;}
 .save-status.ok{color:var(--g);}
 .save-status.syncing{color:var(--t3);}
 
@@ -956,7 +973,7 @@ input[type=range].min-slider::-moz-range-track{height:6px;border-radius:3px;back
 .soc-sidebar{border-right:1px solid var(--bd);display:flex;flex-direction:column;overflow:hidden;}
 .soc-sidebar-scroll{flex:1;overflow-y:auto;display:flex;flex-direction:column;}
 .soc-section{border-bottom:1px solid var(--bd);}
-.soc-section-hd{display:flex;align-items:center;justify-content:space-between;padding:11px 14px 9px;font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.6px;}
+.soc-section-hd{display:flex;align-items:center;justify-content:space-between;padding:11px 14px 9px;font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.6px;}
 .soc-add-btn{font-size:11px;font-weight:600;padding:3px 9px;border-radius:6px;background:var(--bld);color:var(--b-text);border:1px solid var(--bb);cursor:pointer;transition:all .12s;}.soc-add-btn:hover{background:var(--b);color:var(--b-on);}
 .soc-friend-item{display:flex;align-items:center;gap:10px;padding:9px 14px;cursor:pointer;transition:background .1s;}.soc-friend-item:hover{background:var(--bgh);}.soc-remove-btn{display:none;background:none;border:none;color:var(--t3);cursor:pointer;font-size:13px;padding:2px 5px;border-radius:4px;transition:color .12s;flex-shrink:0;}.soc-friend-item:hover .soc-remove-btn{display:block;}.soc-remove-btn:hover{color:var(--r);}
 .soc-av{width:30px;height:30px;border-radius:50%;background:var(--bld);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--b-text);flex-shrink:0;border:1px solid var(--bb);}
@@ -982,7 +999,7 @@ input[type=range].min-slider::-moz-range-track{height:6px;border-radius:3px;back
 .soc-rx{display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:12px;font-size:12px;cursor:pointer;border:1px solid var(--bd);background:var(--bg2);transition:all .12s;user-select:none;}
 .soc-rx:hover{border-color:var(--b);background:var(--bld);}
 .soc-rx.mine{border-color:var(--b);background:var(--bld);}
-.soc-rx-count{font-size:10px;font-weight:700;color:var(--t2);}
+.soc-rx-count{font-size:11px;font-weight:700;color:var(--t2);}
 .soc-rx-add{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:12px;font-size:12px;cursor:pointer;border:1px solid var(--bd);background:var(--bg2);transition:all .12s;opacity:.5;color:var(--t3);}
 .soc-rx-add:hover{opacity:1;border-color:var(--b);background:var(--bld);}
 .soc-rx-picker{position:absolute;bottom:100%;left:0;display:none;background:var(--bg1);border:1px solid var(--bd);border-radius:10px;padding:6px;box-shadow:var(--shadow-md);z-index:10;gap:2px;flex-wrap:wrap;width:180px;}
@@ -998,13 +1015,13 @@ input[type=range].min-slider::-moz-range-track{height:6px;border-radius:3px;back
 .soc-line-card:hover{border-color:var(--b);background:var(--bld);}
 .soc-msg.mine .soc-line-card{background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.25);}.soc-msg.mine .soc-line-card:hover{background:rgba(255,255,255,.2);}
 .soc-line-name{font-size:14px;font-weight:700;margin-bottom:6px;display:flex;align-items:center;gap:6px;}
-.soc-line-mkt{font-size:9px;font-weight:700;background:var(--bld);color:var(--b-text);padding:1px 5px;border-radius:4px;text-transform:uppercase;}
+.soc-line-mkt{font-size:10px;font-weight:700;background:var(--bld);color:var(--b-text);padding:1px 6px;border-radius:4px;text-transform:uppercase;}
 .soc-msg.mine .soc-line-mkt{background:rgba(255,255,255,.2);}
 .soc-line-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px;}
 .soc-line-cell{font-size:11px;color:var(--t2);opacity:.75;}.soc-line-val{font-size:13px;font-weight:700;color:var(--t1);}
 .soc-msg.mine .soc-line-cell,.soc-msg.mine .soc-line-val{color:inherit;opacity:.85;}
 .soc-line-live{margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,.1);font-size:11px;display:flex;gap:6px;flex-wrap:wrap;}
-.soc-line-live-tag{background:var(--gd);color:var(--g);border-radius:4px;padding:1px 6px;font-weight:700;font-size:10px;}
+.soc-line-live-tag{background:var(--gd);color:var(--g);border-radius:4px;padding:1px 6px;font-weight:700;font-size:11px;}
 .soc-chat-input-row{padding:10px 12px;border-top:1px solid var(--bd);display:flex;gap:8px;align-items:flex-end;flex-shrink:0;position:relative;}
 .soc-attach-btn{width:36px;height:36px;border-radius:8px;background:var(--bg2);border:1px solid var(--bd);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;transition:all .12s;color:var(--t2);padding:0;}.soc-attach-btn:hover{background:var(--bg3);border-color:var(--b);color:var(--b-text);}
 .bet-pick-panel{position:absolute;bottom:calc(100% + 4px);left:12px;right:12px;background:var(--bg1);border:1px solid var(--bd);border-radius:12px;box-shadow:var(--shadow-md);z-index:20;display:flex;flex-direction:column;max-height:300px;overflow:hidden;animation:fadeUp .12s ease both;}
@@ -1016,7 +1033,7 @@ input[type=range].min-slider::-moz-range-track{height:6px;border-radius:3px;back
 .bet-pick-send{padding:3px 10px;border-radius:6px;background:var(--bld);color:var(--b-text);border:1px solid var(--bb);cursor:pointer;font-size:11px;font-weight:600;font-family:var(--sans);transition:all .12s;flex-shrink:0;}.bet-pick-send:hover{background:var(--b);color:var(--b-on);}.bet-pick-send:disabled{opacity:.5;cursor:not-allowed;}
 .soc-input{flex:1;background:var(--bg2);border:1px solid var(--bd);border-radius:10px;padding:8px 12px;font-family:var(--sans);font-size:13px;color:var(--t1);resize:none;outline:none;max-height:100px;transition:border-color .15s;line-height:1.4;}.soc-input:focus{border-color:var(--b);}
 .soc-send-btn{padding:8px 16px;background:var(--b);color:var(--b-on);border:none;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--sans);transition:opacity .12s;flex-shrink:0;}.soc-send-btn:hover{opacity:.85;}
-.soc-day-sep{text-align:center;font-size:10px;color:var(--t3);margin:6px 0;font-weight:600;letter-spacing:.4px;}
+.soc-day-sep{text-align:center;font-size:11px;color:var(--t3);margin:6px 0;font-weight:600;letter-spacing:.4px;}
 .soc-pending-item{display:flex;align-items:center;justify-content:space-between;padding:8px 14px;gap:8px;}
 .soc-pending-name{font-size:13px;font-weight:600;color:var(--t1);}.soc-pending-user{font-size:11px;color:var(--t3);}
 .soc-pending-btns{display:flex;gap:5px;flex-shrink:0;}
@@ -1393,14 +1410,12 @@ input[type=range].min-slider::-moz-range-track{height:6px;border-radius:3px;back
           <option value="player_rebounds_assists">R+A</option>
         </select>
         <select class="sel" id="bk" onchange="S.book=this.value;loadData()">
-          <option value="combined">⚖ Combined (All Books)</option>
+          <option value="combined">⚖ Combined (Sportsbooks)</option>
           <option value="draftkings">DraftKings</option>
           <option value="fanduel">FanDuel</option>
           <option value="betmgm">BetMGM</option>
-          <option value="caesars">Caesars</option>
-          <option value="betrivers">BetRivers</option>
-          <option value="espnbet">ESPN Bet</option>
-          <option value="pointsbetus">Fanatics</option>
+          <option value="prizepicks">PrizePicks</option>
+          <option value="underdog">Underdog Fantasy</option>
         </select>
       </div>
       <div class="cr">
@@ -2104,6 +2119,32 @@ function renderFavorites() {
 const _nbaIdCache = {};
 
 // ── NBA Player → NBA ID map (hardcoded fallback for instant display before stats load) ──
+// Book brand logos — colored badges with abbreviations + brand colors
+const BOOK_BRANDS = {
+  draftkings:  { label:'DK',  bg:'#53d337', color:'#000' },
+  fanduel:     { label:'FD',  bg:'#1493ff', color:'#fff' },
+  betmgm:      { label:'MGM', bg:'#c5a44e', color:'#000' },
+  prizepicks:  { label:'PP',  bg:'#7c3aed', color:'#fff' },
+  underdog:    { label:'UD',  bg:'#d97706', color:'#fff' },
+  combined:    { label:'ALL', bg:'var(--b)', color:'#fff' },
+  betonlineag: { label:'BO',  bg:'#e53e3e', color:'#fff' },
+  betrivers:   { label:'BR',  bg:'#1a73e8', color:'#fff' },
+  espnbet:     { label:'ESPN',bg:'#d00', color:'#fff' },
+  pointsbetus: { label:'FAN', bg:'#004c2f', color:'#fff' },
+  caesars:     { label:'CZR', bg:'#0a3d2e', color:'#d4af37' },
+};
+function bookBadge(key, size) {
+  size = size || 18;
+  const b = BOOK_BRANDS[key] || { label: (key||'?').substring(0,2).toUpperCase(), bg:'var(--bg3)', color:'var(--t1)' };
+  const fs = b.label.length > 2 ? Math.round(size * 0.38) : Math.round(size * 0.48);
+  return `<span style="display:inline-flex;align-items:center;justify-content:center;min-width:${size}px;height:${size}px;border-radius:${Math.round(size*0.3)}px;background:${b.bg};color:${b.color};font-size:${fs}px;font-weight:800;flex-shrink:0;line-height:1;padding:0 ${b.label.length>2?'3':'1'}px;">${b.label}</span>`;
+}
+// Map bookmaker API key to display name
+function bookDisplayName(key) {
+  const names = { draftkings:'DraftKings', fanduel:'FanDuel', betmgm:'BetMGM', prizepicks:'PrizePicks', underdog:'Underdog Fantasy', combined:'Combined', betonlineag:'BetOnline', betrivers:'BetRivers', espnbet:'ESPN Bet', pointsbetus:'Fanatics', caesars:'Caesars' };
+  return names[key] || key;
+}
+
 // Headshots resolved via server-side ESPN static map (data/espn-players.json).
 // _nbaIdCache populated by prefetchHeadshots(); returns null until then (shows initials).
 function getHeadshot(name) {
@@ -2170,7 +2211,7 @@ const TEAM_MAP = {
   "Jarrett Allen":"CLE","Josh Giddey":"OKC","OG Anunoby":"NYK",
   "Immanuel Quickley":"TOR","Brook Lopez":"MIL","Khris Middleton":"MIL",
   "Rudy Gobert":"MIN","Naz Reid":"MIN","Walker Kessler":"UTA",
-  "Collin Sexton":"UTA","Jordan Clarkson":"UTA","Bradley Beal":"PHX",
+  "Collin Sexton":"CHI","Jordan Clarkson":"UTA","Bradley Beal":"PHX",
   "Kyle Kuzma":"MIL","Deni Avdija":"POR","Coby White":"CHI",
   "Zach LaVine":"CHI","Nikola Vucevic":"CHI","DeMar DeRozan":"SAC",
   "Andrew Wiggins":"GSW","Jonathan Kuminga":"GSW","Al Horford":"BOS",
@@ -2190,6 +2231,10 @@ const TEAM_MAP = {
   "Moe Wagner":"ORL","Russell Westbrook":"SAC","Precious Achiuwa":"SAC","Ryan Rollins":"MIL",
   "Dylan Cardwell":"SAC","Justin Edwards":"PHI","Nique Clifford":"SAC","Kel'el Ware":"MIA",
   "Jaime Jaquez Jr":"MIA","Maxime Raynaud":"SAC",
+  "Jalen Smith":"CHI","Drake Powell":"BKN","Josh Minott":"BKN",
+  "Olivier-Maxence Prosper":"MEM","Cam Spencer":"MEM","Nicolas Claxton":"BKN",
+  "Guerschon Yabusele":"CHI","Cedric Coward":"MEM","Ziaire Williams":"BKN",
+  "Walter Clayton Jr.":"MEM","Nick Richards":"CHI","Isaiah Jackson":"LAC",
 };
 
 const TEAMMATES = {
@@ -2273,16 +2318,16 @@ function renderInjurySection(injuries,playerName){
     return`<tr${isSelf?' style="background:rgba(139,92,246,.1);"':''}>
       <td style="font-weight:${isSelf?'800':'600'};white-space:nowrap;padding:4px 8px;font-size:11px;">${inj.player}${isSelf?' <span style="font-size:8px;color:#a78bfa;font-weight:700;">THIS PLAYER</span>':''}</td>
       <td style="padding:4px 8px;font-size:11px;font-weight:700;color:${col};white-space:nowrap;">${icon} ${inj.status}</td>
-      <td style="padding:4px 8px;font-size:10px;color:var(--t3);">${shortReason}</td>
+      <td style="padding:4px 8px;font-size:11px;color:var(--t3);">${shortReason}</td>
     </tr>`;
   }).join('');
   const outCount=injuries.filter(i=>i.status==='Out').length;
   const gtdCount=injuries.filter(i=>i.status==='Questionable'||i.status==='Doubtful').length;
-  return`<div class="dc full"><div class="dc-t"><span class="dt" style="background:var(--r)"></span>Team Injury Report <span style="font-size:10px;color:var(--t3);font-weight:400;margin-left:4px;">${outCount} out · ${gtdCount} game-time decisions</span></div>
+  return`<div class="dc full"><div class="dc-t"><span class="dt" style="background:var(--r)"></span>Team Injury Report <span style="font-size:11px;color:var(--t3);font-weight:400;margin-left:4px;">${outCount} out · ${gtdCount} game-time decisions</span></div>
     <div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;"><thead><tr>
-      <th style="text-align:left;padding:4px 8px;font-size:9px;font-weight:700;color:var(--t3);text-transform:uppercase;border-bottom:1px solid var(--bd);">Player</th>
-      <th style="text-align:left;padding:4px 8px;font-size:9px;font-weight:700;color:var(--t3);text-transform:uppercase;border-bottom:1px solid var(--bd);">Status</th>
-      <th style="text-align:left;padding:4px 8px;font-size:9px;font-weight:700;color:var(--t3);text-transform:uppercase;border-bottom:1px solid var(--bd);">Reason</th>
+      <th style="text-align:left;padding:4px 8px;font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;border-bottom:1px solid var(--bd);">Player</th>
+      <th style="text-align:left;padding:4px 8px;font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;border-bottom:1px solid var(--bd);">Status</th>
+      <th style="text-align:left;padding:4px 8px;font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;border-bottom:1px solid var(--bd);">Reason</th>
     </tr></thead><tbody>${rows}</tbody></table></div>
   </div>`;
 }
@@ -2292,19 +2337,19 @@ function renderInjuryBreakdown(p){
   const mktShort=MKT_SHORT[p.market||S.market]||'';
   const pctCol=pct>0?'var(--g)':'var(--r)';
   const pctFmt=pct>0?`+${pct}%`:`${pct}%`;
-  const specNote=p._injSpeculative?'<div style="margin-top:6px;padding:6px 8px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);border-radius:6px;font-size:10px;color:#f59e0b;">⚠ Speculative — estimated from production share redistribution (insufficient with/without game data)</div>':'';
+  const specNote=p._injSpeculative?'<div style="margin-top:6px;padding:6px 8px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);border-radius:6px;font-size:11px;color:#f59e0b;">⚠ Speculative — estimated from production share redistribution (insufficient with/without game data)</div>':'';
   // Per-teammate breakdown rows with avg/g context
   const tmRows=(p._injTeammates||[]).map(t=>{
     const r=t.ratio||1;
     const tPct=+((r-1)*100).toFixed(1);
     const tCol=tPct>0?'var(--g)':'var(--r)';
     const tFmt=tPct>0?`+${tPct}%`:`${tPct}%`;
-    const spec=t.speculative?` <span style="color:#f59e0b;font-size:9px;">~est</span>`:'';
-    const tmAvgLabel=t.tmAvg?` <span style="font-size:9px;font-weight:400;color:var(--t3);">(${t.tmAvg} ${mktShort}/g)</span>`:'';
+    const spec=t.speculative?` <span style="color:#f59e0b;font-size:10px;">~est</span>`:'';
+    const tmAvgLabel=t.tmAvg?` <span style="font-size:10px;font-weight:400;color:var(--t3);">(${t.tmAvg} ${mktShort}/g)</span>`:'';
     return`<tr>
       <td style="padding:4px 8px;font-size:11px;font-weight:600;">${t.name}${spec}${tmAvgLabel}</td>
       <td style="padding:4px 8px;font-size:11px;font-weight:700;color:${tCol};">${tFmt}</td>
-      <td style="padding:4px 8px;font-size:10px;color:var(--t3);">${t.wo||'?'} games w/o, ${t.wi||'?'} w/</td>
+      <td style="padding:4px 8px;font-size:11px;color:var(--t3);">${t.wo||'?'} games w/o, ${t.wi||'?'} w/</td>
     </tr>`;
   }).join('');
   // Compute deltas + color helpers
@@ -2341,38 +2386,38 @@ function renderInjuryBreakdown(p){
   return`<div class="dc full"><div class="dc-t"><span class="dt" style="background:#f59e0b"></span>Injury Impact Breakdown <span style="font-size:11px;font-weight:700;color:${pctCol};margin-left:6px;">${pctFmt} combined</span></div>
     <div style="margin-bottom:8px;padding:6px 10px;background:${shiftCol};border:1px solid ${shiftBorder};border-radius:6px;font-size:11px;font-weight:700;color:${shiftText};">${shiftIcon} ${shiftLabel} — VS ${fD(vsD,0)}, Dir EV ${fD(evD)}pp</div>
     ${tmRows?`<div style="overflow-x:auto;margin-bottom:8px;"><table style="width:100%;border-collapse:collapse;"><thead><tr>
-      <th style="text-align:left;padding:4px 8px;font-size:9px;font-weight:700;color:var(--t3);text-transform:uppercase;border-bottom:1px solid var(--bd);">OUT Player</th>
-      <th style="text-align:left;padding:4px 8px;font-size:9px;font-weight:700;color:var(--t3);text-transform:uppercase;border-bottom:1px solid var(--bd);">Impact</th>
-      <th style="text-align:left;padding:4px 8px;font-size:9px;font-weight:700;color:var(--t3);text-transform:uppercase;border-bottom:1px solid var(--bd);">Sample</th>
+      <th style="text-align:left;padding:4px 8px;font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;border-bottom:1px solid var(--bd);">OUT Player</th>
+      <th style="text-align:left;padding:4px 8px;font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;border-bottom:1px solid var(--bd);">Impact</th>
+      <th style="text-align:left;padding:4px 8px;font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;border-bottom:1px solid var(--bd);">Sample</th>
     </tr></thead><tbody>${tmRows}</tbody></table></div>`:''}
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;">
       <div style="background:var(--bg2);border-radius:8px;padding:8px 10px;border:1px solid var(--bd);">
-        <div style="font-size:9px;color:var(--t3);text-transform:uppercase;font-weight:700;margin-bottom:2px;">Avg</div>
-        <div style="font-size:13px;font-weight:700;color:var(--t1);">${p.avg} <span style="font-size:10px;font-weight:700;color:${dCol(avgD)};">(${fD(avgD)})</span></div>
+        <div style="font-size:10px;color:var(--t3);text-transform:uppercase;font-weight:700;margin-bottom:2px;">Avg</div>
+        <div style="font-size:13px;font-weight:700;color:var(--t1);">${p.avg} <span style="font-size:11px;font-weight:700;color:${dCol(avgD)};">(${fD(avgD)})</span></div>
       </div>
       <div style="background:var(--bg2);border-radius:8px;padding:8px 10px;border:1px solid var(--bd);">
-        <div style="font-size:9px;color:var(--t3);text-transform:uppercase;font-weight:700;margin-bottom:2px;">Model Prob <span style="color:${isOver?'var(--g)':'var(--r)'};">${isOver?'OVER':'UNDER'}</span></div>
-        <div style="font-size:13px;font-weight:700;color:var(--t1);">${Math.round(dirProb*100)}% <span style="font-size:10px;font-weight:700;color:${dCol(mpD)};">(${fD(mpD)})</span></div>
+        <div style="font-size:10px;color:var(--t3);text-transform:uppercase;font-weight:700;margin-bottom:2px;">Model Prob <span style="color:${isOver?'var(--g)':'var(--r)'};">${isOver?'OVER':'UNDER'}</span></div>
+        <div style="font-size:13px;font-weight:700;color:var(--t1);">${Math.round(dirProb*100)}% <span style="font-size:11px;font-weight:700;color:${dCol(mpD)};">(${fD(mpD)})</span></div>
       </div>
       <div style="background:var(--bg2);border-radius:8px;padding:8px 10px;border:1px solid var(--bd);">
-        <div style="font-size:9px;color:var(--t3);text-transform:uppercase;font-weight:700;margin-bottom:2px;">Edge</div>
-        <div style="font-size:13px;font-weight:700;color:var(--t1);">${p.edge>0?'+':''}${p.edge}% <span style="font-size:10px;font-weight:700;color:${dCol(edgeD)};">(${fD(edgeD)})</span></div>
+        <div style="font-size:10px;color:var(--t3);text-transform:uppercase;font-weight:700;margin-bottom:2px;">Edge</div>
+        <div style="font-size:13px;font-weight:700;color:var(--t1);">${p.edge>0?'+':''}${p.edge}% <span style="font-size:11px;font-weight:700;color:${dCol(edgeD)};">(${fD(edgeD)})</span></div>
       </div>
       <div style="background:var(--bg2);border-radius:8px;padding:8px 10px;border:1px solid var(--bd);">
-        <div style="font-size:9px;color:var(--t3);text-transform:uppercase;font-weight:700;margin-bottom:2px;">Dir EV</div>
-        <div style="font-size:13px;font-weight:700;color:${postDirEV>=0?'var(--g)':'var(--r)'};">${fD(postDirEV)}% <span style="font-size:10px;font-weight:700;color:${dCol(evD)};">(${fD(evD)})</span></div>
+        <div style="font-size:10px;color:var(--t3);text-transform:uppercase;font-weight:700;margin-bottom:2px;">Dir EV</div>
+        <div style="font-size:13px;font-weight:700;color:${postDirEV>=0?'var(--g)':'var(--r)'};">${fD(postDirEV)}% <span style="font-size:11px;font-weight:700;color:${dCol(evD)};">(${fD(evD)})</span></div>
       </div>
       <div style="background:var(--bg2);border-radius:8px;padding:8px 10px;border:1px solid var(--bd);">
-        <div style="font-size:9px;color:var(--t3);text-transform:uppercase;font-weight:700;margin-bottom:2px;">Value Score</div>
-        <div style="font-size:13px;font-weight:700;color:var(--t1);">${postVS} <span style="font-size:10px;font-weight:700;color:${dCol(vsD)};">(${fD(vsD,0)})</span></div>
+        <div style="font-size:10px;color:var(--t3);text-transform:uppercase;font-weight:700;margin-bottom:2px;">Value Score</div>
+        <div style="font-size:13px;font-weight:700;color:var(--t1);">${postVS} <span style="font-size:11px;font-weight:700;color:${dCol(vsD)};">(${fD(vsD,0)})</span></div>
       </div>
       <div style="background:var(--bg2);border-radius:8px;padding:8px 10px;border:1px solid var(--bd);">
-        <div style="font-size:9px;color:var(--t3);text-transform:uppercase;font-weight:700;margin-bottom:2px;">Recommendation</div>
-        <div style="font-size:13px;font-weight:700;color:${recCol};">${postRec}${recChanged?` <span style="font-size:10px;color:#c084fc;">← ${preRec}</span>`:''}</div>
+        <div style="font-size:10px;color:var(--t3);text-transform:uppercase;font-weight:700;margin-bottom:2px;">Recommendation</div>
+        <div style="font-size:13px;font-weight:700;color:${recCol};">${postRec}${recChanged?` <span style="font-size:11px;color:#c084fc;">← ${preRec}</span>`:''}</div>
       </div>
     </div>
     ${specNote}
-    ${(p._injSkipped||[]).length?`<div style="margin-top:6px;padding:6px 8px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:6px;font-size:10px;color:#ef4444;">
+    ${(p._injSkipped||[]).length?`<div style="margin-top:6px;padding:6px 8px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:6px;font-size:11px;color:#ef4444;">
       <div style="font-weight:700;margin-bottom:3px;">⚠ Skipped teammates (not factored in):</div>
       ${p._injSkipped.map(s=>`<div style="margin-left:8px;">• ${s.name} — <span style="color:var(--t3);">${s.reason}</span></div>`).join('')}
     </div>`:''}
@@ -2727,7 +2772,7 @@ function updateMinutesProjection(projMin){
   const evDeltaFmt=evDelta>0?`+${evDelta}`:evDelta.toString();
   const dir=projMin>avgMin?'↑':'↓';
   adjEl.innerHTML=`<div style="background:var(--bg1);border:1px solid rgba(139,92,246,.35);border-radius:7px;padding:9px 11px;margin-top:6px;">
-    <div style="font-size:10px;color:#a78bfa;font-weight:700;margin-bottom:6px;letter-spacing:.4px;">⏱ ADJUSTED FOR ${projMin} MIN (${dir}${Math.abs(projMin-avgMin)} from avg)</div>
+    <div style="font-size:11px;color:#a78bfa;font-weight:700;margin-bottom:6px;letter-spacing:.4px;">⏱ ADJUSTED FOR ${projMin} MIN (${dir}${Math.abs(projMin-avgMin)} from avg)</div>
     <div class="sr">
       <div class="sb2"><div class="sb2-l">Adj Avg</div><div class="sb2-v">${adjAvg}</div><div class="sb2-s">was ${p.avg}</div></div>
       <div class="sb2"><div class="sb2-l">Hit Rate</div><div class="sb2-v">${adjHR}%</div><div class="sb2-s">was ${origHR}%</div></div>
@@ -3049,7 +3094,7 @@ function renderTable(){
         <div class="av" data-av="${p.name.replace(/"/g,'&quot;')}">${avInner}</div>
         <div class="pi">
           <span class="pn">${p.name}${hasBoost?'<span class="scn-icon">⚡+'+p.scenarioBoost+'</span>':''}</span>
-          <span class="pm"><span class="ptb">${p.team||'—'}</span><span>${p.position||''}</span>${getInjuryBadge(p.name)}${!p.hasRealStats?`<span class="player-flag flag-est" style="font-size:9px;padding:1px 5px;margin-left:4px;">⚠ Missing Stats</span>`:''}</span>
+          <span class="pm"><span class="ptb">${p.team||'—'}</span><span>${p.position||''}</span>${getInjuryBadge(p.name)}${!p.hasRealStats?`<span class="player-flag flag-est" style="font-size:10px;padding:1px 5px;margin-left:4px;">⚠ Missing Stats</span>`:''}</span>
           ${(p.returnFromInjury>=2||p.minutesFlag||(p.dnpCount>=5))?`<span class="pm" style="margin-top:2px;display:flex;gap:3px;flex-wrap:wrap;">${p.returnFromInjury>=2?`<span class="player-flag flag-injury" style="font-size:9px;padding:1px 5px;">⚠ Back (${p.returnFromInjury}G)</span>`:''}${p.minutesFlag?`<span class="player-flag ${p.minutesFlag>0?'flag-minutes-up':'flag-minutes-down'}" style="font-size:9px;padding:1px 5px;">⏱ ${Math.abs(Math.round(p.minutesFlag*100))}% ${p.minutesFlag>0?'↑':'↓'} min</span>`:''}${p.dnpCount>=5?`<span class="player-flag flag-dnp" style="font-size:9px;padding:1px 5px;">✗ ${p.dnpCount} DNPs</span>`:''}</span>`:''}
         </div>
       </div></td>
@@ -3105,9 +3150,9 @@ function renderTable(){
       if(!list.length) return '';
       return `<div style="margin-top:16px;">
         <div onclick="const c=this.nextElementSibling;c.style.display=c.style.display==='none'?'':'none';this.querySelector('.started-arrow').textContent=c.style.display==='none'?'▶':'▼'" style="cursor:pointer;display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--bg2);border:1px solid var(--bd);border-radius:8px;user-select:none;">
-          <span class="started-arrow" style="font-size:10px;color:var(--t3);">▶</span>
+          <span class="started-arrow" style="font-size:11px;color:var(--t3);">▶</span>
           <span style="font-size:12px;font-weight:700;color:var(--t2);">${label} (${list.length})</span>
-          <span style="font-size:10px;color:var(--t3);margin-left:auto;">${desc}</span>
+          <span style="font-size:11px;color:var(--t3);margin-left:auto;">${desc}</span>
         </div>
         <div style="display:none;margin-top:8px;opacity:.7;">
           <table class="props-table" style="width:100%;"><tbody>${list.map((p,i)=>{
@@ -3126,7 +3171,7 @@ function renderTable(){
               <td><div class="pc">
                 <div class="av">${avInner}</div>
                 <div class="pi">
-                  <span class="pn">${p.name} <span style="font-size:9px;font-weight:700;padding:2px 5px;border-radius:4px;background:${badgeColor};color:${badge==='LIVE'?'#f59e0b':'var(--t3)'};border:1px solid ${badgeColor.replace('.15','.3')};">${badge}</span></span>
+                  <span class="pn">${p.name} <span style="font-size:10px;font-weight:700;padding:2px 5px;border-radius:4px;background:${badgeColor};color:${badge==='LIVE'?'#f59e0b':'var(--t3)'};border:1px solid ${badgeColor.replace('.15','.3')};">${badge}</span></span>
                   <span class="pm"><span class="ptb">${p.team||'—'}</span><span>${p.position||''}</span></span>
                 </div>
               </div></td>
@@ -3257,7 +3302,14 @@ function renderDet(i,p){
     ${booksTab}${scnTab}
     <button class="di-tab" onclick="showDTab('${i}','simulator',this)">⚡ Line Sim</button>
     <button class="di-tab" onclick="showDTab('${i}','similar',this)">👥 Similar</button>
-  </div><div id="dtc-${i}"></div>`;
+  </div>
+  <div class="dfs-toggle" id="dfs-toggle-${i}">
+    <button class="dfs-toggle-btn on" onclick="switchDFSView('${i}','sportsbook',this)">${bookBadge('combined',14)} Sportsbook Avg</button>
+    <button class="dfs-toggle-btn pp" onclick="switchDFSView('${i}','prizepicks',this)">${bookBadge('prizepicks',14)} PrizePicks</button>
+    <button class="dfs-toggle-btn ud" onclick="switchDFSView('${i}','underdog',this)">${bookBadge('underdog',14)} Underdog</button>
+  </div>
+  <div id="dfs-compare-${i}"></div>
+  <div id="dtc-${i}"></div>`;
   showDTab(i,'overview',c.querySelector('.di-tab'));
   // Fetch real stats from stats.nba.com in background; auto-refresh overview when ready
   if(!p.hasRealStats) enrichPlayerStats(i,p);
@@ -3369,6 +3421,162 @@ async function showDTab(i,tab,btn){
   else if(tab==='simulator')renderLineSimulator(el,p);
   else if(tab==='similar')await loadAndRenderSimilarPlayers(el,p);
 }
+
+// ============================================================
+// DFS Platform Toggle — compare PrizePicks / Underdog vs Sportsbook
+// ============================================================
+const DFS_PLATFORMS = { prizepicks: 'PrizePicks', underdog: 'Underdog Fantasy' };
+async function switchDFSView(i, platform, btn) {
+  const p = window._dp;
+  const toggleEl = document.getElementById(`dfs-toggle-${i}`);
+  const compareEl = document.getElementById(`dfs-compare-${i}`);
+  toggleEl.querySelectorAll('.dfs-toggle-btn').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+
+  if (platform === 'sportsbook') {
+    // Clear DFS comparison, restore original view
+    compareEl.innerHTML = '';
+    p._dfsView = null;
+    // Re-render current tab with original data
+    const activeTab = document.querySelector(`#di-${i} .di-tab.on`);
+    if (activeTab) activeTab.click();
+    return;
+  }
+
+  compareEl.innerHTML = '<div style="padding:12px;text-align:center;color:var(--t3);font-size:11px;">Loading DFS lines...</div>';
+
+  // Fetch DFS platform data for this player
+  const dfsKey = `_dfs_${platform}`;
+  if (!p[dfsKey]) {
+    try {
+      const r = await apiGet(`/api/analytics/merged?market=${p.market || S.market}&book=${platform}`);
+      if (r.players) {
+        const match = r.players.find(dp => dp.name === p.name && dp.market === (p.market || S.market));
+        p[dfsKey] = match || null;
+      }
+    } catch (e) { console.warn('DFS fetch error:', e); }
+  }
+
+  const dfs = p[dfsKey];
+  if (!dfs) {
+    compareEl.innerHTML = `<div class="dfs-compare"><div style="text-align:center;color:var(--t3);font-size:12px;">No ${DFS_PLATFORMS[platform]} line available for ${p.name} in this market.</div></div>`;
+    p._dfsView = null;
+    return;
+  }
+
+  p._dfsView = platform;
+  renderDFSComparison(compareEl, p, dfs, platform);
+}
+
+function renderDFSComparison(el, p, dfs, platform) {
+  const platName = DFS_PLATFORMS[platform];
+  const sbLine = p.line;
+  const dfsLine = dfs.line;
+  const lineDiff = +(dfsLine - sbLine).toFixed(1);
+  const lineColor = lineDiff < 0 ? 'var(--g)' : lineDiff > 0 ? 'var(--r)' : 'var(--t3)';
+  const lineLabel = lineDiff < 0 ? 'Softer (easier over)' : lineDiff > 0 ? 'Harder (tougher over)' : 'Same as sportsbook';
+
+  // Determine pick tier from odds
+  const dfsOver = dfs.overOdds || 0;
+  const dfsUnder = dfs.underOdds || 0;
+  let tier = 'standard', tierLabel = 'Standard';
+  if (platform === 'prizepicks') {
+    // Goblin = default odds (around -110 to -115), Demon = even odds (+100 or close)
+    if (dfsOver >= -105 || dfsOver >= 100) { tier = 'demon'; tierLabel = 'Demon'; }
+    else { tier = 'goblin'; tierLabel = 'Goblin'; }
+  } else {
+    // Underdog uses multiplier system — API assigns similar pattern
+    if (dfsOver >= -105 || dfsOver >= 100) { tier = 'demon'; tierLabel = 'Power Pick'; }
+    else { tier = 'standard'; tierLabel = 'Standard'; }
+  }
+
+  // Model probability at DFS line (re-calc using player stats)
+  const avg = p.avg || 0;
+  const stdDev = p.stdDev || 0;
+  let dfsModelProb = 0.5;
+  if (stdDev > 0 && avg) {
+    // Statistical probability at DFS line
+    const statProbDFS = normalCDF((avg - dfsLine) / stdDev);
+    // Also compute hit rates at DFS line from game log
+    const vals = (p.gameLog || []).filter(g => parseInt(g.min || '0') > 0).map(g => {
+      const statMap = { 'player_points': 'pts', 'player_rebounds': 'reb', 'player_assists': 'ast', 'player_threes': 'fg3m', 'player_steals': 'stl', 'player_blocks': 'blk', 'player_turnovers': 'turnover', 'player_points_rebounds_assists': 'pra', 'player_rebounds_assists': 'ra' };
+      const sk = statMap[p.market || S.market] || 'pts';
+      return sk === 'pra' ? (+g.pts || 0) + (+g.reb || 0) + (+g.ast || 0) : sk === 'ra' ? (+g.reb || 0) + (+g.ast || 0) : +(g[sk] || 0);
+    });
+    if (vals.length) {
+      const l5 = vals.slice(0, 5);
+      const l10 = vals.slice(0, 10);
+      const l5HR = l5.length ? l5.filter(v => v >= dfsLine).length / l5.length : 0.5;
+      const l10HR = l10.length ? l10.filter(v => v >= dfsLine).length / l10.length : 0.5;
+      const seasonHR = vals.filter(v => v >= dfsLine).length / vals.length;
+      const rawProb = (l5HR * 0.25 + l10HR * 0.30 + seasonHR * 0.25) + statProbDFS * 0.20;
+      dfsModelProb = Math.min(0.97, Math.max(0.03, (rawProb * vals.length + 5) / (vals.length + 10)));
+    } else {
+      dfsModelProb = statProbDFS;
+    }
+  }
+
+  // Sportsbook model prob (already computed)
+  const sbModelProb = p.modelProb || 0.5;
+  const isOverBet = (p.edge || 0) >= 0;
+  const sbDirProb = isOverBet ? sbModelProb : 1 - sbModelProb;
+  const dfsDirProb = isOverBet ? dfsModelProb : 1 - dfsModelProb;
+  const probDiff = +((dfsDirProb - sbDirProb) * 100).toFixed(1);
+  const probColor = probDiff > 0 ? 'var(--g)' : probDiff < 0 ? 'var(--r)' : 'var(--t3)';
+
+  // Hit rate from game log at DFS line
+  const gameVals = (p.gameLog || []).filter(g => parseInt(g.min || '0') > 0).map(g => {
+    const statMap = { 'player_points': 'pts', 'player_rebounds': 'reb', 'player_assists': 'ast', 'player_threes': 'fg3m', 'player_steals': 'stl', 'player_blocks': 'blk', 'player_turnovers': 'turnover', 'player_points_rebounds_assists': 'pra', 'player_rebounds_assists': 'ra' };
+    const sk = statMap[p.market || S.market] || 'pts';
+    return sk === 'pra' ? (+g.pts || 0) + (+g.reb || 0) + (+g.ast || 0) : sk === 'ra' ? (+g.reb || 0) + (+g.ast || 0) : +(g[sk] || 0);
+  });
+  const dfsHitCount = gameVals.filter(v => v >= dfsLine).length;
+  const sbHitCount = gameVals.filter(v => v >= sbLine).length;
+  const dfsHitRate = gameVals.length ? Math.round(dfsHitCount / gameVals.length * 100) : null;
+  const sbHitRate = gameVals.length ? Math.round(sbHitCount / gameVals.length * 100) : null;
+
+  const dir = isOverBet ? 'over' : 'under';
+  const fmtOdds = o => o ? (o > 0 ? '+' : '') + o : '—';
+
+  el.innerHTML = `<div class="dfs-compare">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+      <span style="font-weight:700;font-size:12px;color:var(--t1);">${platName} vs Sportsbook Avg</span>
+      <span class="dfs-tier ${tier}">${tierLabel}</span>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
+      <div style="padding:10px;background:var(--bg2);border-radius:6px;border:1px solid var(--bd);text-align:center;">
+        <div style="font-size:10px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px;display:flex;align-items:center;justify-content:center;gap:4px;">${bookBadge('combined',12)} Sportsbook Line</div>
+        <div style="font-size:18px;font-weight:800;">${sbLine}</div>
+        <div style="font-size:11px;color:var(--t3);margin-top:2px;">O: ${fmtOdds(p.overOdds)} / U: ${fmtOdds(p.underOdds)}</div>
+      </div>
+      <div style="padding:10px;background:${platform === 'prizepicks' ? 'rgba(124,58,237,.08)' : 'rgba(217,119,6,.08)'};border-radius:6px;border:1px solid ${platform === 'prizepicks' ? 'rgba(124,58,237,.25)' : 'rgba(217,119,6,.25)'};text-align:center;">
+        <div style="font-size:10px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px;display:flex;align-items:center;justify-content:center;gap:4px;">${bookBadge(platform,12)} ${platName} Line</div>
+        <div style="font-size:18px;font-weight:800;">${dfsLine}</div>
+        <div style="font-size:11px;color:${lineColor};font-weight:600;margin-top:2px;">${lineDiff > 0 ? '+' : ''}${lineDiff} ${lineLabel}</div>
+      </div>
+    </div>
+    <div class="dfs-compare-row">
+      <span class="dfs-compare-label">Model Prob (${dir})</span>
+      <span class="dfs-compare-val">${Math.round(sbDirProb * 100)}% <span style="color:var(--t3);">→</span> <span style="color:${probColor}">${Math.round(dfsDirProb * 100)}%</span> <span style="font-size:11px;color:${probColor};">(${probDiff > 0 ? '+' : ''}${probDiff}%)</span></span>
+    </div>
+    <div class="dfs-compare-row">
+      <span class="dfs-compare-label">Season Hit Rate (${dir})</span>
+      <span class="dfs-compare-val">${sbHitRate != null ? sbHitRate + '%' : '—'} <span style="color:var(--t3);">→</span> ${dfsHitRate != null ? `<span style="color:${dfsHitRate > sbHitRate ? 'var(--g)' : dfsHitRate < sbHitRate ? 'var(--r)' : 'var(--t3)'}">${dfsHitRate}%</span>` : '—'} <span style="font-size:11px;color:var(--t3);">(${dfsHitCount}/${gameVals.length} games)</span></span>
+    </div>
+    <div class="dfs-compare-row">
+      <span class="dfs-compare-label">Avg vs Line</span>
+      <span class="dfs-compare-val">${avg} vs ${dfsLine} <span style="color:${avg > dfsLine ? 'var(--g)' : 'var(--r)'};">${avg > dfsLine ? '▲' : '▼'} ${Math.abs(avg - dfsLine).toFixed(1)}</span></span>
+    </div>
+    ${platform === 'prizepicks' ? `<div class="dfs-compare-row">
+      <span class="dfs-compare-label">Pick Tier</span>
+      <span class="dfs-compare-val"><span class="dfs-tier ${tier}">${tierLabel}</span> <span style="font-size:11px;color:var(--t3);">${tier === 'demon' ? 'Counts as 2 picks in entry' : 'Counts as 1 pick in entry'}</span></span>
+    </div>` : ''}
+    <div style="margin-top:10px;padding:8px;background:${probDiff > 2 ? 'rgba(34,197,94,.1)' : probDiff < -2 ? 'rgba(239,68,68,.1)' : 'rgba(139,92,246,.08)'};border-radius:6px;text-align:center;font-size:11px;font-weight:600;color:${probDiff > 2 ? 'var(--g)' : probDiff < -2 ? 'var(--r)' : '#a78bfa'};">
+      ${probDiff > 2 ? `Better line on ${platName} — ${Math.abs(probDiff).toFixed(1)}% higher model probability` : probDiff < -2 ? `Worse line on ${platName} — ${Math.abs(probDiff).toFixed(1)}% lower model probability` : `Similar value — line difference is minimal`}
+    </div>
+  </div>`;
+}
+
 async function loadAndRenderSplits(el,p){
   if(p.splits){renderSplits(el,p);return;}
   el.innerHTML='<div style="padding:20px;text-align:center;color:var(--t3);font-size:12px;">Loading splits…</div>';
@@ -3428,7 +3636,7 @@ function renderOverview(el,p){
         const pctChg=p._injPctChange||0;
         const pctCol=pctChg>0?'var(--g)':'var(--r)';
         const pctFmt=pctChg>0?`+${pctChg}%`:`${pctChg}%`;
-        const specTag=p._injSpeculative?' <span style="color:#f59e0b;font-size:10px;font-weight:600;opacity:.8;" title="Estimated — not enough split data">~est</span>':'';
+        const specTag=p._injSpeculative?' <span style="color:#f59e0b;font-size:11px;font-weight:600;opacity:.8;" title="Estimated — not enough split data">~est</span>':'';
         return`<span style="display:inline-flex;align-items:center;gap:4px;">🏥 <strong>Injury Impact:</strong> <span style="color:${pctCol};font-weight:700;">${pctFmt}</span>${specTag}</span>`;
       }
       if(type==='min'||type==='dnp'){
@@ -3564,38 +3772,38 @@ function renderOverview(el,p){
             const oddsChanged=prevOverO!==curOverO||prevUnderO!==curUnderO;
             return`<div style="display:grid;grid-template-columns:1fr;gap:8px;margin-top:8px;">
             <div style="padding:8px 10px;background:var(--bg2);border-radius:6px;border:1px solid var(--bd);">
-              <div style="font-size:9px;font-weight:600;color:var(--b-text);text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px;">Line</div>
+              <div style="font-size:10px;font-weight:600;color:var(--b-text);text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px;">Line</div>
               <div style="font-size:14px;font-weight:800;">${p.prev_line} <span style="color:var(--t3);">→</span> ${p.line} <span style="font-size:11px;color:${lineDiff>0?'var(--r)':'var(--g)'};">(${fD(lineDiff)})</span></div>
             </div>
             <div style="padding:8px 10px;background:var(--bg2);border-radius:6px;border:1px solid var(--bd);">
-              <div style="font-size:9px;font-weight:600;color:var(--b-text);text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px;">Odds${oddsChanged?' (changed)':''}</div>
+              <div style="font-size:10px;font-weight:600;color:var(--b-text);text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px;">Odds${oddsChanged?' (changed)':''}</div>
               <div style="font-size:13px;font-weight:800;">${oddsChanged?`O: ${fmtOdds(prevOverO)} → ${fmtOdds(curOverO)}<br>U: ${fmtOdds(prevUnderO)} → ${fmtOdds(curUnderO)}`:`O: ${fmtOdds(curOverO)} · U: ${fmtOdds(curUnderO)}`}</div>
             </div>
             <div style="padding:8px 10px;background:var(--bg2);border-radius:6px;border:1px solid var(--bd);">
-              <div style="font-size:9px;font-weight:600;color:var(--b-text);text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px;">Expected Value</div>
+              <div style="font-size:10px;font-weight:600;color:var(--b-text);text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px;">Expected Value</div>
               <div style="font-size:14px;font-weight:800;color:${curEV>=0?'var(--g)':'var(--r)'};">${fD(curEV)}%</div>
-              <div style="font-size:10px;color:var(--t3);margin-top:2px;">was ${fD(prevEV)}% (${fD(evDelta)})</div>
+              <div style="font-size:11px;color:var(--t3);margin-top:2px;">was ${fD(prevEV)}% (${fD(evDelta)})</div>
             </div>
             <div style="padding:8px 10px;background:var(--bg2);border-radius:6px;border:1px solid var(--bd);">
-              <div style="font-size:9px;font-weight:600;color:var(--b-text);text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px;">Model Probability</div>
+              <div style="font-size:10px;font-weight:600;color:var(--b-text);text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px;">Model Probability</div>
               <div style="font-size:14px;font-weight:800;">${curMP}%</div>
-              <div style="font-size:10px;color:var(--t3);margin-top:2px;">was ${prevMP}%${mpDelta!==0?' ('+fD(mpDelta)+')':''}</div>
+              <div style="font-size:11px;color:var(--t3);margin-top:2px;">was ${prevMP}%${mpDelta!==0?' ('+fD(mpDelta)+')':''}</div>
             </div>
             <div style="padding:8px 10px;background:var(--bg2);border-radius:6px;border:1px solid var(--bd);">
-              <div style="font-size:9px;font-weight:600;color:var(--b-text);text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px;">Value Score</div>
+              <div style="font-size:10px;font-weight:600;color:var(--b-text);text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px;">Value Score</div>
               <div style="font-size:14px;font-weight:800;color:${curVS>=40?'var(--g)':curVS>=25?'var(--a)':'var(--r)'};">${curVS}</div>
-              <div style="font-size:10px;color:var(--t3);margin-top:2px;">was ${prevVS} (${vsDelta>0?'+':''}${vsDelta})</div>
+              <div style="font-size:11px;color:var(--t3);margin-top:2px;">was ${prevVS} (${vsDelta>0?'+':''}${vsDelta})</div>
             </div>
           </div>`;
           })()}
           <div style="margin-top:8px;display:flex;gap:8px;">
             <div style="flex:1;padding:8px 10px;background:var(--bg2);border-radius:6px;border:1px solid var(--bd);">
-              <div style="font-size:9px;font-weight:600;color:var(--b-text);text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px;">Before Line Change</div>
+              <div style="font-size:10px;font-weight:600;color:var(--b-text);text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px;">Before Line Change</div>
               <div style="font-size:13px;font-weight:800;color:${recCol(prevRec)};">${prevRec}</div>
             </div>
             <div style="display:flex;align-items:center;font-size:18px;color:${recChanged?'#c084fc':'var(--t3)'};font-weight:800;">${recChanged?'→':'='}</div>
             <div style="flex:1;padding:8px 10px;background:${recChanged?'rgba(168,85,247,.08)':'var(--bg2)'};border-radius:6px;border:1px solid ${recChanged?'rgba(168,85,247,.25)':'var(--bd)'};">
-              <div style="font-size:9px;font-weight:600;color:var(--b-text);text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px;">After Line Change${recChanged?' (CHANGED)':''}</div>
+              <div style="font-size:10px;font-weight:600;color:var(--b-text);text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px;">After Line Change${recChanged?' (CHANGED)':''}</div>
               <div style="font-size:13px;font-weight:800;color:${recCol(curRec)};">${curRec}</div>
             </div>
           </div>
@@ -3630,10 +3838,10 @@ function renderOverview(el,p){
         </div>
       </div>
     </div>
-    <div class="dc full"><div class="dc-t"><span class="dt" style="background:var(--g)"></span>Last 10 Calendar Games <span style="font-size:10px;color:var(--t3);font-weight:400;margin-left:4px;">(DNPs shown but excluded from averages)</span></div>
+    <div class="dc full"><div class="dc-t"><span class="dt" style="background:var(--g)"></span>Last 10 Calendar Games <span style="font-size:11px;color:var(--t3);font-weight:400;margin-left:4px;">(DNPs shown but excluded from averages)</span></div>
       <div class="chb"><div class="lref" style="top:${lP}%"><span class="lref-l">LINE ${p.line}</span></div><div class="bars">${bars}</div></div>
     </div>
-    ${p.hasRealStats?(()=>{const pg=(p.gameLog||[]).filter(g=>parseInt(g.min||'0')>0);const am=pg.length?Math.round(pg.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/pg.length):30;const l3min=pg.slice(0,3);const l3avg=l3min.length>=3?Math.round(l3min.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/l3min.length):am;const l5min=pg.slice(0,5);const l5avg=l5min.length?Math.round(l5min.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/l5min.length):am;const l10min=pg.slice(0,10);const l10avg=l10min.length?Math.round(l10min.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/l10min.length):am;const hasFlag=p.minutesFlag||p.dnpCount>=5;const initMin=p._adjMin||am;return`<div class="dc full"><div class="dc-t"><span class="dt" style="background:#8b5cf6"></span>EV vs Minutes <span style="font-size:10px;color:var(--t3);font-weight:400;margin-left:4px;">Adjust playing time to see EV impact</span></div>
+    ${p.hasRealStats?(()=>{const pg=(p.gameLog||[]).filter(g=>parseInt(g.min||'0')>0);const am=pg.length?Math.round(pg.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/pg.length):30;const l3min=pg.slice(0,3);const l3avg=l3min.length>=3?Math.round(l3min.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/l3min.length):am;const l5min=pg.slice(0,5);const l5avg=l5min.length?Math.round(l5min.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/l5min.length):am;const l10min=pg.slice(0,10);const l10avg=l10min.length?Math.round(l10min.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/l10min.length):am;const hasFlag=p.minutesFlag||p.dnpCount>=5;const initMin=p._adjMin||am;return`<div class="dc full"><div class="dc-t"><span class="dt" style="background:#8b5cf6"></span>EV vs Minutes <span style="font-size:11px;color:var(--t3);font-weight:400;margin-left:4px;">Adjust playing time to see EV impact</span></div>
       <canvas id="evMinutesChart" width="400" height="220" style="width:100%;height:220px;display:block;"></canvas>
       <div id="evMinutesLegend" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;"></div>
       <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--bd);">
@@ -3644,10 +3852,10 @@ function renderOverview(el,p){
           <span id="minSliderVal" style="font-size:14px;font-weight:700;color:#a78bfa;min-width:52px;text-align:right;">${initMin} min</span>
         </div>
         <div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:center;">
-          <button onclick="setMinPreset(${am})" style="font-size:10px;padding:4px 10px;border-radius:6px;border:1px solid var(--bd);background:var(--bg2);color:var(--t2);cursor:pointer;font-weight:600;">Season (${am})</button>
-          <button onclick="setMinPreset(${l10avg})" style="font-size:10px;padding:4px 10px;border-radius:6px;border:1px solid var(--bd);background:var(--bg2);color:var(--t2);cursor:pointer;font-weight:600;">L10 (${l10avg})</button>
-          <button onclick="setMinPreset(${l5avg})" style="font-size:10px;padding:4px 10px;border-radius:6px;border:1px solid ${hasFlag?'rgba(139,92,246,.5)':'var(--bd)'};background:${hasFlag?'rgba(139,92,246,.15)':'var(--bg2)'};color:${hasFlag?'#a78bfa':'var(--t2)'};cursor:pointer;font-weight:700;">${hasFlag?'❗ ':''}L5 (${l5avg})</button>
-          <button onclick="setMinPreset(${l3avg})" style="font-size:10px;padding:4px 10px;border-radius:6px;border:1px solid ${hasFlag?'rgba(139,92,246,.5)':'var(--bd)'};background:${hasFlag?'rgba(139,92,246,.15)':'var(--bg2)'};color:${hasFlag?'#a78bfa':'var(--t2)'};cursor:pointer;font-weight:700;">${hasFlag?'❗ ':''}L3 (${l3avg})</button>
+          <button onclick="setMinPreset(${am})" style="font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid var(--bd);background:var(--bg2);color:var(--t2);cursor:pointer;font-weight:600;">Season (${am})</button>
+          <button onclick="setMinPreset(${l10avg})" style="font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid var(--bd);background:var(--bg2);color:var(--t2);cursor:pointer;font-weight:600;">L10 (${l10avg})</button>
+          <button onclick="setMinPreset(${l5avg})" style="font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid ${hasFlag?'rgba(139,92,246,.5)':'var(--bd)'};background:${hasFlag?'rgba(139,92,246,.15)':'var(--bg2)'};color:${hasFlag?'#a78bfa':'var(--t2)'};cursor:pointer;font-weight:700;">${hasFlag?'❗ ':''}L5 (${l5avg})</button>
+          <button onclick="setMinPreset(${l3avg})" style="font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid ${hasFlag?'rgba(139,92,246,.5)':'var(--bd)'};background:${hasFlag?'rgba(139,92,246,.15)':'var(--bg2)'};color:${hasFlag?'#a78bfa':'var(--t2)'};cursor:pointer;font-weight:700;">${hasFlag?'❗ ':''}L3 (${l3avg})</button>
         </div>
         <div id="minAdjStats" style="font-size:11px;color:var(--t3);text-align:center;margin-top:6px;">Season avg: ${am} min/game${initMin!==am?' — adjusted by filter':' — slide to adjust'}</div>
       </div>
@@ -3657,7 +3865,7 @@ function renderOverview(el,p){
       <table class="spt"><thead><tr><th>Sportsbook</th><th>Line</th><th>Over Odds</th><th>Under Odds</th></tr></thead>
       <tbody>${Object.values(p.bookLines).filter(bl=>!['Bovada','BetOnline.ag','MyBookie.ag'].includes(bl.bookName)).sort((a,b)=>a.line-b.line).map(bl=>{
         const diff=+(bl.line-p.line).toFixed(1);
-        const diffStr=diff>0?`<span style="color:var(--r);font-size:10px"> +${diff}</span>`:diff<0?`<span style="color:var(--g);font-size:10px"> ${diff}</span>`:'';
+        const diffStr=diff>0?`<span style="color:var(--r);font-size:11px"> +${diff}</span>`:diff<0?`<span style="color:var(--g);font-size:11px"> ${diff}</span>`:'';
         const ov=bl.overOdds?(bl.overOdds>0?'+':'')+bl.overOdds:'—';
         const uv=bl.underOdds?(bl.underOdds>0?'+':'')+bl.underOdds:'—';
         return`<tr><td style="font-weight:600">${bl.bookName}</td><td>${bl.line}${diffStr}</td><td style="color:${bl.overOdds>0?'var(--g)':'var(--r)'}">${ov}</td><td style="color:${bl.underOdds>0?'var(--g)':'var(--r)'}">${uv}</td></tr>`;
@@ -3761,41 +3969,41 @@ function renderMatchupBreakdown(p){
   }).filter(Boolean);
 
   const paceExplain=ptPace&&opPace&&lgPace
-    ?`<div style="font-size:10px;color:var(--t3);margin-top:4px;">Formula: (${ptTeam} pace ${ptPace.toFixed(1)} + ${opp} pace ${opPace.toFixed(1)}) / (${ptTeam} pace + league avg ${lgPace.toFixed(1)}) = <strong style="color:var(--t1);">${pace.toFixed(3)}</strong></div>`
+    ?`<div style="font-size:11px;color:var(--t3);margin-top:4px;">Formula: (${ptTeam} pace ${ptPace.toFixed(1)} + ${opp} pace ${opPace.toFixed(1)}) / (${ptTeam} pace + league avg ${lgPace.toFixed(1)}) = <strong style="color:var(--t1);">${pace.toFixed(3)}</strong></div>`
     :'';
   const dvpExplain=dvpRows.length
-    ?dvpRows.map(r=>`<div style="font-size:10px;color:var(--t3);margin-top:2px;">${r.label}: ${opp} allows ${r.oppVal}/g vs league avg ${r.lgVal}/g → raw ${r.raw} → dampened (×${DVP_DAMPEN}) = <strong style="color:var(--t1);">${r.dampened}</strong></div>`).join('')
+    ?dvpRows.map(r=>`<div style="font-size:11px;color:var(--t3);margin-top:2px;">${r.label}: ${opp} allows ${r.oppVal}/g vs league avg ${r.lgVal}/g → raw ${r.raw} → dampened (×${DVP_DAMPEN}) = <strong style="color:var(--t1);">${r.dampened}</strong></div>`).join('')
     :'';
 
   return`<div class="dc full"><div class="dc-t"><span class="dt" style="background:var(--c)"></span>Matchup Adjustment vs ${opp} <span style="font-size:11px;font-weight:700;color:${pctCol};margin-left:6px;">${pctFmt} combined</span></div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px;">
       <div style="background:var(--bg2);border-radius:8px;padding:8px 10px;border:1px solid var(--bd);text-align:center;">
-        <div style="font-size:9px;color:var(--t3);text-transform:uppercase;font-weight:700;margin-bottom:2px;">Pace Factor</div>
+        <div style="font-size:10px;color:var(--t3);text-transform:uppercase;font-weight:700;margin-bottom:2px;">Pace Factor</div>
         <div style="font-size:16px;font-weight:800;color:${pace>1?'var(--g)':pace<1?'var(--r)':'var(--t1)'};">${pace.toFixed(3)}</div>
-        <div style="font-size:9px;color:var(--t3);margin-top:2px;">Game speed</div>
+        <div style="font-size:10px;color:var(--t3);margin-top:2px;">Game speed</div>
       </div>
       <div style="background:var(--bg2);border-radius:8px;padding:8px 10px;border:1px solid var(--bd);text-align:center;">
-        <div style="font-size:9px;color:var(--t3);text-transform:uppercase;font-weight:700;margin-bottom:2px;">DvP Factor</div>
+        <div style="font-size:10px;color:var(--t3);text-transform:uppercase;font-weight:700;margin-bottom:2px;">DvP Factor</div>
         <div style="font-size:16px;font-weight:800;color:${dvp>1?'var(--g)':dvp<1?'var(--r)':'var(--t1)'};">${dvp.toFixed(3)}</div>
-        <div style="font-size:9px;color:var(--t3);margin-top:2px;">${opp} vs ${mktLabel}</div>
+        <div style="font-size:10px;color:var(--t3);margin-top:2px;">${opp} vs ${mktLabel}</div>
       </div>
       <div style="background:var(--bg2);border-radius:8px;padding:8px 10px;border:1px solid var(--bd);text-align:center;">
-        <div style="font-size:9px;color:var(--t3);text-transform:uppercase;font-weight:700;margin-bottom:2px;">Combined</div>
+        <div style="font-size:10px;color:var(--t3);text-transform:uppercase;font-weight:700;margin-bottom:2px;">Combined</div>
         <div style="font-size:16px;font-weight:800;color:${pctCol};">${combined.toFixed(3)}</div>
-        <div style="font-size:9px;color:var(--t3);margin-top:2px;">${pctFmt} to avg</div>
+        <div style="font-size:10px;color:var(--t3);margin-top:2px;">${pctFmt} to avg</div>
       </div>
     </div>
     <div style="padding:8px 10px;background:var(--bg2);border-radius:6px;border:1px solid var(--bd);">
-      <div style="font-size:10px;font-weight:700;color:var(--b-text);margin-bottom:4px;">How it works</div>
-      <div style="font-size:10px;color:var(--t3);">
+      <div style="font-size:11px;font-weight:700;color:var(--b-text);margin-bottom:4px;">How it works</div>
+      <div style="font-size:11px;color:var(--t3);">
         <strong>Pace:</strong> If both teams play fast, possessions increase → more counting stats. Compared to league average game speed.
         ${paceExplain}
       </div>
-      <div style="font-size:10px;color:var(--t3);margin-top:6px;">
+      <div style="font-size:11px;color:var(--t3);margin-top:6px;">
         <strong>DvP (Defense vs Position):</strong> How many ${mktLabel} ${opp} allows vs league average, dampened ${Math.round(DVP_DAMPEN*100)}% toward 1.0 (team defense doesn't fully translate to individual matchups).
         ${dvpExplain}
       </div>
-      <div style="font-size:10px;color:var(--t3);margin-top:6px;">
+      <div style="font-size:11px;color:var(--t3);margin-top:6px;">
         <strong>Result:</strong> Player's adjusted avg is multiplied by <strong style="color:${pctCol}">${combined.toFixed(3)}</strong> (${pctFmt}). This ${pctChg>0?'boosts':'reduces'} the projection to account for the specific matchup.
       </div>
     </div>
@@ -3993,7 +4201,8 @@ function renderBookComparison(el,p){
       const ov=b.overOdds?(b.overOdds>0?'+':'')+b.overOdds:'—';
       const uv=b.underOdds!=null?(b.underOdds>0?'+':'')+b.underOdds:'—';
       const isBestO=b===bestOver,isBestU=bestUnder.underOdds!=null&&b.underOdds===bestUnder.underOdds;
-      return`<tr><td style="font-weight:600">${b.bookName}</td><td style="font-weight:700">${b.line}</td><td>${diffStr}</td>
+      const bkKey=Object.entries(bl).find(([k,v])=>v===b)?.[0]||'';
+      return`<tr><td style="font-weight:600;display:flex;align-items:center;gap:5px;">${bookBadge(bkKey,16)} ${b.bookName}</td><td style="font-weight:700">${b.line}</td><td>${diffStr}</td>
         <td style="color:${b.overOdds>0?'var(--g)':'var(--r)'};font-weight:${isBestO?'700':'400'}">${ov}${isBestO?' ✓':''}</td>
         <td style="color:${b.underOdds>0?'var(--g)':b.underOdds<0?'var(--r)':'var(--t3)'};font-weight:${isBestU?'700':'400'}">${uv}${isBestU?' ✓':''}</td></tr>`;
     }).join('')}</tbody></table>
@@ -4020,7 +4229,7 @@ function renderGameLog(el,p){
   const gl=p.gameLog||[];
   if(!gl.length){el.innerHTML='<div style="padding:24px;text-align:center;color:var(--t3);font-size:12px;">No game log data available.</div>';return;}
   const playedCount=gl.filter(g=>parseInt(g.min||'0')>0).length;
-  el.innerHTML=`<div class="dc full"><div class="dc-t"><span class="dt" style="background:var(--r)"></span>Game Log — ${playedCount} games played <span style="font-size:10px;color:var(--t3);font-weight:400;margin-left:4px;">(DNPs shown, excluded from averages)</span></div>
+  el.innerHTML=`<div class="dc full"><div class="dc-t"><span class="dt" style="background:var(--r)"></span>Game Log — ${playedCount} games played <span style="font-size:11px;color:var(--t3);font-weight:400;margin-left:4px;">(DNPs shown, excluded from averages)</span></div>
     <table class="spt"><thead><tr><th>Date</th><th>H/A</th><th>Min</th><th>PTS</th><th>REB</th><th>AST</th><th>3PM</th></tr></thead>
     <tbody>${gl.map(g=>{
       const d=g.date?new Date(g.date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}):'—';
@@ -4239,53 +4448,111 @@ function renderSimilarPlayers(el,p,data){
     el.innerHTML=`<div style="padding:24px;text-align:center;color:var(--t3);font-size:13px;">No similar players found with games vs ${opponent}.</div>`;
     return;
   }
-  // Summary bar
+  // Summary bar — color delta based on over bet (positive = good) vs under context
   const diffSign=summary.pctDiff>=0?'+':'';
-  const diffColor=summary.pctDiff>=5?'var(--g)':summary.pctDiff<=-5?'var(--r)':'var(--t2)';
+  const isOverContext=(p.edge||0)>=0;
+  const diffGood=isOverContext?summary.pctDiff>=0:summary.pctDiff<=0;
+  const diffColor=Math.abs(summary.pctDiff)>=3?(diffGood?'var(--g)':'var(--r)'):'var(--t2)';
   const overColor=summary.overRate>=60?'var(--g)':summary.overRate>=45?'var(--a)':'var(--r)';
+  // Median stat value
+  const allStatVals=similar.flatMap(s=>s.gamesVsOpp.map(g=>g.statVal)).sort((a,b)=>a-b);
+  const median=allStatVals.length?allStatVals[Math.floor(allStatVals.length/2)]:0;
+  // Best/worst performers
+  const playerAvgs=similar.map(sp=>({name:sp.name,avg:+(sp.gamesVsOpp.reduce((s,g)=>s+g.statVal,0)/sp.gamesVsOpp.length).toFixed(1),gp:sp.gamesVsOpp.length})).sort((a,b)=>b.avg-a.avg);
+  const bestPlayer=playerAvgs[0];
+  const worstPlayer=playerAvgs[playerAvgs.length-1];
+
   let html=`<div class="di-grid">
     <div class="dc full" style="padding:14px 16px;">
-      <div style="font-size:12px;font-weight:700;color:var(--t1);margin-bottom:6px;">Similar Players vs ${opponent}</div>
-      <div style="display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--t2);">
-        <span>Avg vs ${opponent}: <b style="color:var(--t1)">${summary.avgVsOpp} ${mktLabel}</b></span>
-        <span>Season Norm: <b>${summary.normalAvg}</b></span>
-        <span style="color:${diffColor}"><b>${diffSign}${summary.pctDiff}%</b> vs norm</span>
-        <span>Over ${line}: <b style="color:${overColor}">${summary.overRate}%</b></span>
-        <span style="color:var(--t3)">${summary.sampleSize} games · ${summary.playerCount} players</span>
+      <div style="font-size:12px;font-weight:700;color:var(--t1);margin-bottom:8px;">Similar Players vs ${opponent}</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;">
+        <div style="padding:8px 10px;background:var(--bg2);border-radius:6px;text-align:center;">
+          <div style="font-size:10px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.3px;">Avg vs ${opponent}</div>
+          <div style="font-size:16px;font-weight:800;color:var(--t1);margin-top:2px;">${summary.avgVsOpp}</div>
+          <div style="font-size:11px;color:var(--t3);">${mktLabel}</div>
+        </div>
+        <div style="padding:8px 10px;background:var(--bg2);border-radius:6px;text-align:center;">
+          <div style="font-size:10px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.3px;">vs Season Norm</div>
+          <div style="font-size:16px;font-weight:800;color:${diffColor};margin-top:2px;">${diffSign}${summary.pctDiff}%</div>
+          <div style="font-size:11px;color:var(--t3);">Norm: ${summary.normalAvg}</div>
+        </div>
+        <div style="padding:8px 10px;background:var(--bg2);border-radius:6px;text-align:center;">
+          <div style="font-size:10px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.3px;">Over ${line}</div>
+          <div style="font-size:16px;font-weight:800;color:${overColor};margin-top:2px;">${summary.overRate}%</div>
+          <div style="font-size:11px;color:var(--t3);">${summary.sampleSize} games</div>
+        </div>
+        <div style="padding:8px 10px;background:var(--bg2);border-radius:6px;text-align:center;">
+          <div style="font-size:10px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.3px;">Median</div>
+          <div style="font-size:16px;font-weight:800;color:${median>=line?'var(--g)':'var(--r)'};margin-top:2px;">${median}</div>
+          <div style="font-size:11px;color:var(--t3);">${summary.playerCount} players</div>
+        </div>
       </div>
+      ${bestPlayer&&worstPlayer&&playerAvgs.length>=3?`<div style="display:flex;gap:12px;margin-top:8px;font-size:11px;">
+        <span style="color:var(--g);">Best: <b>${bestPlayer.name.split(' ').pop()}</b> ${bestPlayer.avg} avg (${bestPlayer.gp}g)</span>
+        <span style="color:var(--r);">Worst: <b>${worstPlayer.name.split(' ').pop()}</b> ${worstPlayer.avg} avg (${worstPlayer.gp}g)</span>
+      </div>`:''}
     </div>`;
-  // Chart: each similar player as a column with dots for games + dashed line at the betting line
+
+  // Chart: taller, Y-axis labels, proper line positioning, hover tooltips
+  const chartH=260;
+  const barAreaH=chartH-70; // space for bars (bottom 70px reserved for labels)
   const maxStat=Math.max(line*1.5,...similar.flatMap(s=>s.gamesVsOpp.map(g=>g.statVal)))+2;
+  const linePos=((line/maxStat)*barAreaH).toFixed(1);
+  // Y-axis tick marks
+  const yTicks=[];
+  const yStep=maxStat<=15?5:maxStat<=30?5:10;
+  for(let v=0;v<=maxStat;v+=yStep)yTicks.push(v);
+
   html+=`<div class="dc full" style="padding:14px 16px;">
     <div style="font-size:11px;font-weight:700;color:var(--t2);margin-bottom:10px;">Performance vs ${opponent} — Line: ${line} ${mktLabel}</div>
-    <div style="position:relative;min-height:200px;">
-      <div style="position:absolute;left:0;right:0;bottom:${(line/maxStat*100).toFixed(1)}%;border-top:2px dashed var(--b);z-index:1;opacity:.6;">
-        <span style="position:absolute;right:0;top:-16px;font-size:10px;color:var(--b);font-weight:700;">${line}</span>
+    <div style="position:relative;height:${chartH}px;display:flex;">
+      <!-- Y-axis -->
+      <div style="width:28px;flex-shrink:0;position:relative;height:${barAreaH}px;">
+        ${yTicks.map(v=>`<span style="position:absolute;bottom:${(v/maxStat*barAreaH).toFixed(0)}px;right:4px;font-size:10px;color:var(--t3);transform:translateY(50%);">${v}</span>`).join('')}
       </div>
-      <div style="display:flex;gap:4px;align-items:flex-end;height:180px;overflow-x:auto;padding-bottom:52px;">`;
+      <!-- Chart area -->
+      <div style="flex:1;position:relative;">
+        <!-- Grid lines -->
+        ${yTicks.map(v=>`<div style="position:absolute;left:0;right:0;bottom:${(v/maxStat*barAreaH).toFixed(0)}px;border-bottom:1px solid var(--bd);opacity:.3;"></div>`).join('')}
+        <!-- Betting line -->
+        <div style="position:absolute;left:0;right:0;bottom:${linePos}px;border-bottom:2px dashed var(--b);z-index:2;opacity:.7;">
+          <span style="position:absolute;right:4px;bottom:2px;font-size:11px;color:var(--b);font-weight:700;background:var(--bg1);padding:0 4px;border-radius:3px;">${line}</span>
+        </div>
+        <!-- Bars container -->
+        <div style="display:flex;gap:6px;align-items:flex-end;height:${barAreaH}px;overflow-x:auto;padding-bottom:0;">`;
+
   for(const sp of similar){
     const hs=getHeadshot(sp.name);
     const init=sp.name.split(' ').map(n=>n[0]).join('').substring(0,2);
     const hits=sp.gamesVsOpp.filter(g=>g.statVal>=line).length;
     const hitPct=Math.round(hits/sp.gamesVsOpp.length*100);
     const hitCol=hitPct>=60?'var(--g)':hitPct>=45?'var(--a)':'var(--r)';
-    // Column per player: dots stacked for each game
-    html+=`<div style="display:flex;flex-direction:column;align-items:center;min-width:${Math.max(48,sp.gamesVsOpp.length*14+10)}px;flex-shrink:0;">
-      <div style="display:flex;gap:2px;align-items:flex-end;height:140px;position:relative;">`;
+    const spAvg=+(sp.gamesVsOpp.reduce((s,g)=>s+g.statVal,0)/sp.gamesVsOpp.length).toFixed(1);
+
+    html+=`<div style="display:flex;flex-direction:column;align-items:center;min-width:${Math.max(52,sp.gamesVsOpp.length*16+10)}px;flex-shrink:0;">
+      <div style="display:flex;gap:3px;align-items:flex-end;height:${barAreaH}px;position:relative;">`;
     for(const g of sp.gamesVsOpp){
-      const h=Math.max(4,(g.statVal/maxStat*140)).toFixed(0);
+      const h=Math.max(6,(g.statVal/maxStat*barAreaH)).toFixed(0);
       const col=g.statVal>=line?'var(--g)':'var(--r)';
-      html+=`<div title="${sp.name}: ${g.statVal} ${mktLabel} (${g.date})" style="width:10px;height:${h}px;background:${col};border-radius:3px 3px 0 0;opacity:.85;cursor:default;"></div>`;
+      html+=`<div class="sim-bar" style="width:12px;height:${h}px;background:${col};border-radius:3px 3px 0 0;opacity:.85;cursor:default;position:relative;" onmouseenter="this.querySelector('.sim-tip').style.display='block'" onmouseleave="this.querySelector('.sim-tip').style.display='none'">
+        <div class="sim-tip" style="display:none;position:absolute;bottom:calc(100% + 4px);left:50%;transform:translateX(-50%);background:var(--bg3);border:1px solid var(--bd);border-radius:5px;padding:4px 7px;font-size:10px;white-space:nowrap;z-index:10;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,.3);">
+          <div style="font-weight:700;color:${col};">${g.statVal} ${mktLabel}</div>
+          <div style="color:var(--t3);">${sp.name.split(' ').pop()} · ${g.date?.substring(5)||''}</div>
+          <div style="color:var(--t3);">${g.min||'?'} min</div>
+        </div>
+      </div>`;
     }
     html+=`</div>
-      <div style="font-size:9px;font-weight:700;color:${hitCol};margin-top:2px;">${hitPct}%</div>
-      <div style="width:28px;height:28px;border-radius:50%;overflow:hidden;background:var(--bg3);display:flex;align-items:center;justify-content:center;margin-top:2px;flex-shrink:0;">
+      <div style="font-size:10px;font-weight:700;color:${hitCol};margin-top:3px;">${hitPct}%</div>
+      <div style="font-size:10px;color:var(--t3);margin-top:0px;">${spAvg} avg</div>
+      <div style="width:30px;height:30px;border-radius:50%;overflow:hidden;background:var(--bg3);display:flex;align-items:center;justify-content:center;margin-top:3px;flex-shrink:0;">
         ${hs?`<img src="${hs}" onerror="this.parentElement.innerHTML='<span style=\\'font-size:10px;font-weight:700;color:var(--t3)\\'>${init}</span>'" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`:`<span style="font-size:10px;font-weight:700;color:var(--t3)">${init}</span>`}
       </div>
-      <div style="font-size:9px;color:var(--t3);white-space:nowrap;max-width:56px;overflow:hidden;text-overflow:ellipsis;text-align:center;" title="${sp.name}">${sp.name.split(' ').pop()}</div>
+      <div style="font-size:10px;color:var(--t3);white-space:nowrap;max-width:60px;overflow:hidden;text-overflow:ellipsis;text-align:center;" title="${sp.name}">${sp.name.split(' ').pop()}</div>
     </div>`;
   }
-  html+=`</div></div></div>`;
+  html+=`</div></div></div></div>`;
+
   // Scrollable game logs
   html+=`<div class="dc full" style="padding:14px 16px;">
     <div style="font-size:11px;font-weight:700;color:var(--t2);margin-bottom:8px;">Game Logs vs ${opponent} (${summary.sampleSize} games)</div>
@@ -5233,7 +5500,7 @@ function renderAlerts(){
         const recCol=m._rec==='OVER'?'#22c55e':m._rec==='UNDER'?'#ef4444':'#94a3b8';
         const recBg=m._rec==='OVER'?'rgba(34,197,94,.12)':m._rec==='UNDER'?'rgba(239,68,68,.12)':'rgba(148,163,184,.10)';
         const recBorder=m._rec==='OVER'?'rgba(34,197,94,.3)':m._rec==='UNDER'?'rgba(239,68,68,.3)':'rgba(148,163,184,.2)';
-        const recBadge=`<span style="display:inline-block;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:800;letter-spacing:.5px;color:${recCol};background:${recBg};border:1px solid ${recBorder};margin-left:4px;">${m._rec}</span>`;
+        const recBadge=`<span style="display:inline-block;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:800;letter-spacing:.5px;color:${recCol};background:${recBg};border:1px solid ${recBorder};margin-left:4px;">${m._rec}</span>`;
         return `<div class="lmr-card" onclick="openAlertDetail(_lmMovers[${i}])">
           <div class="lmr-av" data-av="${m.name.replace(/"/g,'&quot;')}">${av}</div>
           <div class="lmr-body">
@@ -5291,7 +5558,7 @@ function renderAlerts(){
             <button class="share-btn" onclick="event.stopPropagation();shareAlert(_vaAlerts[${rank}])" title="Share alert" style="margin-left:2px;">📤</button>
           </div>
           <div class="va-meta">${p.team||''} · ${(p.matchup||'').substring(0,25)}${getInjuryBadge(p.name)}</div>
-          ${!p.hasRealStats?`<div style="margin-top:3px;"><span class="player-flag flag-est" style="font-size:9px;">⚠ Missing Stats — EV may be inaccurate</span></div>`:''}
+          ${!p.hasRealStats?`<div style="margin-top:3px;"><span class="player-flag flag-est" style="font-size:10px;">⚠ Missing Stats — EV may be inaccurate</span></div>`:''}
           ${(()=>{const hasMove=p.prev_line!=null&&(p.prev_line!==p.line||p.prev_overOdds!==p.overOdds||p.prev_underOdds!==p.underOdds);const hasFlags=p.returnFromInjury>=2||p.minutesFlag||(p.dnpCount>=5)||hasMove||(p._adjTags&&p._adjTags.length);if(!hasFlags)return'';return`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;">${(p._adjTags||[]).map(t=>{const[type,val]=t.split(':');if(type==='min')return`<span class="player-flag" style="background:rgba(139,92,246,.12);color:#a78bfa;border:1px solid rgba(139,92,246,.3);">⏱ Smart Min → ${val}m</span>`;if(type==='inj')return`<span class="player-flag" style="background:rgba(245,158,11,.12);color:#f59e0b;border:1px solid rgba(245,158,11,.3);">🏥 ${p._injPctChange>0?'+':''}${p._injPctChange||0}%${p._injSpeculative?' ~est':''}</span>`;if(type==='dnp')return`<span class="player-flag" style="background:rgba(239,68,68,.12);color:#ef4444;border:1px solid rgba(239,68,68,.3);">⚠ DNP Adj → ${val}m</span>`;return'';}).filter(Boolean).join('')}${hasMove?`<span class="player-flag flag-mover">↕ Line Moved${p.prev_line!==p.line?' '+((p.line-p.prev_line)>0?'+':'')+((p.line-p.prev_line).toFixed(1)):' (odds)'}</span>`:''}${p.returnFromInjury>=2?`<span class="player-flag flag-injury">⚠ Back after ${p.returnFromInjury} games missed</span>`:''}${p.minutesFlag?`<span class="player-flag ${p.minutesFlag>0?'flag-minutes-up':'flag-minutes-down'}">⏱ ${Math.abs(Math.round(p.minutesFlag*100))}% ${p.minutesFlag>0?'↑ more':'↓ fewer'} minutes</span>`:''}${p.dnpCount>=5?`<span class="player-flag flag-dnp">✗ ${p.dnpCount} DNPs/10</span>`:''}</div>`;})()}</div>
         <div class="va-right">
           <div class="va-edge-big ${evPct>0?'pos':'neg'}">${evPct>0?'+':''}${evPct}%</div>
@@ -5330,9 +5597,9 @@ function renderAlerts(){
     if(!list.length) return '';
     return `<div style="grid-column:1/-1;margin-top:16px;">
       <div onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'':'none';this.querySelector('.started-arrow').textContent=this.nextElementSibling.style.display==='none'?'▶':'▼'" style="cursor:pointer;display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--bg2);border:1px solid var(--bd);border-radius:8px;user-select:none;">
-        <span class="started-arrow" style="font-size:10px;color:var(--t3);">▶</span>
+        <span class="started-arrow" style="font-size:11px;color:var(--t3);">▶</span>
         <span style="font-size:12px;font-weight:700;color:var(--t2);">${label} (${list.length})</span>
-        <span style="font-size:10px;color:var(--t3);margin-left:auto;">${desc}</span>
+        <span style="font-size:11px;color:var(--t3);margin-left:auto;">${desc}</span>
       </div>
       <div style="display:none;margin-top:8px;opacity:.7;">
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:12px;">
@@ -5349,7 +5616,7 @@ function renderAlerts(){
           const dirModelProbPct=Math.round((isOver?rawModelProb:1-rawModelProb)*100);
           const cc2=(p.confidence||0)>=70?'var(--g)':(p.confidence||0)>=50?'var(--a)':'var(--r)';
           return`<div class="va-card ${strength}" onclick="openAlertDetail(_vaAlerts[${rank}])" style="cursor:pointer;position:relative;">
-            <div style="position:absolute;top:8px;right:10px;font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;background:${badgeColor};color:${badge==='LIVE'?'#f59e0b':'var(--t3)'};border:1px solid ${badgeColor.replace('.15)','.3)')};">${badge}</div>
+            <div style="position:absolute;top:8px;right:10px;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;background:${badgeColor};color:${badge==='LIVE'?'#f59e0b':'var(--t3)'};border:1px solid ${badgeColor.replace('.15)','.3)')};">${badge}</div>
             <div class="va-top"><div class="va-av">${avHTML}</div><div class="va-info"><div class="va-name">${p.name}${showMktTag&&p.market?`<span class="va-mkt-tag">${MKT_SHORT[p.market]||p.market}</span>`:''}</div><div class="va-meta">${p.team||''} · ${(p.matchup||'').substring(0,25)}</div></div>
             <div class="va-right"><div class="va-edge-big ${evPct>0?'pos':'neg'}">${evPct>0?'+':''}${evPct}%</div><div class="va-direction ${isOver?'over':'under'}">${isOver?'▲':'▼'} BET ${dir}</div></div></div>
             <div style="font-size:13px;font-weight:700;color:var(--b-text);margin-bottom:8px;">${dir} ${p.line} ${MKT_SHORT[p.market||S.market]||''} · ${betOddsFmt}</div>
@@ -5584,12 +5851,12 @@ function openBetModal(p) {
     <div class="modal-row"><span class="modal-lbl">Matchup</span><span class="modal-val">${p.matchup||'—'}</span></div>
     <div class="modal-row"><span class="modal-lbl">Line</span><span class="modal-val">${p.line} ${mktLabel}</span></div>
     <div class="modal-row"><span class="modal-lbl">Edge</span><span class="modal-val" style="color:${edge>0?'var(--g)':'var(--r)'}">${edge>0?'+':''}${edge.toFixed(1)}%${isValue?' ⚡':''}</span></div>
-    <div class="modal-row"><span class="modal-lbl">Model Prob</span><span class="modal-val">${(modelProb*100).toFixed(0)}% <span style="font-size:10px;color:var(--t3);">(weighted: L5×35%+L10×40%+Season×25%)</span></span></div>
+    <div class="modal-row"><span class="modal-lbl">Model Prob</span><span class="modal-val">${(modelProb*100).toFixed(0)}% <span style="font-size:11px;color:var(--t3);">(weighted: L5×35%+L10×40%+Season×25%)</span></span></div>
     <div class="modal-row" style="background:${kellyColor}10;border-radius:6px;padding:8px 4px;">
       <span class="modal-lbl">¼ Kelly Stake</span>
       <span class="modal-val" style="color:${kellyColor}">
         ${kellyPct}% of bankroll = <strong>$${kellySuggest}</strong>
-        <button onclick="document.getElementById('stakeInp').value=${kellySuggest};updatePayoutPreview();" style="margin-left:8px;padding:2px 8px;border-radius:5px;border:1px solid ${kellyColor};background:${kellyColor}20;color:${kellyColor};font-size:10px;font-weight:700;cursor:pointer;">Use</button>
+        <button onclick="document.getElementById('stakeInp').value=${kellySuggest};updatePayoutPreview();" style="margin-left:8px;padding:2px 8px;border-radius:5px;border:1px solid ${kellyColor};background:${kellyColor}20;color:${kellyColor};font-size:11px;font-weight:700;cursor:pointer;">Use</button>
       </span>
     </div>
     <div class="modal-row"><span class="modal-lbl">Balance</span><span class="modal-val">$${sim.balance.toFixed(2)}</span></div>
@@ -6107,7 +6374,7 @@ function renderSimulator() {
           const isOv=l.direction==='over';
           return `<div class="bc-leg-row">
             <div class="bc-leg-av" data-av="${l.name.replace(/"/g,'&quot;')}">${hs?`<img src="${hs}" onerror="headshotError(this,'${ini}')" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" alt="">`:`<span>${ini}</span>`}</div>
-            <span class="bet-dir ${l.direction}" style="font-size:10px;padding:2px 7px;">${isOv?'▲':'▼'} ${l.direction.toUpperCase()}</span>
+            <span class="bet-dir ${l.direction}" style="font-size:11px;padding:2px 7px;">${isOv?'▲':'▼'} ${l.direction.toUpperCase()}</span>
             <div style="flex:1;min-width:0;">
               <div style="font-size:13px;font-weight:700;">${l.name}</div>
               <div style="font-size:11px;color:var(--t3);">${l.line} ${l.marketLabel}</div>
@@ -6199,7 +6466,7 @@ function renderSimulator() {
           const isOv=l.direction==='over';
           return `<div class="bc-leg-row">
             <div class="bc-leg-av" data-av="${l.name.replace(/"/g,'&quot;')}">${hs?`<img src="${hs}" onerror="headshotError(this,'${ini}')" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" alt="">`:`<span>${ini}</span>`}</div>
-            <span class="bet-dir ${l.direction}" style="font-size:10px;padding:2px 7px;">${isOv?'▲':'▼'} ${l.direction.toUpperCase()}</span>
+            <span class="bet-dir ${l.direction}" style="font-size:11px;padding:2px 7px;">${isOv?'▲':'▼'} ${l.direction.toUpperCase()}</span>
             <div style="flex:1;min-width:0;">
               <div style="font-size:13px;font-weight:700;">${l.name}</div>
               <div style="font-size:11px;color:var(--t3);">${l.line} ${l.marketLabel}</div>
@@ -7224,7 +7491,7 @@ async function renderGameLines() {
       const parts = [];
       if (c.hInjAdj) parts.push(`${g.home} ${c.hInjAdj > 0 ? '+' : ''}${c.hInjAdj.toFixed(1)}`);
       if (c.aInjAdj) parts.push(`${g.away} ${c.aInjAdj > 0 ? '+' : ''}${c.aInjAdj.toFixed(1)}`);
-      injTag = `<span style="font-size:10px;color:#f59e0b;margin-left:8px;">Inj: ${parts.join(', ')}</span>`;
+      injTag = `<span style="font-size:11px;color:#f59e0b;margin-left:8px;">Inj: ${parts.join(', ')}</span>`;
     }
 
     // Large team logo helper (40px for game lines cards)
@@ -7238,7 +7505,7 @@ async function renderGameLines() {
           <div style="font-size:14px;color:var(--t1);font-weight:700;">${ptStr} PT</div>
         </div>
         <div style="display:flex;align-items:center;gap:6px;">
-          ${c.blowoutRisk > 25 ? `<span style="font-size:10px;color:var(--r);opacity:.8;">Blowout ${c.blowoutRisk.toFixed(0)}%</span>` : ''}
+          ${c.blowoutRisk > 25 ? `<span style="font-size:11px;color:var(--r);opacity:.8;">Blowout ${c.blowoutRisk.toFixed(0)}%</span>` : ''}
           ${injTag}
         </div>
       </div>
@@ -7248,7 +7515,7 @@ async function renderGameLines() {
         <div style="display:flex;align-items:center;gap:12px;">
           ${glLogo(g.away)}
           <div>
-            <div style="font-size:17px;font-weight:800;color:var(--t1);">${g.away}${c.awayB2B ? '<span style="font-size:9px;background:rgba(251,191,36,.2);color:rgb(251,191,36);border-radius:4px;padding:1px 4px;margin-left:5px;font-weight:600;">B2B</span>' : ''}</div>
+            <div style="font-size:17px;font-weight:800;color:var(--t1);">${g.away}${c.awayB2B ? '<span style="font-size:10px;background:rgba(251,191,36,.2);color:rgb(251,191,36);border-radius:4px;padding:1px 4px;margin-left:5px;font-weight:600;">B2B</span>' : ''}</div>
             <div style="font-size:11px;color:var(--t3);">${aRec}${c.aStats ? ` · ${c.aStats.awayNetRtg != null ? (c.aStats.awayNetRtg > 0 ? '+' : '') + c.aStats.awayNetRtg.toFixed(1) + ' Away' : (c.aStats.netRtg > 0 ? '+' : '') + c.aStats.netRtg.toFixed(1) + ' NR'}` : ''}</div>
           </div>
         </div>
@@ -7258,7 +7525,7 @@ async function renderGameLines() {
         </div>
         <div style="display:flex;align-items:center;gap:12px;justify-content:flex-end;">
           <div style="text-align:right;">
-            <div style="font-size:17px;font-weight:800;color:var(--t1);">${g.home}${c.homeB2B ? '<span style="font-size:9px;background:rgba(251,191,36,.2);color:rgb(251,191,36);border-radius:4px;padding:1px 4px;margin-left:5px;font-weight:600;">B2B</span>' : ''}</div>
+            <div style="font-size:17px;font-weight:800;color:var(--t1);">${g.home}${c.homeB2B ? '<span style="font-size:10px;background:rgba(251,191,36,.2);color:rgb(251,191,36);border-radius:4px;padding:1px 4px;margin-left:5px;font-weight:600;">B2B</span>' : ''}</div>
             <div style="font-size:11px;color:var(--t3);">${hRec}${c.hStats ? ` · ${c.hStats.homeNetRtg != null ? (c.hStats.homeNetRtg > 0 ? '+' : '') + c.hStats.homeNetRtg.toFixed(1) + ' Home' : (c.hStats.netRtg > 0 ? '+' : '') + c.hStats.netRtg.toFixed(1) + ' NR'}` : ''}</div>
           </div>
           ${glLogo(g.home)}
@@ -7327,10 +7594,10 @@ async function renderGameLines() {
 
       <!-- Recs summary bar -->
       ${hasRec ? `<div style="padding:8px 16px;background:rgba(34,197,94,.04);border-top:1px solid rgba(34,197,94,.15);display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-        <span style="font-size:10px;font-weight:700;color:var(--g);text-transform:uppercase;">Value Found</span>
-        ${mlRec ? `<span style="font-size:10px;color:var(--t2);">ML: ${mlRec.team} (EV ${glFmtEV(mlRec.team === g.home ? c.hMLEV : c.aMLEV)})</span>` : ''}
-        ${spreadRec ? `<span style="font-size:10px;color:var(--t2);">Spread: ${spreadRec.side === 'home' ? g.home : g.away} (EV ${glFmtEV(spreadRec.side === 'home' ? c.homeSpreadEV : c.awaySpreadEV)})</span>` : ''}
-        ${totalRec ? `<span style="font-size:10px;color:var(--t2);">Total: ${totalRec.side === 'over' ? 'Over' : 'Under'} (EV ${glFmtEV(totalRec.side === 'over' ? c.overEV : c.underEV)})</span>` : ''}
+        <span style="font-size:11px;font-weight:700;color:var(--g);text-transform:uppercase;">Value Found</span>
+        ${mlRec ? `<span style="font-size:11px;color:var(--t2);">ML: ${mlRec.team} (EV ${glFmtEV(mlRec.team === g.home ? c.hMLEV : c.aMLEV)})</span>` : ''}
+        ${spreadRec ? `<span style="font-size:11px;color:var(--t2);">Spread: ${spreadRec.side === 'home' ? g.home : g.away} (EV ${glFmtEV(spreadRec.side === 'home' ? c.homeSpreadEV : c.awaySpreadEV)})</span>` : ''}
+        ${totalRec ? `<span style="font-size:11px;color:var(--t2);">Total: ${totalRec.side === 'over' ? 'Over' : 'Under'} (EV ${glFmtEV(totalRec.side === 'over' ? c.overEV : c.underEV)})</span>` : ''}
       </div>` : ''}
     </div>`;
   }).join('');
@@ -7349,18 +7616,18 @@ async function renderGameLines() {
       const aRec=c.aStats?c.aStats.w+'-'+c.aStats.l:'';
       const sd=_scoreMap[g.away+'|'+g.home];
       let html='<div style="background:var(--bg2);border:1px solid var(--bd);border-radius:12px;padding:14px;position:relative;">';
-      html+='<div style="position:absolute;top:8px;right:10px;font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;background:'+badgeColor+';color:'+(badge==='LIVE'?'#f59e0b':'var(--t3)')+';border:1px solid '+badgeColor.replace('.15)','.3)')+';">'+badge+'</div>';
-      html+='<div style="font-size:10px;color:var(--t3);margin-bottom:8px;">'+etStr+' ET</div>';
+      html+='<div style="position:absolute;top:8px;right:10px;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;background:'+badgeColor+';color:'+(badge==='LIVE'?'#f59e0b':'var(--t3)')+';border:1px solid '+badgeColor.replace('.15)','.3)')+';">'+badge+'</div>';
+      html+='<div style="font-size:11px;color:var(--t3);margin-bottom:8px;">'+etStr+' ET</div>';
       html+='<div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">';
       html+='<div style="text-align:center;flex:1;">';
       if(aLogo) html+='<img src="'+aLogo+'" style="width:32px;height:32px;object-fit:contain;" alt="">';
       html+='<div style="font-size:13px;font-weight:700;color:var(--t1);">'+g.away+'</div>';
-      html+='<div style="font-size:10px;color:var(--t3);">'+aRec+'</div>';
+      html+='<div style="font-size:11px;color:var(--t3);">'+aRec+'</div>';
       if(sd) html+='<div style="font-size:16px;font-weight:800;color:var(--t1);margin-top:2px;">'+sd.awayScore+'</div>';
       html+='</div><div style="font-size:11px;color:var(--t3);font-weight:600;">@</div><div style="text-align:center;flex:1;">';
       if(hLogo) html+='<img src="'+hLogo+'" style="width:32px;height:32px;object-fit:contain;" alt="">';
       html+='<div style="font-size:13px;font-weight:700;color:var(--t1);">'+g.home+'</div>';
-      html+='<div style="font-size:10px;color:var(--t3);">'+hRec+'</div>';
+      html+='<div style="font-size:11px;color:var(--t3);">'+hRec+'</div>';
       if(sd) html+='<div style="font-size:16px;font-weight:800;color:var(--t1);margin-top:2px;">'+sd.homeScore+'</div>';
       html+='</div></div>';
       if(c.homeWinProb) html+='<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--t2);"><span>'+g.away+' '+(c.awayWinProb*100).toFixed(1)+'%</span><span>'+g.home+' '+(c.homeWinProb*100).toFixed(1)+'%</span></div>';
@@ -7370,9 +7637,9 @@ async function renderGameLines() {
     }).join('');
     return '<div style="grid-column:1/-1;margin-top:16px;">'+
       '<div onclick="const c=this.nextElementSibling;c.style.display=c.style.display===\'none\'?\'\':\'none\';this.querySelector(\'.started-arrow\').textContent=c.style.display===\'none\'?\'▶\':\'▼\'" style="cursor:pointer;display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--bg2);border:1px solid var(--bd);border-radius:8px;user-select:none;">'+
-        '<span class="started-arrow" style="font-size:10px;color:var(--t3);">▶</span>'+
+        '<span class="started-arrow" style="font-size:11px;color:var(--t3);">▶</span>'+
         '<span style="font-size:12px;font-weight:700;color:var(--t2);">'+label+' ('+list.length+')</span>'+
-        '<span style="font-size:10px;color:var(--t3);margin-left:auto;">'+desc+'</span>'+
+        '<span style="font-size:11px;color:var(--t3);margin-left:auto;">'+desc+'</span>'+
       '</div>'+
       '<div style="display:none;margin-top:8px;opacity:.7;">'+
         '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:14px;">'+cards+'</div>'+
@@ -7416,12 +7683,12 @@ function openGLDetailModal(gi) {
     <!-- Teams header -->
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
       <div style="display:flex;align-items:center;gap:10px;">${teamLogo(g.away)}<div>
-        <div style="font-size:16px;font-weight:800;color:var(--t1);">${g.away}${c.awayB2B ? ' <span style="font-size:9px;background:rgba(251,191,36,.2);color:rgb(251,191,36);border-radius:4px;padding:1px 4px;font-weight:600;">B2B</span>' : ''}</div>
+        <div style="font-size:16px;font-weight:800;color:var(--t1);">${g.away}${c.awayB2B ? ' <span style="font-size:10px;background:rgba(251,191,36,.2);color:rgb(251,191,36);border-radius:4px;padding:1px 4px;font-weight:600;">B2B</span>' : ''}</div>
         <div style="font-size:11px;color:var(--t3);">${c.aStats ? c.aStats.w + '-' + c.aStats.l : ''}</div>
       </div></div>
       <div style="font-size:13px;font-weight:700;color:var(--t3);">@</div>
       <div style="display:flex;align-items:center;gap:10px;"><div style="text-align:right;">
-        <div style="font-size:16px;font-weight:800;color:var(--t1);">${g.home}${c.homeB2B ? ' <span style="font-size:9px;background:rgba(251,191,36,.2);color:rgb(251,191,36);border-radius:4px;padding:1px 4px;font-weight:600;">B2B</span>' : ''}</div>
+        <div style="font-size:16px;font-weight:800;color:var(--t1);">${g.home}${c.homeB2B ? ' <span style="font-size:10px;background:rgba(251,191,36,.2);color:rgb(251,191,36);border-radius:4px;padding:1px 4px;font-weight:600;">B2B</span>' : ''}</div>
         <div style="font-size:11px;color:var(--t3);">${c.hStats ? c.hStats.w + '-' + c.hStats.l : ''}</div>
       </div>${teamLogo(g.home)}</div>
     </div>
@@ -7442,12 +7709,12 @@ function openGLDetailModal(gi) {
     <div style="background:var(--bg2);border:1px solid var(--bd);border-radius:10px;padding:14px;margin-bottom:18px;">
       <div style="font-size:12px;font-weight:700;color:var(--t1);margin-bottom:10px;">Spread Model</div>
       <div style="display:grid;gap:6px;font-size:11px;">
-        <div style="display:flex;justify-content:space-between;"><span style="color:var(--t3);">${g.home} Net Rtg <span style="font-size:10px;">(${usingSplits ? 'home split' : 'overall'})</span></span><span style="color:var(--t1);font-weight:600;">${hNR}</span></div>
-        <div style="display:flex;justify-content:space-between;"><span style="color:var(--t3);">${g.away} Net Rtg <span style="font-size:10px;">(${usingSplits ? 'away split' : 'overall'})</span></span><span style="color:var(--t1);font-weight:600;">${aNR}</span></div>
+        <div style="display:flex;justify-content:space-between;"><span style="color:var(--t3);">${g.home} Net Rtg <span style="font-size:11px;">(${usingSplits ? 'home split' : 'overall'})</span></span><span style="color:var(--t1);font-weight:600;">${hNR}</span></div>
+        <div style="display:flex;justify-content:space-between;"><span style="color:var(--t3);">${g.away} Net Rtg <span style="font-size:11px;">(${usingSplits ? 'away split' : 'overall'})</span></span><span style="color:var(--t1);font-weight:600;">${aNR}</span></div>
         <div style="display:flex;justify-content:space-between;"><span style="color:var(--t3);">HCA</span><span style="color:var(--t1);font-weight:600;">${usingSplits ? 'In splits' : '+' + FALLBACK_HCA}</span></div>
-        <div style="font-size:10px;color:var(--t3);border-top:1px solid var(--bd);padding-top:4px;">Base = (${hNR} - (${aNR})) × ${MARGIN_REGRESS}${usingSplits ? '' : ' + ' + FALLBACK_HCA} = <strong style="color:var(--t1);">${c.baseMargin != null ? (c.baseMargin > 0 ? '+' : '') + c.baseMargin : '—'}</strong></div>
+        <div style="font-size:11px;color:var(--t3);border-top:1px solid var(--bd);padding-top:4px;">Base = (${hNR} - (${aNR})) × ${MARGIN_REGRESS}${usingSplits ? '' : ' + ' + FALLBACK_HCA} = <strong style="color:var(--t1);">${c.baseMargin != null ? (c.baseMargin > 0 ? '+' : '') + c.baseMargin : '—'}</strong></div>
         ${c.homeB2B || c.awayB2B ? `<div style="display:flex;justify-content:space-between;"><span style="color:#f59e0b;">B2B${c.homeB2B ? ' (' + g.home + ' home -' + B2B_HOME_ADJ + ')' : ''}${c.awayB2B ? ' (' + g.away + ' away +' + B2B_AWAY_ADJ + ')' : ''}</span><span style="color:#f59e0b;font-weight:600;">${c.b2bAdj > 0 ? '+' : ''}${c.b2bAdj.toFixed(1)}</span></div>` : ''}
-        ${c.hInjAdj || c.aInjAdj ? `<div style="display:flex;justify-content:space-between;"><span style="color:#f59e0b;">Injury <span style="font-size:10px;">(${c.hInjAdj ? g.home+' '+c.hInjAdj.toFixed(1) : ''}${c.hInjAdj && c.aInjAdj ? ', ' : ''}${c.aInjAdj ? g.away+' '+c.aInjAdj.toFixed(1) : ''}) × ${INJURY_DAMPEN}</span></span><span style="color:#f59e0b;font-weight:600;">${injAdjTotal > 0 ? '+' : ''}${injAdjTotal}</span></div>` : ''}
+        ${c.hInjAdj || c.aInjAdj ? `<div style="display:flex;justify-content:space-between;"><span style="color:#f59e0b;">Injury <span style="font-size:11px;">(${c.hInjAdj ? g.home+' '+c.hInjAdj.toFixed(1) : ''}${c.hInjAdj && c.aInjAdj ? ', ' : ''}${c.aInjAdj ? g.away+' '+c.aInjAdj.toFixed(1) : ''}) × ${INJURY_DAMPEN}</span></span><span style="color:#f59e0b;font-weight:600;">${injAdjTotal > 0 ? '+' : ''}${injAdjTotal}</span></div>` : ''}
         <div style="display:flex;justify-content:space-between;border-top:1px solid var(--bd);padding-top:6px;"><span style="color:var(--t1);font-weight:700;">Predicted Spread (${g.home})</span><span style="color:var(--g);font-weight:800;font-size:14px;">${c.predSpread != null ? (c.predSpread > 0 ? '+' : '') + c.predSpread : '—'}</span></div>
       </div>
     </div>
@@ -7462,16 +7729,16 @@ function openGLDetailModal(gi) {
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
         <div style="background:var(--bg1);border-radius:8px;padding:10px;text-align:center;">
           <div style="font-size:11px;color:var(--b);font-weight:700;margin-bottom:2px;">${g.home} ${g.spread.homeSpread > 0 ? '+' : ''}${g.spread.homeSpread}</div>
-          <div style="font-size:10px;color:var(--t3);margin-bottom:4px;">P(margin > ${(-g.spread.homeSpread)})</div>
+          <div style="font-size:11px;color:var(--t3);margin-bottom:4px;">P(margin > ${(-g.spread.homeSpread)})</div>
           <div style="font-size:16px;font-weight:800;color:var(--t1);">${c.homeCoverProb != null ? (c.homeCoverProb*100).toFixed(1) + '%' : '—'}</div>
-          <div style="font-size:10px;color:var(--t3);margin-top:2px;">Implied: ${(glImpliedProb(g.spread.home)*100).toFixed(1)}%</div>
+          <div style="font-size:11px;color:var(--t3);margin-top:2px;">Implied: ${(glImpliedProb(g.spread.home)*100).toFixed(1)}%</div>
           ${c.homeSpreadEV != null ? `<div style="font-size:12px;font-weight:700;color:${c.homeSpreadEV > 0 ? 'var(--g)' : 'var(--r)'};">EV ${glFmtEV(c.homeSpreadEV)}</div>` : ''}
         </div>
         <div style="background:var(--bg1);border-radius:8px;padding:10px;text-align:center;">
           <div style="font-size:11px;color:var(--b);font-weight:700;margin-bottom:2px;">${g.away} ${g.spread.homeSpread < 0 ? '+' : ''}${(-g.spread.homeSpread)}</div>
-          <div style="font-size:10px;color:var(--t3);margin-bottom:4px;">P(margin < ${(-g.spread.homeSpread)})</div>
+          <div style="font-size:11px;color:var(--t3);margin-bottom:4px;">P(margin < ${(-g.spread.homeSpread)})</div>
           <div style="font-size:16px;font-weight:800;color:var(--t1);">${c.awayCoverProb != null ? (c.awayCoverProb*100).toFixed(1) + '%' : '—'}</div>
-          <div style="font-size:10px;color:var(--t3);margin-top:2px;">Implied: ${(glImpliedProb(g.spread.away)*100).toFixed(1)}%</div>
+          <div style="font-size:11px;color:var(--t3);margin-top:2px;">Implied: ${(glImpliedProb(g.spread.away)*100).toFixed(1)}%</div>
           ${c.awaySpreadEV != null ? `<div style="font-size:12px;font-weight:700;color:${c.awaySpreadEV > 0 ? 'var(--g)' : 'var(--r)'};">EV ${glFmtEV(c.awaySpreadEV)}</div>` : ''}
         </div>
       </div>
@@ -7483,23 +7750,23 @@ function openGLDetailModal(gi) {
       <div style="font-size:11px;color:var(--t3);margin-bottom:4px;">
         Predicted total: <strong style="color:var(--t1);">${c.predTotal}</strong> (book line: ${g.total.line})
       </div>
-      <div style="font-size:10px;color:var(--t3);margin-bottom:8px;">
+      <div style="font-size:11px;color:var(--t3);margin-bottom:8px;">
         = (${g.home} ORTG + ${g.away} DRTG) / 2 × pace / 100 + (${g.away} ORTG + ${g.home} DRTG) / 2 × pace / 100<br>
         Normal CDF with σ=${GL_TOTAL_SIGMA} (NBA total variance)
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
         <div style="background:var(--bg1);border-radius:8px;padding:10px;text-align:center;">
           <div style="font-size:11px;color:var(--b);font-weight:700;margin-bottom:2px;">Over ${g.total.line}</div>
-          <div style="font-size:10px;color:var(--t3);margin-bottom:4px;">P(total > ${g.total.line})</div>
+          <div style="font-size:11px;color:var(--t3);margin-bottom:4px;">P(total > ${g.total.line})</div>
           <div style="font-size:16px;font-weight:800;color:var(--t1);">${c.overProb != null ? (c.overProb*100).toFixed(1) + '%' : '—'}</div>
-          <div style="font-size:10px;color:var(--t3);margin-top:2px;">Implied: ${(glImpliedProb(g.total.over)*100).toFixed(1)}%</div>
+          <div style="font-size:11px;color:var(--t3);margin-top:2px;">Implied: ${(glImpliedProb(g.total.over)*100).toFixed(1)}%</div>
           ${c.overEV != null ? `<div style="font-size:12px;font-weight:700;color:${c.overEV > 0 ? 'var(--g)' : 'var(--r)'};">EV ${glFmtEV(c.overEV)}</div>` : ''}
         </div>
         <div style="background:var(--bg1);border-radius:8px;padding:10px;text-align:center;">
           <div style="font-size:11px;color:var(--b);font-weight:700;margin-bottom:2px;">Under ${g.total.line}</div>
-          <div style="font-size:10px;color:var(--t3);margin-bottom:4px;">P(total < ${g.total.line})</div>
+          <div style="font-size:11px;color:var(--t3);margin-bottom:4px;">P(total < ${g.total.line})</div>
           <div style="font-size:16px;font-weight:800;color:var(--t1);">${c.underProb != null ? (c.underProb*100).toFixed(1) + '%' : '—'}</div>
-          <div style="font-size:10px;color:var(--t3);margin-top:2px;">Implied: ${(glImpliedProb(g.total.under)*100).toFixed(1)}%</div>
+          <div style="font-size:11px;color:var(--t3);margin-top:2px;">Implied: ${(glImpliedProb(g.total.under)*100).toFixed(1)}%</div>
           ${c.underEV != null ? `<div style="font-size:12px;font-weight:700;color:${c.underEV > 0 ? 'var(--g)' : 'var(--r)'};">EV ${glFmtEV(c.underEV)}</div>` : ''}
         </div>
       </div>
@@ -7508,18 +7775,18 @@ function openGLDetailModal(gi) {
     <!-- Moneyline Probability -->
     ${c.homeWinProb != null && g.h2h ? `<div style="background:var(--bg2);border:1px solid var(--bd);border-radius:10px;padding:14px;margin-bottom:18px;">
       <div style="font-size:12px;font-weight:700;color:var(--t1);margin-bottom:10px;">Moneyline Probability</div>
-      <div style="font-size:10px;color:var(--t3);margin-bottom:8px;">Win prob from predicted spread via logistic: 1 / (1 + 10^(-margin / 12))</div>
+      <div style="font-size:11px;color:var(--t3);margin-bottom:8px;">Win prob from predicted spread via logistic: 1 / (1 + 10^(-margin / 12))</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
         <div style="background:var(--bg1);border-radius:8px;padding:10px;text-align:center;">
           <div style="font-size:11px;color:var(--b);font-weight:700;margin-bottom:2px;">${g.away} ML</div>
           <div style="font-size:16px;font-weight:800;color:var(--t1);">${(c.awayWinProb*100).toFixed(1)}%</div>
-          <div style="font-size:10px;color:var(--t3);margin-top:2px;">Implied: ${(glImpliedProb(g.h2h.away)*100).toFixed(1)}% (${glFmtOdds(g.h2h.away)})</div>
+          <div style="font-size:11px;color:var(--t3);margin-top:2px;">Implied: ${(glImpliedProb(g.h2h.away)*100).toFixed(1)}% (${glFmtOdds(g.h2h.away)})</div>
           ${c.aMLEV != null ? `<div style="font-size:12px;font-weight:700;color:${c.aMLEV > 0 ? 'var(--g)' : 'var(--r)'};">EV ${glFmtEV(c.aMLEV)}</div>` : ''}
         </div>
         <div style="background:var(--bg1);border-radius:8px;padding:10px;text-align:center;">
           <div style="font-size:11px;color:var(--b);font-weight:700;margin-bottom:2px;">${g.home} ML</div>
           <div style="font-size:16px;font-weight:800;color:var(--t1);">${(c.homeWinProb*100).toFixed(1)}%</div>
-          <div style="font-size:10px;color:var(--t3);margin-top:2px;">Implied: ${(glImpliedProb(g.h2h.home)*100).toFixed(1)}% (${glFmtOdds(g.h2h.home)})</div>
+          <div style="font-size:11px;color:var(--t3);margin-top:2px;">Implied: ${(glImpliedProb(g.h2h.home)*100).toFixed(1)}% (${glFmtOdds(g.h2h.home)})</div>
           ${c.hMLEV != null ? `<div style="font-size:12px;font-weight:700;color:${c.hMLEV > 0 ? 'var(--g)' : 'var(--r)'};">EV ${glFmtEV(c.hMLEV)}</div>` : ''}
         </div>
       </div>
@@ -7669,13 +7936,13 @@ function openGLBetModal(gi, betType) {
       <span class="modal-val" style="color:${evColor};font-weight:800;font-size:14px;">${glFmtEV(ev)}${isValue ? ' ⚡' : ''}</span>
     </div>
 
-    <div class="modal-row"><span class="modal-lbl">Model Prob</span><span class="modal-val">${(modelProb*100).toFixed(1)}% <span style="font-size:10px;color:var(--t3);">(implied: ${(implProb*100).toFixed(1)}%)</span></span></div>
-    <div class="modal-row"><span class="modal-lbl">Prob Method</span><span class="modal-val" style="font-size:10px;color:var(--t3);">${probMethod}</span></div>
+    <div class="modal-row"><span class="modal-lbl">Model Prob</span><span class="modal-val">${(modelProb*100).toFixed(1)}% <span style="font-size:11px;color:var(--t3);">(implied: ${(implProb*100).toFixed(1)}%)</span></span></div>
+    <div class="modal-row"><span class="modal-lbl">Prob Method</span><span class="modal-val" style="font-size:11px;color:var(--t3);">${probMethod}</span></div>
     <div class="modal-row" style="background:${kellyColor}10;border-radius:6px;padding:8px 4px;">
       <span class="modal-lbl">1/4 Kelly</span>
       <span class="modal-val" style="color:${kellyColor}">
         ${kellyPct}% = <strong>$${kellySuggest}</strong>
-        <button onclick="document.getElementById('glStakeInp').value=${kellySuggest};updateGLPayoutPreview();" style="margin-left:8px;padding:2px 8px;border-radius:5px;border:1px solid ${kellyColor};background:${kellyColor}20;color:${kellyColor};font-size:10px;font-weight:700;cursor:pointer;">Use</button>
+        <button onclick="document.getElementById('glStakeInp').value=${kellySuggest};updateGLPayoutPreview();" style="margin-left:8px;padding:2px 8px;border-radius:5px;border:1px solid ${kellyColor};background:${kellyColor}20;color:${kellyColor};font-size:11px;font-weight:700;cursor:pointer;">Use</button>
       </span>
     </div>
     <div class="modal-row"><span class="modal-lbl">Balance</span><span class="modal-val">$${sim.balance.toFixed(2)}</span></div>
@@ -8131,12 +8398,12 @@ function renderSharedBetTab(p) {
     <div class="modal-row"><span class="modal-lbl">Matchup</span><span class="modal-val">${p.matchup||'—'}</span></div>
     <div class="modal-row"><span class="modal-lbl">Line</span><span class="modal-val">${p.line} ${mktLabel}</span></div>
     <div class="modal-row"><span class="modal-lbl">Edge</span><span class="modal-val" style="color:${edge>0?'var(--g)':'var(--r)'}">${edge>0?'+':''}${edge.toFixed(1)}%${isValue?' ⚡':''}</span></div>
-    <div class="modal-row"><span class="modal-lbl">Model Prob</span><span class="modal-val">${(modelProb*100).toFixed(0)}% <span style="font-size:10px;color:var(--t3);">(weighted: L5×35%+L10×40%+Season×25%)</span></span></div>
+    <div class="modal-row"><span class="modal-lbl">Model Prob</span><span class="modal-val">${(modelProb*100).toFixed(0)}% <span style="font-size:11px;color:var(--t3);">(weighted: L5×35%+L10×40%+Season×25%)</span></span></div>
     <div class="modal-row" style="background:${kellyColor}10;border-radius:6px;padding:8px 4px;">
       <span class="modal-lbl">¼ Kelly Stake</span>
       <span class="modal-val" style="color:${kellyColor}">
         ${kellyPct}% of bankroll = <strong>$${kellySuggest}</strong>
-        <button onclick="document.getElementById('stakeInp').value=${kellySuggest};updatePayoutPreview();" style="margin-left:8px;padding:2px 8px;border-radius:5px;border:1px solid ${kellyColor};background:${kellyColor}20;color:${kellyColor};font-size:10px;font-weight:700;cursor:pointer;">Use</button>
+        <button onclick="document.getElementById('stakeInp').value=${kellySuggest};updatePayoutPreview();" style="margin-left:8px;padding:2px 8px;border-radius:5px;border:1px solid ${kellyColor};background:${kellyColor}20;color:${kellyColor};font-size:11px;font-weight:700;cursor:pointer;">Use</button>
       </span>
     </div>
     <div class="modal-row"><span class="modal-lbl">Balance</span><span class="modal-val">$${sim.balance.toFixed(2)}</span></div>
@@ -8180,6 +8447,12 @@ function renderSharedStatsTab(p, el) {
     ${booksTab}
     <button class="di-tab" onclick="showSharedDTab('simulator',this)">⚡ Line Sim</button>
   </div>
+  <div class="dfs-toggle" id="dfs-toggle-shared">
+    <button class="dfs-toggle-btn on" onclick="switchDFSView('shared','sportsbook',this)">${bookBadge('combined',14)} Sportsbook Avg</button>
+    <button class="dfs-toggle-btn pp" onclick="switchDFSView('shared','prizepicks',this)">${bookBadge('prizepicks',14)} PrizePicks</button>
+    <button class="dfs-toggle-btn ud" onclick="switchDFSView('shared','underdog',this)">${bookBadge('underdog',14)} Underdog</button>
+  </div>
+  <div id="dfs-compare-shared"></div>
   <div id="sharedDtc"></div>`;
   window._dp = p;
   showSharedDTab('overview', el.querySelector('.di-tab'));

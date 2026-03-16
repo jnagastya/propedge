@@ -494,9 +494,9 @@ async function sbGetTeamStats() {
     const { data, error } = await supabase.from('odds_cache')
       .select('players, last_fetched').eq('book', 'team_stats').single();
     if (error || !data) return null;
-    // Check freshness — stale after 6 hours
+    // Check freshness — stale after 48 hours (team stats change slowly, keep model working)
     const age = (Date.now() - new Date(data.last_fetched).getTime()) / (1000 * 60 * 60);
-    if (age > 6) return null;
+    if (age > 48) return null;
     return data.players; // the JSON blob
   } catch { return null; }
 }
@@ -683,6 +683,11 @@ const BDL_PLAYER_OVERRIDES = {
   'Khris Middleton':         { id: 315,           position: 'F', team: 'DAL' },
   'Devin Carter':            { id: 1028025242,    position: 'G', team: 'SAC' },
   'Zach LaVine':             { id: 268,           position: 'G', team: 'SAC' },
+  'Collin Sexton':           { id: 413,           position: 'G', team: 'CHI' },
+  'Walter Clayton Jr.':      { id: 1057271583,    position: 'G', team: 'MEM' },
+  'Nick Richards':           { id: 3547282,        position: 'C', team: 'CHI' },
+  'Harrison Barnes':         { id: 30,             position: 'F', team: 'SAS' },
+  'Isaiah Jackson':          { id: 17896035,       position: 'F', team: 'LAC' },
 };
 
 // Search BDL for player ID + position by name, cached 24h
@@ -845,7 +850,7 @@ function aggregatePlayers(rawProps, book) {
 
     if (book === 'combined') {
       // Aggregate regulated US sportsbooks only — exclude offshore/unlicensed books
-      const EXCLUDED_BOOKS = new Set(['bovada', 'betonlineag', 'mybookieag', 'lowvig']);
+      const EXCLUDED_BOOKS = new Set(['bovada', 'betonlineag', 'mybookieag', 'lowvig', 'prizepicks', 'underdog']);
       const playerMap = {}; // key = playerName|market
       evt.bookmakers.filter(bk => !EXCLUDED_BOOKS.has(bk.key)).forEach(bk => {
         bk.markets?.forEach(mkt => {
@@ -913,7 +918,7 @@ app.get('/api/odds/events', async (req, res) => {
     const cached = cacheGet(ck);
     if (cached) return res.json({ data: cached, cached: true });
 
-    const url = `${ODDS_BASE}/sports/basketball_nba/events?apiKey=${ODDS_KEY}&regions=us&oddsFormat=american`;
+    const url = `${ODDS_BASE}/sports/basketball_nba/events?apiKey=${ODDS_KEY}&regions=us,us_dfs&oddsFormat=american`;
     const resp = await fetch(url);
     if (!resp.ok) throw new Error(`Odds API returned ${resp.status}: ${await resp.text()}`);
 
@@ -941,7 +946,7 @@ app.get('/api/odds/props/:eventId', async (req, res) => {
     const cached = cacheGet(ck);
     if (cached) return res.json({ data: cached, cached: true });
 
-    const url = `${ODDS_BASE}/sports/basketball_nba/events/${eventId}/odds?apiKey=${ODDS_KEY}&regions=us&markets=${market}&oddsFormat=american`;
+    const url = `${ODDS_BASE}/sports/basketball_nba/events/${eventId}/odds?apiKey=${ODDS_KEY}&regions=us,us_dfs&markets=${market}&oddsFormat=american`;
     const resp = await fetch(url);
     if (!resp.ok) throw new Error(`Props API returned ${resp.status}`);
 
@@ -970,7 +975,7 @@ app.get('/api/odds/props-all', async (req, res) => {
     if (cached) return res.json({ data: cached, cached: true });
 
     // 1. Get events
-    const evtUrl = `${ODDS_BASE}/sports/basketball_nba/events?apiKey=${ODDS_KEY}&regions=us&oddsFormat=american`;
+    const evtUrl = `${ODDS_BASE}/sports/basketball_nba/events?apiKey=${ODDS_KEY}&regions=us,us_dfs&oddsFormat=american`;
     const evtResp = await fetch(evtUrl);
     if (!evtResp.ok) throw new Error(`Events: ${evtResp.status}`);
     const events = await evtResp.json();
@@ -978,7 +983,7 @@ app.get('/api/odds/props-all', async (req, res) => {
     // 2. Fetch props for each event (limit to 8 to conserve calls)
     const propPromises = events.slice(0, 8).map(async (evt) => {
       try {
-        const pUrl = `${ODDS_BASE}/sports/basketball_nba/events/${evt.id}/odds?apiKey=${ODDS_KEY}&regions=us&markets=${market}&oddsFormat=american`;
+        const pUrl = `${ODDS_BASE}/sports/basketball_nba/events/${evt.id}/odds?apiKey=${ODDS_KEY}&regions=us,us_dfs&markets=${market}&oddsFormat=american`;
         const pResp = await fetch(pUrl);
         if (!pResp.ok) return null;
         return await pResp.json();
@@ -1373,14 +1378,14 @@ app.get('/api/analytics/merged', async (req, res) => {
       // Layer 2: Live Odds API fallback (only if Supabase has no data yet)
       const now = new Date();
       allPlayers = [];
-      const evtResp = await fetch(`${ODDS_BASE}/sports/basketball_nba/events?apiKey=${ODDS_KEY}&regions=us&oddsFormat=american`);
+      const evtResp = await fetch(`${ODDS_BASE}/sports/basketball_nba/events?apiKey=${ODDS_KEY}&regions=us,us_dfs&oddsFormat=american`);
       if (evtResp.ok) {
         const events = await evtResp.json();
         const upcomingEvents = events.filter(evt => new Date(evt.commence_time) > now);
 
         const propPromises = upcomingEvents.map(async (evt) => {
           try {
-            const pUrl = `${ODDS_BASE}/sports/basketball_nba/events/${evt.id}/odds?apiKey=${ODDS_KEY}&regions=us&markets=${ALL_PROP_MARKETS}&oddsFormat=american`;
+            const pUrl = `${ODDS_BASE}/sports/basketball_nba/events/${evt.id}/odds?apiKey=${ODDS_KEY}&regions=us,us_dfs&markets=${ALL_PROP_MARKETS}&oddsFormat=american`;
             const pResp = await fetch(pUrl);
             return pResp.ok ? await pResp.json() : null;
           } catch { return null; }
@@ -2782,7 +2787,7 @@ app.get('/api/cron/refresh-team-stats', async (req, res) => {
     };
 
     // Cache in memory + Supabase
-    cacheSet('team_stats', combined, 6 * 60 * 60);
+    cacheSet('team_stats', combined, 20 * 60 * 60);
     await sbSetTeamStats(combined);
 
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
@@ -2802,7 +2807,7 @@ app.get('/api/team-stats', async (req, res) => {
   if (!stats) {
     // Try Supabase
     stats = await sbGetTeamStats();
-    if (stats) cacheSet('team_stats', stats, 6 * 60 * 60);
+    if (stats) cacheSet('team_stats', stats, 20 * 60 * 60);
   }
   if (!stats) return res.status(404).json({ error: 'Team stats not cached yet. Run /api/cron/refresh-team-stats first.' });
 
@@ -2832,7 +2837,7 @@ app.get('/api/game-lines', async (req, res) => {
     let ts = cacheGet('team_stats');
     if (!ts) {
       ts = await sbGetTeamStats();
-      if (ts) cacheSet('team_stats', ts, 6 * 60 * 60);
+      if (ts) cacheSet('team_stats', ts, 20 * 60 * 60);
     }
 
     res.json({ games: lines, teamStats: ts });
@@ -2851,7 +2856,7 @@ app.get('/api/cron/refresh-odds', async (req, res) => {
 
   try {
     // Fetch upcoming events (include recently started games so their props survive in cache)
-    const evtResp = await fetch(`${ODDS_BASE}/sports/basketball_nba/events?apiKey=${ODDS_KEY}&regions=us&oddsFormat=american`);
+    const evtResp = await fetch(`${ODDS_BASE}/sports/basketball_nba/events?apiKey=${ODDS_KEY}&regions=us,us_dfs&oddsFormat=american`);
     if (!evtResp.ok) return res.status(502).json({ error: `Events fetch failed: ${evtResp.status}` });
     const events = await evtResp.json();
     const now = new Date();
@@ -2865,13 +2870,13 @@ app.get('/api/cron/refresh-odds', async (req, res) => {
 
     // Fetch all upcoming games in parallel (fast — fits within 10s Hobby timeout)
     const rawProps = (await Promise.allSettled(upcoming.map(async evt => {
-      const pUrl = `${ODDS_BASE}/sports/basketball_nba/events/${evt.id}/odds?apiKey=${ODDS_KEY}&regions=us&markets=${ALL_PROP_MARKETS}&oddsFormat=american`;
+      const pUrl = `${ODDS_BASE}/sports/basketball_nba/events/${evt.id}/odds?apiKey=${ODDS_KEY}&regions=us,us_dfs&markets=${ALL_PROP_MARKETS}&oddsFormat=american`;
       const pResp = await fetch(pUrl);
       return pResp.ok ? pResp.json() : null;
     }))).filter(r => r.status === 'fulfilled' && r.value).map(r => r.value);
 
     // Aggregate for all book modes, fetch previous data in parallel
-    const books = ['combined', 'draftkings', 'fanduel', 'betmgm', 'caesars', 'pointsbet'];
+    const books = ['combined', 'draftkings', 'fanduel', 'betmgm', 'prizepicks', 'underdog'];
     const prevData = await Promise.all(books.map(b => sbGetOdds(b)));
     const prevByBook = {};
     books.forEach((b, i) => { prevByBook[b] = prevData[i]; });
@@ -2943,7 +2948,7 @@ app.get('/api/cron/refresh-game-lines', async (req, res) => {
 
   try {
     const now = new Date();
-    const glResp = await fetch(`${ODDS_BASE}/sports/basketball_nba/odds?apiKey=${ODDS_KEY}&regions=us&markets=h2h,spreads,totals&oddsFormat=american`);
+    const glResp = await fetch(`${ODDS_BASE}/sports/basketball_nba/odds?apiKey=${ODDS_KEY}&regions=us,us_dfs&markets=h2h,spreads,totals&oddsFormat=american`);
     if (!glResp.ok) return res.status(502).json({ error: `Game lines fetch failed: ${glResp.status}` });
 
     const glEvents = await glResp.json();
@@ -2952,7 +2957,7 @@ app.get('/api/cron/refresh-game-lines', async (req, res) => {
     const gameLines = glEvents.filter(e => new Date(e.commence_time) >= glCutoff).map(evt => {
       const home = teamAbbr(evt.home_team), away = teamAbbr(evt.away_team);
       const line = { id: evt.id, home, away, commence: evt.commence_time, matchup: `${away} @ ${home}`, books: {} };
-      const EXCLUDED = new Set(['bovada', 'betonlineag', 'mybookieag', 'lowvig']);
+      const EXCLUDED = new Set(['bovada', 'betonlineag', 'mybookieag', 'lowvig', 'prizepicks', 'underdog']);
       for (const bk of (evt.bookmakers || []).filter(b => !EXCLUDED.has(b.key))) {
         const bEntry = {};
         for (const mkt of (bk.markets || [])) {
@@ -5166,7 +5171,7 @@ app.get('/api/cron/agent-bet', async (req, res) => {
     let teamStats = cacheGet('team_stats');
     if (!teamStats) {
       teamStats = await sbGetTeamStats();
-      if (teamStats) cacheSet('team_stats', teamStats, 6 * 60 * 60);
+      if (teamStats) cacheSet('team_stats', teamStats, 20 * 60 * 60);
     }
 
     // 4. For each player/market combo, compute stats and value score
