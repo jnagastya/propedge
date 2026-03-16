@@ -2038,10 +2038,10 @@ app.get('/api/injury-impact', async (req, res) => {
 
       // Filter teammate games to current team — allow null team if majority of games are on this team
       const tmTeamCounts = {};
-      for (const g of tmLog) { const t = g.team || 'null'; tmTeamCounts[t] = (tmTeamCounts[t] || 0) + 1; }
+      for (const g of tmLog) { const t = (!g.team || g.team === '???') ? 'null' : g.team; tmTeamCounts[t] = (tmTeamCounts[t] || 0) + 1; }
       const tmMajorityTeam = Object.entries(tmTeamCounts).sort((a, b) => b[1] - a[1])[0]?.[0];
       const tmAllowNull = tmMajorityTeam === teamFilter || tmMajorityTeam === 'null';
-      const tmTeamMatch = g => g.team === teamFilter || (tmAllowNull && !g.team);
+      const tmTeamMatch = g => g.team === teamFilter || (tmAllowNull && (!g.team || g.team === '???'));
       const tmPlayed = tmLog.filter(g => parseInt(g.min || '0') > 0 && tmTeamMatch(g));
       if (tmPlayed.length < 3) continue;
       // Skip low-minutes players — their absence doesn't meaningfully impact teammates
@@ -5049,10 +5049,10 @@ function serverApplyInjuryImpact(playerName, playerGameLog, playerTeam, market, 
     if (!tmLog?.length) continue;
     // Filter teammate games to current team — allow null team if majority of games are on this team
     const _tmTC = {};
-    for (const g of tmLog) { const t = g.team || 'null'; _tmTC[t] = (_tmTC[t] || 0) + 1; }
+    for (const g of tmLog) { const t = (!g.team || g.team === '???') ? 'null' : g.team; _tmTC[t] = (_tmTC[t] || 0) + 1; }
     const _tmMaj = Object.entries(_tmTC).sort((a, b) => b[1] - a[1])[0]?.[0];
     const _tmAllowNull = _tmMaj === playerTeam || _tmMaj === 'null';
-    const _tmMatch = g => g.team === playerTeam || (_tmAllowNull && !g.team);
+    const _tmMatch = g => g.team === playerTeam || (_tmAllowNull && (!g.team || g.team === '???'));
     const tmPlayed = tmLog.filter(g => parseInt(g.min || '0') > 0 && _tmMatch(g));
     if (tmPlayed.length < 3) continue;
     // Skip low-minutes players — their absence doesn't meaningfully impact teammates
