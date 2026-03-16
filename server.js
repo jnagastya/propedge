@@ -3115,6 +3115,19 @@ app.get('/api/debug/bdl', async (req, res) => {
   }
 });
 
+// Debug: fetch BDL team ID mapping
+app.get('/api/debug/bdl-teams', async (req, res) => {
+  if (!BDL_KEY) return res.status(503).json({ error: 'BDL_API_KEY not set' });
+  try {
+    const r = await fetch(`${BDL_BASE}/teams`, { headers: bdlHeaders() });
+    if (!r.ok) return res.status(r.status).json({ error: `BDL ${r.status}` });
+    const d = await r.json();
+    const map = {};
+    (d.data || []).forEach(t => { map[t.id] = t.abbreviation; });
+    res.json({ teams: map, count: Object.keys(map).length });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // ============================================================
 // ROUTE: POST /api/backfill-positions — look up BDL position for all Supabase players missing one
 // Fetches all player_stats rows with null position, queries BDL for each, writes back.
