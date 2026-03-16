@@ -2427,16 +2427,19 @@ app.post('/api/injury-impact-batch', async (req, res) => {
 
           // Build team breakdown from BDL game log
           const _tmTeamCounts = {};
-          for (const g of tmLog) { const t = g.team || '???'; _tmTeamCounts[t] = (_tmTeamCounts[t] || 0) + 1; }
+          for (const g of tmLog) { const t = (!g.team || g.team === '???') ? 'null' : g.team; _tmTeamCounts[t] = (_tmTeamCounts[t] || 0) + 1; }
+          const _bTmMaj = Object.entries(_tmTeamCounts).sort((a, b) => b[1] - a[1])[0]?.[0];
+          const _bTmAllowNull = _bTmMaj === teamFilter || _bTmMaj === 'null';
+          const _bTmMatch = g => g.team === teamFilter || (_bTmAllowNull && (!g.team || g.team === '???'));
 
-          const tmPlayed = tmLog.filter(g => parseInt(g.min || '0') > 0 && g.team === teamFilter);
-          if (tmPlayed.length < 5) continue;
+          const tmPlayed = tmLog.filter(g => parseInt(g.min || '0') > 0 && _bTmMatch(g));
+          if (tmPlayed.length < 3) continue;
           const tmMinAvgCheck = tmPlayed.reduce((s, g) => s + (parseFloat(g.min) || 0), 0) / tmPlayed.length;
           if (tmMinAvgCheck < 15) continue;
 
           const tmDnpDates = new Set(), tmPlayedDates = new Set();
           for (const g of tmLog) {
-            if (g.team !== teamFilter) continue;
+            if (!_bTmMatch(g)) continue;
             if (parseInt(g.min || '0') === 0) tmDnpDates.add(g.date);
             else tmPlayedDates.add(g.date);
           }
@@ -2468,7 +2471,17 @@ app.post('/api/injury-impact-batch', async (req, res) => {
             const confidence = totalGames / (totalGames + 20);
             const shrunkRatio = 1.0 + (rawRatio - 1.0) * confidence;
             const fadedRatio = 1.0 + (shrunkRatio - 1.0) * bakedInWeight;
-            const ratio = Math.max(0.70, Math.min(1.30, fadedRatio));
+            let ratio = Math.max(0.70, Math.min(1.30, fadedRatio));
+            // Production cap: adjustment can't exceed 40% of injured player's avg
+            const _bPlayerAvgCap = playerPlayed.reduce((s, g) => s + _statVal(g, market), 0) / playerPlayed.length;
+            if (tmAvg > 0 && _bPlayerAvgCap > 0) {
+              const maxAbsAdj = tmAvg * 0.40;
+              const absAdj = Math.abs(ratio - 1.0) * _bPlayerAvgCap;
+              if (absAdj > maxAbsAdj) {
+                const sign = ratio >= 1.0 ? 1 : -1;
+                ratio = 1.0 + sign * (maxAbsAdj / _bPlayerAvgCap);
+              }
+            }
             if (Math.abs(ratio - 1.0) < 0.03) continue;
 
             teammateImpacts.push({ name: inj.player, team: inj.team, bdlTeams: _tmTeamCounts, gamesOnTeam: tmPlayed.length, bakedIn: +(1 - bakedInWeight).toFixed(2), ratio: +ratio.toFixed(3), tmAvg: +tmAvg.toFixed(1), wo: wo.length, wi: wi.length, woMinAvg, wiMinAvg, speculative: false });
@@ -2484,14 +2497,26 @@ app.post('/api/injury-impact-batch', async (req, res) => {
               if (avg > 0) teamTotal += avg;
             }
 
+            // Scale redistribution by injured player's minutes: starters (30+) get 50%, role players get 35%
+            const _bTmMinAvg = tmPlayed.reduce((s, g) => s + (parseFloat(g.min) || 0), 0) / tmPlayed.length;
+            const _bRedistPct = _bTmMinAvg >= 30 ? 0.50 : _bTmMinAvg >= 24 ? 0.42 : 0.35;
             const remainingTotal = teamTotal - tmAvg;
             const playerShare = remainingTotal > 0 ? playerAvg / remainingTotal : 0;
             const tmPos = _posMap[inj.player] || _posMap[inj.resolvedName] || null;
             const affinity = getPosAffinity(tmPos, subjectPos, market);
-            const boost = tmAvg * 0.35 * playerShare * affinity;
+            const boost = tmAvg * _bRedistPct * playerShare * affinity;
             const rawRatio = (playerAvg + boost) / playerAvg;
             const fadedRatio = 1.0 + (rawRatio - 1.0) * bakedInWeight;
-            const capped = Math.max(0.70, Math.min(1.20, fadedRatio));
+            let capped = Math.max(0.70, Math.min(1.20, fadedRatio));
+            // Production cap: adjustment can't exceed 40% of injured player's avg in this market
+            if (tmAvg > 0 && playerAvg > 0) {
+              const maxAbsAdj = tmAvg * 0.40;
+              const absAdj = Math.abs(capped - 1.0) * playerAvg;
+              if (absAdj > maxAbsAdj) {
+                const sign = capped >= 1.0 ? 1 : -1;
+                capped = 1.0 + sign * (maxAbsAdj / playerAvg);
+              }
+            }
             if (Math.abs(capped - 1.0) < 0.03) continue;
 
             let specWoMinAvg = null;
