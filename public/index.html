@@ -2256,6 +2256,11 @@ const TEAM_MAP = {
   "Olivier-Maxence Prosper":"MEM","Cam Spencer":"MEM","Nicolas Claxton":"BKN",
   "Guerschon Yabusele":"CHI","Cedric Coward":"MEM","Ziaire Williams":"BKN",
   "Walter Clayton Jr.":"MEM","Nick Richards":"CHI","Isaiah Jackson":"LAC",
+  "Jose Alvarado":"NYK","Javonte Green":"DET","Grant Williams":"CHA",
+  "Jared McCain":"OKC","Anthony Gill":"WAS","Jordan Miller":"LAC",
+  "Patrick Williams":"CHI","Nicolas Claxton":"BKN","Drake Powell":"BKN",
+  "Ron Holland":"DET","Kobe Sanders":"LAC","Will Richard":"GSW",
+  "Aaron Wiggins":"OKC","Jaylin Williams":"OKC","Isaiah Stewart":"DET",
 };
 
 const TEAMMATES = {
@@ -5806,7 +5811,7 @@ function renderAlerts(){
             <button class="fav-btn${favorites.has(p.name)?' on':''}" data-name="${p.name.replace(/"/g,'&quot;')}" onclick="event.stopPropagation();toggleFav('${p.name.replace(/'/g,"\\'")}',event)" title="${favorites.has(p.name)?'Remove from watchlist':'Add to watchlist'}" style="font-size:13px;margin-left:2px;">${favorites.has(p.name)?'⭐':'☆'}</button>
             <button class="share-btn" onclick="event.stopPropagation();shareAlert(_vaAlerts[${rank}])" title="Share alert" style="margin-left:2px;">📤</button>
           </div>
-          <div class="va-meta">${p.team||''} · ${(p.matchup||'').substring(0,25)}${getInjuryBadge(p.name)}</div>
+          <div class="va-meta">${(!p.team||p.team==='???')?TEAM_MAP[p.name]||'':p.team} · ${(p.matchup||'').substring(0,25)}${getInjuryBadge(p.name)}</div>
           ${!p.hasRealStats?`<div style="margin-top:3px;"><span class="player-flag flag-est" style="font-size:10px;">⚠ Missing Stats — EV may be inaccurate</span></div>`:''}
           ${(()=>{const hasMove=p.prev_line!=null&&(p.prev_line!==p.line||p.prev_overOdds!==p.overOdds||p.prev_underOdds!==p.underOdds);const hasFlags=p.returnFromInjury>=2||p.minutesFlag||(p.dnpCount>=5)||hasMove||(p._adjTags&&p._adjTags.length);if(!hasFlags)return'';return`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;">${(p._adjTags||[]).map(t=>{const[type,val]=t.split(':');if(type==='min')return`<span class="player-flag" style="background:rgba(139,92,246,.12);color:#a78bfa;border:1px solid rgba(139,92,246,.3);">⏱ Smart Min → ${val}m</span>`;if(type==='inj')return`<span class="player-flag" style="background:rgba(245,158,11,.12);color:#f59e0b;border:1px solid rgba(245,158,11,.3);">🏥 ${p._injPctChange>0?'+':''}${p._injPctChange||0}%${p._injSpeculative?' ~est':''}</span>`;if(type==='dnp')return`<span class="player-flag" style="background:rgba(239,68,68,.12);color:#ef4444;border:1px solid rgba(239,68,68,.3);">⚠ DNP Adj → ${val}m</span>`;return'';}).filter(Boolean).join('')}${hasMove?`<span class="player-flag flag-mover">↕ Line Moved${p.prev_line!==p.line?' '+((p.line-p.prev_line)>0?'+':'')+((p.line-p.prev_line).toFixed(1)):' (odds)'}</span>`:''}${p.returnFromInjury>=2?`<span class="player-flag flag-injury">⚠ Back after ${p.returnFromInjury} games missed</span>`:''}${p.minutesFlag?`<span class="player-flag ${p.minutesFlag>0?'flag-minutes-up':'flag-minutes-down'}">⏱ ${Math.abs(Math.round(p.minutesFlag*100))}% ${p.minutesFlag>0?'↑ more':'↓ fewer'} minutes</span>`:''}${p.dnpCount>=5?`<span class="player-flag flag-dnp">✗ ${p.dnpCount} DNPs/10</span>`:''}</div>`;})()}</div>
         <div class="va-right">

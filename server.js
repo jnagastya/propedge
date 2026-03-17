@@ -1661,6 +1661,16 @@ function guessTeam(name) {
     'kyle kuzma':'WAS','bilal coulibaly':'WAS','tyus jones':'WAS','deni avdija':'WAS','marvin bagley iii':'WAS','trae young':'WAS','alex sarr':'WAS','carlton carrington':'WAS','will riley':'WAS','tre johnson':'WAS','anthony gill':'WAS',
     // BOS (additions)
     'neemias queta':'BOS',
+    // NYK
+    'jose alvarado':'NYK',
+    // DET
+    'javonte green':'DET',
+    // CHA
+    'grant williams':'CHA',
+    // LAC
+    'jordan miller':'LAC','kobe sanders':'LAC',
+    // GSW
+    'will richard':'GSW',
   };
   return map[name.toLowerCase()] || '???';
 }
