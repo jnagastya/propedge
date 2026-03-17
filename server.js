@@ -1672,7 +1672,7 @@ function guessTeam(name) {
     // GSW
     'will richard':'GSW',
   };
-  return map[name.toLowerCase()] || '???';
+  return map[name.toLowerCase()] || null;
 }
 
 
