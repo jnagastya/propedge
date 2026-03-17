@@ -2406,7 +2406,7 @@ function renderInjuryBreakdown(p){
   const isOver=p.edge>=0;
   const dirProb=isOver?(p.modelProb||0):1-(p.modelProb||0);
   const preDirProb=(pre.edge>=0)?(pre.modelProb||0):1-(pre.modelProb||0);
-  const avgD=p.avg-(pre.avg||0);
+  const avgD=p.avg-(pre.avgPreInj!=null?pre.avgPreInj:pre.avg||0);
   const mpD=(dirProb-preDirProb)*100;
   const edgeD=p.edge-(pre.edge||0);
   const evD=postDirEV-preDirEV;
@@ -4990,6 +4990,8 @@ function applyAllAdjustments(p){
     adj._adjTag=tags[0]?.startsWith('min:')?'min':'dnp';
   }
   if(injRatio){
+    // Capture avg after minutes but before injury — used for injury-only delta display
+    if(adj._injPre) adj._injPre.avgPreInj=adjAvg;
     // Compound injury ratio on top of minutes-adjusted avg
     adjAvg=+(adjAvg*injRatio).toFixed(1);
   }

@@ -705,6 +705,8 @@ const BDL_PLAYER_OVERRIDES = {
   'Drake Powell':            { id: 1057279425,     position: 'F', team: 'BKN' },
   'Patrick Williams':        { id: 3547248,        position: 'F', team: 'CHI' },
   'Jordan Miller':           { id: 56677856,       position: 'G', team: 'LAC' },
+  'Grant Williams':          { id: 666965,         position: 'F', team: 'CHA' },
+  'Javonte Green':           { id: 666604,         position: 'G', team: 'DET' },
 };
 
 // Search BDL for player ID + position by name, cached 24h
@@ -1638,7 +1640,7 @@ function guessTeam(name) {
     // NYK
     'jalen brunson':'NYK','karl-anthony towns':'NYK','mikal bridges':'NYK','og anunoby':'NYK','josh hart':'NYK','donte divincenzo':'NYK',
     // OKC
-    'shai gilgeous-alexander':'OKC','jalen williams':'OKC','chet holmgren':'OKC','lu dort':'OKC','isaiah joe':'OKC','alex caruso':'OKC',
+    'shai gilgeous-alexander':'OKC','jalen williams':'OKC','chet holmgren':'OKC','lu dort':'OKC','isaiah joe':'OKC','alex caruso':'OKC','jared mccain':'OKC',
     // ORL
     'paolo banchero':'ORL','franz wagner':'ORL','wendell carter jr.':'ORL','wendell carter jr':'ORL','cole anthony':'ORL','jalen suggs':'ORL','markelle fultz':'ORL','desmond bane':'ORL','tristan da silva':'ORL','jett howard':'ORL','jevon carter':'ORL',
     // PHI
@@ -1656,7 +1658,7 @@ function guessTeam(name) {
     // UTA
     'lauri markkanen':'UTA','jordan clarkson':'UTA','collin sexton':'UTA','john collins':'UTA','walker kessler':'UTA','keyonte george':'UTA',
     // WAS
-    'kyle kuzma':'WAS','bilal coulibaly':'WAS','tyus jones':'WAS','deni avdija':'WAS','marvin bagley iii':'WAS','trae young':'WAS','alex sarr':'WAS','carlton carrington':'WAS','will riley':'WAS','tre johnson':'WAS',
+    'kyle kuzma':'WAS','bilal coulibaly':'WAS','tyus jones':'WAS','deni avdija':'WAS','marvin bagley iii':'WAS','trae young':'WAS','alex sarr':'WAS','carlton carrington':'WAS','will riley':'WAS','tre johnson':'WAS','anthony gill':'WAS',
     // BOS (additions)
     'neemias queta':'BOS',
   };
@@ -1941,9 +1943,9 @@ app.get('/api/injury-impact', async (req, res) => {
     // Resolve injury report names through alias system
     const resolvedPlayer = resolvePlayerName(player);
     const outTeammates = injuries
-      .filter(inj => inj.team === team.toUpperCase() && inj.status === 'Out' && inj.player.toLowerCase() !== player.toLowerCase() && inj.player.toLowerCase() !== resolvedPlayer.toLowerCase())
+      .filter(inj => inj.team === team.toUpperCase() && (inj.status === 'Out' || inj.status === 'Doubtful') && inj.player.toLowerCase() !== player.toLowerCase() && inj.player.toLowerCase() !== resolvedPlayer.toLowerCase())
       .map(inj => ({ ...inj, resolvedName: resolvePlayerName(inj.player) }));
-    if (!outTeammates.length) return res.json({ impact: false, reason: 'no OUT teammates' });
+    if (!outTeammates.length) return res.json({ impact: false, reason: 'no OUT/Doubtful teammates' });
 
     // Fetch player game log (memory → Supabase → live BDL)
     // Try both original name and resolved name
@@ -2262,7 +2264,7 @@ app.post('/api/injury-impact-batch', async (req, res) => {
       // This way injured players (e.g. Markkanen) who appear in the props feed
       // are still counted as "Out" teammates for other players on the team
       const outTeammates = injuries
-        .filter(inj => inj.team === team && inj.status === 'Out')
+        .filter(inj => inj.team === team && (inj.status === 'Out' || inj.status === 'Doubtful'))
         .map(inj => ({ ...inj, resolvedName: resolvePlayerName(inj.player) }));
       // Deduplicate by player name
       const seenOut = new Set();
@@ -5055,7 +5057,7 @@ function serverApplyInjuryImpact(playerName, playerGameLog, playerTeam, market, 
   // 1. Find teammates who are OUT today
   const outTeammates = injuries.filter(inj =>
     inj.team === playerTeam &&
-    inj.status === 'Out' &&
+    (inj.status === 'Out' || inj.status === 'Doubtful') &&
     inj.player !== playerName &&
     inj.player.toLowerCase() !== playerName.toLowerCase()
   );
@@ -5431,7 +5433,7 @@ app.get('/api/cron/agent-bet', async (req, res) => {
     // 3b. Fetch injury report and injured teammates' game logs for injury impact
     const injuries = await fetchInjuryReport();
     summary.injuryReport = injuries?.length || 0;
-    const outPlayers = injuries?.filter(i => i.status === 'Out') || [];
+    const outPlayers = injuries?.filter(i => i.status === 'Out' || i.status === 'Doubtful') || [];
     console.log(`[agent-bet] Injury report: ${injuries?.length || 0} entries, ${outPlayers.length} OUT players: ${outPlayers.map(i => `${i.player} (${i.team})`).join(', ')}`);
     const injuredTeammateNames = [...new Set(outPlayers.map(i => i.player))];
     // Resolve aliases and fetch game logs for injured players not already in gameLogMap
@@ -5506,7 +5508,6 @@ app.get('/api/cron/agent-bet', async (req, res) => {
         // Apply Injury Impact: adjust based on most impactful OUT teammate
         const playerTeam = _playerTeamCache[p.name] || guessTeam(p.name) || p.homeTeam;
         if (playerTeam && playerTeam !== '???') {
-          const preInjVS = stats.vs;
           stats = serverApplyInjuryImpact(p.name, gameLog, playerTeam, p.market, p.line, p.overOdds, p.underOdds, injuries, gameLogMap, stats, positionMap);
           if (stats._injuryImpact) summary.injuryImpacts++;
         }
@@ -5797,7 +5798,7 @@ app.get('/api/cron/tipoff-snapshot', async (req, res) => {
     }
 
     // Fetch injured teammates' game logs
-    const injuredTeammateNames = [...new Set(injuries.filter(i => i.status === 'Out').map(i => i.player))];
+    const injuredTeammateNames = [...new Set(injuries.filter(i => i.status === 'Out' || i.status === 'Doubtful').map(i => i.player))];
     const resolvedInjuredNames = injuredTeammateNames.map(n => ({ orig: n, resolved: resolvePlayerName(n) }));
     const missingInjured = resolvedInjuredNames.filter(n => !gameLogMap.has(n.resolved) && !gameLogMap.has(n.orig));
     if (missingInjured.length && supabase) {
