@@ -5388,7 +5388,7 @@ app.get('/api/cron/agent-bet', async (req, res) => {
     if (existing > 0) return res.json({ skipped: true, message: `Already placed ${existing} agent bets for ${today}` });
   }
 
-  const summary = { value: 0, control: 0, skipped: 0, errors: [], bankroll: 0 };
+  const summary = { value: 0, control: 0, skipped: 0, errors: [], bankroll: 0, injuryImpacts: 0, injuryReport: 0 };
 
   try {
     // 0. Compute current bankroll from settled bets
@@ -5430,7 +5430,10 @@ app.get('/api/cron/agent-bet', async (req, res) => {
 
     // 3b. Fetch injury report and injured teammates' game logs for injury impact
     const injuries = await fetchInjuryReport();
-    const injuredTeammateNames = [...new Set(injuries.filter(i => i.status === 'Out').map(i => i.player))];
+    summary.injuryReport = injuries?.length || 0;
+    const outPlayers = injuries?.filter(i => i.status === 'Out') || [];
+    console.log(`[agent-bet] Injury report: ${injuries?.length || 0} entries, ${outPlayers.length} OUT players: ${outPlayers.map(i => `${i.player} (${i.team})`).join(', ')}`);
+    const injuredTeammateNames = [...new Set(outPlayers.map(i => i.player))];
     // Resolve aliases and fetch game logs for injured players not already in gameLogMap
     const resolvedInjuredNames = injuredTeammateNames.map(n => ({ orig: n, resolved: resolvePlayerName(n) }));
     const missingInjured = resolvedInjuredNames.filter(n => !gameLogMap.has(n.resolved) && !gameLogMap.has(n.orig));
@@ -5503,7 +5506,9 @@ app.get('/api/cron/agent-bet', async (req, res) => {
         // Apply Injury Impact: adjust based on most impactful OUT teammate
         const playerTeam = _playerTeamCache[p.name] || guessTeam(p.name) || p.homeTeam;
         if (playerTeam && playerTeam !== '???') {
+          const preInjVS = stats.vs;
           stats = serverApplyInjuryImpact(p.name, gameLog, playerTeam, p.market, p.line, p.overOdds, p.underOdds, injuries, gameLogMap, stats, positionMap);
+          if (stats._injuryImpact) summary.injuryImpacts++;
         }
 
         // Apply Team Stats / Matchup Adjustment: pace differential + DvP + blowout penalty
@@ -5615,7 +5620,10 @@ app.get('/api/cron/agent-bet', async (req, res) => {
     await sendDiscordPicks(betsToInsert, today);
 
     const totalStaked = betsToInsert.filter(b => !b.is_control).reduce((s, b) => s + b.stake, 0);
-    res.json({ success: true, date: today, ...summary, total: betsToInsert.length, bankroll: +currentBankroll.toFixed(2), dailyBudget: +dailyBudget.toFixed(2), totalStaked: +totalStaked.toFixed(2) });
+    const injBets = betsToInsert.filter(b => b.injury_adj_pct != null);
+    const injBetSummary = injBets.length ? injBets.map(b => `${b.player_name} ${b.market} ${b.injury_adj_pct > 0 ? '+' : ''}${b.injury_adj_pct}% (${b.injury_teammates})`).slice(0, 20) : [];
+    console.log(`[agent-bet] Injury-adjusted bets: ${injBets.length}/${betsToInsert.length}`, injBetSummary.join(', '));
+    res.json({ success: true, date: today, ...summary, total: betsToInsert.length, bankroll: +currentBankroll.toFixed(2), dailyBudget: +dailyBudget.toFixed(2), totalStaked: +totalStaked.toFixed(2), injuryAdjustedBets: injBets.length, injuryBetExamples: injBetSummary });
   } catch (err) {
     res.status(500).json({ error: err.message, ...summary });
   }

@@ -13,8 +13,8 @@
   ],
   "crons": [
     { "path": "/api/cron/refresh-odds", "schedule": "45 22 * * 1-5" },
-    { "path": "/api/cron/refresh-stats", "schedule": "30 18 * * 1-5" },
-    { "path": "/api/cron/refresh-team-stats", "schedule": "15 18 * * 1-5" },
+    { "path": "/api/cron/refresh-stats", "schedule": "55 22 * * 1-5" },
+    { "path": "/api/cron/refresh-team-stats", "schedule": "50 22 * * 1-5" },
 
     { "path": "/api/cron/refresh-odds", "schedule": "0 17 * * 0,6" },
     { "path": "/api/cron/refresh-stats", "schedule": "15 17 * * 0,6" },
@@ -26,7 +26,7 @@
 
     { "path": "/api/cron/refresh-odds", "schedule": "0 23 * * 0,6" },
 
-    { "path": "/api/cron/refresh-game-lines", "schedule": "0 22 * * 1-5" },
+    { "path": "/api/cron/refresh-game-lines", "schedule": "45 22 * * 1-5" },
     { "path": "/api/cron/refresh-game-lines", "schedule": "0 17 * * 0,6" },
     { "path": "/api/cron/refresh-game-lines", "schedule": "0 1 * * 0,1" },
 
