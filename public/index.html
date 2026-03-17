@@ -2536,7 +2536,17 @@ async function enrichAllPlayers(){
     }
   }
   if(bdg){bdg.className='bdg bdg-real';bdg.style.cssText='';bdg.textContent='✓ Stats loaded';}
-  renderAlerts();
+  // All filters default on — sync UI checkboxes and fetch injury/team data
+  _syncToggles(true,[['smartMinToggle','adjToggle-min'],['ppSmartMinToggle','ppAdjToggle-min']]);
+  _syncToggles(true,[['dnpAdjToggle','adjToggle-dnp'],['ppDnpAdjToggle','ppAdjToggle-dnp']]);
+  _syncToggles(true,[['injuryImpactToggle','adjToggle-inj'],['ppInjuryImpactToggle','ppAdjToggle-inj']]);
+  _syncToggles(true,[['teamStatsToggle','adjToggle-team'],['ppTeamStatsToggle','ppAdjToggle-team']]);
+  updateAllFiltersBtn();
+  const initFetches=[];
+  if(!Object.keys(_injuryImpactCache).length) initFetches.push(fetchInjuryImpacts().catch(()=>{}));
+  if(!_teamStatsCache) initFetches.push(fetchTeamStats().catch(()=>{}));
+  if(initFetches.length) await Promise.all(initFetches);
+  else renderAlerts();
 }
 async function doRefresh(){document.getElementById('rBtn').classList.add('sp');await apiGet('/api/cache/clear');await loadData();document.getElementById('rBtn').classList.remove('sp');}
 
@@ -4512,7 +4522,7 @@ const ALERT_MARKETS=[
 const MKT_SHORT={player_points:'PTS',player_rebounds:'REB',player_assists:'AST',player_threes:'3PM',player_points_rebounds_assists:'PRA',player_rebounds_assists:'R+A'};
 let alertMkt='all';
 let alertMktCache={}; // {market_key: enriched player array}
-let _smartMinOn=false, _dnpAdjOn=false, _injuryImpactOn=false, _teamStatsOn=false;
+let _smartMinOn=true, _dnpAdjOn=true, _injuryImpactOn=true, _teamStatsOn=true;
 let _injuryImpactCache={}; // playerName|market → {ratio, teammate, ...}
 let _teamStatsCache=null; // { _leagueAvg: {...}, BOS: { pace, allows: {...}, ... }, ... }
 
