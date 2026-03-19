@@ -2229,11 +2229,14 @@ app.get('/api/injury-impact', async (req, res) => {
 // Fetches injury report ONCE, groups by team, reuses game logs
 // ============================================================
 app.post('/api/injury-impact-batch', async (req, res) => {
-  const { players } = req.body;
+  const { players, whatIfOut } = req.body;
   if (!Array.isArray(players) || !players.length) return res.status(400).json({ error: 'players array required' });
   try {
-    // 1. Fetch injury report ONCE
+    // 1. Fetch injury report ONCE, then inject any what-if players as Out
     const injuries = await fetchInjuryReport();
+    const effectiveInjuries = (Array.isArray(whatIfOut) && whatIfOut.length)
+      ? [...injuries, ...whatIfOut.map(w => ({ player: w.player, team: w.team.toUpperCase(), status: 'Out' }))]
+      : injuries;
 
     // 2. Group requests by team so we fetch teammate logs once per team
     const teamGroups = new Map(); // team → [{player, market, resolvedPlayer}]
@@ -2253,7 +2256,7 @@ app.post('/api/injury-impact-batch', async (req, res) => {
       // Don't exclude batch players here — the per-player loop skips self
       // This way injured players (e.g. Markkanen) who appear in the props feed
       // are still counted as "Out" teammates for other players on the team
-      const outTeammates = injuries
+      const outTeammates = effectiveInjuries
         .filter(inj => inj.team === team && (inj.status === 'Out' || inj.status === 'Doubtful'))
         .map(inj => ({ ...inj, resolvedName: resolvePlayerName(inj.player) }));
       // Deduplicate by player name

@@ -1432,6 +1432,9 @@ input[type=range].min-slider::-moz-range-track{height:6px;border-radius:3px;back
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
           Scenario Mode
         </button>
+        <button class="cbtn" id="whatIfBtn" onclick="togWhatIf()" title="Simulate questionable players as Out to see teammate impact">
+          ⚠️ What-If
+        </button>
       </div>
     </div>
 
@@ -1442,6 +1445,13 @@ input[type=range].min-slider::-moz-range-track{height:6px;border-radius:3px;back
         <div class="chip chip-a" onclick="addScnP()">+ Add Player</div>
       </div>
       <div class="scn-note" id="scnNote">Add injured or resting players to see projected boosts for their teammates.</div>
+    </div>
+
+    <!-- WHAT-IF INJURY BAR -->
+    <div class="scn" id="whatIfBar" style="display:none;border-color:#f9731655;background:#f9731608;">
+      <span class="scn-l" style="color:#f97316;">⚠️ What-If Out:</span>
+      <div class="scn-ch" id="whatIfCh"></div>
+      <div class="scn-note" id="whatIfNote">Select questionable players above to simulate them as Out and see teammate impact.</div>
     </div>
 
     <!-- TABLE -->
@@ -2305,7 +2315,7 @@ async function getInjuries(){
   if(_injCache.data&&(now-_injCache.ts)<30*60*1000) return _injCache.data;
   try{
     const r=await apiGet('/api/injuries');
-    if(r.data){_injCache={data:r.data,ts:now};_buildInjuryStatusMap(r.data);return r.data;}
+    if(r.data){_injCache={data:r.data,ts:now};_buildInjuryStatusMap(r.data);if(_whatIfBarOpen)renderWhatIfBar();return r.data;}
   }catch(e){console.warn('[injuries]',e);}
   return _injCache.data||[];
 }
@@ -2656,6 +2666,21 @@ function scrollToPlayer(name){
   renderTable();
   const tb=document.getElementById('tBody');
   if(tb.firstChild)tb.firstChild.scrollIntoView({behavior:'smooth',block:'center'});
+}
+
+// ── What-If Injuries ──
+let _whatIfBarOpen=false;
+function togWhatIf(){
+  _whatIfBarOpen=!_whatIfBarOpen;
+  document.getElementById('whatIfBtn').classList.toggle('on',_whatIfBarOpen);
+  const bar=document.getElementById('whatIfBar');
+  if(_whatIfBarOpen){
+    getInjuries().then(()=>renderWhatIfBar());
+    bar.style.display='';
+  } else {
+    bar.style.display='none';
+    if(_whatIfOut.length){ _whatIfOut=[]; _whatIfInjuryCache={}; renderAlerts(); renderTable(); }
+  }
 }
 
 // ── Scenario mode ──
@@ -3117,6 +3142,8 @@ function renderTable(){
     const underFmt=p.underOdds?(p.underOdds>0?'+':'')+p.underOdds:'—';
     const lean=leanInfo(mProb0);
     const hasBoost=S.scnOn&&(p.scenarioBoost||0)>0;
+    const whatIfKey=`${p.name}|${p.market||S.market}`;
+    const hasWhatIf=_whatIfOut.length>0&&!!_whatIfInjuryCache[whatIfKey]&&_whatIfInjuryCache[whatIfKey].impact;
 
     const mProbTip=`Model Probability: ${mProbPct}% Over\n\nBased on season stats, recent form,\nand matchup adjustments.\n\n≥55% → Lean OVER\n≤45% → Lean UNDER\n45-55% → EVEN`;
     const mProb=isOver?mProb0:1-mProb0; // directional model prob
@@ -3141,7 +3168,7 @@ function renderTable(){
       <td><div class="pc">
         <div class="av" data-av="${p.name.replace(/"/g,'&quot;')}">${avInner}</div>
         <div class="pi">
-          <span class="pn">${p.name}${hasBoost?'<span class="scn-icon">⚡+'+p.scenarioBoost+'</span>':''}</span>
+          <span class="pn">${p.name}${hasBoost?'<span class="scn-icon">⚡+'+p.scenarioBoost+'</span>':''}${hasWhatIf?'<span class="scn-icon" style="background:#f9731622;color:#f97316;" title="What-If impact applied">⚠️</span>':''}</span>
           <span class="pm"><span class="ptb">${p.team||'—'}</span><span>${p.position||''}</span>${getInjuryBadge(p.name)}${!p.hasRealStats?`<span class="player-flag flag-est" style="font-size:10px;padding:1px 5px;margin-left:4px;">⚠ Missing Stats</span>`:''}</span>
           ${(p.returnFromInjury>=2||p.minutesFlag||(p.dnpCount>=5))?`<span class="pm" style="margin-top:2px;display:flex;gap:3px;flex-wrap:wrap;">${p.returnFromInjury>=2?`<span class="player-flag flag-injury" style="font-size:9px;padding:1px 5px;">⚠ Back (${p.returnFromInjury}G)</span>`:''}${p.minutesFlag?`<span class="player-flag ${p.minutesFlag>0?'flag-minutes-up':'flag-minutes-down'}" style="font-size:9px;padding:1px 5px;">⏱ ${Math.abs(Math.round(p.minutesFlag*100))}% ${p.minutesFlag>0?'↑':'↓'} min</span>`:''}${p.dnpCount>=5?`<span class="player-flag flag-dnp" style="font-size:9px;padding:1px 5px;">✗ ${p.dnpCount} DNPs</span>`:''}</span>`:''}
         </div>
@@ -4525,6 +4552,8 @@ let alertMkt='all';
 let alertMktCache={}; // {market_key: enriched player array}
 let _smartMinOn=true, _dnpAdjOn=true, _injuryImpactOn=true, _teamStatsOn=true;
 let _injuryImpactCache={}; // playerName|market → {ratio, teammate, ...}
+let _whatIfOut=[]; // [{player, team}] — what-if players treated as Out
+let _whatIfInjuryCache={}; // playerName|market → what-if impact (overrides _injuryImpactCache)
 let _teamStatsCache=null; // { _leagueAvg: {...}, BOS: { pace, allows: {...}, ... }, ... }
 
 function _flipToggle(id, labelId){ const cb=document.getElementById(id); if(cb){ cb.checked=!cb.checked; document.getElementById(labelId)?.classList.toggle('on',cb.checked); } return cb?.checked||false; }
@@ -4846,6 +4875,79 @@ async function fetchInjuryImpacts(){
   renderTable();
 }
 
+async function fetchWhatIfInjuryImpacts(){
+  if(!_whatIfOut.length){
+    _whatIfInjuryCache={};
+    renderAlerts(); renderTable(); return;
+  }
+  const players=[...(window._lastAlertPlayers||[]),...(S.data||[])];
+  const batch=[]; const seen=new Set();
+  for(const p of players){
+    const team=p.team||TEAM_MAP[p.name]||'';
+    if(!team||team==='???') continue;
+    const key=`${p.name}|${p.market}`;
+    if(seen.has(key)) continue;
+    seen.add(key);
+    batch.push({player:p.name,team,market:p.market||S.market});
+  }
+  if(!batch.length){ renderAlerts(); renderTable(); return; }
+  try{
+    const r=await fetch('/api/injury-impact-batch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({players:batch,whatIfOut:_whatIfOut})});
+    if(r.ok){
+      const d=await r.json();
+      if(d.results) _whatIfInjuryCache=d.results;
+    }
+  }catch(e){ console.warn('[whatIfInjury] batch failed:',e); }
+  renderAlerts(); renderTable();
+}
+
+function toggleWhatIfPlayer(name,team){
+  const idx=_whatIfOut.findIndex(p=>p.player===name);
+  if(idx>=0) _whatIfOut.splice(idx,1);
+  else _whatIfOut.push({player:name,team});
+  renderWhatIfBar();
+  showFilterLoading(true);
+  fetchWhatIfInjuryImpacts().finally(()=>showFilterLoading(false));
+}
+
+function renderWhatIfBar(){
+  const bar=document.getElementById('whatIfBar');
+  if(!bar) return;
+  // Show questionable/doubtful players from injury report as quick-toggle chips
+  const qPlayers=Object.entries(_injuryStatusMap)
+    .filter(([,s])=>s==='Questionable'||s==='Doubtful')
+    .map(([name,status])=>({name,status,team:TEAM_MAP[name]||_playerTeamFromData(name)}))
+    .filter(p=>p.team);
+  const isActive=_whatIfOut.length>0;
+  bar.style.display=isActive||qPlayers.length?'':'none';
+  const chips=qPlayers.map(p=>{
+    const on=_whatIfOut.some(w=>w.player===p.name);
+    const color=p.status==='Doubtful'?'#f97316':'#eab308';
+    return `<div class="chip ${on?'on':''}" onclick="toggleWhatIfPlayer(${JSON.stringify(p.name)},${JSON.stringify(p.team)})" style="${on?`background:${color}22;border-color:${color};color:${color};`:''}cursor:pointer;">
+      <span style="font-size:9px;font-weight:800;margin-right:3px;">${p.status==='Doubtful'?'D':'Q'}</span>${p.name} <span style="opacity:.55;font-size:10px;">(${p.team})</span>
+    </div>`;
+  }).join('');
+  const activeChips=_whatIfOut.filter(w=>!qPlayers.some(q=>q.name===w.player))
+    .map((w,i)=>`<div class="chip on" style="background:#f9731622;border-color:#f97316;color:#f97316;cursor:pointer;" onclick="toggleWhatIfPlayer(${JSON.stringify(w.player)},${JSON.stringify(w.team)})">${w.player} <span style="opacity:.6">(${w.team})</span> <span class="x">&times;</span></div>`).join('');
+  document.getElementById('whatIfCh').innerHTML=chips+activeChips+`<div class="chip chip-a" onclick="addWhatIfP()">+ Add Player</div>`;
+  document.getElementById('whatIfNote').textContent=_whatIfOut.length
+    ?`${_whatIfOut.map(w=>w.player).join(', ')} simulated as OUT — ⚠️ marks affected teammates.`
+    :'Select questionable players above to simulate them as Out and see teammate impact.';
+}
+
+function _playerTeamFromData(name){
+  const p=(S.data||[]).find(d=>d.name===name);
+  return p?.team||TEAM_MAP[name]||'';
+}
+
+function addWhatIfP(){
+  const n=prompt('Player name:'); if(!n||!n.trim()) return;
+  const name=n.trim();
+  const team=TEAM_MAP[name]||_playerTeamFromData(name)||prompt('Team abbreviation (e.g. LAL):')||'';
+  if(!team) return;
+  toggleWhatIfPlayer(name,team.toUpperCase());
+}
+
 function toggleTeamStats(){
   _teamStatsOn=!_teamStatsOn; _syncToggles(_teamStatsOn,[['teamStatsToggle','adjToggle-team'],['ppTeamStatsToggle','ppAdjToggle-team']]);
   updateAllFiltersBtn();
@@ -4952,7 +5054,7 @@ function applyAllAdjustments(p){
   // --- Step 1b: Get injury impact ratio + projected minutes (BEFORE DNP so DNP applies on top) ---
   if(_injuryImpactOn){
     const key=`${p.name}|${p.market||S.market}`;
-    const impact=_injuryImpactCache[key];
+    const impact=_whatIfInjuryCache[key]||_injuryImpactCache[key];
     if(impact){
       if(impact.impact && Math.abs(impact.ratio-1.0)>=0.03){
         injRatio=impact.ratio;
@@ -5125,7 +5227,7 @@ function applyAllAdjustments(p){
 // Legacy wrappers — kept for player detail modal minutes slider which calls these directly
 function applyInjuryImpact(p){
   const key=`${p.name}|${p.market||S.market}`;
-  const impact=_injuryImpactCache[key];
+  const impact=_whatIfInjuryCache[key]||_injuryImpactCache[key];
   if(!impact) return p;
   if(!impact.impact){
     if(impact.skipped?.length) return {...p, _injSkipped: impact.skipped};
