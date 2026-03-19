@@ -13,8 +13,8 @@
   ],
   "crons": [
     { "path": "/api/cron/refresh-odds", "schedule": "45 21 * * 1-5" },
-    { "path": "/api/cron/refresh-stats", "schedule": "55 21 * * 1-5" },
-    { "path": "/api/cron/refresh-stats", "schedule": "5 22 * * 1-5" },
+    { "path": "/api/cron/refresh-stats", "schedule": "50 21 * * 1-5" },
+    { "path": "/api/cron/refresh-stats", "schedule": "0 22 * * 1-5" },
     { "path": "/api/cron/refresh-team-stats", "schedule": "50 21 * * 1-5" },
 
     { "path": "/api/cron/refresh-odds", "schedule": "0 16 * * 0,6" },
