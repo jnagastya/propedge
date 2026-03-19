@@ -216,6 +216,9 @@ const _playerTeamCache = {
 // All manually-set teams are frozen — never overwritten by BDL/Supabase game log data
 const _frozenTeams = new Set(Object.keys(_playerTeamCache));
 const ODDS_BASE = 'https://api.the-odds-api.com/v4';
+// Explicit bookmaker list — cheaper than regions=us,us_dfs (~5 books vs ~14)
+const ODDS_BOOKS_PROPS = 'bookmakers=draftkings,fanduel,betmgm,prizepicks,underdog';
+const ODDS_BOOKS_LINES = 'bookmakers=draftkings,fanduel,betmgm';
 const BDL_BASE = 'https://api.balldontlie.io/nba/v1';
 const NBA_BASE = 'https://stats.nba.com/stats';
 const STATS_TTL = 3 * 60 * 60; // 3-hour cache for stats (games happen daily)
@@ -948,7 +951,7 @@ app.get('/api/odds/events', async (req, res) => {
     const cached = cacheGet(ck);
     if (cached) return res.json({ data: cached, cached: true });
 
-    const url = `${ODDS_BASE}/sports/basketball_nba/events?apiKey=${ODDS_KEY}&regions=us,us_dfs&oddsFormat=american`;
+    const url = `${ODDS_BASE}/sports/basketball_nba/events?apiKey=${ODDS_KEY}&regions=us&oddsFormat=american`;
     const resp = await fetch(url);
     if (!resp.ok) throw new Error(`Odds API returned ${resp.status}: ${await resp.text()}`);
 
@@ -976,7 +979,7 @@ app.get('/api/odds/props/:eventId', async (req, res) => {
     const cached = cacheGet(ck);
     if (cached) return res.json({ data: cached, cached: true });
 
-    const url = `${ODDS_BASE}/sports/basketball_nba/events/${eventId}/odds?apiKey=${ODDS_KEY}&regions=us,us_dfs&markets=${market}&oddsFormat=american`;
+    const url = `${ODDS_BASE}/sports/basketball_nba/events/${eventId}/odds?apiKey=${ODDS_KEY}&${ODDS_BOOKS_PROPS}&markets=${market}&oddsFormat=american`;
     const resp = await fetch(url);
     if (!resp.ok) throw new Error(`Props API returned ${resp.status}`);
 
@@ -1005,7 +1008,7 @@ app.get('/api/odds/props-all', async (req, res) => {
     if (cached) return res.json({ data: cached, cached: true });
 
     // 1. Get events
-    const evtUrl = `${ODDS_BASE}/sports/basketball_nba/events?apiKey=${ODDS_KEY}&regions=us,us_dfs&oddsFormat=american`;
+    const evtUrl = `${ODDS_BASE}/sports/basketball_nba/events?apiKey=${ODDS_KEY}&regions=us&oddsFormat=american`;
     const evtResp = await fetch(evtUrl);
     if (!evtResp.ok) throw new Error(`Events: ${evtResp.status}`);
     const events = await evtResp.json();
@@ -1013,7 +1016,7 @@ app.get('/api/odds/props-all', async (req, res) => {
     // 2. Fetch props for each event (limit to 8 to conserve calls)
     const propPromises = events.slice(0, 8).map(async (evt) => {
       try {
-        const pUrl = `${ODDS_BASE}/sports/basketball_nba/events/${evt.id}/odds?apiKey=${ODDS_KEY}&regions=us,us_dfs&markets=${market}&oddsFormat=american`;
+        const pUrl = `${ODDS_BASE}/sports/basketball_nba/events/${evt.id}/odds?apiKey=${ODDS_KEY}&${ODDS_BOOKS_PROPS}&markets=${market}&oddsFormat=american`;
         const pResp = await fetch(pUrl);
         if (!pResp.ok) return null;
         return await pResp.json();
@@ -1496,14 +1499,14 @@ app.get('/api/analytics/merged', async (req, res) => {
       // Layer 2: Live Odds API fallback (only if Supabase has no data yet)
       const now = new Date();
       allPlayers = [];
-      const evtResp = await fetch(`${ODDS_BASE}/sports/basketball_nba/events?apiKey=${ODDS_KEY}&regions=us,us_dfs&oddsFormat=american`);
+      const evtResp = await fetch(`${ODDS_BASE}/sports/basketball_nba/events?apiKey=${ODDS_KEY}&regions=us&oddsFormat=american`);
       if (evtResp.ok) {
         const events = await evtResp.json();
         const upcomingEvents = events.filter(evt => new Date(evt.commence_time) > now);
 
         const propPromises = upcomingEvents.map(async (evt) => {
           try {
-            const pUrl = `${ODDS_BASE}/sports/basketball_nba/events/${evt.id}/odds?apiKey=${ODDS_KEY}&regions=us,us_dfs&markets=${ALL_PROP_MARKETS}&oddsFormat=american`;
+            const pUrl = `${ODDS_BASE}/sports/basketball_nba/events/${evt.id}/odds?apiKey=${ODDS_KEY}&${ODDS_BOOKS_PROPS}&markets=${ALL_PROP_MARKETS}&oddsFormat=american`;
             const pResp = await fetch(pUrl);
             return pResp.ok ? await pResp.json() : null;
           } catch { return null; }
@@ -1671,6 +1674,8 @@ function guessTeam(name) {
     'jordan miller':'LAC','kobe sanders':'LAC',
     // GSW
     'will richard':'GSW',
+    // MIL
+    'a.j. green':'MIL','aj green':'MIL',
   };
   return map[name.toLowerCase()] || null;
 }
@@ -2690,7 +2695,7 @@ app.get('/api/cron/refresh-stats', async (req, res) => {
 
     // Time guard: bail before Vercel's 300s timeout
     const startTime = Date.now();
-    const MAX_RUNTIME_MS = 250_000; // 250s — leave 50s buffer
+    const MAX_RUNTIME_MS = 100_000; // 100s — bail before Vercel's 120s function kill
     const isTimedOut = () => (Date.now() - startTime) > MAX_RUNTIME_MS;
 
     // Process incremental updates — 5 concurrent
@@ -3055,7 +3060,7 @@ app.get('/api/cron/refresh-odds', async (req, res) => {
 
   try {
     // Fetch upcoming events (include recently started games so their props survive in cache)
-    const evtResp = await fetch(`${ODDS_BASE}/sports/basketball_nba/events?apiKey=${ODDS_KEY}&regions=us,us_dfs&oddsFormat=american`);
+    const evtResp = await fetch(`${ODDS_BASE}/sports/basketball_nba/events?apiKey=${ODDS_KEY}&regions=us&oddsFormat=american`);
     if (!evtResp.ok) return res.status(502).json({ error: `Events fetch failed: ${evtResp.status}` });
     const events = await evtResp.json();
     const now = new Date();
@@ -3069,7 +3074,7 @@ app.get('/api/cron/refresh-odds', async (req, res) => {
 
     // Fetch all upcoming games in parallel (fast — fits within 10s Hobby timeout)
     const rawProps = (await Promise.allSettled(upcoming.map(async evt => {
-      const pUrl = `${ODDS_BASE}/sports/basketball_nba/events/${evt.id}/odds?apiKey=${ODDS_KEY}&regions=us,us_dfs&markets=${ALL_PROP_MARKETS}&oddsFormat=american`;
+      const pUrl = `${ODDS_BASE}/sports/basketball_nba/events/${evt.id}/odds?apiKey=${ODDS_KEY}&${ODDS_BOOKS_PROPS}&markets=${ALL_PROP_MARKETS}&oddsFormat=american`;
       const pResp = await fetch(pUrl);
       return pResp.ok ? pResp.json() : null;
     }))).filter(r => r.status === 'fulfilled' && r.value).map(r => r.value);
@@ -3147,7 +3152,7 @@ app.get('/api/cron/refresh-game-lines', async (req, res) => {
 
   try {
     const now = new Date();
-    const glResp = await fetch(`${ODDS_BASE}/sports/basketball_nba/odds?apiKey=${ODDS_KEY}&regions=us,us_dfs&markets=h2h,spreads,totals&oddsFormat=american`);
+    const glResp = await fetch(`${ODDS_BASE}/sports/basketball_nba/odds?apiKey=${ODDS_KEY}&${ODDS_BOOKS_LINES}&markets=h2h,spreads,totals&oddsFormat=american`);
     if (!glResp.ok) return res.status(502).json({ error: `Game lines fetch failed: ${glResp.status}` });
 
     const glEvents = await glResp.json();
@@ -3296,7 +3301,7 @@ app.get('/api/debug/dfs', async (req, res) => {
   if (!ODDS_KEY) return res.status(503).json({ error: 'Odds API key not configured' });
   try {
     const checkAll = req.query.all === '1';
-    const evtResp = await fetch(`${ODDS_BASE}/sports/basketball_nba/events?apiKey=${ODDS_KEY}&regions=us,us_dfs&oddsFormat=american`);
+    const evtResp = await fetch(`${ODDS_BASE}/sports/basketball_nba/events?apiKey=${ODDS_KEY}&regions=us&oddsFormat=american`);
     if (!evtResp.ok) return res.status(502).json({ error: `Events: ${evtResp.status}` });
     const events = await evtResp.json();
     let remaining = evtResp.headers.get('x-requests-remaining');
@@ -3306,7 +3311,7 @@ app.get('/api/debug/dfs', async (req, res) => {
     const eventsToCheck = checkAll ? upcoming.slice(0, 10) : [upcoming[0]];
     const results = [];
     for (const evt of eventsToCheck) {
-      const pUrl = `${ODDS_BASE}/sports/basketball_nba/events/${evt.id}/odds?apiKey=${ODDS_KEY}&regions=us,us_dfs&markets=player_points&oddsFormat=american`;
+      const pUrl = `${ODDS_BASE}/sports/basketball_nba/events/${evt.id}/odds?apiKey=${ODDS_KEY}&${ODDS_BOOKS_PROPS}&markets=player_points&oddsFormat=american`;
       const pResp = await fetch(pUrl);
       remaining = pResp.headers.get('x-requests-remaining');
       if (!pResp.ok) { results.push({ event: `${evt.away_team} @ ${evt.home_team}`, error: pResp.status }); continue; }
