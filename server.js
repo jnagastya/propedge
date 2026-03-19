@@ -501,6 +501,28 @@ const ADV_BLEND_KEYS = ['pace', 'offRtg', 'defRtg', 'netRtg', 'ts', 'efg', 'astP
 const OPP_BLEND_KEYS = ['pts', 'reb', 'ast', 'fg3m', 'stl', 'blk', 'tov', 'fgPct', 'fg3Pct', 'oreb', 'dreb'];
 const BLOW_BLEND_KEYS = ['blowoutPct', 'blowoutWinPct', 'blowoutLossPct', 'avgMargin'];
 
+// Supabase cache for scores (reuses odds_cache table with book='scores')
+async function sbGetScores() {
+  if (!supabase) return null;
+  try {
+    const { data, error } = await supabase.from('odds_cache')
+      .select('players, last_fetched').eq('book', 'scores').single();
+    if (error || !data) return null;
+    const age = (Date.now() - new Date(data.last_fetched).getTime()) / (1000 * 60 * 60);
+    if (age > 4) return null; // stale after 4 hours
+    return data.players;
+  } catch { return null; }
+}
+
+async function sbSetScores(scores) {
+  if (!supabase || !scores?.length) return;
+  try {
+    await supabase.from('odds_cache').upsert({
+      book: 'scores', players: scores, last_fetched: new Date().toISOString(),
+    }, { onConflict: 'book' });
+  } catch (e) { console.warn('Scores cache write failed:', e.message); }
+}
+
 // Supabase cache for team stats (reuses odds_cache table)
 async function sbGetTeamStats() {
   if (!supabase) return null;
@@ -967,73 +989,17 @@ app.get('/api/odds/events', async (req, res) => {
 });
 
 // ============================================================
-// ROUTE: GET /api/odds/props/:eventId — player props for a game
+// ROUTE: GET /api/odds/props/:eventId — disabled (use /api/analytics/merged)
 // ============================================================
-app.get('/api/odds/props/:eventId', async (req, res) => {
-  try {
-    if (!ODDS_KEY) return res.status(400).json({ error: 'ODDS_API_KEY not configured' });
-
-    const { eventId } = req.params;
-    const market = req.query.market || 'player_points';
-    const ck = `props_${eventId}_${market}`;
-    const cached = cacheGet(ck);
-    if (cached) return res.json({ data: cached, cached: true });
-
-    const url = `${ODDS_BASE}/sports/basketball_nba/events/${eventId}/odds?apiKey=${ODDS_KEY}&${ODDS_BOOKS_PROPS}&markets=${market}&oddsFormat=american`;
-    const resp = await fetch(url);
-    if (!resp.ok) throw new Error(`Props API returned ${resp.status}`);
-
-    const data = await resp.json();
-    const remaining = resp.headers.get('x-requests-remaining');
-
-    cacheSet(ck, data, parseInt(process.env.CACHE_TTL_ODDS) || 120);
-    res.json({ data, cached: false, requestsRemaining: remaining });
-  } catch (err) {
-    console.error('Props error:', err.message);
-    res.status(500).json({ error: err.message });
-  }
+app.get('/api/odds/props/:eventId', (req, res) => {
+  res.status(410).json({ error: 'This endpoint is disabled. Use /api/analytics/merged instead.' });
 });
 
 // ============================================================
-// ROUTE: GET /api/odds/props-all — all props across all games
+// ROUTE: GET /api/odds/props-all — disabled (use /api/analytics/merged)
 // ============================================================
-app.get('/api/odds/props-all', async (req, res) => {
-  try {
-    if (!ODDS_KEY) return res.status(400).json({ error: 'ODDS_API_KEY not configured' });
-
-    const market = req.query.market || 'player_points';
-    const book = req.query.book || 'draftkings';
-    const ck = `propsall_${market}_${book}`;
-    const cached = cacheGet(ck);
-    if (cached) return res.json({ data: cached, cached: true });
-
-    // 1. Get events
-    const evtUrl = `${ODDS_BASE}/sports/basketball_nba/events?apiKey=${ODDS_KEY}&regions=us&oddsFormat=american`;
-    const evtResp = await fetch(evtUrl);
-    if (!evtResp.ok) throw new Error(`Events: ${evtResp.status}`);
-    const events = await evtResp.json();
-
-    // 2. Fetch props for each event (limit to 8 to conserve calls)
-    const propPromises = events.slice(0, 8).map(async (evt) => {
-      try {
-        const pUrl = `${ODDS_BASE}/sports/basketball_nba/events/${evt.id}/odds?apiKey=${ODDS_KEY}&${ODDS_BOOKS_PROPS}&markets=${market}&oddsFormat=american`;
-        const pResp = await fetch(pUrl);
-        if (!pResp.ok) return null;
-        return await pResp.json();
-      } catch { return null; }
-    });
-
-    const rawProps = (await Promise.all(propPromises)).filter(Boolean);
-
-    // 3. Parse into flat player array
-    const players = aggregatePlayers(rawProps, book);
-
-    cacheSet(ck, players, parseInt(process.env.CACHE_TTL_ODDS) || 120);
-    res.json({ data: players, cached: false, gamesScanned: events.length });
-  } catch (err) {
-    console.error('Props-all error:', err.message);
-    res.status(500).json({ error: err.message });
-  }
+app.get('/api/odds/props-all', (req, res) => {
+  res.status(410).json({ error: 'This endpoint is disabled. Use /api/analytics/merged instead.' });
 });
 
 // ============================================================
@@ -1041,12 +1007,20 @@ app.get('/api/odds/props-all', async (req, res) => {
 // ============================================================
 app.get('/api/odds/scores', async (req, res) => {
   try {
-    if (!ODDS_KEY) return res.status(400).json({ error: 'ODDS_API_KEY not configured' });
-
+    // Layer 1: in-memory burst cache
     const ck = 'scores';
-    const cached = cacheGet(ck);
-    if (cached) return res.json({ data: cached, cached: true });
+    const memCached = cacheGet(ck);
+    if (memCached) return res.json({ data: memCached, cached: true });
 
+    // Layer 2: Supabase persistent cache (survives serverless cold starts)
+    const sbScores = await sbGetScores();
+    if (sbScores) {
+      cacheSet(ck, sbScores, parseInt(process.env.CACHE_TTL_SCORES) || 300);
+      return res.json({ data: sbScores, cached: true });
+    }
+
+    // Layer 3: Live Odds API fallback
+    if (!ODDS_KEY) return res.status(400).json({ error: 'ODDS_API_KEY not configured' });
     const url = `${ODDS_BASE}/sports/basketball_nba/scores?apiKey=${ODDS_KEY}&daysFrom=2`;
     const resp = await fetch(url);
     if (!resp.ok) throw new Error(`Scores: ${resp.status}`);
@@ -1062,6 +1036,7 @@ app.get('/api/odds/scores', async (req, res) => {
       commence: g.commence_time,
     }));
 
+    await sbSetScores(scores);
     cacheSet(ck, scores, parseInt(process.env.CACHE_TTL_SCORES) || 300);
     res.json({ data: scores, cached: false });
   } catch (err) {
@@ -3133,6 +3108,22 @@ app.get('/api/cron/refresh-odds', async (req, res) => {
 
     // Bust in-memory cache so next request pulls fresh Supabase data
     books.forEach(b => cache.del(`allMarkets_${b}`));
+
+    // Refresh scores in Supabase while we're here (avoids a separate Odds API call later)
+    try {
+      const scResp = await fetch(`${ODDS_BASE}/sports/basketball_nba/scores?apiKey=${ODDS_KEY}&daysFrom=2`);
+      if (scResp.ok) {
+        const scRaw = await scResp.json();
+        const scores = scRaw.map(g => ({
+          away: teamAbbr(g.away_team), home: teamAbbr(g.home_team),
+          awayScore: g.scores?.find(s => s.name === g.away_team)?.score || null,
+          homeScore: g.scores?.find(s => s.name === g.home_team)?.score || null,
+          completed: g.completed || false, live: !g.completed && !!g.scores, commence: g.commence_time,
+        }));
+        await sbSetScores(scores);
+        cache.del('scores');
+      }
+    } catch (e) { console.warn('[refresh-odds] scores refresh failed:', e.message); }
 
     res.json({ success: true, games: upcoming.length, stored });
   } catch (err) {
