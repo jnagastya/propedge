@@ -2234,7 +2234,7 @@ const TEAM_MAP = {
   "Bam Adebayo":"MIA","Jaylen Brown":"BOS","Kristaps Porzingis":"GSW","Ivica Zubac":"IND",
   "Kyrie Irving":"DAL","Jamal Murray":"DEN","Pascal Siakam":"IND",
   "Desmond Bane":"ORL","Draymond Green":"GSW","Julius Randle":"MIN",
-  "Franz Wagner":"ORL","Brandon Ingram":"NOP","Dejounte Murray":"NOP",
+  "Franz Wagner":"ORL","Brandon Ingram":"NOP","Dejounte Murray":"NOP","Jeremiah Fears":"NOP","Derik Queen":"NOP",
   "Lauri Markkanen":"UTA","Scottie Barnes":"TOR","Mikal Bridges":"NYK",
   "RJ Barrett":"TOR","Alperen Sengun":"HOU","Jalen Williams":"OKC",
   "Chet Holmgren":"OKC","Victor Wembanyama":"SAS",
@@ -2312,7 +2312,7 @@ let _injCache={data:null,ts:0};
 let _injuryStatusMap={};
 async function getInjuries(){
   const now=Date.now();
-  if(_injCache.data&&(now-_injCache.ts)<30*60*1000) return _injCache.data;
+  if(_injCache.data&&(now-_injCache.ts)<15*60*1000) return _injCache.data;
   try{
     const r=await apiGet('/api/injuries');
     if(r.data){_injCache={data:r.data,ts:now};_buildInjuryStatusMap(r.data);if(_whatIfBarOpen)renderWhatIfBar();return r.data;}

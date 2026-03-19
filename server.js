@@ -1614,7 +1614,7 @@ function guessTeam(name) {
     // MIN
     'anthony edwards':'MIN','rudy gobert':'MIN','jaden mcdaniels':'MIN','naz reid':'MIN','mike conley':'MIN',
     // NOP
-    'zion williamson':'NOP','brandon ingram':'NOP','trey murphy iii':'NOP','herb jones':'NOP',
+    'zion williamson':'NOP','brandon ingram':'NOP','trey murphy iii':'NOP','herb jones':'NOP','jeremiah fears':'NOP','derik queen':'NOP',
     // NYK
     'jalen brunson':'NYK','karl-anthony towns':'NYK','mikal bridges':'NYK','og anunoby':'NYK','josh hart':'NYK','donte divincenzo':'NYK',
     // OKC
@@ -1694,7 +1694,7 @@ function parseInjuryText(text) {
   // Pre-process: split lines with embedded matchups (page break merges)
   const lines = [];
   for (const raw of rawLines) {
-    const emb = raw.match(/^(.+?)([A-Z]{2,4}@[A-Z]{2,4})(?=[A-Z][a-z])(.+)$/);
+    const emb = raw.match(/^(.+?)([A-Z]{2,4}@[A-Z]{2,4})(?=[A-Z])(.+)$/);
     if (emb && !raw.match(/^\d{2}\/\d{2}\/\d{4}/) && emb[1].length > 3) {
       lines.push(emb[1].trim());
       lines.push(emb[2] + emb[3].trim());
@@ -1729,7 +1729,7 @@ function parseInjuryText(text) {
     }
 
     // Date line: 03/13/202607:30(ET)CLE@DALClevelandCavaliers...
-    const dateMatch = line.match(/^(\d{2}\/\d{2}\/\d{4})(\d{2}:\d{2})\(ET\)([A-Z]{2,4}@[A-Z]{2,4})(?=[A-Z][a-z])(.*)/);
+    const dateMatch = line.match(/^(\d{2}\/\d{2}\/\d{4})(\d{2}:\d{2})\(ET\)([A-Z]{2,4}@[A-Z]{2,4})(?=[A-Z])(.*)/);
     if (dateMatch) {
       currentGameDate = dateMatch[1];
       currentGameTime = dateMatch[2];
@@ -1740,7 +1740,7 @@ function parseInjuryText(text) {
 
     // Time line: 07:30(ET)CLE@DAL...
     if (!dateMatch) {
-      const timeMatch = line.match(/^(\d{2}:\d{2})\(ET\)([A-Z]{2,4}@[A-Z]{2,4})(?=[A-Z][a-z])(.*)/);
+      const timeMatch = line.match(/^(\d{2}:\d{2})\(ET\)([A-Z]{2,4}@[A-Z]{2,4})(?=[A-Z])(.*)/);
       if (timeMatch) {
         currentGameTime = timeMatch[1];
         currentMatchup = timeMatch[2];
@@ -1750,7 +1750,7 @@ function parseInjuryText(text) {
 
     // Matchup line: MEM@DETMemphisGrizzlies...
     if (!dateMatch) {
-      const mMatch = line.match(/^([A-Z]{2,4}@[A-Z]{2,4})(?=[A-Z][a-z])(.*)/);
+      const mMatch = line.match(/^([A-Z]{2,4}@[A-Z]{2,4})(?=[A-Z])(.*)/);
       if (mMatch && line === lines[i]) { // only if not already consumed
         currentMatchup = mMatch[1];
         line = mMatch[2];
