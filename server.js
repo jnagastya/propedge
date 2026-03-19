@@ -5515,11 +5515,15 @@ app.get('/api/cron/agent-bet', async (req, res) => {
         stats = serverApplyDNP(gameLog, p.line, p.market, p.overOdds, p.underOdds, stats);
 
         // Apply Injury Impact: adjust based on most impactful OUT teammate
-        const playerTeam = _playerTeamCache[p.name] || guessTeam(p.name) || p.homeTeam;
+        // Derive team from game log (most recent game with a known team) — more reliable than
+        // _playerTeamCache which is in-memory and always empty on serverless cold starts
+        const teamFromLog = gameLog.filter(g => g.team && g.team !== '???').sort((a, b) => new Date(b.date) - new Date(a.date))[0]?.team;
+        const playerTeam = teamFromLog || _playerTeamCache[p.name] || guessTeam(p.name) || p.homeTeam;
         if (playerTeam && playerTeam !== '???') {
           stats = serverApplyInjuryImpact(p.name, gameLog, playerTeam, p.market, p.line, p.overOdds, p.underOdds, injuries, gameLogMap, stats, positionMap);
           if (stats._injuryImpact) summary.injuryImpacts++;
         }
+        console.log(`[agent-bet] ${p.name} team=${playerTeam||'?'} (fromLog=${teamFromLog||'?'}) injImpact=${stats._injuryImpact||false}`);
 
         // Apply Team Stats / Matchup Adjustment: pace differential + DvP + blowout penalty
         if (teamStats && playerTeam && playerTeam !== '???') {
