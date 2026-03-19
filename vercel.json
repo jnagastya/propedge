@@ -18,8 +18,8 @@
     { "path": "/api/cron/refresh-team-stats", "schedule": "50 21 * * 1-5" },
 
     { "path": "/api/cron/refresh-odds", "schedule": "0 16 * * 0,6" },
-    { "path": "/api/cron/refresh-stats", "schedule": "15 16 * * 0,6" },
-    { "path": "/api/cron/refresh-stats", "schedule": "25 16 * * 0,6" },
+    { "path": "/api/cron/refresh-stats", "schedule": "5 16 * * 0,6" },
+    { "path": "/api/cron/refresh-stats", "schedule": "10 16 * * 0,6" },
     { "path": "/api/cron/refresh-team-stats", "schedule": "20 16 * * 0,6" },
 
     { "path": "/api/cron/grade-agent-bets", "schedule": "0 19 * * *" },
