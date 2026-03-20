@@ -1610,7 +1610,7 @@ function guessTeam(name) {
     // MIA
     'bam adebayo':'MIA','tyler herro':'MIA','jimmy butler':'MIA','terry rozier':'MIA','haywood highsmith':'MIA','caleb martin':'MIA','norman powell':'MIA','davion mitchell':'MIA','pelle larson':'MIA',"kel'el ware":'MIA','jaime jaquez jr':'MIA',
     // MIL
-    'giannis antetokounmpo':'MIL','damian lillard':'MIL','khris middleton':'MIL','brook lopez':'MIL','bobby portis':'MIL','malik beasley':'MIL','ousmane dieng':'MIL','kevin porter jr.':'MIL','ryan rollins':'MIL','cam thomas':'MIL',
+    'giannis antetokounmpo':'MIL','damian lillard':'MIL','khris middleton':'DAL','brook lopez':'LAC','bobby portis':'MIL','malik beasley':'MIL','ousmane dieng':'MIL','kevin porter jr.':'MIL','ryan rollins':'MIL','cam thomas':'MIL',
     // MIN
     'anthony edwards':'MIN','rudy gobert':'MIN','jaden mcdaniels':'MIN','naz reid':'MIN','mike conley':'MIN',
     // NOP
