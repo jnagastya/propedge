@@ -2416,6 +2416,7 @@ app.post('/api/injury-impact-batch', async (req, res) => {
         const playerPlayed = recentlyTraded ? playerPlayedAll : playerPlayedTeam;
         const market = p.market;
         const teammateImpacts = [];
+        const bakedInSkipped = [];
 
         for (const inj of outTeammates) {
           if (inj.player.toLowerCase() === p.player.toLowerCase() || inj.player.toLowerCase() === resolvedPlayer.toLowerCase()) continue;
@@ -2444,7 +2445,7 @@ app.post('/api/injury-impact-batch', async (req, res) => {
           const l10 = playerPlayedTeam.slice(0, 10);
           const l10Without = l10.filter(g => !tmPlayedDates.has(g.date)).length;
           const bakedInWeight = Math.max(0, 1 - (l10Without / 10));
-          if (bakedInWeight <= 0) continue;
+          if (bakedInWeight <= 0) { bakedInSkipped.push(inj.player); continue; }
 
           const wo = [], wi = [];
           for (const g of playerPlayedTeam) {
@@ -2531,7 +2532,9 @@ app.post('/api/injury-impact-batch', async (req, res) => {
         }
 
         if (!teammateImpacts.length) {
-          results[key] = { impact: false, reason: 'no teammate with sufficient data' };
+          results[key] = bakedInSkipped.length
+            ? { impact: false, reason: 'baked_in', bakedInPlayers: bakedInSkipped }
+            : { impact: false, reason: 'no teammate with sufficient data' };
           continue;
         }
 
