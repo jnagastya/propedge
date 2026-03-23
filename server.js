@@ -4303,7 +4303,7 @@ async function sendDiscordResults(allBets, latestDate, totalPlaced = null) {
   const pnlFmt = v => `${v >= 0 ? '+' : '-'}$${Math.abs(v).toFixed(2)}`;
   const dateStr = new Date(latestDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
 
-  const yesterdayBets = allBets.filter(b => b.placed_at === latestDate);
+  const yesterdayBets = allBets.filter(b => (b.game_date || b.placed_at) === latestDate);
   const yesterdayValue = yesterdayBets.filter(b => !b.is_control);
   const allValue = allBets.filter(b => !b.is_control);
   const allControl = allBets.filter(b => b.is_control);
@@ -5997,7 +5997,7 @@ app.get('/api/cron/newsletter', async (req, res) => {
     const { data: yAllBets } = await supabase.from('agent_bets').select('id, is_control').eq('placed_at', yesterdayET).eq('is_control', false);
     const totalValuePlacedYesterday = yAllBets?.length || 0;
     const latestDate = totalValuePlacedYesterday > 0 ? yesterdayET : allBets[0].placed_at;
-    const yesterdayBets = allBets.filter(b => b.placed_at === latestDate);
+    const yesterdayBets = allBets.filter(b => (b.game_date || b.placed_at) === latestDate);
     const yesterdayValue = yesterdayBets.filter(b => !b.is_control);
     const yesterdayControl = yesterdayBets.filter(b => b.is_control);
 
@@ -6515,15 +6515,20 @@ app.get('/api/discord/resend-results', async (req, res) => {
   const date = req.query.date || yesterdayET;
 
   // Fetch all graded bets (all-time, for all-time stats in the embed)
-  const { data: rawBets, error } = await supabase.from('agent_bets').select('*').not('result', 'is', null).order('placed_at', { ascending: false });
+  const { data: rawBets, error } = await supabase.from('agent_bets').select('*').not('result', 'is', null).order('game_date', { ascending: false });
   if (error) return res.status(500).json({ error: error.message });
   const allBets = (rawBets || []).map(b => ({ ...b, status: b.result, actual_result: b.actual_stat, pnl: b.result === 'won' ? (b.to_win || 0) : b.result === 'lost' ? -b.stake : 0 }));
 
-  const dateBets = allBets.filter(b => b.placed_at === date);
-  if (!dateBets.length) return res.status(404).json({ error: `No graded bets found for ${date}` });
+  // Filter by game_date (the date games were played), fall back to placed_at for older records
+  const dateBets = allBets.filter(b => (b.game_date || b.placed_at) === date);
+  if (!dateBets.length) {
+    // Diagnostic: show what dates we do have
+    const available = [...new Set(allBets.map(b => b.game_date || b.placed_at))].slice(0, 5);
+    return res.status(404).json({ error: `No graded bets found for ${date}`, availableDates: available });
+  }
 
   // Total placed for that date (to show pending count)
-  const { data: totalPlacedData } = await supabase.from('agent_bets').select('id').eq('placed_at', date).eq('is_control', false);
+  const { data: totalPlacedData } = await supabase.from('agent_bets').select('id').eq('game_date', date).eq('is_control', false);
   const totalPlaced = totalPlacedData?.length || null;
 
   await sendDiscordResults(allBets, date, totalPlaced);
