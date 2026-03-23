@@ -2750,12 +2750,13 @@ app.get('/api/cron/refresh-grading-stats', async (req, res) => {
 
   try {
     const yesterdayET = new Date(Date.now() - 24 * 60 * 60 * 1000).toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
-    // Fetch all ungraded agent bets for yesterday
+    const targetDate = req.query.date || yesterdayET;
+    // Fetch all ungraded agent bets for the target date
     const { data: ungradedBets, error: fetchErr } = await supabase.from('agent_bets')
-      .select('player_name').is('result', null).eq('game_date', yesterdayET);
+      .select('player_name').is('result', null).eq('game_date', targetDate);
     if (fetchErr) return res.status(500).json({ error: fetchErr.message });
     if (!ungradedBets?.length) {
-      return res.json({ success: true, message: `No ungraded bets for ${yesterdayET}`, total: 0 });
+      return res.json({ success: true, message: `No ungraded bets for ${targetDate}`, total: 0 });
     }
 
     const playerNames = [...new Set(ungradedBets.map(b => b.player_name).filter(Boolean))];
@@ -2808,7 +2809,7 @@ app.get('/api/cron/refresh-grading-stats', async (req, res) => {
     }
 
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-    res.json({ success: true, date: yesterdayET, total: playerNames.length, elapsed: `${elapsed}s`, timedOut: isTimedOut(), ...results });
+    res.json({ success: true, date: targetDate, total: playerNames.length, elapsed: `${elapsed}s`, timedOut: isTimedOut(), ...results });
   } catch (err) {
     res.status(500).json({ error: err.message, ...results });
   }
