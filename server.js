@@ -1604,7 +1604,7 @@ function guessTeam(name) {
     // LAC
     'kawhi leonard':'LAC','james harden':'LAC','ivica zubac':'IND','norman powell':'MIA','terance mann':'LAC','bones hyland':'LAC','darius garland':'LAC',
     // LAL
-    'lebron james':'LAL','anthony davis':'LAL','austin reaves':'LAL',"d'angelo russell":'LAL','rui hachimura':'LAL','max christie':'LAL','gabe vincent':'LAL','marcus smart':'LAL','jaxson hayes':'LAL','deandre ayton':'LAL','luke kennard':'LAL',
+    'lebron james':'LAL','anthony davis':'LAL','austin reaves':'LAL',"d'angelo russell":'LAL','rui hachimura':'LAL','jake laravia':'LAL','max christie':'LAL','gabe vincent':'LAL','marcus smart':'LAL','jaxson hayes':'LAL','deandre ayton':'LAL','luke kennard':'LAL',
     // MEM
     'ja morant':'MEM','desmond bane':'ORL','jaren jackson jr.':'MEM','marcus smart':'LAL','luke kennard':'LAL',
     // MIA
@@ -1632,7 +1632,7 @@ function guessTeam(name) {
     // SAS
     'victor wembanyama':'SAS','keldon johnson':'SAS','devin vassell':'SAS','jeremy sochan':'SAS','stephon castle':'SAS','dylan harper':'SAS','julian champagnie':'SAS',
     // TOR
-    'scottie barnes':'TOR','rj barrett':'TOR','immanuel quickley':'TOR','gradey dick':'TOR','jakob poeltl':'TOR',
+    'scottie barnes':'TOR','rj barrett':'TOR','immanuel quickley':'TOR','jamal shead':'TOR','gradey dick':'TOR','jakob poeltl':'TOR',
     // UTA
     'lauri markkanen':'UTA','jordan clarkson':'UTA','collin sexton':'UTA','john collins':'UTA','walker kessler':'UTA','keyonte george':'UTA',
     // WAS
