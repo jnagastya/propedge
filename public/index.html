@@ -7513,7 +7513,7 @@ async function updateSocNotifBadge() {
 // ══════════════════════════════════════════════
 // GAME LINES
 // ══════════════════════════════════════════════
-let _glCache=null;
+let _glCache=null, _glCacheTs=0;
 let _glBetGame=null; // current game for bet modal
 let _glBetType=null; // 'ml_home','ml_away','spread_home','spread_away','total_over','total_under'
 
@@ -7803,13 +7803,14 @@ async function renderGameLines() {
   const empty = document.getElementById('glEmpty');
   if (!grid) return;
 
-  if (!_glCache) {
+  const _glCacheStale = !_glCache || (Date.now()-_glCacheTs) > 30*60*1000 || (_glCache.teamStats==null && (Date.now()-_glCacheTs) > 2*60*1000);
+  if (_glCacheStale) {
     loading.style.display = '';
     grid.innerHTML = '';
     empty.style.display = 'none';
     try {
       const r = await fetch('/api/game-lines');
-      if (r.ok) _glCache = await r.json();
+      if (r.ok) { _glCache = await r.json(); _glCacheTs = Date.now(); }
     } catch {}
     loading.style.display = 'none';
   }

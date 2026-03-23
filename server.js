@@ -2636,9 +2636,7 @@ app.get('/api/cron/refresh-stats', async (req, res) => {
     if (!oddsPlayers || !oddsPlayers.length) {
       return res.status(503).json({ error: 'No odds data in Supabase — run refresh-odds first' });
     }
-    const playerSet = new Set(oddsPlayers.map(p => p.name).filter(Boolean));
-    // Note: ungraded bet players no longer included here — getActualStat has BDL fallback for grading
-    const playerNames = [...playerSet];
+    const playerNames = [...new Set(oddsPlayers.map(p => p.name).filter(Boolean))];
 
     // Batch-read existing records (metadata only — no game_log to keep query fast)
     const { data: existingRecords } = await supabase
@@ -2656,8 +2654,8 @@ app.get('/api/cron/refresh-stats', async (req, res) => {
     for (const name of playerNames) {
       const rec = recordMap.get(name);
       if (rec?.bdl_id) {
-        // Skip if already updated within last 12 hours (unless ?force=true)
-        if (req.query.force !== 'true' && rec.last_fetched && (now - new Date(rec.last_fetched)) < 12 * 60 * 60 * 1000) {
+        // Skip if already updated within last 12 hours (unless ?force=true or grading mode)
+        if (!gradingMode && req.query.force !== 'true' && rec.last_fetched && (now - new Date(rec.last_fetched)) < 12 * 60 * 60 * 1000) {
           results.skipped.push(name);
           continue;
         }
@@ -2729,6 +2727,88 @@ app.get('/api/cron/refresh-stats', async (req, res) => {
 
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
     res.json({ success: true, total: playerNames.length, incremental: incremental.length, newFetched: newBatch.length, skipped: results.skipped.length, elapsed: `${elapsed}s`, timedOut: isTimedOut(), ...results });
+  } catch (err) {
+    res.status(500).json({ error: err.message, ...results });
+  }
+});
+
+// ============================================================
+// CRON: Refresh game logs for yesterday's ungraded agent bets
+// Runs at 11:00 AM and 11:10 AM PT (18:00/18:10 UTC) — before grading at 12 PM PT
+// Ensures BDL stats are cached in Supabase so grading doesn't rely on real-time BDL lookups
+// ============================================================
+app.get('/api/cron/refresh-grading-stats', async (req, res) => {
+  const secret = (req.headers.authorization || '').replace('Bearer ', '') || req.headers['x-cron-secret'] || req.query.secret;
+  if (process.env.CRON_SECRET && secret !== process.env.CRON_SECRET) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  if (!supabase) return res.status(503).json({ error: 'Supabase not configured' });
+  if (!BDL_KEY) return res.status(503).json({ error: 'BDL key not configured' });
+
+  const startTime = Date.now();
+  const results = { ok: [], failed: [], skipped: [] };
+
+  try {
+    const yesterdayET = new Date(Date.now() - 24 * 60 * 60 * 1000).toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+    // Fetch all ungraded agent bets for yesterday
+    const { data: ungradedBets, error: fetchErr } = await supabase.from('agent_bets')
+      .select('player_name').is('result', null).eq('game_date', yesterdayET);
+    if (fetchErr) return res.status(500).json({ error: fetchErr.message });
+    if (!ungradedBets?.length) {
+      return res.json({ success: true, message: `No ungraded bets for ${yesterdayET}`, total: 0 });
+    }
+
+    const playerNames = [...new Set(ungradedBets.map(b => b.player_name).filter(Boolean))];
+
+    // Batch-read existing records for these players
+    const { data: existingRecords } = await supabase
+      .from('player_stats')
+      .select('player_name, bdl_id, position')
+      .eq('season', NBA_SEASON)
+      .in('player_name', playerNames);
+    const recordMap = new Map((existingRecords || []).map(r => [r.player_name, r]));
+
+    const MAX_RUNTIME_MS = 100_000;
+    const isTimedOut = () => (Date.now() - startTime) > MAX_RUNTIME_MS;
+
+    // Refresh all ungraded bet players — force refresh regardless of last_fetched
+    // 5 concurrent to stay within BDL rate limits
+    for (let i = 0; i < playerNames.length; i += 5) {
+      const batch = playerNames.slice(i, i + 5);
+      await Promise.all(batch.map(async (name) => {
+        if (isTimedOut()) { results.skipped.push(name); return; }
+        try {
+          const rec = recordMap.get(name);
+          let bdlId = rec?.bdl_id;
+          let position = rec?.position;
+          if (!bdlId) {
+            const resolved = await getBDLPlayerId(name);
+            bdlId = resolved?.id;
+            position = resolved?.position;
+          }
+          if (!bdlId) { results.failed.push(`${name} (not found in BDL)`); return; }
+
+          // Fetch from 3 days before yesterday to catch any late-posted stats
+          const fromDate = new Date(yesterdayET);
+          fromDate.setDate(fromDate.getDate() - 3);
+          const startDate = fromDate.toISOString().split('T')[0];
+
+          const existingRecord = await sbGetGameLogRecord(name);
+          const existingGames = existingRecord?.game_log || [];
+          const newGames = await fetchBDLGameLog(bdlId, startDate);
+          const byDate = new Map(existingGames.map(g => [g.date, g]));
+          newGames.forEach(g => byDate.set(g.date, g));
+          const merged = [...byDate.values()].sort((a, b) => new Date(b.date) - new Date(a.date));
+          await sbSetGameLog(name, bdlId, merged, position);
+          results.ok.push(`${name} (+${newGames.length})`);
+        } catch (e) {
+          results.failed.push(`${name} (${e.message})`);
+        }
+      }));
+    }
+
+    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+    res.json({ success: true, date: yesterdayET, total: playerNames.length, elapsed: `${elapsed}s`, timedOut: isTimedOut(), ...results });
   } catch (err) {
     res.status(500).json({ error: err.message, ...results });
   }
@@ -4215,7 +4295,7 @@ async function sendDiscordPicks(betsInserted, date) {
   });
 }
 
-async function sendDiscordResults(allBets, latestDate) {
+async function sendDiscordResults(allBets, latestDate, totalPlaced = null) {
   if (!DISCORD_RESULTS_WEBHOOK || !allBets?.length) return;
 
   const fmtOdds = o => o > 0 ? `+${o}` : `${o}`;
@@ -4243,9 +4323,12 @@ async function sendDiscordResults(allBets, latestDate) {
 
   // Headline embed
   const pnlEmoji = yStats.pnl >= 0 ? '📈' : '📉';
+  const gradedCount = yStats.won + yStats.lost;
+  const pendingCount = totalPlaced != null ? Math.max(0, totalPlaced - gradedCount) : null;
+  const pendingNote = pendingCount > 0 ? ` · ⏳ ${pendingCount} pending` : '';
   const embeds = [{
     title: `${pnlEmoji} Daily Results — ${dateStr}`,
-    description: `**${yStats.won}-${yStats.lost}** (${yStats.winRate}%) · P&L: **${pnlFmt(yStats.pnl)}**`,
+    description: `**${yStats.won}-${yStats.lost}** (${yStats.winRate}%) · P&L: **${pnlFmt(yStats.pnl)}**${pendingNote}`,
     color: yStats.pnl >= 0 ? 0x10b981 : 0xf43f5e,
     fields: [
       { name: 'All-Time Value', value: `${aValStats.won}-${aValStats.lost} (${aValStats.winRate}%)\n${aValStats.pnl >= 0 ? '🟢' : '🔴'} ${pnlFmt(aValStats.pnl)} · ROI ${aValStats.roi}%`, inline: true },
@@ -5907,8 +5990,12 @@ app.get('/api/cron/newsletter', async (req, res) => {
     const allBets = (rawBets || []).map(b => ({...b, status: b.result, actual_result: b.actual_stat, pnl: b.result === 'won' ? (b.to_win || 0) : b.result === 'lost' ? -b.stake : 0}));
     if (!allBets?.length) return res.json({ message: 'No graded bets yet' });
 
-    // Yesterday's bets (most recent placed_at with graded results)
-    const latestDate = allBets[0].placed_at;
+    // Determine the correct date: use yesterday ET if bets were placed then,
+    // otherwise fall back to the most recently graded date (handles off-days)
+    const yesterdayET = new Date(Date.now() - 24 * 60 * 60 * 1000).toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+    const { data: yAllBets } = await supabase.from('agent_bets').select('id, is_control').eq('placed_at', yesterdayET).eq('is_control', false);
+    const totalValuePlacedYesterday = yAllBets?.length || 0;
+    const latestDate = totalValuePlacedYesterday > 0 ? yesterdayET : allBets[0].placed_at;
     const yesterdayBets = allBets.filter(b => b.placed_at === latestDate);
     const yesterdayValue = yesterdayBets.filter(b => !b.is_control);
     const yesterdayControl = yesterdayBets.filter(b => b.is_control);
@@ -6387,7 +6474,7 @@ app.get('/api/cron/newsletter', async (req, res) => {
     if (emailErr) return res.status(500).json({ error: emailErr.message });
 
     // Send Discord results notification
-    await sendDiscordResults(allBets, latestDate);
+    await sendDiscordResults(allBets, latestDate, totalValuePlacedYesterday || null);
 
     res.json({ success: true, sent_to: NEWSLETTER_TO, date: latestDate });
   } catch (err) {
@@ -6413,6 +6500,34 @@ app.get('/api/discord/resend-picks', async (req, res) => {
   if (!bets || !bets.length) return res.status(404).json({ error: `No bets found for ${date}` });
   await sendDiscordPicks(bets, date);
   res.json({ success: true, date, bets: bets.length });
+});
+
+// ---- Resend Discord results for a specific date (no email) ----
+app.get('/api/discord/resend-results', async (req, res) => {
+  const secret = (req.headers.authorization || '').replace('Bearer ', '') || req.headers['x-cron-secret'] || req.query.secret;
+  if (process.env.CRON_SECRET && secret !== process.env.CRON_SECRET) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  if (!supabase) return res.status(503).json({ error: 'Supabase not configured' });
+
+  const yesterdayET = new Date(Date.now() - 24 * 60 * 60 * 1000).toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+  const date = req.query.date || yesterdayET;
+
+  // Fetch all graded bets (all-time, for all-time stats in the embed)
+  const { data: rawBets, error } = await supabase.from('agent_bets').select('*').not('result', 'is', null).order('placed_at', { ascending: false });
+  if (error) return res.status(500).json({ error: error.message });
+  const allBets = (rawBets || []).map(b => ({ ...b, status: b.result, actual_result: b.actual_stat, pnl: b.result === 'won' ? (b.to_win || 0) : b.result === 'lost' ? -b.stake : 0 }));
+
+  const dateBets = allBets.filter(b => b.placed_at === date);
+  if (!dateBets.length) return res.status(404).json({ error: `No graded bets found for ${date}` });
+
+  // Total placed for that date (to show pending count)
+  const { data: totalPlacedData } = await supabase.from('agent_bets').select('id').eq('placed_at', date).eq('is_control', false);
+  const totalPlaced = totalPlacedData?.length || null;
+
+  await sendDiscordResults(allBets, date, totalPlaced);
+  const graded = dateBets.filter(b => !b.is_control).length;
+  res.json({ success: true, date, graded, totalPlaced });
 });
 
 // Debug: see ungraded bet dates
