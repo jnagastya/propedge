@@ -2654,8 +2654,8 @@ app.get('/api/cron/refresh-stats', async (req, res) => {
     for (const name of playerNames) {
       const rec = recordMap.get(name);
       if (rec?.bdl_id) {
-        // Skip if already updated within last 12 hours (unless ?force=true or grading mode)
-        if (!gradingMode && req.query.force !== 'true' && rec.last_fetched && (now - new Date(rec.last_fetched)) < 12 * 60 * 60 * 1000) {
+        // Skip if already updated within last 12 hours (unless ?force=true)
+        if (req.query.force !== 'true' && rec.last_fetched && (now - new Date(rec.last_fetched)) < 12 * 60 * 60 * 1000) {
           results.skipped.push(name);
           continue;
         }
