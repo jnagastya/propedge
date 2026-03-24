@@ -4416,114 +4416,87 @@ window._simTeammateOut=async function(i,p,teammateName){
   ]);
   const key=`${p.name}|${mkt}`;
   const impact=impactResp?.results?.[key];
-  // Minutes split
-  let minSplitHTML='',teammateReturned=false;
-  if(playerLogsResp.data?.length&&teammateLogsResp.data?.length){
-    const pLogs=playerLogsResp.data;
+  // Minutes split + returned detection
+  let minSplitHTML='',returnedBannerHTML='';
+  if(teammateLogsResp.data?.length){
     const tLogs=teammateLogsResp.data;
-    const tmPlayed=new Set(tLogs.filter(g=>parseInt(g.min||'0')>5).map(g=>g.date));
-    const tmOut=new Set(tLogs.filter(g=>parseInt(g.min||'0')<=5).map(g=>g.date));
-    const withTm=pLogs.filter(g=>parseInt(g.min||'0')>0&&tmPlayed.has(g.date));
-    const withoutTm=pLogs.filter(g=>parseInt(g.min||'0')>0&&tmOut.has(g.date));
-    const avgM=arr=>arr.length?+(arr.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/arr.length).toFixed(1):null;
-    const wMin=avgM(withTm),woMin=avgM(withoutTm);
-    const diff=wMin!=null&&woMin!=null?+(woMin-wMin).toFixed(1):null;
-    // Detect if teammate recently returned (played last game, out 2+ of prior 3)
     const sortedTm=[...tLogs].sort((a,b)=>new Date(b.date)-new Date(a.date));
     const lastPlayed=parseInt(sortedTm[0]?.min||'0')>5;
-    const prevOut=sortedTm.slice(1,4).filter(g=>parseInt(g.min||'0')<=5).length;
-    teammateReturned=lastPlayed&&prevOut>=2;
-    if(wMin!=null||woMin!=null){
-      const diffCol=diff>0?'var(--g)':diff<0?'var(--r)':'var(--t3)';
-      const diffFmt=diff!=null?(diff>0?`+${diff}`:`${diff}`):null;
-      const lastName=teammateName.split(' ').slice(-1)[0];
-      minSplitHTML=`<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--bd);">
-        <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">⏱ Minutes Split (${p.name})</div>
-        ${teammateReturned?`<div style="margin-bottom:8px;padding:5px 10px;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.2);border-radius:6px;font-size:11px;color:var(--g);font-weight:600;">⬆ ${teammateName} recently returned from injury</div>`:''}
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
-          <div style="text-align:center;padding:8px;background:var(--bg1);border-radius:6px;border:1px solid var(--bd);">
-            <div style="font-size:10px;color:var(--t3);margin-bottom:3px;">With ${lastName}</div>
-            <div style="font-size:18px;font-weight:800;">${wMin??'—'}</div>
-            <div style="font-size:10px;color:var(--t3);">${withTm.length} games</div>
-          </div>
-          <div style="text-align:center;padding:8px;background:var(--bg1);border-radius:6px;border:1px solid var(--bd);">
-            <div style="font-size:10px;color:var(--t3);margin-bottom:3px;">Without</div>
-            <div style="font-size:18px;font-weight:800;">${woMin??'—'}</div>
-            <div style="font-size:10px;color:var(--t3);">${withoutTm.length} games</div>
-          </div>
-          <div style="text-align:center;padding:8px;background:${diff!=null?(diff>0?'rgba(34,197,94,.08)':'rgba(239,68,68,.08)'):'var(--bg1)'};border-radius:6px;border:1px solid ${diff!=null?(diff>0?'rgba(34,197,94,.2)':'rgba(239,68,68,.2)'):'var(--bd)'}">
-            <div style="font-size:10px;color:var(--t3);margin-bottom:3px;">Difference</div>
-            <div style="font-size:18px;font-weight:800;color:${diffCol};">${diffFmt??'—'} min</div>
-            <div style="font-size:10px;color:var(--t3);">when out</div>
-          </div>
+    const prevGames=sortedTm.slice(1,5);
+    const prevOutCount=prevGames.filter(g=>parseInt(g.min||'0')<=5).length;
+    const teammateReturned=lastPlayed&&prevOutCount>=2;
+    const gamesBack=prevOutCount; // how many games they were out before returning
+    if(teammateReturned){
+      returnedBannerHTML=`<div style="padding:10px 14px;background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.3);border-radius:8px;margin-bottom:12px;display:flex;align-items:center;gap:10px;">
+        <span style="font-size:20px;">⬆</span>
+        <div>
+          <div style="font-size:13px;font-weight:800;color:#22c55e;">TEAMMATE RETURNED FROM INJURY</div>
+          <div style="font-size:11px;color:var(--t2);margin-top:2px;">${teammateName} missed ${gamesBack} game${gamesBack!==1?'s':''} before returning in their most recent game — impact below reflects their absence</div>
         </div>
       </div>`;
     }
+    if(playerLogsResp.data?.length){
+      const pLogs=playerLogsResp.data;
+      const tmPlayed=new Set(tLogs.filter(g=>parseInt(g.min||'0')>5).map(g=>g.date));
+      const tmOut=new Set(tLogs.filter(g=>parseInt(g.min||'0')<=5).map(g=>g.date));
+      const withTm=pLogs.filter(g=>parseInt(g.min||'0')>0&&tmPlayed.has(g.date));
+      const withoutTm=pLogs.filter(g=>parseInt(g.min||'0')>0&&tmOut.has(g.date));
+      const avgM=arr=>arr.length?+(arr.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/arr.length).toFixed(1):null;
+      const wMin=avgM(withTm),woMin=avgM(withoutTm);
+      const diff=wMin!=null&&woMin!=null?+(woMin-wMin).toFixed(1):null;
+      if(wMin!=null||woMin!=null){
+        const diffCol=diff>0?'var(--g)':diff<0?'var(--r)':'var(--t3)';
+        const diffFmt=diff!=null?(diff>0?`+${diff}`:`${diff}`):null;
+        const lastName=teammateName.split(' ').slice(-1)[0];
+        minSplitHTML=`<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--bd);">
+          <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">⏱ ${p.name.split(' ').slice(-1)[0]} Minutes Split</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+            <div style="text-align:center;padding:8px;background:var(--bg1);border-radius:6px;border:1px solid var(--bd);">
+              <div style="font-size:10px;color:var(--t3);margin-bottom:3px;">With ${lastName}</div>
+              <div style="font-size:18px;font-weight:800;">${wMin??'—'}</div>
+              <div style="font-size:10px;color:var(--t3);">${withTm.length} games</div>
+            </div>
+            <div style="text-align:center;padding:8px;background:var(--bg1);border-radius:6px;border:1px solid var(--bd);">
+              <div style="font-size:10px;color:var(--t3);margin-bottom:3px;">Without</div>
+              <div style="font-size:18px;font-weight:800;">${woMin??'—'}</div>
+              <div style="font-size:10px;color:var(--t3);">${withoutTm.length} games</div>
+            </div>
+            <div style="text-align:center;padding:8px;background:${diff!=null?(diff>0?'rgba(34,197,94,.08)':'rgba(239,68,68,.08)'):'var(--bg1)'};border-radius:6px;border:1px solid ${diff!=null?(diff>0?'rgba(34,197,94,.2)':'rgba(239,68,68,.2)'):'var(--bd)'}">
+              <div style="font-size:10px;color:var(--t3);margin-bottom:3px;">Difference</div>
+              <div style="font-size:18px;font-weight:800;color:${diffCol};">${diffFmt??'—'} min</div>
+              <div style="font-size:10px;color:var(--t3);">when out</div>
+            </div>
+          </div>
+        </div>`;
+      }
+    }
   }
-  // No real impact data
+  // No meaningful impact
   if(!impact||!impact.impact){
-    const reason=impact?.reason||'no data';
-    resEl.innerHTML=`<div style="padding:12px;background:var(--bg2);border-radius:8px;border:1px solid var(--bd);font-size:12px;color:var(--t3);">No significant stat impact detected for ${p.name} when ${teammateName} is out (${reason}).${minSplitHTML?'':''}</div>${minSplitHTML?`<div style="padding:0 12px 12px;">${minSplitHTML}</div>`:''}`;
+    const reason=impact?.reason==='baked_in'?`already baked into ${p.name}'s recent stats`:impact?.reason||'no significant data';
+    resEl.innerHTML=`${returnedBannerHTML}<div style="padding:10px 12px;background:var(--bg2);border-radius:8px;border:1px solid var(--bd);font-size:12px;color:var(--t3);">No significant stat impact detected when ${teammateName} is out — ${reason}.</div>${minSplitHTML}`;
     return;
   }
-  // Compute deltas
-  const boost=impact.pctChange||0;
-  const newAvg=+(p.avg*(1+boost/100)).toFixed(1);
-  const newEdge=p.line?+((newAvg-p.line)/p.line*100).toFixed(1):0;
-  const isOv=(p.modelProb||0.5)>=0.5;
-  const rawMP=p.modelProb||0.5;
-  const origDirMP=Math.round((isOv?rawMP:1-rawMP)*100);
-  const statDelta=(p.line&&(p.stdDev||0)>0)?(normalCDF((newAvg-p.line)/p.stdDev)-normalCDF((p.avg-p.line)/p.stdDev)):0;
-  const newRawMP=Math.min(0.97,Math.max(0.03,rawMP+statDelta*0.20));
-  const newDirMP=Math.round((isOv?newRawMP:1-newRawMP)*100);
-  const mpDelta=newDirMP-origDirMP;
-  const origEV=isOv?(p.evOver??calcEV(rawMP,p.overOdds)):(p.evUnder??calcEV(1-rawMP,p.underOdds));
-  const newEV=isOv?calcEV(newRawMP,p.overOdds):calcEV(1-newRawMP,p.underOdds);
-  const evDelta=+(newEV-origEV).toFixed(1);
-  const origVS=valueScore(p);
-  const newVS=valueScore({...p,avg:newAvg,modelProb:isOv?newRawMP:1-newRawMP,edge:newEdge});
-  const vsDelta=newVS-origVS;
-  const wasRec=origVS>=40?(isOv?'BET OVER':'BET UNDER'):'NEUTRAL';
-  const nowRec=newVS>=40?(newEdge>=0?'BET OVER':'BET UNDER'):'NEUTRAL';
-  const recChanged=wasRec!==nowRec;
-  const rCol=r=>r.includes('OVER')?'var(--g)':r.includes('UNDER')?'var(--r)':'var(--a)';
-  const fD=v=>v>0?`+${v.toFixed?v.toFixed(1):v}`:`${v.toFixed?v.toFixed(1):v}`;
-  const lastName=teammateName.split(' ').slice(-1)[0];
-  resEl.innerHTML=`
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px;">
-      <div style="text-align:center;padding:8px;background:var(--bg2);border-radius:6px;border:1px solid var(--bd);">
-        <div style="font-size:10px;color:var(--t3);margin-bottom:3px;">Proj Avg</div>
-        <div style="font-size:16px;font-weight:800;color:var(--g);">${newAvg}</div>
-        <div style="font-size:10px;color:var(--t3);">${fD(+(newAvg-p.avg).toFixed(1))} from ${p.avg}</div>
-      </div>
-      <div style="text-align:center;padding:8px;background:var(--bg2);border-radius:6px;border:1px solid var(--bd);">
-        <div style="font-size:10px;color:var(--t3);margin-bottom:3px;">Model Prob</div>
-        <div style="font-size:16px;font-weight:800;">${newDirMP}%</div>
-        <div style="font-size:10px;color:${mpDelta>0?'var(--g)':mpDelta<0?'var(--r)':'var(--t3)'};">${fD(mpDelta)} pts</div>
-      </div>
-      <div style="text-align:center;padding:8px;background:var(--bg2);border-radius:6px;border:1px solid var(--bd);">
-        <div style="font-size:10px;color:var(--t3);margin-bottom:3px;">EV</div>
-        <div style="font-size:16px;font-weight:800;color:${newEV>0?'var(--g)':'var(--r)'};">${newEV>0?'+':''}${newEV.toFixed?newEV.toFixed(1):newEV}%</div>
-        <div style="font-size:10px;color:${evDelta>0?'var(--g)':evDelta<0?'var(--r)':'var(--t3)'};">${fD(evDelta)}</div>
-      </div>
-      <div style="text-align:center;padding:8px;background:var(--bg2);border-radius:6px;border:1px solid var(--bd);">
-        <div style="font-size:10px;color:var(--t3);margin-bottom:3px;">Value Score</div>
-        <div style="font-size:16px;font-weight:800;color:${newVS>=40?'var(--g)':newVS>=25?'var(--a)':'var(--r)'};">${newVS}</div>
-        <div style="font-size:10px;color:${vsDelta>0?'var(--g)':vsDelta<0?'var(--r)':'var(--t3)'};">${vsDelta>0?'+':''}${vsDelta} from ${origVS}</div>
-      </div>
-    </div>
-    <div style="display:flex;gap:8px;align-items:center;">
-      <div style="flex:1;padding:7px 10px;background:var(--bg2);border-radius:6px;border:1px solid var(--bd);">
-        <div style="font-size:10px;color:var(--t3);margin-bottom:2px;">Base</div>
-        <div style="font-size:13px;font-weight:800;color:${rCol(wasRec)};">${wasRec}</div>
-      </div>
-      <div style="font-size:16px;color:${recChanged?'#c084fc':'var(--t3)'};">${recChanged?'→':'='}</div>
-      <div style="flex:1;padding:7px 10px;background:${recChanged?'rgba(168,85,247,.08)':'var(--bg2)'};border-radius:6px;border:1px solid ${recChanged?'rgba(168,85,247,.25)':'var(--bd)'};">
-        <div style="font-size:10px;color:var(--t3);margin-bottom:2px;">If ${lastName} OUT${recChanged?' (CHANGED)':''}</div>
-        <div style="font-size:13px;font-weight:800;color:${rCol(nowRec)};">${nowRec}</div>
-      </div>
-    </div>
-    ${minSplitHTML}`;
+  // Build simulated player using exact same logic as applyInjuryImpact
+  const ratio=impact.ratio||1;
+  const simP={...p};
+  simP._injPre={avg:p.avg,edge:p.edge,modelProb:p.modelProb,hitRate:p.hitRate,evOver:p.evOver,evUnder:p.evUnder,vs:valueScore(p),dirEV:getDirectionalEV(p)};
+  simP.avg=+(p.avg*ratio).toFixed(1);
+  simP.edge=p.line>0?+((simP.avg-p.line)/p.line*100).toFixed(1):0;
+  const _std=Math.max(0.5,p.stdDev||2);
+  const newProb=p.line>0?Math.min(0.97,Math.max(0.03,1-normalCDF((p.line-simP.avg)/_std))):(p.modelProb||0.5);
+  simP.modelProb=newProb;
+  const isOver=simP.edge>=0;
+  simP.hitRate=Math.round((isOver?newProb:1-newProb)*100);
+  simP.evOver=calcEV(newProb,p.overOdds);
+  simP.evUnder=calcEV(1-newProb,p.underOdds);
+  simP._injImpact=true;simP._injTeammate=impact.teammate;simP._injPctChange=impact.pctChange;
+  simP._injTeammates=impact.teammates||[];simP._injSkipped=impact.skipped||[];simP._injSpeculative=impact.speculative||false;
+  // Render using exact same renderInjuryBreakdown for full parity
+  const breakdownHTML=renderInjuryBreakdown(simP);
+  // Strip outer dc-t header (we have our own section header) and inject
+  const inner=breakdownHTML.replace(/<div class="dc full"><div class="dc-t">.*?<\/div>/,'').replace(/<\/div>\s*$/,'');
+  resEl.innerHTML=`${returnedBannerHTML}${inner}${minSplitHTML}`;
 };
 function renderScenario(el,p){
   const myTeam=p.team||TEAM_MAP[p.name];
