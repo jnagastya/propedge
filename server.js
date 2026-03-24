@@ -698,7 +698,7 @@ const BDL_PLAYER_OVERRIDES = {
   'Ty Jerome':              { id: 666676,        position: 'G', team: 'MEM' },
   'Scoot Henderson':        { id: 56677747,      position: 'G', team: 'POR' },
   'Brandon Miller':          { id: 56677823,      position: 'F', team: 'CHA' },
-  'Coby White':              { id: 666956,        position: 'G', team: 'CHI' },
+  'Coby White':              { id: 666956,        position: 'G', team: 'CHA' },
   'Marcus Smart':            { id: 420,           position: 'G', team: 'LAL' },
   'Adem Bona':               { id: 1028034846,    position: 'F', team: 'PHI' },
   'Nolan Traore':            { id: 1057275262,    position: 'G', team: 'BKN' },
@@ -1586,7 +1586,7 @@ function guessTeam(name) {
     // CHA
     'lamelo ball':'CHA','brandon miller':'CHA','miles bridges':'CHA','mark williams':'CHA','grant williams':'CHA','josh green':'CHA','sion james':'CHA',
     // CHI
-    'zach lavine':'CHI','nikola vucevic':'CHI','coby white':'CHI','josh giddey':'CHI','patrick williams':'CHI','ayo dosunmu':'CHI','tre jones':'CHI',
+    'zach lavine':'CHI','nikola vucevic':'CHI','josh giddey':'CHI','patrick williams':'CHI','ayo dosunmu':'CHI','tre jones':'CHI',
     // CLE
     'donovan mitchell':'CLE','darius garland':'LAC','evan mobley':'CLE','jarrett allen':'CLE','max strus':'CLE','isaac okoro':'CLE',
     // DAL
