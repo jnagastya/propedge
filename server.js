@@ -714,6 +714,7 @@ const BDL_PLAYER_OVERRIDES = {
   'Darius Garland':          { id: 666581,        position: 'G', team: 'LAC' },
   'Maxime Raynaud':          { id: 1057390745,    position: 'C', team: 'SAC' },
   'Jaylin Williams':         { id: 38017706,      position: 'F', team: 'OKC' },
+  'Jalen Williams':          { id: 38017703,      position: 'G-F', team: 'OKC' },
   "Ja'Kobe Walter":          { id: 1028029111,    position: 'G', team: 'TOR' },
   'Aaron Wiggins':           { id: 17896078,      position: 'G', team: 'OKC' },
   'Khris Middleton':         { id: 315,           position: 'F', team: 'DAL' },
@@ -1578,17 +1579,17 @@ function normalCDF(z) {
 function guessTeam(name) {
   const map = {
     // ATL
-    'trae young':'WAS','bogdan bogdanovic':'ATL','dejounte murray':'ATL',"de'andre hunter":'ATL','onyeka okongwu':'ATL','clint capela':'ATL','dyson daniels':'ATL','larry nance jr.':'ATL','nickeil alexander-walker':'ATL','c.j. mccollum':'ATL','cj mccollum':'ATL','jalen johnson':'ATL','jock landale':'ATL','corey kispert':'ATL','zaccharie risacher':'ATL',
+    'trae young':'WAS','bogdan bogdanovic':'ATL','dejounte murray':'NOP',"de'andre hunter":'ATL','onyeka okongwu':'ATL','clint capela':'ATL','dyson daniels':'ATL','larry nance jr.':'ATL','nickeil alexander-walker':'ATL','c.j. mccollum':'ATL','cj mccollum':'ATL','jalen johnson':'ATL','jock landale':'ATL','corey kispert':'ATL','zaccharie risacher':'ATL',
     // BOS
     'jayson tatum':'BOS','jaylen brown':'BOS','jrue holiday':'BOS','al horford':'BOS','kristaps porzingis':'GSW','payton pritchard':'BOS','sam hauser':'BOS','derrick white':'BOS','baylor scheierman':'BOS',
     // BKN
     'cam thomas':'MIL','nic claxton':'BKN',"day'ron sharpe":'BKN','ben simmons':'BKN','danny wolf':'BKN','noah clowney':'BKN','nolan traore':'BKN','jalen wilson':'BKN',
     // CHA
-    'lamelo ball':'CHA','brandon miller':'CHA','miles bridges':'CHA','mark williams':'CHA','grant williams':'CHA','josh green':'CHA','sion james':'CHA',
+    'lamelo ball':'CHA','brandon miller':'CHA','miles bridges':'CHA','mark williams':'CHA','grant williams':'CHA','josh green':'CHA','sion james':'CHA','moussa diabate':'CHA','kon knueppel':'CHA','ryan kalkbrenner':'CHA',
     // CHI
     'zach lavine':'CHI','nikola vucevic':'CHI','josh giddey':'CHI','patrick williams':'CHI','ayo dosunmu':'CHI','tre jones':'CHI',
     // CLE
-    'donovan mitchell':'CLE','darius garland':'LAC','evan mobley':'CLE','jarrett allen':'CLE','max strus':'CLE','isaac okoro':'CLE',
+    'donovan mitchell':'CLE','darius garland':'LAC','evan mobley':'CLE','jarrett allen':'CLE','max strus':'CLE','isaac okoro':'CLE','thomas bryant':'CLE',
     // DAL
     'luka doncic':'DAL','kyrie irving':'DAL','klay thompson':'DAL','p.j. washington':'DAL','dereck lively ii':'DAL','naji marshall':'DAL','dante exum':'DAL',
     // DEN
@@ -1598,7 +1599,7 @@ function guessTeam(name) {
     // GSW
     'stephen curry':'GSW','draymond green':'GSW','andrew wiggins':'GSW','jonathan kuminga':'GSW','buddy hield':'GSW','gary payton ii':'GSW',
     // HOU
-    'alperen sengun':'HOU','jalen green':'HOU','fred vanvleet':'HOU','jabari smith jr.':'HOU','amen thompson':'HOU','dillon brooks':'HOU','tari eason':'HOU',
+    'alperen sengun':'HOU','jalen green':'PHX','fred vanvleet':'HOU','jabari smith jr.':'HOU','amen thompson':'HOU','dillon brooks':'HOU','tari eason':'HOU',
     // IND
     'tyrese haliburton':'IND','pascal siakam':'IND','myles turner':'IND','benedict mathurin':'IND','andrew nembhard':'IND','t.j. mcconnell':'IND',
     // LAC
@@ -1620,15 +1621,15 @@ function guessTeam(name) {
     // OKC
     'shai gilgeous-alexander':'OKC','jalen williams':'OKC','chet holmgren':'OKC','lu dort':'OKC','isaiah joe':'OKC','alex caruso':'OKC','jared mccain':'OKC',
     // ORL
-    'paolo banchero':'ORL','franz wagner':'ORL','wendell carter jr.':'ORL','wendell carter jr':'ORL','cole anthony':'ORL','jalen suggs':'ORL','markelle fultz':'ORL','desmond bane':'ORL','tristan da silva':'ORL','jett howard':'ORL','jevon carter':'ORL',
+    'paolo banchero':'ORL','franz wagner':'ORL','wendell carter jr.':'ORL','wendell carter jr':'ORL','cole anthony':'ORL','jalen suggs':'ORL','markelle fultz':'ORL','desmond bane':'ORL','tristan da silva':'ORL','jett howard':'ORL','jevon carter':'ORL','goga bitadze':'ORL','jamal cain':'ORL',
     // PHI
     'joel embiid':'PHI','tyrese maxey':'PHI','paul george':'PHI','kelly oubre jr.':'PHI','tobias harris':'PHI','quentin grimes':'PHI','adem bona':'PHI','dominick barlow':'PHI','vj edgecombe':'PHI','cameron payne':'PHI','justin edwards':'PHI',
     // PHX
-    'devin booker':'PHX','kevin durant':'PHX','bradley beal':'PHX','grayson allen':'PHX','jusuf nurkic':'PHX','eric gordon':'PHX',
+    'devin booker':'PHX','kevin durant':'PHX','bradley beal':'PHX','jalen green':'PHX','grayson allen':'PHX','jusuf nurkic':'PHX','eric gordon':'PHX','rasheer fleming':'PHX','khaman maluach':'PHX',
     // POR
     'anfernee simons':'POR','scoot henderson':'POR','jerami grant':'POR','deandre ayton':'LAL','shaedon sharpe':'POR',
     // SAC
-    "de'aaron fox":'SAC','domantas sabonis':'SAC','keegan murray':'SAC','malik monk':'SAC','harrison barnes':'SAC','russell westbrook':'SAC','precious achiuwa':'SAC','dylan cardwell':'SAC','nique clifford':'SAC','demar derozan':'SAC','maxime raynaud':'SAC',
+    "de'aaron fox":'SAC','domantas sabonis':'SAC','keegan murray':'SAC','malik monk':'SAC','harrison barnes':'SAC','russell westbrook':'SAC','precious achiuwa':'SAC','dylan cardwell':'SAC','nique clifford':'SAC','demar derozan':'SAC','maxime raynaud':'SAC','doug mcdermott':'SAC',
     // SAS
     'victor wembanyama':'SAS','keldon johnson':'SAS','devin vassell':'SAS','jeremy sochan':'SAS','stephon castle':'SAS','dylan harper':'SAS','julian champagnie':'SAS',
     // TOR
