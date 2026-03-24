@@ -597,8 +597,6 @@ td{padding:12px 13px;white-space:nowrap;font-size:13px;}
 .adj-toggle{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--bg1);border:1px solid var(--bd);border-radius:10px;cursor:pointer;user-select:none;transition:all .2s;flex:1;min-width:180px;}
 .adj-toggle:hover{border-color:rgba(139,92,246,.4);background:rgba(139,92,246,.04);}
 .adj-toggle.on{border-color:rgba(139,92,246,.5);background:rgba(139,92,246,.08);box-shadow:0 0 12px rgba(139,92,246,.15);}
-#adjToggle-dnp.on{border-color:rgba(239,68,68,.5);background:rgba(239,68,68,.08);box-shadow:0 0 12px rgba(239,68,68,.15);}
-#adjToggle-dnp:hover{border-color:rgba(239,68,68,.4);background:rgba(239,68,68,.04);}
 #adjToggle-inj.on{border-color:rgba(245,158,11,.5);background:rgba(245,158,11,.08);box-shadow:0 0 12px rgba(245,158,11,.15);}
 #adjToggle-inj:hover{border-color:rgba(245,158,11,.4);background:rgba(245,158,11,.04);}
 #adjToggle-team.on,#ppAdjToggle-team.on{border-color:rgba(6,182,212,.5);background:rgba(6,182,212,.08);box-shadow:0 0 12px rgba(6,182,212,.15);}
@@ -609,7 +607,6 @@ td{padding:12px 13px;white-space:nowrap;font-size:13px;}
 .adj-toggle-desc{font-size:11px;color:var(--t3);font-weight:400;line-height:1.3;margin-top:1px;}
 .adj-toggle-switch{width:36px;height:20px;border-radius:10px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);position:relative;flex-shrink:0;transition:all .2s;}
 .adj-toggle.on .adj-toggle-switch{background:rgba(139,92,246,.6);border-color:rgba(139,92,246,.8);}
-#adjToggle-dnp.on .adj-toggle-switch,#ppAdjToggle-dnp.on .adj-toggle-switch{background:rgba(239,68,68,.6);border-color:rgba(239,68,68,.8);}
 #adjToggle-inj.on .adj-toggle-switch,#ppAdjToggle-inj.on .adj-toggle-switch{background:rgba(245,158,11,.6);border-color:rgba(245,158,11,.8);}
 #adjToggle-team.on .adj-toggle-switch,#ppAdjToggle-team.on .adj-toggle-switch{background:rgba(6,182,212,.6);border-color:rgba(6,182,212,.8);}
 .adj-toggle-knob{width:16px;height:16px;border-radius:50%;background:#fff;position:absolute;top:1px;left:1px;transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.3);}
@@ -1360,15 +1357,6 @@ input[type=range].min-slider::-moz-range-track{height:6px;border-radius:3px;back
         </div>
         <div class="adj-toggle-switch"><div class="adj-toggle-knob"></div></div>
       </div>
-      <div class="adj-toggle" id="ppAdjToggle-dnp" onclick="toggleDnpAdj()">
-        <input type="checkbox" id="ppDnpAdjToggle" style="display:none;">
-        <div class="adj-toggle-icon" style="background:rgba(239,68,68,.15);color:#ef4444;">✗</div>
-        <div class="adj-toggle-text">
-          <div class="adj-toggle-title">DNP Adjusted</div>
-          <div class="adj-toggle-desc">Markdown minutes for DNP players</div>
-        </div>
-        <div class="adj-toggle-switch"><div class="adj-toggle-knob"></div></div>
-      </div>
       <div class="adj-toggle" id="ppAdjToggle-inj" onclick="toggleInjuryImpact()">
         <input type="checkbox" id="ppInjuryImpactToggle" style="display:none;">
         <div class="adj-toggle-icon" style="background:rgba(245,158,11,.15);color:#f59e0b;">🏥</div>
@@ -1501,15 +1489,6 @@ input[type=range].min-slider::-moz-range-track{height:6px;border-radius:3px;back
         <div class="adj-toggle-text">
           <div class="adj-toggle-title">Smart Minutes</div>
           <div class="adj-toggle-desc">L3 avg for flagged players</div>
-        </div>
-        <div class="adj-toggle-switch"><div class="adj-toggle-knob"></div></div>
-      </div>
-      <div class="adj-toggle" id="adjToggle-dnp" onclick="toggleDnpAdj()">
-        <input type="checkbox" id="dnpAdjToggle" style="display:none;">
-        <div class="adj-toggle-icon" style="background:rgba(239,68,68,.15);color:#ef4444;">✗</div>
-        <div class="adj-toggle-text">
-          <div class="adj-toggle-title">DNP Adjusted</div>
-          <div class="adj-toggle-desc">Markdown minutes for DNP players</div>
         </div>
         <div class="adj-toggle-switch"><div class="adj-toggle-knob"></div></div>
       </div>
@@ -2553,7 +2532,6 @@ async function enrichAllPlayers(){
   if(bdg){bdg.className='bdg bdg-real';bdg.style.cssText='';bdg.textContent='✓ Stats loaded';}
   // All filters default on — sync UI checkboxes and fetch injury/team data
   _syncToggles(true,[['smartMinToggle','adjToggle-min'],['ppSmartMinToggle','ppAdjToggle-min']]);
-  _syncToggles(true,[['dnpAdjToggle','adjToggle-dnp'],['ppDnpAdjToggle','ppAdjToggle-dnp']]);
   _syncToggles(true,[['injuryImpactToggle','adjToggle-inj'],['ppInjuryImpactToggle','ppAdjToggle-inj']]);
   _syncToggles(true,[['teamStatsToggle','adjToggle-team'],['ppTeamStatsToggle','ppAdjToggle-team']]);
   updateAllFiltersBtn();
@@ -3101,8 +3079,8 @@ function renderTable(){
     const[fAway,fHome]=S.gameFilter.split(' @ ');
     d=d.filter(p=>p.matchup&&p.matchup.includes(fAway)&&p.matchup.includes(fHome));
   }
-  // Apply stacked adjustment filters (Smart Minutes + DNP + Injury Impact + Matchup compound multiplicatively)
-  if(_smartMinOn||_dnpAdjOn||_injuryImpactOn||_teamStatsOn){
+  // Apply stacked adjustment filters (Smart Minutes + Injury Impact + Matchup compound multiplicatively)
+  if(_smartMinOn||_injuryImpactOn||_teamStatsOn){
     d=d.map(p=>applyAllAdjustments(p));
   }
   const sf={
@@ -3219,7 +3197,7 @@ function renderTable(){
       let f=[...list];
       if(q)f=f.filter(p=>p.name.toLowerCase().includes(q)||(p.team||'').toLowerCase().includes(q)||(p.matchup||'').toLowerCase().includes(q));
       if(S.gameFilter){const[fAway,fHome]=S.gameFilter.split(' @ ');f=f.filter(p=>p.matchup&&p.matchup.includes(fAway)&&p.matchup.includes(fHome));}
-      if(_smartMinOn||_dnpAdjOn||_injuryImpactOn||_teamStatsOn) f=f.map(p=>applyAllAdjustments(p));
+      if(_smartMinOn||_injuryImpactOn||_teamStatsOn) f=f.map(p=>applyAllAdjustments(p));
       f.sort(sf[S.sort]||sf.model);
       return f;
     };
@@ -3770,14 +3748,12 @@ function renderOverview(el,p){
         const specTag=p._injSpeculative?' <span style="color:#f59e0b;font-size:11px;font-weight:600;opacity:.8;" title="Estimated — not enough split data">~est</span>':'';
         return`<span style="display:inline-flex;align-items:center;gap:4px;">🏥 <strong>Injury Impact:</strong> <span style="color:${pctCol};font-weight:700;">${pctFmt}</span>${specTag}</span>`;
       }
-      if(type==='min'||type==='dnp'){
+      if(type==='min'){
         const adjMin=parseInt(val);
         const diff=adjMin-seasonAvg;
         const diffFmt=diff>0?`+${diff}`:`${diff}`;
         const diffCol=diff>0?'var(--g)':'var(--r)';
-        const label=type==='min'?'Smart Minutes':'DNP Adjusted';
-        const icon=type==='min'?'⏱':'✗';
-        return`<span style="display:inline-flex;align-items:center;gap:4px;">${icon} <strong>${label}:</strong> ${adjMin} min <span style="color:${diffCol};font-weight:700;">(${diffFmt} min from ${seasonAvg} avg)</span></span>`;
+        return`<span style="display:inline-flex;align-items:center;gap:4px;">⏱ <strong>Smart Minutes:</strong> ${adjMin} min <span style="color:${diffCol};font-weight:700;">(${diffFmt} min from ${seasonAvg} avg)</span></span>`;
       }
       if(type==='pace'||type==='dvp'){
         const mult=parseFloat(val);
@@ -4692,7 +4668,7 @@ const ALERT_MARKETS=[
 const MKT_SHORT={player_points:'PTS',player_rebounds:'REB',player_assists:'AST',player_threes:'3PM',player_points_rebounds_assists:'PRA',player_rebounds_assists:'R+A'};
 let alertMkt='all';
 let alertMktCache={}; // {market_key: enriched player array}
-let _smartMinOn=true, _dnpAdjOn=true, _injuryImpactOn=true, _teamStatsOn=true;
+let _smartMinOn=true, _injuryImpactOn=true, _teamStatsOn=true;
 let _injuryImpactCache={}; // playerName|market → {ratio, teammate, ...}
 let _whatIfOut=[]; // [{player, team}] — what-if players treated as Out
 let _whatIfInjuryCache={}; // playerName|market → what-if impact (overrides _injuryImpactCache)
@@ -4701,7 +4677,6 @@ let _teamStatsCache=null; // { _leagueAvg: {...}, BOS: { pace, allows: {...}, ..
 function _flipToggle(id, labelId){ const cb=document.getElementById(id); if(cb){ cb.checked=!cb.checked; document.getElementById(labelId)?.classList.toggle('on',cb.checked); } return cb?.checked||false; }
 function _syncToggles(state, pairs){ pairs.forEach(([cbId, lblId])=>{ const cb=document.getElementById(cbId); if(cb){ cb.checked=state; document.getElementById(lblId)?.classList.toggle('on',state); } }); }
 function toggleSmartMin(){ _smartMinOn=!_smartMinOn; _syncToggles(_smartMinOn,[['smartMinToggle','adjToggle-min'],['ppSmartMinToggle','ppAdjToggle-min']]); updateAllFiltersBtn(); showFilterLoading(true); requestAnimationFrame(()=>{renderAlerts(); renderTable(); showFilterLoading(false);}); }
-function toggleDnpAdj(){ _dnpAdjOn=!_dnpAdjOn; _syncToggles(_dnpAdjOn,[['dnpAdjToggle','adjToggle-dnp'],['ppDnpAdjToggle','ppAdjToggle-dnp']]); updateAllFiltersBtn(); showFilterLoading(true); requestAnimationFrame(()=>{renderAlerts(); renderTable(); showFilterLoading(false);}); }
 function toggleInjuryImpact(){
   _injuryImpactOn=!_injuryImpactOn; _syncToggles(_injuryImpactOn,[['injuryImpactToggle','adjToggle-inj'],['ppInjuryImpactToggle','ppAdjToggle-inj']]);
   updateAllFiltersBtn();
@@ -5104,13 +5079,12 @@ async function fetchTeamStats(){
   renderAlerts(); renderTable();
 }
 async function toggleAllFilters(){
-  const allOn=_smartMinOn&&_dnpAdjOn&&_injuryImpactOn&&_teamStatsOn;
+  const allOn=_smartMinOn&&_injuryImpactOn&&_teamStatsOn;
   const target=!allOn; // toggle to ON if any are off, OFF if all on
   showFilterLoading(true);
   // Set all states
-  _smartMinOn=target; _dnpAdjOn=target; _injuryImpactOn=target; _teamStatsOn=target;
+  _smartMinOn=target; _injuryImpactOn=target; _teamStatsOn=target;
   _syncToggles(target,[['smartMinToggle','adjToggle-min'],['ppSmartMinToggle','ppAdjToggle-min']]);
-  _syncToggles(target,[['dnpAdjToggle','adjToggle-dnp'],['ppDnpAdjToggle','ppAdjToggle-dnp']]);
   _syncToggles(target,[['injuryImpactToggle','adjToggle-inj'],['ppInjuryImpactToggle','ppAdjToggle-inj']]);
   _syncToggles(target,[['teamStatsToggle','adjToggle-team'],['ppTeamStatsToggle','ppAdjToggle-team']]);
   updateAllFiltersBtn();
@@ -5133,7 +5107,7 @@ function showFilterLoading(show){
   });
 }
 function updateAllFiltersBtn(){
-  const allOn=_smartMinOn&&_dnpAdjOn&&_injuryImpactOn&&_teamStatsOn;
+  const allOn=_smartMinOn&&_injuryImpactOn&&_teamStatsOn;
   ['ppAllFiltersBtn','vaAllFiltersBtn'].forEach(id=>{
     const el=document.getElementById(id);
     if(el){
@@ -5221,14 +5195,6 @@ function applyAllAdjustments(p){
     }
   }
 
-  // --- Step 1c: DNP markdown applies LAST — on top of Smart Minutes and injury projMinutes ---
-  if(_dnpAdjOn && p.dnpCount>=5 && p.hasRealStats && p.gameLog && games.length>0){
-    const baseMin=projMin||Math.round(games.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/games.length);
-    const dnpCapped=Math.min(p.dnpCount,10);
-    const markdownPct=0.10+(dnpCapped-5)*(0.15/5);
-    projMin=Math.round(baseMin*(1-markdownPct));
-    tags.push('dnp:'+projMin);
-  }
 
   // Nothing to adjust — pass through skipped info if any
   const hasTeamAdj=_teamStatsOn && _teamStatsCache && p.team;
@@ -5250,7 +5216,7 @@ function applyAllAdjustments(p){
     const minRatio=avgMin>0?projMin/avgMin:1;
     adjAvg=+(p.avg*minRatio).toFixed(1);
     adj._adjMin=projMin;
-    adj._adjTag=tags[0]?.startsWith('min:')?'min':'dnp';
+    adj._adjTag='min';
   }
   if(injRatio){
     // Capture avg after minutes but before injury — used for injury-only delta display
@@ -5404,16 +5370,6 @@ function applySmartMinutes(p){
   const l3=games.slice(0,3);
   const l3avg=Math.round(l3.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/l3.length);
   return _applyMinAdj(p, l3avg, 'min');
-}
-function applyDnpAdjustment(p){
-  if(!p.dnpCount || p.dnpCount<5 || !p.hasRealStats || !p.gameLog) return p;
-  const games=p.gameLog.filter(g=>parseInt(g.min||'0')>0);
-  if(!games.length) return p;
-  const seasonAvg=games.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/games.length;
-  const dnpRatio=Math.min(p.dnpCount, 10);
-  const markdownPct=0.10 + (dnpRatio - 5) * (0.15 / 5);
-  const adjMin=Math.round(seasonAvg * (1 - markdownPct));
-  return _applyMinAdj(p, adjMin, 'dnp');
 }
 function _applyMinAdj(p, projMin, tag){
   const adj={...p};
