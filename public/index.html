@@ -2350,17 +2350,21 @@ function renderInjurySection(injuries,playerName){
     const col=statusColor[inj.status]||'var(--t3)';
     const icon=statusIcon[inj.status]||'';
     const reason=inj.reason||'';
-    // Clean up reason: remove "Injury/Illness - " prefix for brevity
     const shortReason=reason.replace(/^Injury\/Illness\s*-\s*/i,'').replace(/;\s*$/,'');
-    return`<tr${isSelf?' style="background:rgba(139,92,246,.1);"':''}>
-      <td style="font-weight:${isSelf?'800':'600'};white-space:nowrap;padding:4px 8px;font-size:11px;">${inj.player}${isSelf?' <span style="font-size:8px;color:#a78bfa;font-weight:700;">THIS PLAYER</span>':''}</td>
+    const isReturning=inj.status==='Probable'||inj.status==='Questionable';
+    const returningBadge=isReturning?` <span style="font-size:9px;font-weight:800;color:#22c55e;background:rgba(34,197,94,.15);padding:1px 5px;border-radius:4px;border:1px solid rgba(34,197,94,.3);">⬆ RETURNING</span>`:'';
+    const rowBg=inj.status==='Probable'?'background:rgba(34,197,94,.05);':isSelf?'background:rgba(139,92,246,.1);':'';
+    return`<tr style="${rowBg}">
+      <td style="font-weight:${isSelf?'800':'600'};white-space:nowrap;padding:4px 8px;font-size:11px;">${inj.player}${isSelf?' <span style="font-size:8px;color:#a78bfa;font-weight:700;">THIS PLAYER</span>':''}${returningBadge}</td>
       <td style="padding:4px 8px;font-size:11px;font-weight:700;color:${col};white-space:nowrap;">${icon} ${inj.status}</td>
       <td style="padding:4px 8px;font-size:11px;color:var(--t3);">${shortReason}</td>
     </tr>`;
   }).join('');
   const outCount=injuries.filter(i=>i.status==='Out').length;
   const gtdCount=injuries.filter(i=>i.status==='Questionable'||i.status==='Doubtful').length;
-  return`<div class="dc full"><div class="dc-t"><span class="dt" style="background:var(--r)"></span>Team Injury Report <span style="font-size:11px;color:var(--t3);font-weight:400;margin-left:4px;">${outCount} out · ${gtdCount} game-time decisions</span></div>
+  const returningCount=injuries.filter(i=>i.status==='Probable').length;
+  const returningNote=returningCount?` · <span style="color:#22c55e;font-weight:600;">⬆ ${returningCount} returning</span>`:'';
+  return`<div class="dc full"><div class="dc-t"><span class="dt" style="background:var(--r)"></span>Team Injury Report <span style="font-size:11px;color:var(--t3);font-weight:400;margin-left:4px;">${outCount} out · ${gtdCount} game-time decisions${returningNote}</span></div>
     <div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;"><thead><tr>
       <th style="text-align:left;padding:4px 8px;font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;border-bottom:1px solid var(--bd);">Player</th>
       <th style="text-align:left;padding:4px 8px;font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;border-bottom:1px solid var(--bd);">Status</th>
@@ -4157,19 +4161,8 @@ function renderMatchupBreakdown(p){
         <div style="font-size:10px;color:var(--t3);margin-top:2px;">${pctFmt} to avg</div>
       </div>
     </div>
-    <div style="padding:8px 10px;background:var(--bg2);border-radius:6px;border:1px solid var(--bd);">
-      <div style="font-size:11px;font-weight:700;color:var(--b-text);margin-bottom:4px;">How it works</div>
-      <div style="font-size:11px;color:var(--t3);">
-        <strong>Pace:</strong> If both teams play fast, possessions increase → more counting stats. Compared to league average game speed.
-        ${paceExplain}
-      </div>
-      <div style="font-size:11px;color:var(--t3);margin-top:6px;">
-        <strong>DvP (Defense vs Position):</strong> How many ${mktLabel} ${opp} allows vs league average, dampened ${Math.round(DVP_DAMPEN*100)}% toward 1.0 (team defense doesn't fully translate to individual matchups).
-        ${dvpExplain}
-      </div>
-      <div style="font-size:11px;color:var(--t3);margin-top:6px;">
-        <strong>Result:</strong> Player's adjusted avg is multiplied by <strong style="color:${pctCol}">${combined.toFixed(3)}</strong> (${pctFmt}). This ${pctChg>0?'boosts':'reduces'} the projection to account for the specific matchup.
-      </div>
+    <div style="padding:8px 10px;background:var(--bg2);border-radius:6px;border:1px solid var(--bd);font-size:11px;color:var(--t3);">
+      <strong>Result:</strong> Player's adjusted avg is multiplied by <strong style="color:${pctCol}">${combined.toFixed(3)}</strong> (${pctFmt}). This ${pctChg>0?'boosts':'reduces'} the projection to account for the specific matchup.
     </div>
   </div>`;
 }
