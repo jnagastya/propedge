@@ -4410,7 +4410,7 @@ window._simTeammateOut=async function(i,p,teammateName){
   const mkt=p.market||S.market;
   // Parallel: whatIfOut impact + both game logs
   const [impactResp,playerLogsResp,teammateLogsResp]=await Promise.all([
-    fetch('/api/injury-impact-batch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({players:[{player:p.name,team:myTeam,market:mkt}],whatIfOut:[{name:teammateName,team:myTeam}]})}).then(r=>r.json()).catch(()=>null),
+    fetch('/api/injury-impact-batch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({players:[{player:p.name,team:myTeam,market:mkt}],whatIfOut:[{player:teammateName,team:myTeam}]})}).then(r=>r.json()).catch(()=>null),
     apiGet(`/api/stats/player/name/${encodeURIComponent(p.name)}/games`),
     apiGet(`/api/stats/player/name/${encodeURIComponent(teammateName)}/games`)
   ]);
