@@ -3726,6 +3726,7 @@ async function loadAndRenderGameLog(el,p){
 }
 
 function renderOverview(el,p){
+  const i=(el.id||'').replace('dtc-','');
   const statMap={'player_points':'pts','player_rebounds':'reb','player_assists':'ast','player_threes':'fg3m','player_steals':'stl','player_blocks':'blk','player_turnovers':'turnover','player_points_rebounds_assists':'pra','player_rebounds_assists':'ra'};
   const statKey=statMap[p.market||S.market]||'pts';
   const getStatVal=g=>statKey==='pra'?(+g.pts||0)+(+g.reb||0)+(+g.ast||0):statKey==='ra'?(+g.reb||0)+(+g.ast||0):+(g[statKey]||0);
