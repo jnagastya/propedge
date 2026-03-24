@@ -1919,12 +1919,16 @@ app.get('/api/team-returning', async (req, res) => {
 });
 
 // ============================================================
-// ROUTE: POST /api/snapshot-odds
+// ROUTE: GET /api/cron/snapshot-odds
 // Reads current combined odds from odds_cache and writes a daily
 // snapshot to odds_snapshots (one row per player+market).
-// Call once per day via cron before games tip off.
+// Called by Vercel Cron — weekdays at 3pm PT, weekends at 9:15am PT.
 // ============================================================
-app.post('/api/snapshot-odds', async (req, res) => {
+app.get('/api/cron/snapshot-odds', async (req, res) => {
+  const secret = (req.headers.authorization || '').replace('Bearer ', '') || req.headers['x-cron-secret'] || req.query.secret;
+  if (process.env.CRON_SECRET && secret !== process.env.CRON_SECRET) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
   if (!supabase) return res.status(503).json({ error: 'No database' });
   try {
     const players = await sbGetOdds('combined');

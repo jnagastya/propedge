@@ -38,6 +38,9 @@
     { "path": "/api/cron/agent-bet", "schedule": "15 22 * * 1-5" },
     { "path": "/api/cron/agent-bet", "schedule": "30 16 * * 0,6" },
 
+    { "path": "/api/cron/snapshot-odds", "schedule": "0 22 * * 1-5" },
+    { "path": "/api/cron/snapshot-odds", "schedule": "15 16 * * 0,6" },
+
     { "path": "/api/cron/tipoff-snapshot", "schedule": "0 18 * * 0,6" },
     { "path": "/api/cron/tipoff-snapshot", "schedule": "0 20 * * 0,6" },
     { "path": "/api/cron/tipoff-snapshot", "schedule": "0 22 * * 0,6" },
