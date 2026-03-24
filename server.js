@@ -1614,7 +1614,7 @@ function guessTeam(name) {
     // MIN
     'anthony edwards':'MIN','rudy gobert':'MIN','jaden mcdaniels':'MIN','naz reid':'MIN','mike conley':'MIN',
     // NOP
-    'zion williamson':'NOP','brandon ingram':'NOP','trey murphy iii':'NOP','herb jones':'NOP','jeremiah fears':'NOP','derik queen':'NOP',
+    'zion williamson':'NOP','brandon ingram':'NOP','trey murphy iii':'NOP','herb jones':'NOP','jeremiah fears':'NOP','derik queen':'NOP','saddiq bey':'NOP',
     // NYK
     'jalen brunson':'NYK','karl-anthony towns':'NYK','mikal bridges':'NYK','og anunoby':'NYK','josh hart':'NYK','donte divincenzo':'NYK',
     // OKC
@@ -1634,7 +1634,7 @@ function guessTeam(name) {
     // TOR
     'scottie barnes':'TOR','rj barrett':'TOR','immanuel quickley':'TOR','jamal shead':'TOR','gradey dick':'TOR','jakob poeltl':'TOR',
     // UTA
-    'lauri markkanen':'UTA','jordan clarkson':'UTA','collin sexton':'UTA','john collins':'UTA','walker kessler':'UTA','keyonte george':'UTA',
+    'lauri markkanen':'UTA','jordan clarkson':'NYK','collin sexton':'UTA','john collins':'UTA','walker kessler':'UTA','keyonte george':'UTA',
     // WAS
     'kyle kuzma':'WAS','bilal coulibaly':'WAS','tyus jones':'WAS','deni avdija':'WAS','marvin bagley iii':'WAS','trae young':'WAS','alex sarr':'WAS','carlton carrington':'WAS','will riley':'WAS','tre johnson':'WAS','anthony gill':'WAS',
     // BOS (additions)
