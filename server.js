@@ -1885,6 +1885,39 @@ app.get('/api/injuries', async (req, res) => {
   }
 });
 
+// ROUTE: GET /api/team-returning?team=OKC
+// Returns players on the team who recently returned from injury (DNPs → now playing)
+// Uses stored game logs so it catches confirmed-active players not in the injury report
+app.get('/api/team-returning', async (req, res) => {
+  const team = (req.query.team || '').toUpperCase();
+  if (!team) return res.status(400).json({ error: 'team required' });
+  if (!supabase) return res.json({ returning: [] });
+  try {
+    const injuries = await fetchInjuryReport();
+    // Players currently listed as Out or Doubtful — exclude them (still out)
+    const currentlyOut = new Set(
+      injuries.filter(i => i.status === 'Out' || i.status === 'Doubtful').map(i => i.player.toLowerCase())
+    );
+    const { data } = await supabase.from('player_stats').select('player_name, game_log').eq('season', NBA_SEASON);
+    const returning = [];
+    for (const row of (data || [])) {
+      if (!row.game_log?.length) continue;
+      if (guessTeam(row.player_name.toLowerCase()) !== team) continue;
+      if (currentlyOut.has(row.player_name.toLowerCase())) continue;
+      const sorted = [...row.game_log].sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+      const lastPlayed = parseInt(sorted[0]?.min || '0') > 5;
+      const prevDNPs = sorted.slice(1, 6).filter(g => parseInt(g.min || '0') <= 5).length;
+      if (lastPlayed && prevDNPs >= 2) {
+        returning.push({ player: row.player_name, gamesOut: prevDNPs });
+      }
+    }
+    res.json({ returning });
+  } catch (e) {
+    console.error('[team-returning] Error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // Position-market affinity matrix for speculative injury impact model
 // Controls how much of an out player's production redistributes based on position matchup
 // Keys: outPosition → subjectPosition → market → multiplier (1.0 = neutral)
