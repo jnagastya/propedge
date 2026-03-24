@@ -1918,6 +1918,69 @@ app.get('/api/team-returning', async (req, res) => {
   }
 });
 
+// ============================================================
+// ROUTE: POST /api/snapshot-odds
+// Reads current combined odds from odds_cache and writes a daily
+// snapshot to odds_snapshots (one row per player+market).
+// Call once per day via cron before games tip off.
+// ============================================================
+app.post('/api/snapshot-odds', async (req, res) => {
+  if (!supabase) return res.status(503).json({ error: 'No database' });
+  try {
+    const players = await sbGetOdds('combined');
+    if (!players || !players.length) return res.status(404).json({ error: 'No odds in cache' });
+
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' }); // YYYY-MM-DD ET
+    const rows = players
+      .filter(p => p.name && p.market && p.line != null)
+      .map(p => ({
+        snapshot_date: today,
+        player_name: p.name,
+        market: p.market,
+        book: 'combined',
+        line: p.line,
+        over_odds: p.overOdds ?? null,
+        under_odds: p.underOdds ?? null,
+      }));
+
+    const { error } = await supabase
+      .from('odds_snapshots')
+      .upsert(rows, { onConflict: 'snapshot_date,player_name,market,book' });
+
+    if (error) throw new Error(error.message);
+    console.log(`[snapshot-odds] Saved ${rows.length} rows for ${today}`);
+    res.json({ saved: rows.length, date: today });
+  } catch (e) {
+    console.error('[snapshot-odds] Error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ROUTE: GET /api/odds-movement?player=X&market=Y
+// Returns the last 2 daily snapshots for a player+market so the client
+// can show how the line/odds moved since the previous game day.
+app.get('/api/odds-movement', async (req, res) => {
+  const player = (req.query.player || '').trim();
+  const market = (req.query.market || '').trim();
+  if (!player || !market) return res.status(400).json({ error: 'player and market required' });
+  if (!supabase) return res.json({ snapshots: [] });
+  try {
+    const { data, error } = await supabase
+      .from('odds_snapshots')
+      .select('snapshot_date, line, over_odds, under_odds')
+      .eq('player_name', player)
+      .eq('market', market)
+      .eq('book', 'combined')
+      .order('snapshot_date', { ascending: false })
+      .limit(2);
+    if (error) throw new Error(error.message);
+    res.json({ snapshots: data || [] });
+  } catch (e) {
+    console.error('[odds-movement] Error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // Position-market affinity matrix for speculative injury impact model
 // Controls how much of an out player's production redistributes based on position matchup
 // Keys: outPosition → subjectPosition → market → multiplier (1.0 = neutral)

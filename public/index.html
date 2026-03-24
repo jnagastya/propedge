@@ -374,14 +374,6 @@ table{width:100%;border-collapse:collapse;font-size:13px;}
   .var-card{width:180px;padding:8px 10px;gap:6px;border-radius:8px;}
   .var-label-text{font-size:9px;}
   .var-label-icon{font-size:13px;}
-  .lmr-outer{height:110px;margin-bottom:10px;}
-  .lmr-card{width:220px;padding:10px 12px;gap:8px;border-radius:8px;}
-  .lmr-label-text{font-size:6px;}
-  .lmr-label-icon{width:26px;height:26px;}
-  .lmr-label-icon svg{width:14px;height:14px;}
-  .lmr-arrow{width:24px;height:24px;font-size:15px;}
-  .lmr-arrow-l{left:42px;}
-  .lmr-av{width:28px;height:28px;}
   .parlay-stats{gap:8px;}
   .parlay-stat{padding:10px;min-width:0;}
   .bet-card{padding:12px 14px;}
@@ -671,40 +663,6 @@ td{padding:12px 13px;white-space:nowrap;font-size:13px;}
 .flag-minutes-down{background:rgba(239,68,68,.15);color:#f87171;border:1px solid rgba(239,68,68,.3);}
 .flag-dnp{background:rgba(156,163,175,.15);color:#9ca3af;border:1px solid rgba(156,163,175,.3);}
 .flag-est{background:var(--bld);color:var(--b-text);border:1px solid var(--bb);font-style:italic;}
-.flag-mover{background:rgba(168,85,247,.15);color:#c084fc;border:1px solid rgba(168,85,247,.3);}
-.lmr-outer{position:relative;margin-bottom:14px;height:130px;overflow:hidden;display:flex;align-items:center;}
-.lmr-outer::after{content:'';position:absolute;top:0;bottom:0;right:0;width:40px;z-index:2;pointer-events:none;background:linear-gradient(-90deg,var(--bg0) 30%,transparent);}
-.lmr-label{flex-shrink:0;width:58px;z-index:3;display:flex;align-items:center;justify-content:center;pointer-events:none;}
-.lmr-label-inner{display:flex;flex-direction:column;align-items:center;gap:3px;white-space:nowrap;}
-.lmr-label-icon{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#7c3aed 0%,#a855f7 50%,#c084fc 100%);display:flex;align-items:center;justify-content:center;box-shadow:0 0 12px rgba(168,85,247,.35),0 0 24px rgba(168,85,247,.15);position:relative;overflow:hidden;}
-.lmr-label-icon::after{content:'';position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle at 30% 30%,rgba(255,255,255,.2),transparent 60%);}
-.lmr-label-icon svg{width:18px;height:18px;position:relative;z-index:1;}
-@keyframes lmrPulse{0%,100%{box-shadow:0 0 12px rgba(168,85,247,.35),0 0 24px rgba(168,85,247,.15);}50%{box-shadow:0 0 16px rgba(168,85,247,.55),0 0 32px rgba(168,85,247,.25);}}
-.lmr-label-icon{animation:lmrPulse 2.5s ease-in-out infinite;}
-.lmr-label-text{font-size:7px;font-weight:800;text-transform:uppercase;letter-spacing:1.2px;color:#c084fc;line-height:1.25;text-align:center;}
-.lmr-arrow{position:absolute;top:50%;transform:translateY(-50%);z-index:4;width:28px;height:28px;border-radius:50%;border:1px solid var(--bd2);background:var(--bg2);color:var(--t1);font-size:18px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;opacity:.7;transition:opacity .15s,background .15s;}
-.lmr-arrow:hover{opacity:1;background:var(--bg3);}
-.lmr-arrow-l{left:48px;}
-.lmr-arrow-r{right:4px;}
-.lmr-scroll{flex:1;height:130px;display:flex;align-items:center;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;-ms-overflow-style:none;mask-image:linear-gradient(90deg,transparent 0%,#000 3%,#000 92%,transparent 100%);-webkit-mask-image:linear-gradient(90deg,transparent 0%,#000 3%,#000 92%,transparent 100%);}
-.lmr-scroll::-webkit-scrollbar{display:none;}
-.lmr-track{display:flex;gap:8px;width:max-content;}
-.lmr-card{flex-shrink:0;width:250px;background:var(--bg1);border:1px solid rgba(168,85,247,.15);border-radius:10px;padding:12px 14px;cursor:pointer;display:flex;gap:10px;align-items:flex-start;user-select:none;transition:border-color .15s,box-shadow .15s,transform .15s;}
-.lmr-card:hover{border-color:rgba(168,85,247,.45);box-shadow:0 0 14px rgba(168,85,247,.13),0 2px 8px rgba(0,0,0,.3);transform:translateY(-1px);}
-.lmr-av{width:36px;height:36px;border-radius:50%;overflow:hidden;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--t3);flex-shrink:0;margin-top:2px;}
-.lmr-body{flex:1;min-width:0;line-height:1.6;}
-.lmr-top{display:flex;align-items:center;gap:4px;font-size:12px;}
-.lmr-nm{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--t1);}
-.lmr-ln{font-size:11px;color:var(--t2);white-space:nowrap;font-weight:600;}
-.lmr-st{font-size:11px;color:var(--t2);white-space:nowrap;margin-top:3px;font-weight:600;}
-.lmr-st2{font-size:11px;color:var(--t2);white-space:nowrap;margin-top:2px;font-weight:600;}
-.lmr-odds-tag{display:inline-block;font-size:8px;font-weight:700;padding:1px 5px;border-radius:4px;background:rgba(168,85,247,.15);color:#c084fc;border:1px solid rgba(168,85,247,.3);vertical-align:middle;margin-left:4px;letter-spacing:.3px;}
-.lmr-sep{opacity:.4;}
-.lmr-ev{font-weight:600;}
-.lmr-delta{font-size:10px;font-weight:700;padding:1px 5px;border-radius:3px;}
-.lmr-delta.up{color:var(--g);background:var(--gd);}
-.lmr-delta.dn{color:var(--r);background:var(--rd);}
-.lm-impact{margin-top:10px;padding:10px 12px;background:rgba(168,85,247,.06);border:1px solid rgba(168,85,247,.2);border-radius:8px;font-size:11px;}
 .lm-impact-hdr{font-weight:700;color:#c084fc;margin-bottom:6px;font-size:11px;}
 .lm-impact-row{display:flex;gap:12px;flex-wrap:wrap;align-items:center;line-height:1.8;}
 .lm-impact-item{display:flex;align-items:center;gap:4px;}
@@ -764,12 +722,6 @@ td{padding:12px 13px;white-space:nowrap;font-size:13px;}
 .hist-parlay-hdr{display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none;width:100%;}
 .bet-btn{padding:5px 10px;background:var(--b);border:none;border-radius:6px;color:#fff;font-size:11px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:3px;font-family:var(--sans);transition:background .12s;}
 .bet-btn:hover{background:var(--b);}
-/* Line movement indicators */
-.line-move{display:inline-flex;align-items:center;font-size:10px;font-weight:700;margin-left:3px;padding:1px 5px;border-radius:4px;vertical-align:middle;line-height:1.2;}
-.line-move.up{color:var(--r);background:var(--rd);}
-.line-move.dn{color:var(--g);background:var(--gd);}
-.line-move-big{animation:movePulse 2s ease-in-out infinite;}
-@keyframes movePulse{0%,100%{opacity:1}50%{opacity:.6}}
 @keyframes glValuePulse{0%,100%{box-shadow:0 0 6px rgba(74,222,128,.25),inset 0 0 4px rgba(74,222,128,.05);}50%{box-shadow:0 0 14px rgba(74,222,128,.5),inset 0 0 8px rgba(74,222,128,.1);}}
 @keyframes glHotPulse{0%,100%{box-shadow:0 0 8px rgba(245,158,11,.3),inset 0 0 4px rgba(245,158,11,.06);}50%{box-shadow:0 0 18px rgba(245,158,11,.55),inset 0 0 10px rgba(245,158,11,.12);}}
 .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:800;align-items:center;justify-content:center;backdrop-filter:blur(4px);}
@@ -1413,7 +1365,6 @@ input[type=range].min-slider::-moz-range-track{height:6px;border-radius:3px;back
           <option value="ev">Sort: Expected Value</option>
           <option value="conf">Sort: Confidence</option>
           <option value="hr">Sort: Hit Rate</option>
-          <option value="move">Sort: Line Movement</option>
           <option value="name">Sort: Name</option>
         </select>
         <button class="cbtn" id="scnBtn" onclick="togScn()">
@@ -1470,17 +1421,6 @@ input[type=range].min-slider::-moz-range-track{height:6px;border-radius:3px;back
 
   <!-- ======= VALUE ALERTS VIEW ======= -->
   <div class="va-view view-pane" id="alertsView">
-    <!-- LINE MOVERS RIBBON -->
-    <div class="lmr-outer" id="lmRibbonOuter" style="display:none;">
-      <div class="lmr-label">
-        <div class="lmr-label-inner"><span class="lmr-label-icon"><svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3,17 8,11 13,14 21,6"/><polyline points="16,6 21,6 21,11"/></svg></span><span class="lmr-label-text">LINE<br>MOVERS</span></div>
-      </div>
-      <button class="lmr-arrow lmr-arrow-l" onclick="lmrScroll(-1)" aria-label="Scroll left">‹</button>
-      <div class="lmr-scroll" id="lmRibbonScroll">
-        <div class="lmr-track" id="lmRibbonTrack"></div>
-      </div>
-      <button class="lmr-arrow lmr-arrow-r" onclick="lmrScroll(1)" aria-label="Scroll right">›</button>
-    </div>
     <div class="alert-mkt-bar" id="alertMktBar"></div>
     <div class="va-adj-bar" style="display:flex;gap:10px;align-items:stretch;padding:8px 0;flex-wrap:wrap;">
       <div class="adj-toggle" id="adjToggle-min" onclick="toggleSmartMin()">
@@ -3090,7 +3030,6 @@ function renderTable(){
     conf:(a,b)=>(b.confidence||0)-(a.confidence||0),
     val:(a,b)=>{const ia=+(valueScore(a)>=30&&(a.modelProb||0.5)>=0.55&&(a.confidence||0)>=55&&getDirectionalEV(a)>3);const ib=+(valueScore(b)>=30&&(b.modelProb||0.5)>=0.55&&(b.confidence||0)>=55&&getDirectionalEV(b)>3);if(ib!==ia)return ib-ia;return valueScore(b)-valueScore(a);},
     hr:(a,b)=>(b.hitRate||0)-(a.hitRate||0),
-    move:(a,b)=>{const ma=a.prev_line!=null?Math.abs(a.line-a.prev_line):0;const mb=b.prev_line!=null?Math.abs(b.line-b.prev_line):0;return mb-ma;},
     name:(a,b)=>a.name.localeCompare(b.name),
   };
   S.sort=document.getElementById('sortS').value;
@@ -3156,8 +3095,8 @@ function renderTable(){
         </div>
       </div></td>
       <td class="col-mob-hide" style="color:var(--t2);font-size:11px;">${(p.matchup||'—').replace(/^\?\?\?[·\s·]*/,'').substring(0,26)||'—'}</td>
-      <td style="font-weight:700;font-size:14px;">${p.line}${(()=>{if(p.prev_line==null||p.prev_line===p.line)return'';const diff=+(p.line-p.prev_line).toFixed(1);const cls=diff>0?'up':'dn';const big=Math.abs(diff)>=1.5?'line-move-big':'';return`<span class="line-move ${cls} ${big}" title="Was ${p.prev_line}">${diff>0?'↑':'↓'}${Math.abs(diff).toFixed(1)}</span>`;})()}</td>
-      <td><div class="odds-cell"><span class="odd over">O ${overFmt}${(()=>{if(p.prev_overOdds==null||p.prev_overOdds===p.overOdds)return'';const diff=p.overOdds-p.prev_overOdds;return`<span class="line-move ${diff>0?'dn':'up'}" style="font-size:8px;margin-left:2px;" title="Was ${p.prev_overOdds>0?'+':''}${p.prev_overOdds}">${diff>0?'↑':'↓'}${Math.abs(diff)}</span>`;})()}</span><span class="odd under">U ${underFmt}${(()=>{if(p.prev_underOdds==null||p.prev_underOdds===p.underOdds)return'';const diff=p.underOdds-p.prev_underOdds;return`<span class="line-move ${diff>0?'dn':'up'}" style="font-size:8px;margin-left:2px;" title="Was ${p.prev_underOdds>0?'+':''}${p.prev_underOdds}">${diff>0?'↑':'↓'}${Math.abs(diff)}</span>`;})()}</span></div></td>
+      <td style="font-weight:700;font-size:14px;">${p.line}</td>
+      <td><div class="odds-cell"><span class="odd over">O ${overFmt}</span><span class="odd under">U ${underFmt}</span></div></td>
       <td class="col-sm-hide" style="font-weight:600;">${p.avg}</td>
       <td class="col-sm-hide" style="font-weight:600;">${oP}%</td>
       <td class="col-mob-hide"><div class="ouv"><div class="oub"><div class="ouo" style="width:${oP}%"></div><div class="ouu" style="width:${uP}%"></div></div><span class="oul">${oP}/${uP}</span></div></td>
@@ -3294,34 +3233,6 @@ function positionTip(tip,rect){
   tip.style.top=top+'px';
 }
 
-function lmrScroll(dir){
-  const scroll=document.getElementById('lmRibbonScroll');
-  if(!scroll) return;
-  window._lmrPaused=true;
-  clearTimeout(window._lmrPauseTimer);
-  // Normalize position into first-half before jumping so the seam is never visible
-  const half=scroll.scrollWidth/2;
-  if(half>0&&scroll.scrollLeft>=half) scroll.scrollLeft-=half;
-  if(half>0&&scroll.scrollLeft<0) scroll.scrollLeft+=half;
-  scroll.scrollBy({left:260*dir,behavior:'smooth'});
-  // After smooth scroll completes (~400ms), normalize again, then resume after pause
-  window._lmrPauseTimer=setTimeout(()=>{
-    if(half>0){
-      if(scroll.scrollLeft>=half) scroll.scrollLeft-=half;
-      if(scroll.scrollLeft<0) scroll.scrollLeft+=half;
-    }
-    window._lmrPaused=false;
-  },4000);
-}
-function lmrAutoScroll(){
-  const scroll=document.getElementById('lmRibbonScroll');
-  if(!scroll||window._lmrPaused||!scroll.scrollWidth) return;
-  if(scroll.matches(':hover')) return;
-  scroll.scrollLeft+=1;
-  const half=scroll.scrollWidth/2;
-  if(half>0&&scroll.scrollLeft>=half) scroll.scrollLeft-=half;
-}
-if(!window._lmrAutoInterval) window._lmrAutoInterval=setInterval(lmrAutoScroll,30);
 function openAlertDetail(p){
   const modal=document.getElementById('playerDetailModal');
   const MKT=p.market||S.market;
@@ -4065,6 +3976,41 @@ function renderOverview(el,p){
       else grid2.appendChild(mDiv.firstElementChild);
     }
   }
+  // Line history — show how the line moved since the last snapshot
+  (async()=>{
+    const mkt=p.market||S.market;
+    if(!p.name||!mkt)return;
+    try{
+      const r=await fetch(`/api/odds-movement?player=${encodeURIComponent(p.name)}&market=${encodeURIComponent(mkt)}`);
+      if(!r.ok)return;
+      const {snapshots}=await r.json();
+      if(!snapshots||snapshots.length<2)return;
+      const [cur,prev]=snapshots; // sorted newest first
+      const lineDiff=+(cur.line-prev.line).toFixed(1);
+      const oDiff=(cur.over_odds!=null&&prev.over_odds!=null)?cur.over_odds-prev.over_odds:null;
+      const uDiff=(cur.under_odds!=null&&prev.under_odds!=null)?cur.under_odds-prev.under_odds:null;
+      // Only show if something actually moved
+      if(lineDiff===0&&!oDiff&&!uDiff)return;
+      const grid4=el.querySelector('.di-grid');
+      if(!grid4)return;
+      const fmtOdds=v=>v>0?`+${v}`:String(v);
+      const fmtDiff=v=>v>0?`+${v}`:String(v);
+      const lineHtml=lineDiff!==0
+        ?`<span style="font-weight:700;color:${lineDiff>0?'var(--r)':'var(--g)'}">${fmtDiff(lineDiff)}</span> line (${prev.line} → <strong>${cur.line}</strong>)`
+        :'';
+      const oddsHtml=[
+        oDiff!=null&&oDiff!==0?`Over ${fmtDiff(oDiff)} (${fmtOdds(prev.over_odds)} → <strong>${fmtOdds(cur.over_odds)}</strong>)`:'',
+        uDiff!=null&&uDiff!==0?`Under ${fmtDiff(uDiff)} (${fmtOdds(prev.under_odds)} → <strong>${fmtOdds(cur.under_odds)}</strong>)`:'',
+      ].filter(Boolean).join(' · ');
+      const parts=[lineHtml,oddsHtml].filter(Boolean).join(' · ');
+      const prevDate=new Date(prev.snapshot_date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'});
+      const lhDiv=document.createElement('div');
+      lhDiv.className='dc full';
+      lhDiv.innerHTML=`<div class="dc-t"><span class="dt" style="background:#6366f1"></span>Line Movement <span style="font-size:11px;color:var(--t3);font-weight:400;margin-left:4px;">since ${prevDate}</span></div>
+        <div style="padding:8px 12px;font-size:12px;color:var(--t2);">${parts}</div>`;
+      grid4.appendChild(lhDiv);
+    }catch(e){console.warn('[line-history]',e);}
+  })();
   // Teammate Simulator — inject at bottom of card
   (async()=>{
     const myTeam=p.team||TEAM_MAP[p.name];
@@ -5897,98 +5843,6 @@ function renderAlerts(){
   };
   alerts.sort(sortFns[alertSort]||sortFns.vs);
 
-  // Build "Line Movers" rotating ribbon (all lines that moved)
-  const allData = getAlertData().filter(p=>!p.gameTime||new Date(p.gameTime)>_now);
-  const movers = allData.filter(p=>p.prev_line!=null && (p.prev_line!==p.line || p.prev_overOdds!==p.overOdds || p.prev_underOdds!==p.underOdds))
-    .map(p=>{
-      const ld=+(p.line-p.prev_line).toFixed(1);
-      const od=p.overOdds&&p.prev_overOdds?p.overOdds-p.prev_overOdds:0;
-      const ud=p.underOdds&&p.prev_underOdds?p.underOdds-p.prev_underOdds:0;
-      const absMove=Math.abs(ld)+Math.abs(od)/50+Math.abs(ud)/50;
-      // Compute current & previous VS/EV/prob for delta display
-      const vs=valueScore(p);
-      const dirEV=getDirectionalEV(p);
-      const isOver=p.edge>0;
-      const rawMP=p.modelProb??(p.hitRate||50)/100;
-      const dirMP=isOver?rawMP:1-rawMP;
-      const probPct=Math.round(dirMP*100);
-      // Estimate previous values by simulating with prev line/odds
-      const prevP={...p,line:p.prev_line,overOdds:p.prev_overOdds||p.overOdds,underOdds:p.prev_underOdds||p.underOdds};
-      const prevEdge=prevP.avg!=null?+(((prevP.avg-prevP.line)/prevP.line)*100).toFixed(1):0;
-      prevP.edge=prevEdge;
-      const prevVS=valueScore(prevP);
-      const prevDirEV=getDirectionalEV(prevP);
-      const evIncrease=dirEV-prevDirEV;
-      // Estimate prev MP using statProb delta (hit rates same, statistical prob changes with line)
-      const prevIsOv=prevEdge>0;
-      const prevStatProb=p.avg!=null&&(p.stdDev||0)>0?normalCDF((p.avg-p.prev_line)/(p.stdDev)):0.5;
-      const curStatProb=p.avg!=null&&(p.stdDev||0)>0?normalCDF((p.avg-p.line)/(p.stdDev)):0.5;
-      const statDlt=curStatProb-prevStatProb;
-      const prevRawMP=Math.min(0.97,Math.max(0.03,rawMP-statDlt*0.20));
-      const prevDirMP=prevIsOv?prevRawMP:1-prevRawMP;
-      const prevProbPct=Math.round(prevDirMP*100);
-      const rec=vs>=40?(isOver?'OVER':'UNDER'):'NEUTRAL';
-      const prevRec=prevVS>=40?(prevEdge>0?'OVER':'UNDER'):'NEUTRAL';
-      return {...p,_lineDiff:ld,_absMove:absMove,_oddsDiffO:od,_oddsDiffU:ud,
-        _vs:vs,_prevVS:prevVS,_dirEV:dirEV,_prevDirEV:prevDirEV,_evIncrease:evIncrease,
-        _probPct:probPct,_prevProbPct:prevProbPct,_rec:rec,_prevRec:prevRec,_isOver:isOver};
-    })
-    .sort((a,b)=>b._evIncrease-a._evIncrease);
-  window._lmMovers=movers;
-
-  // Render rotating ribbon
-  const lmOuter=document.getElementById('lmRibbonOuter');
-  const lmTrack=document.getElementById('lmRibbonTrack');
-  if(lmOuter&&lmTrack){
-    if(!movers.length){lmOuter.style.display='none';}
-    else{
-      lmOuter.style.display='';
-      const fmtD=v=>v>0?`+${v.toFixed(1)}`:v.toFixed(1);
-      const makeCard=(m,i)=>{
-        const dir=m._lineDiff>0?'↑':m._lineDiff<0?'↓':'';
-        const mktS=({'player_points':'PTS','player_rebounds':'REB','player_assists':'AST','player_threes':'3PM','player_points_rebounds_assists':'PRA','player_rebounds_assists':'R+A'})[m.market||S.market]||'';
-        const hs=getHeadshot(m.name);
-        const init=m.name.split(' ').map(n=>n[0]).join('').substring(0,2);
-        const av=hs?`<img src="${hs}" onerror="headshotError(this,'${init}')" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" alt="">`:init;
-        const vsDelta=m._vs-m._prevVS;
-        const evDelta=m._dirEV-m._prevDirEV;
-        const recChanged=m._rec!==m._prevRec;
-        const lineOnly=m._lineDiff===0;
-        const lineStr=lineOnly?`${m.line}`:`${m.prev_line} → ${m.line} ${dir}${Math.abs(m._lineDiff).toFixed(1)}`;
-        const oddsTag=lineOnly?'<span class="lmr-odds-tag">ODDS MOVED</span>':'';
-        const evCls=evDelta>=0?'up':'dn';const evArr=evDelta>=0?'↑':'↓';
-        const vsCls=vsDelta>=0?'up':'dn';const vsArr=vsDelta>=0?'↑':'↓';
-        // MP delta
-        const prevMP=m._prevProbPct||m._probPct;
-        const mpDelta=m._probPct-prevMP;
-        const mpCls=mpDelta>=0?'up':'dn';const mpArr=mpDelta>=0?'↑':'↓';
-        const mpDeltaStr=mpDelta!==0?` <span class="lmr-delta ${mpCls}">${mpArr}${Math.abs(mpDelta)}</span>`:'';
-        const rankColor=i===0?'#f59e0b':i===1?'#94a3b8':i===2?'#b45309':'var(--t3)';
-        const rankLabel=i===0?'🥇':i===1?'🥈':i===2?'🥉':`#${i+1}`;
-        // Recommendation badge
-        const recCol=m._rec==='OVER'?'#22c55e':m._rec==='UNDER'?'#ef4444':'#94a3b8';
-        const recBg=m._rec==='OVER'?'rgba(34,197,94,.12)':m._rec==='UNDER'?'rgba(239,68,68,.12)':'rgba(148,163,184,.10)';
-        const recBorder=m._rec==='OVER'?'rgba(34,197,94,.3)':m._rec==='UNDER'?'rgba(239,68,68,.3)':'rgba(148,163,184,.2)';
-        const recBadge=`<span style="display:inline-block;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:800;letter-spacing:.5px;color:${recCol};background:${recBg};border:1px solid ${recBorder};margin-left:4px;">${m._rec}</span>`;
-        return `<div class="lmr-card" onclick="openAlertDetail(_lmMovers[${i}])">
-          <div class="lmr-av" data-av="${m.name.replace(/"/g,'&quot;')}">${av}</div>
-          <div class="lmr-body">
-            <div class="lmr-top"><span class="lmr-nm">${m.name}</span> <span style="font-size:10px;font-weight:700;color:${rankColor};margin-left:3px;">${rankLabel}</span>${recBadge}</div>
-            <div class="lmr-ln">${lineStr} ${mktS}${oddsTag}</div>
-            <div class="lmr-st">EV: <span class="lmr-ev" style="color:${m._dirEV>=0?'var(--g)':'var(--r)'}">${fmtD(m._dirEV)}%</span> <span class="lmr-delta ${evCls}">${evArr}${Math.abs(evDelta).toFixed(1)}</span></div>
-            <div class="lmr-st2">MP: ${m._probPct}%${mpDeltaStr} · VS: ${m._vs} <span class="lmr-delta ${vsCls}">${vsArr}${Math.abs(vsDelta)}</span></div>
-            ${recChanged?`<div class="lmr-st2" style="color:#c084fc;font-weight:700;">→ ${m._rec}</div>`:''}
-          </div>
-        </div>`;
-      };
-      const html=movers.map((m,i)=>makeCard(m,i)).join('');
-      lmTrack.innerHTML=html+html;
-      prefetchHeadshots(movers.map(m=>m.name));
-      // Reset scroll position for fresh render
-      const lmScroll=document.getElementById('lmRibbonScroll');
-      if(lmScroll) lmScroll.scrollLeft=0;
-    }
-  }
 
   const grid=document.getElementById('vaGrid');
 
