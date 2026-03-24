@@ -4075,16 +4075,18 @@ function renderOverview(el,p){
     }
   }
   // Teammate Simulator — inject at bottom of card
-  (()=>{
+  (async()=>{
     const myTeam=p.team||TEAM_MAP[p.name];
     if(!myTeam)return;
     const teammates=Object.entries(TEAM_MAP).filter(([n,t])=>t===myTeam&&n!==p.name).map(([n])=>n).sort();
     if(!teammates.length)return;
     const grid3=el.querySelector('.di-grid');
     if(!grid3)return;
+    // Ensure injury statuses are loaded before building badges
+    await getInjuries();
     const options=teammates.map(name=>{
       const st=_injuryStatusMap[name];
-      const badge=st==='Out'?' 🚫 Out':(st==='Questionable'||st==='Probable')?' ⬆ Returning?':'';
+      const badge=st==='Out'?' 🚫 Out':(st==='Questionable'||st==='Probable')?' ⬆ Returning':'';
       return`<option value="${name}">${name}${badge}</option>`;
     }).join('');
     const simDiv=document.createElement('div');
@@ -4424,14 +4426,23 @@ window._simTeammateOut=async function(i,p,teammateName){
     const lastPlayed=parseInt(sortedTm[0]?.min||'0')>5;
     const prevGames=sortedTm.slice(1,5);
     const prevOutCount=prevGames.filter(g=>parseInt(g.min||'0')<=5).length;
-    const teammateReturned=lastPlayed&&prevOutCount>=2;
-    const gamesBack=prevOutCount; // how many games they were out before returning
-    if(teammateReturned){
+    const recentDNPs=sortedTm.slice(0,5).filter(g=>parseInt(g.min||'0')<=5).length;
+    const injStatus=_injuryStatusMap[teammateName];
+    // "Returned" = played last game after 2+ DNPs
+    const hasReturned=lastPlayed&&prevOutCount>=2;
+    // "Returning" = currently Probable/Questionable + 2+ recent DNPs (expected back imminently)
+    const isReturning=!lastPlayed&&(injStatus==='Probable'||injStatus==='Questionable')&&recentDNPs>=2;
+    const gamesBack=hasReturned?prevOutCount:recentDNPs;
+    if(hasReturned||isReturning){
+      const verb=hasReturned?'RETURNED FROM INJURY':'RETURNING FROM INJURY';
+      const detail=hasReturned
+        ?`${teammateName} missed ${gamesBack} game${gamesBack!==1?'s':''} before returning in their most recent game`
+        :`${teammateName} is listed as ${injStatus} and has missed ${gamesBack} recent game${gamesBack!==1?'s':''} — expect increased usage from teammates`;
       returnedBannerHTML=`<div style="padding:10px 14px;background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.3);border-radius:8px;margin-bottom:12px;display:flex;align-items:center;gap:10px;">
         <span style="font-size:20px;">⬆</span>
         <div>
-          <div style="font-size:13px;font-weight:800;color:#22c55e;">TEAMMATE RETURNED FROM INJURY</div>
-          <div style="font-size:11px;color:var(--t2);margin-top:2px;">${teammateName} missed ${gamesBack} game${gamesBack!==1?'s':''} before returning in their most recent game — impact below reflects their absence</div>
+          <div style="font-size:13px;font-weight:800;color:#22c55e;">${verb}</div>
+          <div style="font-size:11px;color:var(--t2);margin-top:2px;">${detail}</div>
         </div>
       </div>`;
     }
