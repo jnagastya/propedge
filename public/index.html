@@ -513,7 +513,7 @@ td{padding:13px 14px;white-space:nowrap;font-size:14px;}
 .stat-chip-hr{font-size:22px;font-weight:900;line-height:1;}
 .stat-chip-avg{font-size:12px;color:var(--t2);margin-top:3px;font-weight:600;}
 .bar-dates{display:flex;gap:4px;margin-top:3px;padding:0 10px;}
-.bar-date{flex:1;text-align:center;font-size:10px;color:var(--t2);line-height:1.5;overflow:hidden;white-space:nowrap;}.bar-date img{display:block;margin:0 auto 3px;}
+.bar-date{flex:1;text-align:center;font-size:10px;color:var(--t2);line-height:1.2;overflow:hidden;white-space:nowrap;}.bar-date img{display:block;margin:4px auto 2px;}
 .supp-stats{display:flex;gap:8px;flex-wrap:wrap;padding-top:10px;margin-top:10px;border-top:1px solid var(--bd);}
 .supp-stat{flex:1;min-width:50px;text-align:center;}
 .supp-stat-v{font-size:14px;font-weight:700;color:var(--t1);}
@@ -2221,6 +2221,9 @@ const TEAM_MAP = {
   "Ron Holland":"DET","Kobe Sanders":"LAC","Will Richard":"GSW",
   "Aaron Wiggins":"OKC","Jaylin Williams":"OKC","Isaiah Stewart":"DET",
   "A.J. Green":"MIL","AJ Green":"MIL",
+  "Luka Garza":"BOS","Ayo Dosunmu":"MIN","John Collins":"LAC","Isaac Okoro":"CHI",
+  "Obi Toppin":"IND","Kevin Huerter":"DET","Taurean Prince":"MIL","Donte DiVincenzo":"MIN",
+  "Daniss Jenkins":"DET","Jay Huff":"IND","Paul Reed Jr":"DET",
 };
 
 const TEAMMATES = {
@@ -3675,8 +3678,8 @@ function renderOverview(el,p){
   }).join('');
   const barDates=chartGames.map(g=>{
     const d=g.date?new Date(g.date+'T12:00:00').toLocaleDateString('en-US',{month:'numeric',day:'numeric'}):'';
-    const _logo=g.opp?_tLogo(g.opp,22):`<span style="display:block;height:22px;"></span>`;
-    return`<div class="bar-date">${_logo}<br>${d}</div>`;
+    const _logo=g.opp?`<img src="https://a.espncdn.com/i/teamlogos/nba/500/${g.opp.toLowerCase()}.png" style="height:30px;width:30px;object-fit:contain;" onerror="this.style.display='none'">`:`<span style="display:block;height:30px;margin:4px 0 2px;"></span>`;
+    return`<div class="bar-date">${_logo}${d}</div>`;
   }).join('');
   const lP=p.line?(1-p.line/maxV)*100:50;
   // Stat chips + streak
@@ -3939,7 +3942,7 @@ function renderOverview(el,p){
           <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Over Odds</div>
           <div style="display:flex;align-items:center;justify-content:center;gap:6px;">
             <button class="ov-adj-btn" onclick="window._ovAdjOddsStep('${i}','ov',-5)">−</button>
-            <input class="ov-adj-inp" type="number" id="ov-adj-ov-${i}" value="${p.overOdds||-110}" step="5" oninput="window._updateOvAdj('${i}')">
+            <input class="ov-adj-inp" type="text" id="ov-adj-ov-${i}" value="${(p.overOdds||-110)>=0?'+'+(p.overOdds||100):(p.overOdds||-110)}" oninput="window._updateOvAdj('${i}')">
             <button class="ov-adj-btn" onclick="window._ovAdjOddsStep('${i}','ov',5)">+</button>
           </div>
         </div>
@@ -3947,7 +3950,7 @@ function renderOverview(el,p){
           <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Under Odds</div>
           <div style="display:flex;align-items:center;justify-content:center;gap:6px;">
             <button class="ov-adj-btn" onclick="window._ovAdjOddsStep('${i}','un',-5)">−</button>
-            <input class="ov-adj-inp" type="number" id="ov-adj-un-${i}" value="${p.underOdds||-110}" step="5" oninput="window._updateOvAdj('${i}')">
+            <input class="ov-adj-inp" type="text" id="ov-adj-un-${i}" value="${(p.underOdds||-110)>=0?'+'+(p.underOdds||100):(p.underOdds||-110)}" oninput="window._updateOvAdj('${i}')">
             <button class="ov-adj-btn" onclick="window._ovAdjOddsStep('${i}','un',5)">+</button>
           </div>
         </div>
@@ -5347,7 +5350,8 @@ function applyInjuryImpact(p){
 window._ovAdjOddsStep=function(i,side,step){
   const el=document.getElementById(`ov-adj-${side}-${i}`);
   if(!el)return;
-  el.value=+(parseInt(el.value||0)+step);
+  const _next=parseInt(el.value||0)+step;
+  el.value=_next>=0?'+'+_next:String(_next);
   window._updateOvAdj(i);
 };
 window._ovAdjStep=function(i,step){

@@ -25,6 +25,8 @@ const ESPN_ALIASES = {
   'Isaiah Stewart II': 'Isaiah Stewart',
   'Derrick Jones': 'Derrick Jones Jr.',
   'Jabari Smith Jr': 'Jabari Smith Jr.',
+  'Paul Reed Jr': 'Paul Reed',
+  'Pelle Larson': 'Pelle Larsson',
 };
 Object.entries(ESPN_ALIASES).forEach(([alias, real]) => { if (ESPN_PLAYERS[real]) ESPN_PLAYERS[alias] = ESPN_PLAYERS[real]; });
 
@@ -88,6 +90,8 @@ const INJURY_NAME_ALIASES = {
   'Kristaps Porzingis': 'Kristaps Porzingis',
   'Alperen Sengun': 'Alperen Sengun',
   'Naz Reid': 'Naz Reid',
+  'Paul Reed Jr': 'Paul Reed',
+  'Paul Reed Jr.': 'Paul Reed',
 };
 
 // Build a normalized lookup index for fuzzy matching
@@ -699,6 +703,8 @@ const BDL_PLAYER_OVERRIDES = {
   'Scoot Henderson':        { id: 56677747,      position: 'G', team: 'POR' },
   'Brandon Miller':          { id: 56677823,      position: 'F', team: 'CHA' },
   'Coby White':              { id: 666956,        position: 'G', team: 'CHA' },
+  'Paul Reed':               { id: 3547270,       position: 'F', team: 'DET' },
+  'Paul Reed Jr':            { id: 3547270,       position: 'F', team: 'DET' },
   'Marcus Smart':            { id: 420,           position: 'G', team: 'LAL' },
   'Adem Bona':               { id: 1028034846,    position: 'F', team: 'PHI' },
   'Nolan Traore':            { id: 1057275262,    position: 'G', team: 'BKN' },
