@@ -500,7 +500,7 @@ td{padding:12px 13px;white-space:nowrap;font-size:13px;}
 .stat-chip-hr{font-size:16px;font-weight:800;line-height:1;}
 .stat-chip-avg{font-size:12px;color:var(--t2);margin-top:3px;font-weight:600;}
 .bar-dates{display:flex;gap:4px;margin-top:3px;}
-.bar-date{flex:1;text-align:center;font-size:7px;color:var(--t3);line-height:1.3;overflow:hidden;white-space:nowrap;}.bar-date img{display:block;margin:0 auto 1px;}
+.bar-date{flex:1;text-align:center;font-size:9px;color:var(--t2);line-height:1.4;overflow:hidden;white-space:nowrap;}.bar-date img{display:block;margin:0 auto 2px;}
 .supp-stats{display:flex;gap:8px;flex-wrap:wrap;padding-top:10px;margin-top:10px;border-top:1px solid var(--bd);}
 .supp-stat{flex:1;min-width:50px;text-align:center;}
 .supp-stat-v{font-size:14px;font-weight:700;color:var(--t1);}
@@ -3653,7 +3653,7 @@ function renderOverview(el,p){
   }).join('');
   const barDates=chartGames.map(g=>{
     const d=g.date?new Date(g.date+'T12:00:00').toLocaleDateString('en-US',{month:'numeric',day:'numeric'}):'';
-    return`<div class="bar-date">${_tLogo(g.opp,12)}<br>${d}</div>`;
+    return`<div class="bar-date">${_tLogo(g.opp,16)}<br>${d}</div>`;
   }).join('');
   const lP=p.line?(1-p.line/maxV)*100:50;
   // Stat chips + streak
@@ -3895,23 +3895,20 @@ function renderOverview(el,p){
         const _leanCol=lean.cls==='over'?'var(--g)':lean.cls==='under'?'var(--r)':'var(--t3)';
         return `<div style="text-align:center;margin-bottom:14px;">
           <div style="font-size:24px;font-weight:900;color:${_leanCol};letter-spacing:.5px;">${_leanText}</div>
-          <div style="font-size:12px;color:var(--t3);margin-top:4px;">${p.name} · ${p.market} · Line ${p.line}</div>
+          <div style="font-size:12px;color:var(--t3);margin-top:4px;">${p.name} · ${{player_points:'Points',player_rebounds:'Rebounds',player_assists:'Assists',player_threes:'3-Pointers',player_points_rebounds_assists:'PRA',player_rebounds_assists:'R+A',player_steals:'Steals',player_blocks:'Blocks',player_turnovers:'Turnovers'}[p.market]||p.market} · Line ${p.line}</div>
         </div>
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
           <div style="text-align:center;padding:16px 12px;background:var(--bg2);border-radius:10px;border:1px solid var(--bd);">
             <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Model Prob (${_dirLabel})</div>
             <div style="font-size:32px;font-weight:900;color:${_mpCol};line-height:1;">${_dirMPpct}%</div>
-            <div style="font-size:11px;color:var(--t3);margin-top:4px;">vs implied ${(_isOvRec?((p.impliedProbOver??impliedProb(p.overOdds))*100):((p.impliedProbUnder??impliedProb(p.underOdds))*100)).toFixed(1)}%</div>
           </div>
           <div style="text-align:center;padding:16px 12px;background:var(--bg2);border-radius:10px;border:1px solid var(--bd);">
             <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Value Score</div>
             <div style="font-size:32px;font-weight:900;color:${_vsCol};line-height:1;">${_vs}</div>
-            <div style="font-size:11px;color:var(--t3);margin-top:4px;">confidence ${p.confidence||0}/100</div>
           </div>
           <div style="text-align:center;padding:16px 12px;background:var(--bg2);border-radius:10px;border:1px solid var(--bd);">
             <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">EV (${_dirLabel} ${_betOddsFmt})</div>
             <div style="font-size:32px;font-weight:900;color:${_evCol};line-height:1;">${_dirEV>0?'+':''}${_dirEV}%</div>
-            <div style="font-size:11px;color:var(--t3);margin-top:4px;">per $100 wagered</div>
           </div>
         </div>`;
       })()}
