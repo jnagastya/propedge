@@ -498,9 +498,9 @@ td{padding:12px 13px;white-space:nowrap;font-size:13px;}
 .stat-chip{flex:1;min-width:0;background:var(--bg2);border:1px solid var(--bd);border-radius:8px;padding:7px 10px;text-align:center;}
 .stat-chip-lbl{font-size:9px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px;}
 .stat-chip-hr{font-size:16px;font-weight:800;line-height:1;}
-.stat-chip-avg{font-size:10px;color:var(--t3);margin-top:2px;font-weight:600;}
+.stat-chip-avg{font-size:12px;color:var(--t2);margin-top:3px;font-weight:600;}
 .bar-dates{display:flex;gap:4px;margin-top:3px;}
-.bar-date{flex:1;text-align:center;font-size:7px;color:var(--t3);line-height:1.3;overflow:hidden;white-space:nowrap;}
+.bar-date{flex:1;text-align:center;font-size:7px;color:var(--t3);line-height:1.3;overflow:hidden;white-space:nowrap;}.bar-date img{display:block;margin:0 auto 1px;}
 .supp-stats{display:flex;gap:8px;flex-wrap:wrap;padding-top:10px;margin-top:10px;border-top:1px solid var(--bd);}
 .supp-stat{flex:1;min-width:50px;text-align:center;}
 .supp-stat-v{font-size:14px;font-weight:700;color:var(--t1);}
@@ -3643,16 +3643,17 @@ function renderOverview(el,p){
   const chartGames=p.rawL10||[];
   const playedVals=chartGames.map(g=>parseInt(g.min||'0')>0?getStatVal(g):null).filter(v=>v!==null);
   const maxV=Math.max(...(playedVals.length?playedVals:[0]),p.line||0)+5;
+  const _tLogo=(abbr,sz=14)=>abbr?`<img src="https://a.espncdn.com/i/teamlogos/nba/500/${abbr.toLowerCase()}.png" style="height:${sz}px;width:${sz}px;object-fit:contain;vertical-align:middle;" onerror="this.style.display='none'">`:'';
   const bars=chartGames.map((g,j)=>{
     const isDNP=parseInt(g.min||'0')===0;
     const v=isDNP?null:getStatVal(g);
     const h=isDNP?6:Math.max(3,+(v/maxV*100).toFixed(1));
     const bg=isDNP?'var(--bg4)':(v>=p.line?'var(--g)':'var(--r)');
-    return`<div class="bar${isDNP?' dnp-bar':''}" style="height:${h}%;background:${bg}"><div class="bar-t">${isDNP?'DNP':v}</div></div>`;
+    return`<div class="bar${isDNP?' dnp-bar':''}" data-val="${isDNP?'':v}" style="height:${h}%;background:${bg}"><div class="bar-t">${isDNP?'DNP':v}</div></div>`;
   }).join('');
   const barDates=chartGames.map(g=>{
     const d=g.date?new Date(g.date+'T12:00:00').toLocaleDateString('en-US',{month:'numeric',day:'numeric'}):'';
-    return`<div class="bar-date">${g.opp||''}<br>${d}</div>`;
+    return`<div class="bar-date">${_tLogo(g.opp,12)}<br>${d}</div>`;
   }).join('');
   const lP=p.line?(1-p.line/maxV)*100:50;
   // Stat chips + streak
@@ -3663,15 +3664,22 @@ function renderOverview(el,p){
     const avg_=+(vs_.reduce((a,b)=>a+b,0)/vs_.length).toFixed(1);
     const hr_=Math.round(vs_.filter(v=>v>=p.line).length/vs_.length*100);
     const hrCol_=hr_>=60?'var(--g)':hr_<=40?'var(--r)':'var(--a)';
-    return`<div class="stat-chip"><div class="stat-chip-lbl">${label}</div><div class="stat-chip-hr" style="color:${hrCol_}">${hr_}%</div><div class="stat-chip-avg">${avg_} avg</div></div>`;
+    return`<div class="stat-chip"><div class="stat-chip-lbl">${label}</div><div class="stat-chip-hr" style="color:${hrCol_}">${hr_}%</div><div class="stat-chip-avg">${avg_} avg · ${games.length}g</div></div>`;
   };
   const _mParts=(p.matchup||'').replace(/^\?\?\?[·\s]*/,'').split(' @ ');
   const _opp=_mParts.length===2?(p.team===_mParts[0]?_mParts[1]:_mParts[0]):'';
   const _h2hGames=_opp?_playedAll.filter(g=>g.opp===_opp):[];
+  const _h2hChip=_h2hGames.length?(()=>{
+    const vs_=_h2hGames.map(g=>getStatVal(g));
+    const avg_=+(vs_.reduce((a,b)=>a+b,0)/vs_.length).toFixed(1);
+    const hr_=Math.round(vs_.filter(v=>v>=p.line).length/vs_.length*100);
+    const hrCol_=hr_>=60?'var(--g)':hr_<=40?'var(--r)':'var(--a)';
+    return`<div class="stat-chip"><div class="stat-chip-lbl" style="display:flex;align-items:center;justify-content:center;gap:3px;text-transform:none;">${_tLogo(_opp,13)} vs ${_opp}</div><div class="stat-chip-hr" style="color:${hrCol_}">${hr_}%</div><div class="stat-chip-avg">${avg_} avg · ${_h2hGames.length}g</div></div>`;
+  })():'';
   let _strN=0,_strDir=null;
   for(const g of _playedAll){const v=getStatVal(g);const d=v>=p.line?'over':'under';if(_strDir===null){_strDir=d;_strN=1;}else if(d===_strDir)_strN++;else break;}
   const _streakHtml=_strN>=2?`<div class="stat-chip" style="border-color:${_strDir==='over'?'rgba(34,197,94,.35)':'rgba(239,68,68,.35)'};background:${_strDir==='over'?'rgba(34,197,94,.07)':'rgba(239,68,68,.07)'}"><div class="stat-chip-lbl">Streak</div><div class="stat-chip-hr" style="color:${_strDir==='over'?'var(--g)':'var(--r)'}">${_strN}×</div><div class="stat-chip-avg">${_strDir.toUpperCase()}</div></div>`:'';
-  const _statChipsHtml=p.hasRealStats&&_playedAll.length?`<div class="dc full" style="padding:10px 12px 6px;"><div class="stat-chips">${_makeChip('L5',_playedAll.slice(0,5))}${_makeChip('L10',_playedAll.slice(0,10))}${_makeChip('L20',_playedAll.slice(0,20))}${_h2hGames.length?_makeChip('vs '+_opp,_h2hGames):''}${_streakHtml}</div></div>`:'';
+  const _statChipsHtml=p.hasRealStats&&_playedAll.length?`<div class="dc full" style="padding:10px 12px 6px;"><div class="stat-chips">${_makeChip('L5',_playedAll.slice(0,5))}${_makeChip('L10',_playedAll.slice(0,10))}${_makeChip('L20',_playedAll.slice(0,20))}${_h2hChip}${_streakHtml}</div></div>`:'';
   // R+A split
   const _raSplit=(p.market||S.market)==='player_rebounds_assists'&&p.hasRealStats&&_playedAll.length?(()=>{
     const pg_=_playedAll.slice(0,10);const n_=pg_.length;
@@ -3727,8 +3735,6 @@ function renderOverview(el,p){
       <div class="sr">
         <div class="sb2"><div class="sb2-l">L10 Avg</div><div class="sb2-v">${p.avg}</div><div class="sb2-s">Line ${p.line} <span class="${p.avg>p.line?'up':'dn'}">${p.avg>p.line?'▲':'▼'} ${Math.abs(p.avg-p.line).toFixed(1)}</span></div></div>
         <div class="sb2"><div class="sb2-l">Last 5 Avg</div><div class="sb2-v">${l5a}</div><div class="sb2-s">${parseFloat(l5a||0)>p.avg?'<span class="up">▲ Hot</span>':'<span class="dn">▼ Cold</span>'}</div></div>
-        <div class="sb2"><div class="sb2-l">Std Dev</div><div class="sb2-v">${p.stdDev||'—'}</div><div class="sb2-s">Floor ${floor} · Ceil ${ceil}</div></div>
-        <div class="sb2"><div class="sb2-l">Confidence</div><div class="sb2-v" style="color:${(p.confidence||0)>=70?'var(--g)':(p.confidence||0)>=50?'var(--a)':'var(--r)'}">${p.confidence||0}</div><div class="sb2-s">${(p.confidence||0)>=70?'High':(p.confidence||0)>=50?'Med':'Low'}</div></div>
       </div>
       ${_raSplit}
       ${p.hasRealStats?`<div class="mob-hide" style="margin-top:10px;padding:9px 11px;background:var(--bg1);border-radius:7px;border:1px solid var(--bd);font-size:11px;">
@@ -3911,7 +3917,7 @@ function renderOverview(el,p){
       })()}
     </div>
     <div class="dc full"><div class="dc-t"><span class="dt" style="background:var(--g)"></span>Last 10 Calendar Games <span style="font-size:11px;color:var(--t3);font-weight:400;margin-left:4px;">(DNPs shown but excluded from averages)</span></div>
-      <div class="chb"><div class="lref" style="top:${lP}%"><span class="lref-l">LINE ${p.line}</span></div><div class="bars">${bars}</div></div>
+      <div class="chb" data-max="${maxV}" data-idx="${i}"><div class="lref" style="top:${lP}%"><span class="lref-l">LINE ${p.line}</span></div><div class="bars">${bars}</div></div>
       <div class="bar-dates">${barDates}</div>
     </div>
     ${p.hasRealStats?(()=>{const pg=(p.gameLog||[]).filter(g=>parseInt(g.min||'0')>0);const am=pg.length?Math.round(pg.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/pg.length):30;const l3min=pg.slice(0,3);const l3avg=l3min.length>=3?Math.round(l3min.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/l3min.length):am;const l5min=pg.slice(0,5);const l5avg=l5min.length?Math.round(l5min.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/l5min.length):am;const l10min=pg.slice(0,10);const l10avg=l10min.length?Math.round(l10min.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/l10min.length):am;const hasFlag=p.minutesFlag||p.dnpCount>=5;const initMin=p._adjMin||am;return`<div class="dc full"><div class="dc-t"><span class="dt" style="background:#8b5cf6"></span>EV vs Minutes <span style="font-size:11px;color:var(--t3);font-weight:400;margin-left:4px;">Adjust playing time to see EV impact</span></div>
@@ -5424,7 +5430,18 @@ window._updateOvAdj=function(i){
   const fD_=(v,u='')=>{const d=+parseFloat(v).toFixed(1);if(Math.abs(d)<0.05)return'';return`<span style="color:${d>0?'var(--g)':'var(--r)'};font-size:10px;font-weight:700;">${d>0?'+':''}${d}${u}</span>`;};
   const lineDiff_=+(newLine-p.line).toFixed(1);
   const isChanged_=Math.abs(lineDiff_)>0.01||ovOdds!==(p.overOdds||-110)||unOdds!==(p.underOdds||-110);
-  if(!isChanged_){resultEl.innerHTML='';return;}
+  if(!isChanged_){
+    resultEl.innerHTML='';
+    const chb0_=document.querySelector(`.chb[data-idx="${i}"]`);
+    if(chb0_){
+      const maxV0_=parseFloat(chb0_.dataset.max)||1;
+      const lP0_=Math.max(0,Math.min(98,(1-p.line/maxV0_)*100));
+      const lref0_=chb0_.querySelector('.lref');
+      if(lref0_){lref0_.style.top=lP0_+'%';const ll0_=lref0_.querySelector('.lref-l');if(ll0_)ll0_.textContent='LINE '+p.line;}
+      chb0_.querySelectorAll('.bar[data-val]').forEach(bar_=>{const v_=parseFloat(bar_.dataset.val);if(!isNaN(v_))bar_.style.background=v_>=p.line?'var(--g)':'var(--r)';});
+    }
+    return;
+  }
   const mpPct_=Math.round(dirMP_*100);
   const origMPpct_=Math.round(origDirMP_*100);
   const lineTag_=Math.abs(lineDiff_)>0.01?`<span style="font-size:11px;color:${lineDiff_<0?'var(--g)':'var(--r)'};font-weight:700;"> (${lineDiff_>0?'+':''}${lineDiff_} from ${p.line})</span>`:'';
@@ -5451,6 +5468,18 @@ window._updateOvAdj=function(i){
         <div style="margin-top:2px;">${fD_(newVS_-origVS_)}</div>
       </div>
     </div>`;
+  // Update chart bars and line reference
+  const chb_=document.querySelector(`.chb[data-idx="${i}"]`);
+  if(chb_){
+    const maxV_=parseFloat(chb_.dataset.max)||1;
+    const lP_=Math.max(0,Math.min(98,(1-newLine/maxV_)*100));
+    const lref_=chb_.querySelector('.lref');
+    if(lref_){lref_.style.top=lP_+'%';const ll_=lref_.querySelector('.lref-l');if(ll_)ll_.textContent='LINE '+newLine;}
+    chb_.querySelectorAll('.bar[data-val]').forEach(bar_=>{
+      const v_=parseFloat(bar_.dataset.val);
+      if(!isNaN(v_))bar_.style.background=v_>=newLine?'var(--g)':'var(--r)';
+    });
+  }
 };
 function applySmartMinutes(p){
   if(!p.minutesFlag || !p.hasRealStats || !p.gameLog) return p;
