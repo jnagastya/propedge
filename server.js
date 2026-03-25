@@ -207,6 +207,8 @@ const _playerTeamCache = {
   'Zach LaVine':'SAC',
   'Walter Clayton Jr.':'MEM',
   'Walter Clayton Jr':'MEM',
+  'Cam Spencer':'MEM',
+  'Cedric Coward':'MEM',
   'Isaiah Jackson':'LAC',
   'Bradley Beal':'LAC',
   'Kevin Durant':'HOU',
@@ -1613,7 +1615,8 @@ function guessTeam(name) {
     // LAL
     'lebron james':'LAL','anthony davis':'LAL','austin reaves':'LAL',"d'angelo russell":'LAL','rui hachimura':'LAL','jake laravia':'LAL','max christie':'LAL','gabe vincent':'LAL','marcus smart':'LAL','jaxson hayes':'LAL','deandre ayton':'LAL','luke kennard':'LAL',
     // MEM
-    'ja morant':'MEM','desmond bane':'ORL','jaren jackson jr.':'MEM','marcus smart':'LAL','luke kennard':'LAL',
+    'ja morant':'MEM','jaren jackson jr.':'MEM','jaylen wells':'MEM','g.g. jackson':'MEM','ty jerome':'MEM',
+    'cam spencer':'MEM','olivier-maxence prosper':'MEM','cedric coward':'MEM','walter clayton jr.':'MEM','walter clayton jr':'MEM',
     // MIA
     'bam adebayo':'MIA','tyler herro':'MIA','jimmy butler':'MIA','terry rozier':'MIA','haywood highsmith':'MIA','caleb martin':'MIA','norman powell':'MIA','davion mitchell':'MIA','pelle larson':'MIA',"kel'el ware":'MIA','jaime jaquez jr':'MIA',
     // MIL

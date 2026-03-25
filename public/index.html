@@ -3968,7 +3968,7 @@ function renderOverview(el,p){
         getInjuries(),
         myTeamForInj ? fetch(`/api/team-returning?team=${encodeURIComponent(myTeamForInj)}`).then(r=>r.ok?r.json():{returning:[]}).catch(()=>({returning:[]})) : Promise.resolve({returning:[]})
       ]);
-      const teamInj=getTeamInjuries(allInj,p.team);
+      const teamInj=getTeamInjuries(allInj,myTeamForInj);
       // Merge confirmed-active returning players (not in injury report) into the list
       const injuredNames=new Set(teamInj.map(x=>(x.player||'').toLowerCase()));
       for(const ret of (returningRes.returning||[])){
