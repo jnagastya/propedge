@@ -390,6 +390,13 @@ tbody tr.value-row{border-left:3px solid var(--gold);}
 tbody tr.scn-row{background:rgba(167,139,250,.04);}
 tbody tr.scn-row td:first-child{border-left:3px solid var(--p);}
 td{padding:12px 13px;white-space:nowrap;font-size:13px;}
+.compact td{padding:6px 10px!important;}
+.compact .pn{font-size:12px!important;}
+.compact .pm{display:none!important;}
+.compact .av{width:26px!important;height:26px!important;}
+.compact .odds-cell{gap:2px!important;}
+.compact .odd{font-size:10px!important;padding:1px 5px!important;}
+.compact .spk,.compact .ouv,.compact .lean-wrap{display:none!important;}
 
 /* -- Player cell -- */
 .pc{display:flex;align-items:center;gap:11px;min-width:210px;}
@@ -433,6 +440,10 @@ td{padding:12px 13px;white-space:nowrap;font-size:13px;}
 .dr td{padding:0!important;background:var(--bg0)!important;border-bottom:1px solid var(--bd)!important;}
 .di{padding:20px;animation:fadeUp .2s ease both;}
 .di-tabs{display:flex;gap:2px;margin-bottom:16px;border-bottom:1px solid var(--bd);padding-bottom:0;}
+.mkt-pills{display:flex;gap:4px;flex-wrap:wrap;padding:8px 0 4px;}
+.mkt-pill{padding:4px 10px;border:1px solid var(--bd);border-radius:16px;background:var(--bg3);color:var(--t2);font-family:var(--sans);font-size:11px;font-weight:600;cursor:pointer;transition:all .12s;white-space:nowrap;}
+.mkt-pill:hover{border-color:var(--b);color:var(--b);}
+.mkt-pill.on{background:var(--b);color:#fff;border-color:var(--b);}
 .di-tab{padding:8px 14px;border:none;background:none;color:var(--t2);font-family:var(--sans);font-size:13px;font-weight:500;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .12s;}
 .di-tab:hover{color:var(--t1);}.di-tab.on{color:var(--b);border-bottom-color:var(--b);font-weight:600;}
 .dfs-toggle{display:flex;gap:2px;background:var(--bg1);border-radius:8px;padding:2px;border:1px solid var(--bd);margin-bottom:12px;}
@@ -570,6 +581,8 @@ td{padding:12px 13px;white-space:nowrap;font-size:13px;}
 .di-player-hdr-av img{width:100%;height:100%;object-fit:cover;border-radius:50%;}
 .di-player-hdr-name{font-size:17px;font-weight:700;color:var(--t1);}
 .di-player-hdr-meta{font-size:12px;color:var(--b-text);margin-top:2px;}
+.nav-arrow{background:none;border:1px solid var(--bd);border-radius:6px;color:var(--t2);font-size:20px;font-weight:400;width:28px;height:28px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;line-height:1;transition:all .12s;padding:0;}
+.nav-arrow:hover{background:var(--bg3);color:var(--t1);}
 .p-leg-name{font-size:13px;font-weight:700;}
 .p-leg-meta{font-size:11px;color:var(--t3);margin-top:2px;}
 .p-leg-odds{font-size:13px;font-weight:700;margin-left:auto;}
@@ -1381,6 +1394,7 @@ input[type=range].min-slider::-moz-range-track{height:6px;border-radius:3px;back
           <option value="hr">Sort: Hit Rate</option>
           <option value="name">Sort: Name</option>
         </select>
+        <button class="cbtn" id="compactBtn" onclick="toggleCompact()" title="Toggle compact view">⊟ Compact</button>
         <button class="cbtn" id="scnBtn" onclick="togScn()">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
           Scenario Mode
@@ -1419,7 +1433,7 @@ input[type=range].min-slider::-moz-range-track{height:6px;border-radius:3px;back
         </div>
       </div>
       <div class="tsc">
-        <table>
+        <table id="propTable">
           <thead><tr>
             <th>Player</th><th class="col-mob-hide">Matchup</th><th data-sort="line" onclick="sortByCol('line')">Line</th><th>Odds</th>
             <th data-sort="edge" onclick="sortByCol('edge')" class="col-sm-hide">Avg</th><th data-sort="hr" onclick="sortByCol('hr')" class="col-sm-hide">Hit Rate</th><th class="col-mob-hide">O/U</th><th class="col-mob-hide">Trend</th>
@@ -3136,6 +3150,7 @@ function renderTable(){
     dr.innerHTML=`<td colspan="${S.scnOn?16:15}"><div class="di" id="di-${i}"></div></td>`;
     tb.appendChild(dr);
   });
+  window._visRows=d;
   document.getElementById('pCnt').innerHTML=d.length+' players';
   const valCount=S.data.filter(p=>{const dEV=getDirectionalEV(p);return valueScore(p)>=30&&Math.abs(p.edge||0)>4&&(p.confidence||0)>=55&&dEV>3;}).length;
   document.getElementById('alertDot').style.display=valCount>0?'':'none';
@@ -3265,7 +3280,8 @@ function togDet(i,p){
   const open=r.classList.contains('open');
   document.querySelectorAll('.dr').forEach(x=>x.classList.remove('open'));
   document.querySelectorAll('tbody tr').forEach(x=>x.classList.remove('exp'));
-  if(!open){r.classList.add('open');mr.classList.add('exp');renderDet(i,p);}
+  if(!open){r.classList.add('open');mr.classList.add('exp');window._curDetIdx=i;renderDet(i,p);}
+  else{window._curDetIdx=null;}
 }
 function renderDet(i,p){
   const c=document.getElementById(`di-${i}`);window._dp=p;
@@ -3287,14 +3303,16 @@ function renderDet(i,p){
     }
   }
   _mktOpts.sort((a,b)=>b.vs-a.vs);
-  const _mktDropdown=_mktOpts.length>1?`<select id="detMktSelect-${i}" onchange="window._switchDetailMarket('${i}',this.value)" style="background:var(--bg3);color:var(--t1);border:1px solid var(--bd);border-radius:6px;padding:3px 8px;font-size:11px;font-weight:600;cursor:pointer;outline:none;margin-left:auto;">${_mktOpts.map(m=>`<option value="${m.market}" ${m.market===(p.market||S.market)?'selected':''}>${m.label} (${m.line}) — VS: ${m.vs}</option>`).join('')}</select>`:'';
+  const _mktPills=_mktOpts.length>1?`<div class="mkt-pills" id="detMktPills-${i}">${_mktOpts.map(m=>`<button class="mkt-pill${m.market===(p.market||S.market)?' on':''}" data-market="${m.market}" onclick="window._switchDetailMarket('${i}','${m.market}')">${m.label}<span style="font-size:9px;opacity:.7;margin-left:3px;">${m.line}</span></button>`).join('')}</div>`:'';
   c.innerHTML=`<div class="di-player-hdr">
+    <button class="nav-arrow" onclick="window._navPlayer(-1)" title="Previous player (↑)">&#x2039;</button>
     <div class="di-player-hdr-av" data-av="${p.name.replace(/"/g,'&quot;')}">${_dhs?`<img src="${_dhs}" onerror="headshotError(this,'${_dinit}')" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" alt="">`:`<span>${_dinit}</span>`}</div>
     <div style="flex:1;">
       <div class="di-player-hdr-name">${p.name}</div>
       <div class="di-player-hdr-meta">${[p.team,p.position,p.matchup,mktLabel+' · Line '+p.line+(p.prev_line!=null&&p.prev_line!==p.line?` (was ${p.prev_line})`:'')] .filter(Boolean).join(' · ')}</div>
     </div>
-    ${_mktDropdown}
+    ${_mktPills}
+    <button class="nav-arrow" onclick="window._navPlayer(1)" title="Next player (↓)">&#x203a;</button>
   </div>
   <div class="di-tabs">
     <button class="di-tab on" onclick="showDTab('${i}','overview',this)">Overview</button>
@@ -3434,6 +3452,8 @@ window._switchDetailMarket=function(i,newMarket){
   const newMktLabel=MKT_LABELS_FULL[newMarket]||'Stats';
   const metaEl=document.querySelector(`#di-${i} .di-player-hdr-meta`);
   if(metaEl)metaEl.textContent=[matchProp.team,matchProp.position,matchProp.matchup,newMktLabel+' · Line '+matchProp.line+(matchProp.prev_line!=null&&matchProp.prev_line!==matchProp.line?` (was ${matchProp.prev_line})`:'')] .filter(Boolean).join(' · ');
+  // Update active market pill
+  document.querySelectorAll(`#di-${i} .mkt-pill`).forEach(b=>{b.classList.toggle('on',b.dataset.market===newMarket);});
   // Re-render active tab
   const activeBtn=document.querySelector(`#di-${i} .di-tab.on`);
   if(activeBtn)activeBtn.click();
@@ -9491,6 +9511,62 @@ async function shareTo(mode, id, label, btn) {
     showSts(errData.error || 'Failed to send — check console', 'err');
   }
 }
+
+// ── Player navigation ──
+window._navPlayer=function(dir){
+  const rows=window._visRows;
+  const cur=window._curDetIdx;
+  if(!rows||cur==null)return;
+  const next=cur+dir;
+  if(next<0||next>=rows.length)return;
+  // Close current
+  const curDr=document.getElementById(`d-${cur}`);
+  const curTr=document.getElementById(`r-${cur}`);
+  if(curDr)curDr.classList.remove('open');
+  if(curTr)curTr.classList.remove('exp');
+  // Open next
+  window._curDetIdx=null;
+  togDet(next,rows[next]);
+  document.getElementById(`r-${next}`)?.scrollIntoView({block:'nearest',behavior:'smooth'});
+};
+
+// ── Market pill keyboard navigation ──
+window._navMarket=function(dir){
+  const i=window._curDetIdx;if(i==null)return;
+  const pills=[...document.querySelectorAll(`#di-${i} .mkt-pill`)];
+  if(!pills.length)return;
+  let cur=-1;pills.forEach((b,idx)=>{if(b.classList.contains('on'))cur=idx;});
+  const next=cur+dir;
+  if(next>=0&&next<pills.length)pills[next].click();
+};
+
+// ── Compact table toggle ──
+function toggleCompact(){
+  const tbl=document.querySelector('#propTable');
+  const btn=document.getElementById('compactBtn');
+  if(!tbl||!btn)return;
+  const on=tbl.classList.toggle('compact');
+  btn.classList.toggle('on',on);
+  btn.textContent=on?'⊞ Expand':'⊟ Compact';
+}
+
+// ── Keyboard shortcuts ──
+document.addEventListener('keydown',function(e){
+  if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA'||e.target.tagName==='SELECT')return;
+  if(window._curDetIdx==null)return;
+  if(e.key==='ArrowDown'){e.preventDefault();window._navPlayer(1);}
+  else if(e.key==='ArrowUp'){e.preventDefault();window._navPlayer(-1);}
+  else if(e.key==='Escape'){
+    const cur=window._curDetIdx;
+    const curDr=document.getElementById(`d-${cur}`);
+    const curTr=document.getElementById(`r-${cur}`);
+    if(curDr)curDr.classList.remove('open');
+    if(curTr)curTr.classList.remove('exp');
+    window._curDetIdx=null;
+  }
+  else if(e.key==='ArrowLeft'){e.preventDefault();window._navMarket(-1);}
+  else if(e.key==='ArrowRight'){e.preventDefault();window._navMarket(1);}
+});
 
 // ── Pull-to-refresh (PWA standalone mode) ──
 (function(){
