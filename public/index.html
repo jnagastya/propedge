@@ -513,12 +513,12 @@ td{padding:13px 14px;white-space:nowrap;font-size:14px;}
 .stat-chip-hr{font-size:22px;font-weight:900;line-height:1;}
 .stat-chip-avg{font-size:12px;color:var(--t2);margin-top:3px;font-weight:600;}
 .bar-dates{display:flex;gap:4px;margin-top:3px;padding:0 10px;}
-.bar-date{flex:1;text-align:center;font-size:9px;color:var(--t2);line-height:1.4;overflow:hidden;white-space:nowrap;}.bar-date img{display:block;margin:0 auto 2px;}
+.bar-date{flex:1;text-align:center;font-size:10px;color:var(--t2);line-height:1.5;overflow:hidden;white-space:nowrap;}.bar-date img{display:block;margin:0 auto 3px;}
 .supp-stats{display:flex;gap:8px;flex-wrap:wrap;padding-top:10px;margin-top:10px;border-top:1px solid var(--bd);}
 .supp-stat{flex:1;min-width:50px;text-align:center;}
 .supp-stat-v{font-size:14px;font-weight:700;color:var(--t1);}
 .supp-stat-l{font-size:10px;color:var(--t3);font-weight:600;margin-top:1px;}
-.ov-adj-inp{background:var(--bg3);color:var(--t1);border:1px solid var(--bd);border-radius:6px;padding:7px 8px;font-size:16px;font-weight:800;width:76px;text-align:center;outline:none;}
+.ov-adj-inp{background:var(--bg3);color:var(--t1);border:1px solid var(--bd);border-radius:6px;padding:7px 6px;font-size:16px;font-weight:800;width:88px;text-align:center;outline:none;}
 .ov-adj-btn{background:var(--bg3);border:1px solid var(--bd);border-radius:6px;color:var(--t1);font-size:16px;font-weight:700;width:32px;height:36px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:background .1s;}
 .ov-adj-btn:hover{background:var(--bg4);}
 .spt{width:100%;font-size:11px;border-collapse:collapse;}
@@ -3675,7 +3675,7 @@ function renderOverview(el,p){
   }).join('');
   const barDates=chartGames.map(g=>{
     const d=g.date?new Date(g.date+'T12:00:00').toLocaleDateString('en-US',{month:'numeric',day:'numeric'}):'';
-    const _logo=g.opp?_tLogo(g.opp,16):`<span style="display:block;height:16px;"></span>`;
+    const _logo=g.opp?_tLogo(g.opp,22):`<span style="display:block;height:22px;"></span>`;
     return`<div class="bar-date">${_logo}<br>${d}</div>`;
   }).join('');
   const lP=p.line?(1-p.line/maxV)*100:50;
@@ -4020,7 +4020,7 @@ function renderOverview(el,p){
           <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Over Odds</div>
           <div style="display:flex;align-items:center;justify-content:center;gap:6px;">
             <button class="ov-adj-btn" onclick="window._ovAdjOddsStep('${i}','ov',-5)">−</button>
-            <input class="ov-adj-inp" type="number" id="ov-adj-ov-${i}" value="${p.overOdds||-110}" step="5" style="width:65px;" oninput="window._updateOvAdj('${i}')">
+            <input class="ov-adj-inp" type="number" id="ov-adj-ov-${i}" value="${p.overOdds||-110}" step="5" oninput="window._updateOvAdj('${i}')">
             <button class="ov-adj-btn" onclick="window._ovAdjOddsStep('${i}','ov',5)">+</button>
           </div>
         </div>
@@ -4028,7 +4028,7 @@ function renderOverview(el,p){
           <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Under Odds</div>
           <div style="display:flex;align-items:center;justify-content:center;gap:6px;">
             <button class="ov-adj-btn" onclick="window._ovAdjOddsStep('${i}','un',-5)">−</button>
-            <input class="ov-adj-inp" type="number" id="ov-adj-un-${i}" value="${p.underOdds||-110}" step="5" style="width:65px;" oninput="window._updateOvAdj('${i}')">
+            <input class="ov-adj-inp" type="number" id="ov-adj-un-${i}" value="${p.underOdds||-110}" step="5" oninput="window._updateOvAdj('${i}')">
             <button class="ov-adj-btn" onclick="window._ovAdjOddsStep('${i}','un',5)">+</button>
           </div>
         </div>
