@@ -1912,8 +1912,11 @@ app.get('/api/team-returning', async (req, res) => {
       if (currentlyOut.has(row.player_name.toLowerCase())) continue;
       const sorted = [...row.game_log].sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
       const lastPlayed = parseInt(sorted[0]?.min || '0') > 5;
+      // The game immediately before the latest must also be a DNP — if sorted[1] was played,
+      // the player has been back 2+ games already and is no longer "returning"
+      const prevWasDNP = parseInt(sorted[1]?.min || '0') <= 5;
       const prevDNPs = sorted.slice(1, 6).filter(g => parseInt(g.min || '0') <= 5).length;
-      if (lastPlayed && prevDNPs >= 2) {
+      if (lastPlayed && prevWasDNP && prevDNPs >= 2) {
         returning.push({ player: row.player_name, gamesOut: prevDNPs });
       }
     }
