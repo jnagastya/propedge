@@ -494,6 +494,20 @@ td{padding:12px 13px;white-space:nowrap;font-size:13px;}
 .bar.dnp-bar .bar-t{color:var(--t3);font-weight:600;}
 .lref{position:absolute;left:8px;right:8px;border-top:1.5px dashed var(--bd2);pointer-events:none;}
 .lref-l{position:absolute;right:0;top:-13px;font-size:10px;color:var(--t3);font-weight:600;}
+.stat-chips{display:flex;gap:6px;flex-wrap:wrap;}
+.stat-chip{flex:1;min-width:0;background:var(--bg2);border:1px solid var(--bd);border-radius:8px;padding:7px 10px;text-align:center;}
+.stat-chip-lbl{font-size:9px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px;}
+.stat-chip-hr{font-size:16px;font-weight:800;line-height:1;}
+.stat-chip-avg{font-size:10px;color:var(--t3);margin-top:2px;font-weight:600;}
+.bar-dates{display:flex;gap:4px;margin-top:3px;}
+.bar-date{flex:1;text-align:center;font-size:7px;color:var(--t3);line-height:1.3;overflow:hidden;white-space:nowrap;}
+.supp-stats{display:flex;gap:8px;flex-wrap:wrap;padding-top:10px;margin-top:10px;border-top:1px solid var(--bd);}
+.supp-stat{flex:1;min-width:50px;text-align:center;}
+.supp-stat-v{font-size:14px;font-weight:700;color:var(--t1);}
+.supp-stat-l{font-size:10px;color:var(--t3);font-weight:600;margin-top:1px;}
+.ov-adj-inp{background:var(--bg3);color:var(--t1);border:1px solid var(--bd);border-radius:5px;padding:4px 8px;font-size:13px;font-weight:700;width:70px;text-align:center;outline:none;}
+.ov-adj-btn{background:var(--bg3);border:1px solid var(--bd);border-radius:4px;color:var(--t1);font-size:14px;font-weight:700;width:26px;height:28px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:background .1s;}
+.ov-adj-btn:hover{background:var(--bg4);}
 .spt{width:100%;font-size:11px;border-collapse:collapse;}
 .spt th{font-size:11px;font-weight:700;text-transform:uppercase;color:var(--t2);padding:7px 10px;text-align:left;border-bottom:1px solid var(--bd);letter-spacing:.4px;}
 .spt td{padding:7px 10px;color:var(--t1);border-bottom:1px solid var(--bd);}
@@ -3284,7 +3298,6 @@ function renderDet(i,p){
   </div>
   <div class="di-tabs">
     <button class="di-tab on" onclick="showDTab('${i}','overview',this)">Overview</button>
-    <button class="di-tab" onclick="showDTab('${i}','simulator',this)">⚡ Line Sim</button>
     <button class="di-tab" onclick="showDTab('${i}','similar',this)">👥 Similar</button>
     <button class="di-tab" onclick="showDTab('${i}','splits',this)">Splits</button>
     <button class="di-tab" onclick="showDTab('${i}','gamelog',this)">Game Log</button>
@@ -3637,7 +3650,51 @@ function renderOverview(el,p){
     const bg=isDNP?'var(--bg4)':(v>=p.line?'var(--g)':'var(--r)');
     return`<div class="bar${isDNP?' dnp-bar':''}" style="height:${h}%;background:${bg}"><div class="bar-t">${isDNP?'DNP':v}</div></div>`;
   }).join('');
+  const barDates=chartGames.map(g=>{
+    const d=g.date?new Date(g.date+'T12:00:00').toLocaleDateString('en-US',{month:'numeric',day:'numeric'}):'';
+    return`<div class="bar-date">${g.opp||''}<br>${d}</div>`;
+  }).join('');
   const lP=p.line?(1-p.line/maxV)*100:50;
+  // Stat chips + streak
+  const _playedAll=(p.gameLog||[]).filter(g=>parseInt(g.min||'0')>0);
+  const _makeChip=(label,games)=>{
+    if(!games.length)return'';
+    const vs_=games.map(g=>getStatVal(g));
+    const avg_=+(vs_.reduce((a,b)=>a+b,0)/vs_.length).toFixed(1);
+    const hr_=Math.round(vs_.filter(v=>v>=p.line).length/vs_.length*100);
+    const hrCol_=hr_>=60?'var(--g)':hr_<=40?'var(--r)':'var(--a)';
+    return`<div class="stat-chip"><div class="stat-chip-lbl">${label}</div><div class="stat-chip-hr" style="color:${hrCol_}">${hr_}%</div><div class="stat-chip-avg">${avg_} avg</div></div>`;
+  };
+  const _mParts=(p.matchup||'').replace(/^\?\?\?[·\s]*/,'').split(' @ ');
+  const _opp=_mParts.length===2?(p.team===_mParts[0]?_mParts[1]:_mParts[0]):'';
+  const _h2hGames=_opp?_playedAll.filter(g=>g.opp===_opp):[];
+  let _strN=0,_strDir=null;
+  for(const g of _playedAll){const v=getStatVal(g);const d=v>=p.line?'over':'under';if(_strDir===null){_strDir=d;_strN=1;}else if(d===_strDir)_strN++;else break;}
+  const _streakHtml=_strN>=2?`<div class="stat-chip" style="border-color:${_strDir==='over'?'rgba(34,197,94,.35)':'rgba(239,68,68,.35)'};background:${_strDir==='over'?'rgba(34,197,94,.07)':'rgba(239,68,68,.07)'}"><div class="stat-chip-lbl">Streak</div><div class="stat-chip-hr" style="color:${_strDir==='over'?'var(--g)':'var(--r)'}">${_strN}×</div><div class="stat-chip-avg">${_strDir.toUpperCase()}</div></div>`:'';
+  const _statChipsHtml=p.hasRealStats&&_playedAll.length?`<div class="dc full" style="padding:10px 12px 6px;"><div class="stat-chips">${_makeChip('L5',_playedAll.slice(0,5))}${_makeChip('L10',_playedAll.slice(0,10))}${_makeChip('L20',_playedAll.slice(0,20))}${_h2hGames.length?_makeChip('vs '+_opp,_h2hGames):''}${_streakHtml}</div></div>`:'';
+  // R+A split
+  const _raSplit=(p.market||S.market)==='player_rebounds_assists'&&p.hasRealStats&&_playedAll.length?(()=>{
+    const pg_=_playedAll.slice(0,10);const n_=pg_.length;
+    const aReb_=+(pg_.reduce((s,g)=>s+(+g.reb||0),0)/n_).toFixed(1);
+    const aAst_=+(pg_.reduce((s,g)=>s+(+g.ast||0),0)/n_).toFixed(1);
+    return`<div style="margin-top:6px;padding:5px 8px;background:var(--bg1);border-radius:5px;border:1px solid var(--bd);font-size:11px;"><span style="color:var(--g);font-weight:700;">${aReb_} REB</span> + <span style="color:#60a5fa;font-weight:700;">${aAst_} AST</span> = <span style="color:var(--t1);font-weight:700;">${+(aReb_+aAst_).toFixed(1)}</span> <span style="color:var(--t3);">(L10 avg)</span></div>`;
+  })():'';
+  // Supporting stats
+  const _suppStatsHtml=p.hasRealStats&&_playedAll.length?(()=>{
+    const pg_=_playedAll.slice(0,10);const n_=pg_.length;
+    const aMin_=+(pg_.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/n_).toFixed(1);
+    const aPts_=+(pg_.reduce((s,g)=>s+(+g.pts||0),0)/n_).toFixed(1);
+    const aReb_=+(pg_.reduce((s,g)=>s+(+g.reb||0),0)/n_).toFixed(1);
+    const aAst_=+(pg_.reduce((s,g)=>s+(+g.ast||0),0)/n_).toFixed(1);
+    const a3pm_=+(pg_.reduce((s,g)=>s+(+g.fg3m||0),0)/n_).toFixed(1);
+    const mkt_=p.market||S.market;
+    const ss_=[{l:'Min',v:aMin_}];
+    if(mkt_!=='player_points')ss_.push({l:'PTS',v:aPts_});
+    if(mkt_!=='player_rebounds'&&mkt_!=='player_rebounds_assists')ss_.push({l:'REB',v:aReb_});
+    if(mkt_!=='player_assists'&&mkt_!=='player_rebounds_assists')ss_.push({l:'AST',v:aAst_});
+    if(mkt_!=='player_threes')ss_.push({l:'3PM',v:a3pm_});
+    return`<div class="supp-stats">${ss_.map(s=>`<div class="supp-stat"><div class="supp-stat-v">${s.v}</div><div class="supp-stat-l">${s.l}/g</div></div>`).join('')}</div>`;
+  })():'';
   const lean=leanInfo(p.modelProb||0.5);
   // Build player flags
   const flags=[];
@@ -3681,6 +3738,7 @@ function renderOverview(el,p){
   el.innerHTML=`<div class="di-grid">
     ${adjBanner}
     ${p.hasRealStats?`<div class="dc full" style="background:var(--g)15;border:1px solid var(--g)40;padding:8px 12px;border-radius:8px;font-size:11px;color:var(--g);">✓ Stats from NBA.com — ${p.gamesPlayed} games this season${flagsHTML}</div>`:p.statsError?`<div class="dc full" style="background:var(--r)15;border:1px solid var(--r)40;padding:8px 12px;border-radius:8px;font-size:11px;color:var(--r);">⚠ Stats unavailable: ${p.statsError}</div>`:`<div class="dc full" style="background:var(--a)15;border:1px solid var(--a)40;padding:8px 12px;border-radius:8px;font-size:11px;color:var(--a);">⏳ Loading real stats from NBA.com…</div>`}
+    ${_statChipsHtml}
     ${(()=>{const _hlc=p.prev_line!=null&&(p.prev_line!==p.line||p.prev_overOdds!==p.overOdds||p.prev_underOdds!==p.underOdds);return`<div class="dc${_hlc?'':' full'}"><div class="dc-t"><span class="dt" style="background:var(--b)"></span>Stats vs Line</div>
       <div class="sr">
         <div class="sb2"><div class="sb2-l">L10 Avg</div><div class="sb2-v">${p.avg}</div><div class="sb2-s">Line ${p.line} <span class="${p.avg>p.line?'up':'dn'}">${p.avg>p.line?'▲':'▼'} ${Math.abs(p.avg-p.line).toFixed(1)}</span></div></div>
@@ -3688,6 +3746,7 @@ function renderOverview(el,p){
         <div class="sb2"><div class="sb2-l">Std Dev</div><div class="sb2-v">${p.stdDev||'—'}</div><div class="sb2-s">Floor ${floor} · Ceil ${ceil}</div></div>
         <div class="sb2"><div class="sb2-l">Confidence</div><div class="sb2-v" style="color:${(p.confidence||0)>=70?'var(--g)':(p.confidence||0)>=50?'var(--a)':'var(--r)'}">${p.confidence||0}</div><div class="sb2-s">${(p.confidence||0)>=70?'High':(p.confidence||0)>=50?'Med':'Low'}</div></div>
       </div>
+      ${_raSplit}
       ${p.hasRealStats?`<div class="mob-hide" style="margin-top:10px;padding:9px 11px;background:var(--bg1);border-radius:7px;border:1px solid var(--bd);font-size:11px;">
         <div style="font-weight:700;color:var(--b-text);margin-bottom:6px;">Model Probability Breakdown</div>
         ${(()=>{
@@ -3869,6 +3928,8 @@ function renderOverview(el,p){
     </div>
     <div class="dc full"><div class="dc-t"><span class="dt" style="background:var(--g)"></span>Last 10 Calendar Games <span style="font-size:11px;color:var(--t3);font-weight:400;margin-left:4px;">(DNPs shown but excluded from averages)</span></div>
       <div class="chb"><div class="lref" style="top:${lP}%"><span class="lref-l">LINE ${p.line}</span></div><div class="bars">${bars}</div></div>
+      <div class="bar-dates">${barDates}</div>
+      ${_suppStatsHtml}
     </div>
     ${p.hasRealStats?(()=>{const pg=(p.gameLog||[]).filter(g=>parseInt(g.min||'0')>0);const am=pg.length?Math.round(pg.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/pg.length):30;const l3min=pg.slice(0,3);const l3avg=l3min.length>=3?Math.round(l3min.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/l3min.length):am;const l5min=pg.slice(0,5);const l5avg=l5min.length?Math.round(l5min.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/l5min.length):am;const l10min=pg.slice(0,10);const l10avg=l10min.length?Math.round(l10min.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/l10min.length):am;const hasFlag=p.minutesFlag||p.dnpCount>=5;const initMin=p._adjMin||am;return`<div class="dc full"><div class="dc-t"><span class="dt" style="background:#8b5cf6"></span>EV vs Minutes <span style="font-size:11px;color:var(--t3);font-weight:400;margin-left:4px;">Adjust playing time to see EV impact</span></div>
       <canvas id="evMinutesChart" width="400" height="220" style="width:100%;height:220px;display:block;"></canvas>
@@ -3927,6 +3988,29 @@ function renderOverview(el,p){
       ro.observe(c);
       setTimeout(()=>ro.disconnect(),10000); // cleanup after 10s
     }
+  }
+  // Inline alternate line adjuster
+  if(p.hasRealStats&&_playedAll.length){
+    window._simP=p;
+    const _sKey=statMap[p.market||S.market]||'pts';
+    const _getV=g=>_sKey==='pra'?(+g.pts||0)+(+g.reb||0)+(+g.ast||0):_sKey==='ra'?(+g.reb||0)+(+g.ast||0):+(g[_sKey]||0);
+    window._simVals=_playedAll.map(g=>_getV(g));
+    const _adjDiv=document.createElement('div');
+    _adjDiv.className='dc full';
+    _adjDiv.innerHTML=`<div class="dc-t"><span class="dt" style="background:#6366f1"></span>Alternate Line <span style="font-size:10px;color:var(--t3);font-weight:400;margin-left:4px;">adjust to see model impact</span></div>
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+        <span style="font-size:11px;color:var(--t3);font-weight:600;min-width:28px;">Line</span>
+        <button class="ov-adj-btn" onclick="window._ovAdjStep('${i}',-0.5)">−</button>
+        <input class="ov-adj-inp" type="number" id="ov-adj-line-${i}" value="${p.line}" step="0.5" oninput="window._updateOvAdj('${i}')">
+        <button class="ov-adj-btn" onclick="window._ovAdjStep('${i}',0.5)">+</button>
+        <span style="font-size:11px;color:var(--t3);margin-left:6px;">Over</span>
+        <input class="ov-adj-inp" type="number" id="ov-adj-ov-${i}" value="${p.overOdds||-110}" step="1" style="width:60px;" oninput="window._updateOvAdj('${i}')">
+        <span style="font-size:11px;color:var(--t3);">Under</span>
+        <input class="ov-adj-inp" type="number" id="ov-adj-un-${i}" value="${p.underOdds||-110}" step="1" style="width:60px;" oninput="window._updateOvAdj('${i}')">
+      </div>
+      <div id="ov-adj-result-${i}" style="margin-top:8px;"></div>`;
+    const _grid5=el.querySelector('.di-grid');
+    if(_grid5)_grid5.appendChild(_adjDiv);
   }
   // Load injury report async and inject into the grid
   (async()=>{
@@ -5309,6 +5393,81 @@ function applyInjuryImpact(p){
   adj._injPost={avg:adj.avg,edge:adj.edge,modelProb:adj.modelProb,hitRate:adj.hitRate,evOver:adj.evOver,evUnder:adj.evUnder};
   return adj;
 }
+window._ovAdjStep=function(i,step){
+  const el=document.getElementById(`ov-adj-line-${i}`);
+  if(!el)return;
+  el.value=+(parseFloat(el.value||0)+step).toFixed(1);
+  window._updateOvAdj(i);
+};
+window._updateOvAdj=function(i){
+  const p=window._dp;
+  if(!p?.hasRealStats||!p.gameLog)return;
+  const lineEl=document.getElementById(`ov-adj-line-${i}`);
+  const ovEl=document.getElementById(`ov-adj-ov-${i}`);
+  const unEl=document.getElementById(`ov-adj-un-${i}`);
+  const resultEl=document.getElementById(`ov-adj-result-${i}`);
+  if(!lineEl||!resultEl)return;
+  const newLine=parseFloat(lineEl.value);
+  if(isNaN(newLine))return;
+  const ovOdds=isNaN(parseInt(ovEl?.value))?(p.overOdds||-110):parseInt(ovEl.value);
+  const unOdds=isNaN(parseInt(unEl?.value))?(p.underOdds||-110):parseInt(unEl.value);
+  const _sMap={'player_points':'pts','player_rebounds':'reb','player_assists':'ast','player_threes':'fg3m','player_steals':'stl','player_blocks':'blk','player_turnovers':'turnover','player_points_rebounds_assists':'pra','player_rebounds_assists':'ra'};
+  const sKey_=_sMap[p.market||S.market]||'pts';
+  const getV_=g=>sKey_==='pra'?(+g.pts||0)+(+g.reb||0)+(+g.ast||0):sKey_==='ra'?(+g.reb||0)+(+g.ast||0):+(g[sKey_]||0);
+  const played_=p.gameLog.filter(g=>parseInt(g.min||'0')>0);
+  const vals_=played_.map(g=>getV_(g));
+  if(!vals_.length)return;
+  const n_=vals_.length,avg_=p.avg,sd_=p.stdDev||1;
+  const l10_=vals_.slice(0,10),l5_=vals_.slice(0,5);
+  const hrS_=Math.round(vals_.filter(v=>v>=newLine).length/n_*100);
+  const hrL10_=l10_.length?Math.round(l10_.filter(v=>v>=newLine).length/l10_.length*100):hrS_;
+  const hrL5_=l5_.length>=3?Math.round(l5_.filter(v=>v>=newLine).length/l5_.length*100):hrL10_;
+  const sP_=sd_>0?normalCDF((avg_-newLine)/sd_):0.5;
+  const rawP_=(hrL5_*0.25+hrL10_*0.30+hrS_*0.25)/100+sP_*0.20;
+  const newMP_=Math.min(0.97,Math.max(0.03,(rawP_*n_+5)/(n_+10)));
+  const newEdge_=newLine>0?+((avg_-newLine)/newLine*100).toFixed(1):0;
+  const isOver_=newEdge_>=0;
+  const dirMP_=isOver_?newMP_:1-newMP_;
+  const dirOdds_=isOver_?ovOdds:unOdds;
+  const newEV_=calcEV(dirMP_,dirOdds_);
+  const adjP_={...p,line:newLine,overOdds:ovOdds,underOdds:unOdds,modelProb:newMP_,edge:newEdge_,evOver:calcEV(newMP_,ovOdds),evUnder:calcEV(1-newMP_,unOdds)};
+  const newVS_=valueScore(adjP_);
+  const origIsOv_=(p.edge||0)>=0;
+  const origDirMP_=origIsOv_?(p.modelProb||0.5):1-(p.modelProb||0.5);
+  const origEV_=origIsOv_?(p.evOver||0):(p.evUnder||0);
+  const origVS_=valueScore(p);
+  const origHR_=origIsOv_?(p.hitRate||50):(100-(p.hitRate||50));
+  const fD_=(v,u='')=>{const d=+parseFloat(v).toFixed(1);if(Math.abs(d)<0.05)return'';return`<span style="color:${d>0?'var(--g)':'var(--r)'};font-size:10px;font-weight:700;">${d>0?'+':''}${d}${u}</span>`;};
+  const lineDiff_=+(newLine-p.line).toFixed(1);
+  const isChanged_=Math.abs(lineDiff_)>0.01||ovOdds!==(p.overOdds||-110)||unOdds!==(p.underOdds||-110);
+  if(!isChanged_){resultEl.innerHTML='';return;}
+  const mpPct_=Math.round(dirMP_*100);
+  const origMPpct_=Math.round(origDirMP_*100);
+  const lineTag_=Math.abs(lineDiff_)>0.01?`<span style="font-size:11px;color:${lineDiff_<0?'var(--g)':'var(--r)'};font-weight:700;"> (${lineDiff_>0?'+':''}${lineDiff_} from ${p.line})</span>`:'';
+  resultEl.innerHTML=`<div style="font-size:11px;color:var(--t3);margin-bottom:6px;">At line <strong style="color:var(--t1);">${newLine}</strong>${lineTag_}</div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;">
+      <div style="text-align:center;padding:8px 4px;background:var(--bg1);border-radius:6px;border:1px solid var(--bd);">
+        <div style="font-size:9px;color:var(--t3);font-weight:700;text-transform:uppercase;margin-bottom:3px;">Model Prob</div>
+        <div style="font-size:16px;font-weight:800;color:${dirMP_>=0.55?'var(--g)':dirMP_<=0.45?'var(--r)':'var(--a)'};">${mpPct_}%</div>
+        <div style="margin-top:2px;">${fD_(mpPct_-origMPpct_,'%')}</div>
+      </div>
+      <div style="text-align:center;padding:8px 4px;background:var(--bg1);border-radius:6px;border:1px solid var(--bd);">
+        <div style="font-size:9px;color:var(--t3);font-weight:700;text-transform:uppercase;margin-bottom:3px;">EV</div>
+        <div style="font-size:16px;font-weight:800;color:${newEV_>=0?'var(--g)':'var(--r)'};">${newEV_>0?'+':''}${newEV_}%</div>
+        <div style="margin-top:2px;">${fD_(newEV_-origEV_,'%')}</div>
+      </div>
+      <div style="text-align:center;padding:8px 4px;background:var(--bg1);border-radius:6px;border:1px solid var(--bd);">
+        <div style="font-size:9px;color:var(--t3);font-weight:700;text-transform:uppercase;margin-bottom:3px;">Hit Rate</div>
+        <div style="font-size:16px;font-weight:800;">${hrS_}%</div>
+        <div style="margin-top:2px;">${fD_(hrS_-origHR_,'%')}</div>
+      </div>
+      <div style="text-align:center;padding:8px 4px;background:var(--bg1);border-radius:6px;border:1px solid var(--bd);">
+        <div style="font-size:9px;color:var(--t3);font-weight:700;text-transform:uppercase;margin-bottom:3px;">Value Score</div>
+        <div style="font-size:16px;font-weight:800;color:${newVS_>=40?'var(--g)':newVS_>=25?'var(--a)':'var(--r)'};">${newVS_}</div>
+        <div style="margin-top:2px;">${fD_(newVS_-origVS_)}</div>
+      </div>
+    </div>`;
+};
 function applySmartMinutes(p){
   if(!p.minutesFlag || !p.hasRealStats || !p.gameLog) return p;
   const games=p.gameLog.filter(g=>parseInt(g.min||'0')>0);
