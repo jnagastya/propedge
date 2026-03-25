@@ -3679,22 +3679,6 @@ function renderOverview(el,p){
     const aAst_=+(pg_.reduce((s,g)=>s+(+g.ast||0),0)/n_).toFixed(1);
     return`<div style="margin-top:6px;padding:5px 8px;background:var(--bg1);border-radius:5px;border:1px solid var(--bd);font-size:11px;"><span style="color:var(--g);font-weight:700;">${aReb_} REB</span> + <span style="color:#60a5fa;font-weight:700;">${aAst_} AST</span> = <span style="color:var(--t1);font-weight:700;">${+(aReb_+aAst_).toFixed(1)}</span> <span style="color:var(--t3);">(L10 avg)</span></div>`;
   })():'';
-  // Supporting stats
-  const _suppStatsHtml=p.hasRealStats&&_playedAll.length?(()=>{
-    const pg_=_playedAll.slice(0,10);const n_=pg_.length;
-    const aMin_=+(pg_.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/n_).toFixed(1);
-    const aPts_=+(pg_.reduce((s,g)=>s+(+g.pts||0),0)/n_).toFixed(1);
-    const aReb_=+(pg_.reduce((s,g)=>s+(+g.reb||0),0)/n_).toFixed(1);
-    const aAst_=+(pg_.reduce((s,g)=>s+(+g.ast||0),0)/n_).toFixed(1);
-    const a3pm_=+(pg_.reduce((s,g)=>s+(+g.fg3m||0),0)/n_).toFixed(1);
-    const mkt_=p.market||S.market;
-    const ss_=[{l:'Min',v:aMin_}];
-    if(mkt_!=='player_points')ss_.push({l:'PTS',v:aPts_});
-    if(mkt_!=='player_rebounds'&&mkt_!=='player_rebounds_assists')ss_.push({l:'REB',v:aReb_});
-    if(mkt_!=='player_assists'&&mkt_!=='player_rebounds_assists')ss_.push({l:'AST',v:aAst_});
-    if(mkt_!=='player_threes')ss_.push({l:'3PM',v:a3pm_});
-    return`<div class="supp-stats">${ss_.map(s=>`<div class="supp-stat"><div class="supp-stat-v">${s.v}</div><div class="supp-stat-l">${s.l}/g</div></div>`).join('')}</div>`;
-  })():'';
   const lean=leanInfo(p.modelProb||0.5);
   // Build player flags
   const flags=[];
@@ -3929,7 +3913,6 @@ function renderOverview(el,p){
     <div class="dc full"><div class="dc-t"><span class="dt" style="background:var(--g)"></span>Last 10 Calendar Games <span style="font-size:11px;color:var(--t3);font-weight:400;margin-left:4px;">(DNPs shown but excluded from averages)</span></div>
       <div class="chb"><div class="lref" style="top:${lP}%"><span class="lref-l">LINE ${p.line}</span></div><div class="bars">${bars}</div></div>
       <div class="bar-dates">${barDates}</div>
-      ${_suppStatsHtml}
     </div>
     ${p.hasRealStats?(()=>{const pg=(p.gameLog||[]).filter(g=>parseInt(g.min||'0')>0);const am=pg.length?Math.round(pg.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/pg.length):30;const l3min=pg.slice(0,3);const l3avg=l3min.length>=3?Math.round(l3min.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/l3min.length):am;const l5min=pg.slice(0,5);const l5avg=l5min.length?Math.round(l5min.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/l5min.length):am;const l10min=pg.slice(0,10);const l10avg=l10min.length?Math.round(l10min.reduce((s,g)=>s+(parseFloat(g.min)||0),0)/l10min.length):am;const hasFlag=p.minutesFlag||p.dnpCount>=5;const initMin=p._adjMin||am;return`<div class="dc full"><div class="dc-t"><span class="dt" style="background:#8b5cf6"></span>EV vs Minutes <span style="font-size:11px;color:var(--t3);font-weight:400;margin-left:4px;">Adjust playing time to see EV impact</span></div>
       <canvas id="evMinutesChart" width="400" height="220" style="width:100%;height:220px;display:block;"></canvas>
@@ -4009,8 +3992,9 @@ function renderOverview(el,p){
         <input class="ov-adj-inp" type="number" id="ov-adj-un-${i}" value="${p.underOdds||-110}" step="1" style="width:60px;" oninput="window._updateOvAdj('${i}')">
       </div>
       <div id="ov-adj-result-${i}" style="margin-top:8px;"></div>`;
-    const _grid5=el.querySelector('.di-grid');
-    if(_grid5)_grid5.appendChild(_adjDiv);
+    const _chartCard=el.querySelector('.chb')?.closest('.dc');
+    if(_chartCard)_chartCard.insertAdjacentElement('afterend',_adjDiv);
+    else{const _grid5=el.querySelector('.di-grid');if(_grid5)_grid5.appendChild(_adjDiv);}
   }
   // Load injury report async and inject into the grid
   (async()=>{
