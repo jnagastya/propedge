@@ -3311,7 +3311,7 @@ function renderDet(i,p){
     <div class="di-player-hdr-av" data-av="${p.name.replace(/"/g,'&quot;')}">${_dhs?`<img src="${_dhs}" onerror="headshotError(this,'${_dinit}')" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" alt="">`:`<span>${_dinit}</span>`}</div>
     <div style="flex:1;">
       <div class="di-player-hdr-name">${p.name}</div>
-      <div class="di-player-hdr-meta">${[p.team,p.position,p.matchup,mktLabel+' · Line '+p.line+(p.prev_line!=null&&p.prev_line!==p.line?` (was ${p.prev_line})`:'')] .filter(Boolean).join(' · ')}</div>
+      <div class="di-player-hdr-meta">${[p.team,p.position,p.matchup,mktLabel+' · Line '+p.line].filter(Boolean).join(' · ')}</div>
     </div>
     ${_mktPills}
     <button class="nav-arrow" onclick="window._navPlayer(1)" title="Next player (↓)">&#x203a;</button>
@@ -3453,7 +3453,7 @@ window._switchDetailMarket=function(i,newMarket){
   const MKT_LABELS_FULL={'player_points':'Points','player_rebounds':'Rebounds','player_assists':'Assists','player_threes':'3-Pointers','player_steals':'Steals','player_blocks':'Blocks','player_turnovers':'Turnovers','player_points_rebounds_assists':'PRA','player_rebounds_assists':'Reb+Ast'};
   const newMktLabel=MKT_LABELS_FULL[newMarket]||'Stats';
   const metaEl=document.querySelector(`#di-${i} .di-player-hdr-meta`);
-  if(metaEl)metaEl.textContent=[matchProp.team,matchProp.position,matchProp.matchup,newMktLabel+' · Line '+matchProp.line+(matchProp.prev_line!=null&&matchProp.prev_line!==matchProp.line?` (was ${matchProp.prev_line})`:'')] .filter(Boolean).join(' · ');
+  if(metaEl)metaEl.textContent=[matchProp.team,matchProp.position,matchProp.matchup,newMktLabel+' · Line '+matchProp.line].filter(Boolean).join(' · ');
   // Update active market pill
   document.querySelectorAll(`#di-${i} .mkt-pill`).forEach(b=>{b.classList.toggle('on',b.dataset.market===newMarket);});
   // Re-render active tab
@@ -3754,7 +3754,7 @@ function renderOverview(el,p){
     ${adjBanner}
     ${p.hasRealStats?`<div class="dc full" style="background:var(--g)15;border:1px solid var(--g)40;padding:8px 12px;border-radius:8px;font-size:11px;color:var(--g);">✓ Stats from NBA.com — ${p.gamesPlayed} games this season${flagsHTML}</div>`:p.statsError?`<div class="dc full" style="background:var(--r)15;border:1px solid var(--r)40;padding:8px 12px;border-radius:8px;font-size:11px;color:var(--r);">⚠ Stats unavailable: ${p.statsError}</div>`:`<div class="dc full" style="background:var(--a)15;border:1px solid var(--a)40;padding:8px 12px;border-radius:8px;font-size:11px;color:var(--a);">⏳ Loading real stats from NBA.com…</div>`}
     ${_statChipsHtml}
-    ${(()=>{const _hlc=p.prev_line!=null&&(p.prev_line!==p.line||p.prev_overOdds!==p.overOdds||p.prev_underOdds!==p.underOdds);return`<div class="dc${_hlc?'':' full'}"><div class="dc-t"><span class="dt" style="background:var(--b)"></span>Stats vs Line</div>
+    ${(()=>{return`<div class="dc full"><div class="dc-t"><span class="dt" style="background:var(--b)"></span>Stats vs Line</div>
       <div class="sr">
         <div class="sb2"><div class="sb2-l">L10 Avg</div><div class="sb2-v">${p.avg}</div><div class="sb2-s">Line ${p.line} <span class="${p.avg>p.line?'up':'dn'}">${p.avg>p.line?'▲':'▼'} ${Math.abs(p.avg-p.line).toFixed(1)}</span></div></div>
         <div class="sb2"><div class="sb2-l">Last 5 Avg</div><div class="sb2-v">${l5a}</div><div class="sb2-s">${parseFloat(l5a||0)>p.avg?'<span class="up">▲ Hot</span>':'<span class="dn">▼ Cold</span>'}</div></div>
@@ -3818,87 +3818,6 @@ function renderOverview(el,p){
         })()}
       </div>
     </div>`;})()}
-    ${(()=>{
-        if(p.prev_line==null||(p.prev_line===p.line&&p.prev_overOdds===p.overOdds&&p.prev_underOdds===p.underOdds))return'';
-        const _isOv=(p.modelProb||0.5)>=0.5;
-        const prevP={...p,line:p.prev_line,overOdds:p.prev_overOdds||p.overOdds,underOdds:p.prev_underOdds||p.underOdds};
-        const prevEdge=prevP.avg!=null?+(((prevP.avg-prevP.line)/prevP.line)*100).toFixed(1):0;
-        prevP.edge=prevEdge;
-        const curVS=valueScore(p);const prevVS=valueScore(prevP);const vsDelta=curVS-prevVS;
-        const curEV=getDirectionalEV(p);const prevEV=getDirectionalEV(prevP);const evDelta=curEV-prevEV;
-        const rawMP=p.modelProb??(p.hitRate||50)/100;
-        const curMP=Math.round((_isOv?rawMP:1-rawMP)*100);
-        // Re-estimate prev MP using statProb with old line (hit rates stay same, but statistical prob changes)
-        const prevIsOv=prevEdge>0;
-        const prevStatProb=p.avg!=null&&(p.stdDev||0)>0?normalCDF((p.avg-p.prev_line)/(p.stdDev)):0.5;
-        const curStatProb=p.avg!=null&&(p.stdDev||0)>0?normalCDF((p.avg-p.line)/(p.stdDev)):0.5;
-        const statDelta=curStatProb-prevStatProb;
-        // Adjust raw model prob by the statistical delta to estimate prev MP
-        const prevRawMP=Math.min(0.97,Math.max(0.03,rawMP-statDelta*0.20));
-        const prevMP=Math.round((prevIsOv?prevRawMP:1-prevRawMP)*100);
-        const mpDelta=curMP-prevMP;
-        const prevImplO=p.prev_overOdds?impliedProb(p.prev_overOdds):null;
-        const prevImplU=p.prev_underOdds?impliedProb(p.prev_underOdds):null;
-        const curImpl=_isOv?(p.impliedProbOver??impliedProb(p.overOdds)):(p.impliedProbUnder??impliedProb(p.underOdds));
-        const prevImpl=_isOv?(prevImplO??curImpl):(prevImplU??curImpl);
-        // Recommendations with color coding
-        const recCol=r=>r.includes('OVER')?'var(--g)':r.includes('UNDER')?'var(--r)':'var(--a)';
-        const curRec=curVS>=40?(_isOv?'BET OVER':'BET UNDER'):'NEUTRAL';
-        const prevRec=prevVS>=40?(prevRawMP>=0.5?'BET OVER':'BET UNDER'):'NEUTRAL';
-        const recChanged=curRec!==prevRec;
-        const fD=v=>v>0?`+${v.toFixed(1)}`:v.toFixed(1);
-        const lineDiff=+(p.line-p.prev_line).toFixed(1);
-        // Overall assessment
-        const betterOrWorse=vsDelta>0?{label:'BET GOT BETTER',col:'var(--g)',icon:'↑'}:vsDelta<0?{label:'BET GOT WORSE',col:'var(--r)',icon:'↓'}:{label:'NO CHANGE',col:'var(--a)',icon:'→'};
-        return`<div class="dc"><div class="lm-impact" style="margin:0;border:none;padding:0;">
-          <div class="lm-impact-hdr" style="display:flex;justify-content:space-between;align-items:center;">
-            <span>↕ Line Change Impact</span>
-            <span style="font-size:11px;font-weight:800;color:${betterOrWorse.col};padding:3px 10px;border-radius:6px;background:${betterOrWorse.col}15;">${betterOrWorse.icon} ${betterOrWorse.label}</span>
-          </div>
-          ${(()=>{
-            const fmtOdds=o=>o?(o>0?'+':'')+o:'—';
-            const curOverO=p.overOdds,curUnderO=p.underOdds;
-            const prevOverO=p.prev_overOdds||curOverO,prevUnderO=p.prev_underOdds||curUnderO;
-            const oddsChanged=prevOverO!==curOverO||prevUnderO!==curUnderO;
-            return`<div style="display:grid;grid-template-columns:1fr;gap:8px;margin-top:8px;">
-            <div style="padding:8px 10px;background:var(--bg2);border-radius:6px;border:1px solid var(--bd);">
-              <div style="font-size:10px;font-weight:600;color:var(--b-text);text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px;">Line</div>
-              <div style="font-size:14px;font-weight:800;">${p.prev_line} <span style="color:var(--t3);">→</span> ${p.line} <span style="font-size:11px;color:${lineDiff>0?'var(--r)':'var(--g)'};">(${fD(lineDiff)})</span></div>
-            </div>
-            <div style="padding:8px 10px;background:var(--bg2);border-radius:6px;border:1px solid var(--bd);">
-              <div style="font-size:10px;font-weight:600;color:var(--b-text);text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px;">Odds${oddsChanged?' (changed)':''}</div>
-              <div style="font-size:13px;font-weight:800;">${oddsChanged?`O: ${fmtOdds(prevOverO)} → ${fmtOdds(curOverO)}<br>U: ${fmtOdds(prevUnderO)} → ${fmtOdds(curUnderO)}`:`O: ${fmtOdds(curOverO)} · U: ${fmtOdds(curUnderO)}`}</div>
-            </div>
-            <div style="padding:8px 10px;background:var(--bg2);border-radius:6px;border:1px solid var(--bd);">
-              <div style="font-size:10px;font-weight:600;color:var(--b-text);text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px;">Expected Value</div>
-              <div style="font-size:14px;font-weight:800;color:${curEV>=0?'var(--g)':'var(--r)'};">${fD(curEV)}%</div>
-              <div style="font-size:11px;color:var(--t3);margin-top:2px;">was ${fD(prevEV)}% (${fD(evDelta)})</div>
-            </div>
-            <div style="padding:8px 10px;background:var(--bg2);border-radius:6px;border:1px solid var(--bd);">
-              <div style="font-size:10px;font-weight:600;color:var(--b-text);text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px;">Model Probability</div>
-              <div style="font-size:14px;font-weight:800;">${curMP}%</div>
-              <div style="font-size:11px;color:var(--t3);margin-top:2px;">was ${prevMP}%${mpDelta!==0?' ('+fD(mpDelta)+')':''}</div>
-            </div>
-            <div style="padding:8px 10px;background:var(--bg2);border-radius:6px;border:1px solid var(--bd);">
-              <div style="font-size:10px;font-weight:600;color:var(--b-text);text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px;">Value Score</div>
-              <div style="font-size:14px;font-weight:800;color:${curVS>=40?'var(--g)':curVS>=25?'var(--a)':'var(--r)'};">${curVS}</div>
-              <div style="font-size:11px;color:var(--t3);margin-top:2px;">was ${prevVS} (${vsDelta>0?'+':''}${vsDelta})</div>
-            </div>
-          </div>`;
-          })()}
-          <div style="margin-top:8px;display:flex;gap:8px;">
-            <div style="flex:1;padding:8px 10px;background:var(--bg2);border-radius:6px;border:1px solid var(--bd);">
-              <div style="font-size:10px;font-weight:600;color:var(--b-text);text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px;">Before Line Change</div>
-              <div style="font-size:13px;font-weight:800;color:${recCol(prevRec)};">${prevRec}</div>
-            </div>
-            <div style="display:flex;align-items:center;font-size:18px;color:${recChanged?'#c084fc':'var(--t3)'};font-weight:800;">${recChanged?'→':'='}</div>
-            <div style="flex:1;padding:8px 10px;background:${recChanged?'rgba(168,85,247,.08)':'var(--bg2)'};border-radius:6px;border:1px solid ${recChanged?'rgba(168,85,247,.25)':'var(--bd)'};">
-              <div style="font-size:10px;font-weight:600;color:var(--b-text);text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px;">After Line Change${recChanged?' (CHANGED)':''}</div>
-              <div style="font-size:13px;font-weight:800;color:${recCol(curRec)};">${curRec}</div>
-            </div>
-          </div>
-        </div></div>`;
-      })()}
     <div class="dc full">
       <div class="dc-t"><span class="dt" style="background:var(--p)"></span>Recommendation</div>
       ${(()=>{
@@ -4096,29 +4015,31 @@ function renderOverview(el,p){
       if(!r.ok)return;
       const {snapshots}=await r.json();
       if(!snapshots||snapshots.length<2)return;
-      const [cur,prev]=snapshots; // sorted newest first
+      const [cur,prev]=snapshots;
       const lineDiff=+(cur.line-prev.line).toFixed(1);
       const oDiff=(cur.over_odds!=null&&prev.over_odds!=null)?cur.over_odds-prev.over_odds:null;
       const uDiff=(cur.under_odds!=null&&prev.under_odds!=null)?cur.under_odds-prev.under_odds:null;
-      // Only show if something actually moved
-      if(lineDiff===0&&!oDiff&&!uDiff)return;
       const grid4=el.querySelector('.di-grid');
       if(!grid4)return;
-      const fmtOdds=v=>v>0?`+${v}`:String(v);
+      const fmtOdds=v=>v!=null?(v>0?`+${v}`:String(v)):'—';
       const fmtDiff=v=>v>0?`+${v}`:String(v);
-      const lineHtml=lineDiff!==0
-        ?`<span style="font-weight:700;color:${lineDiff>0?'var(--r)':'var(--g)'}">${fmtDiff(lineDiff)}</span> line (${prev.line} → <strong>${cur.line}</strong>)`
-        :'';
-      const oddsHtml=[
-        oDiff!=null&&oDiff!==0?`Over ${fmtDiff(oDiff)} (${fmtOdds(prev.over_odds)} → <strong>${fmtOdds(cur.over_odds)}</strong>)`:'',
-        uDiff!=null&&uDiff!==0?`Under ${fmtDiff(uDiff)} (${fmtOdds(prev.under_odds)} → <strong>${fmtOdds(cur.under_odds)}</strong>)`:'',
-      ].filter(Boolean).join(' · ');
-      const parts=[lineHtml,oddsHtml].filter(Boolean).join(' · ');
       const prevDate=new Date(prev.snapshot_date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'});
       const lhDiv=document.createElement('div');
       lhDiv.className='dc full';
-      lhDiv.innerHTML=`<div class="dc-t"><span class="dt" style="background:#6366f1"></span>Line Movement <span style="font-size:11px;color:var(--t3);font-weight:400;margin-left:4px;">since ${prevDate}</span></div>
-        <div style="padding:8px 12px;font-size:12px;color:var(--t2);">${parts}</div>`;
+      const mkCell=(lbl,prevVal,curVal,diff,diffCol)=>`
+        <div style="text-align:center;padding:12px 8px;background:var(--bg2);border-radius:8px;border:1px solid var(--bd);">
+          <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">${lbl}</div>
+          <div style="font-size:13px;color:var(--t3);margin-bottom:4px;">${prevVal}</div>
+          <div style="font-size:11px;color:var(--t3);margin-bottom:4px;">↓</div>
+          <div style="font-size:20px;font-weight:900;color:var(--t1);">${curVal}</div>
+          ${diff!==0?`<div style="font-size:12px;font-weight:700;color:${diffCol};margin-top:4px;">${fmtDiff(diff)}</div>`:'<div style="font-size:12px;color:var(--t3);margin-top:4px;">no change</div>'}
+        </div>`;
+      lhDiv.innerHTML=`<div class="dc-t"><span class="dt" style="background:#6366f1"></span>Line vs Last Game <span style="font-size:11px;color:var(--t3);font-weight:400;margin-left:4px;">${prevDate} → today</span></div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
+          ${mkCell('Line',prev.line,cur.line,lineDiff,lineDiff>0?'var(--r)':'var(--g)')}
+          ${mkCell('Over Odds',fmtOdds(prev.over_odds),fmtOdds(cur.over_odds),oDiff??0,oDiff>0?'var(--g)':'var(--r)')}
+          ${mkCell('Under Odds',fmtOdds(prev.under_odds),fmtOdds(cur.under_odds),uDiff??0,uDiff>0?'var(--g)':'var(--r)')}
+        </div>`;
       grid4.appendChild(lhDiv);
     }catch(e){console.warn('[line-history]',e);}
   })();
