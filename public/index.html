@@ -3968,7 +3968,7 @@ function renderOverview(el,p){
           <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Line Multiplier</div>
           <div style="display:flex;align-items:center;justify-content:center;gap:6px;">
             <button class="ov-adj-btn" onclick="window._pickemStep('${i}',-0.05)">−</button>
-            <input class="ov-adj-inp" type="number" id="pickem-mult-${i}" value="1.6" step="0.05" min="1.0" max="9.99" style="width:80px;" oninput="window._updatePickem('${i}')">
+            <input class="ov-adj-inp" type="text" id="pickem-mult-${i}" value="1.60x" style="width:80px;" oninput="window._updatePickem('${i}')">
             <button class="ov-adj-btn" onclick="window._pickemStep('${i}',0.05)">+</button>
           </div>
           <div style="font-size:9px;color:var(--t3);margin-top:6px;">Enter the multiplier shown on the platform</div>
@@ -5383,7 +5383,8 @@ window._ovAdjOddsStep=function(i,side,step){
 window._pickemStep=function(i,step){
   const el=document.getElementById(`pickem-mult-${i}`);
   if(!el)return;
-  el.value=Math.max(1.01,+(parseFloat(el.value||1.6)+step).toFixed(2));
+  const cur=parseFloat(el.value)||1.6;
+  el.value=Math.max(1.01,+(cur+step).toFixed(2))+'x';
   window._updatePickem(i);
 };
 window._updatePickem=function(i){
@@ -5391,12 +5392,17 @@ window._updatePickem=function(i){
   const resultEl=document.getElementById(`pickem-result-${i}`);
   if(!resultEl)return;
   const multEl=document.getElementById(`pickem-mult-${i}`);
-  const mult=parseFloat(multEl?.value);
+  const mult=parseFloat(multEl?.value);  // parseFloat stops at 'x' naturally
   if(isNaN(mult)||mult<=1){resultEl.innerHTML='';return;}
+  // Reformat input with x suffix if missing
+  if(multEl&&!String(multEl.value).endsWith('x'))multEl.value=mult.toFixed(2)+'x';
   const p_be=1/mult;
-  const modelProb=p?.modelProb||0.5;
-  const isOver=(p?.edge||0)>=0;
+  // Use adjusted model prob from line adjuster if active, else original
+  const _adj=window[`_pcAdj_${i}`];
+  const modelProb=_adj?_adj.mp:(p?.modelProb||0.5);
+  const isOver=_adj?_adj.isOver:((p?.edge||0)>=0);
   const dirMP=isOver?modelProb:1-modelProb;
+  const _adjNote=_adj?'· Using adjusted line':'';
   // Equivalent American odds
   const equivOdds=p_be>=0.5?Math.round(-(p_be/(1-p_be))*100):Math.round(((1-p_be)/p_be)*100);
   const oddsStr=equivOdds>0?`+${equivOdds}`:String(equivOdds);
@@ -5429,7 +5435,7 @@ window._updatePickem=function(i){
       <span style="font-size:12px;font-weight:700;color:${verdictCol};">${verdictTxt}</span>
       <span style="font-size:11px;font-weight:700;color:${tierCol};">${tier}</span>
     </div>
-    <div style="font-size:10px;color:var(--t3);margin-top:6px;">Model: ${Math.round(dirMP*100)}% ${isOver?'over':'under'} · Breakeven: ${Math.round(p_be*100)}%</div>`;
+    <div style="font-size:10px;color:var(--t3);margin-top:6px;">Model: ${Math.round(dirMP*100)}% ${isOver?'over':'under'} · Breakeven: ${Math.round(p_be*100)}% ${_adjNote}</div>`;
 };
 window._ovAdjStep=function(i,step){
   const el=document.getElementById(`ov-adj-line-${i}`);
@@ -5488,6 +5494,8 @@ window._updateOvAdj=function(i){
       if(lref0_){lref0_.style.top=lP0_+'%';const ll0_=lref0_.querySelector('.lref-l');if(ll0_)ll0_.textContent='LINE '+p.line;}
       chb0_.querySelectorAll('.bar[data-val]').forEach(bar_=>{const v_=parseFloat(bar_.dataset.val);if(!isNaN(v_))bar_.style.background=v_>=p.line?'var(--g)':'var(--r)';});
     }
+    window[`_pcAdj_${i}`]=null;
+    window._updatePickem(i);
     return;
   }
   const mpPct_=Math.round(dirMP_*100);
@@ -5519,6 +5527,9 @@ window._updateOvAdj=function(i){
       if(!isNaN(v_))bar_.style.background=v_>=newLine?'var(--g)':'var(--r)';
     });
   }
+  // Push adjusted model prob to pick'em calculator
+  window[`_pcAdj_${i}`]={mp:newMP_,isOver:isOver_};
+  window._updatePickem(i);
 };
 function applySmartMinutes(p){
   if(!p.minutesFlag || !p.hasRealStats || !p.gameLog) return p;
