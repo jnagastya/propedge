@@ -3959,6 +3959,24 @@ function renderOverview(el,p){
     const _chartCard=el.querySelector('.chb')?.closest('.dc');
     if(_chartCard)_chartCard.insertAdjacentElement('afterend',_adjDiv);
     else{const _grid5=el.querySelector('.di-grid');if(_grid5)_grid5.appendChild(_adjDiv);}
+    // Pick'Em EV Calculator — injected after alternate line adjuster
+    const _pickemDiv=document.createElement('div');
+    _pickemDiv.className='dc full';
+    _pickemDiv.innerHTML=`<div class="dc-t"><span class="dt" style="background:#f59e0b"></span>Pick'Em EV Calculator <span style="font-size:10px;color:var(--t3);font-weight:400;margin-left:4px;">Underdog · Sleeper · PrizePicks</span></div>
+      <div style="display:grid;grid-template-columns:200px 1fr;gap:16px;align-items:center;">
+        <div style="text-align:center;">
+          <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Line Multiplier</div>
+          <div style="display:flex;align-items:center;justify-content:center;gap:6px;">
+            <button class="ov-adj-btn" onclick="window._pickemStep('${i}',-0.05)">−</button>
+            <input class="ov-adj-inp" type="number" id="pickem-mult-${i}" value="1.6" step="0.05" min="1.0" max="9.99" style="width:80px;" oninput="window._updatePickem('${i}')">
+            <button class="ov-adj-btn" onclick="window._pickemStep('${i}',0.05)">+</button>
+          </div>
+          <div style="font-size:9px;color:var(--t3);margin-top:6px;">Enter the multiplier shown on the platform</div>
+        </div>
+        <div id="pickem-result-${i}"></div>
+      </div>`;
+    _adjDiv.insertAdjacentElement('afterend',_pickemDiv);
+    window._updatePickem(i);
   }
   // Load injury report async and inject into the grid
   (async()=>{
@@ -5361,6 +5379,57 @@ window._ovAdjOddsStep=function(i,side,step){
   const _next=parseInt(el.value||0)+step;
   el.value=_next>=0?'+'+_next:String(_next);
   window._updateOvAdj(i);
+};
+window._pickemStep=function(i,step){
+  const el=document.getElementById(`pickem-mult-${i}`);
+  if(!el)return;
+  el.value=Math.max(1.01,+(parseFloat(el.value||1.6)+step).toFixed(2));
+  window._updatePickem(i);
+};
+window._updatePickem=function(i){
+  const p=window._dp;
+  const resultEl=document.getElementById(`pickem-result-${i}`);
+  if(!resultEl)return;
+  const multEl=document.getElementById(`pickem-mult-${i}`);
+  const mult=parseFloat(multEl?.value);
+  if(isNaN(mult)||mult<=1){resultEl.innerHTML='';return;}
+  const p_be=1/mult;
+  const modelProb=p?.modelProb||0.5;
+  const isOver=(p?.edge||0)>=0;
+  const dirMP=isOver?modelProb:1-modelProb;
+  // Equivalent American odds
+  const equivOdds=p_be>=0.5?Math.round(-(p_be/(1-p_be))*100):Math.round(((1-p_be)/p_be)*100);
+  const oddsStr=equivOdds>0?`+${equivOdds}`:String(equivOdds);
+  // EV
+  const ev=dirMP*mult-1;
+  const evPct=(ev*100).toFixed(1);
+  const evStr=ev>=0?`+${evPct}%`:`${evPct}%`;
+  const evCol=ev>0.05?'var(--g)':ev>0?'#f59e0b':'var(--r)';
+  // Tier
+  const tier=mult>=1.75?'😈 Demon':mult<=1.25?'👺 Goblin':'⭐ Standard';
+  const tierCol=mult>=1.75?'var(--r)':mult<=1.25?'#f59e0b':'#a78bfa';
+  const verdictTxt=ev>0.08?'Strong value':ev>0.02?'Slight value':ev>-0.02?'Roughly fair':'No value';
+  const verdictCol=ev>0.08?'var(--g)':ev>0.02?'#f59e0b':ev>-0.02?'var(--t3)':'var(--r)';
+  resultEl.innerHTML=`
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px;">
+      <div style="text-align:center;padding:10px 6px;background:var(--bg2);border-radius:8px;border:1px solid var(--bd);">
+        <div style="font-size:9px;color:var(--t3);font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">Equiv. Odds</div>
+        <div style="font-size:20px;font-weight:900;color:var(--t1);">${oddsStr}</div>
+      </div>
+      <div style="text-align:center;padding:10px 6px;background:var(--bg2);border-radius:8px;border:1px solid var(--bd);">
+        <div style="font-size:9px;color:var(--t3);font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">EV</div>
+        <div style="font-size:20px;font-weight:900;color:${evCol};">${evStr}</div>
+      </div>
+      <div style="text-align:center;padding:10px 6px;background:var(--bg2);border-radius:8px;border:1px solid var(--bd);">
+        <div style="font-size:9px;color:var(--t3);font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">Breakeven</div>
+        <div style="font-size:20px;font-weight:900;color:var(--t1);">${Math.round(p_be*100)}%</div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--bg2);border-radius:8px;border:1px solid var(--bd);">
+      <span style="font-size:12px;font-weight:700;color:${verdictCol};">${verdictTxt}</span>
+      <span style="font-size:11px;font-weight:700;color:${tierCol};">${tier}</span>
+    </div>
+    <div style="font-size:10px;color:var(--t3);margin-top:6px;">Model: ${Math.round(dirMP*100)}% ${isOver?'over':'under'} · Breakeven: ${Math.round(p_be*100)}%</div>`;
 };
 window._ovAdjStep=function(i,step){
   const el=document.getElementById(`ov-adj-line-${i}`);
