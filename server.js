@@ -159,7 +159,7 @@ let BDL_KEY = process.env.BDL_API_KEY || '';
 
 // Player → team cache (populated by refresh-stats, cold-start load, and stats fetches)
 const _playerTeamCache = {
-  'Derik Queen':'HOU','Jeremiah Fears':'OKC','Mohamed Diawara':'ATL',
+  'Derik Queen':'NOP','Jeremiah Fears':'OKC','Mohamed Diawara':'ATL',
   'Ivica Zubac':'IND','Gui Santos':'GSW','Marcus Sasser':'DET',
   'Cody Williams':'UTA','Mitchell Robinson':'NYK','Brice Sensabaugh':'UTA',
   'Ace Bailey':'UTA','Sandro Mamukelashvili':'TOR','Matas Buzelis':'CHI',
@@ -174,7 +174,7 @@ const _playerTeamCache = {
   'Aaron Nesmith':'IND','Oso Ighodaro':'PHX','Will Richard':'GSW',
   'Toumani Camara':'POR','Bennedict Mathurin':'LAC','Jaylen Wells':'MEM',
   'Dean Wade':'CLE','Robert Williams':'POR','Isaiah Stewart II':'DET',
-  'Donovan Clingan':'POR','Cooper Flagg':'DAL','Saddiq Bey':'ATL',
+  'Donovan Clingan':'POR','Cooper Flagg':'DAL','Saddiq Bey':'NOP',
   'Kris Dunn':'LAC','Kevin Huerter':'IND','Jabari Smith Jr':'HOU','Leonard Miller':'CHI',
   'Marcus Smart':'LAL','Adem Bona':'PHI','Nolan Traore':'BKN','Norman Powell':'MIA','Jonas Valanciunas':'DEN',
   'Trae Young':'WAS','Alex Sarr':'WAS','Quentin Grimes':'PHI','Tim Hardaway Jr':'DEN',

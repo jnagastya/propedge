@@ -5384,7 +5384,7 @@ window._pickemStep=function(i,step){
   const el=document.getElementById(`pickem-mult-${i}`);
   if(!el)return;
   const cur=parseFloat(el.value)||1.6;
-  el.value=Math.max(1.01,+(cur+step).toFixed(2))+'x';
+  el.value=Math.max(0.05,+(cur+step).toFixed(2))+'x';
   window._updatePickem(i);
 };
 window._updatePickem=function(i){
@@ -5393,7 +5393,7 @@ window._updatePickem=function(i){
   if(!resultEl)return;
   const multEl=document.getElementById(`pickem-mult-${i}`);
   const mult=parseFloat(multEl?.value);  // parseFloat stops at 'x' naturally
-  if(isNaN(mult)||mult<=1){resultEl.innerHTML='';return;}
+  if(isNaN(mult)||mult<=0){resultEl.innerHTML='';return;}
   // Reformat input with x suffix if missing
   if(multEl&&!String(multEl.value).endsWith('x'))multEl.value=mult.toFixed(2)+'x';
   const p_be=1/mult;
