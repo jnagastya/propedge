@@ -177,6 +177,7 @@ const _playerTeamCache = {
   'Donovan Clingan':'POR','Cooper Flagg':'DAL','Saddiq Bey':'NOP',
   'Luka Doncic':'LAL','Collin Sexton':'CHI','Isaac Okoro':'CHI','Marvin Bagley III':'DAL',
   'Peyton Watson':'DEN','John Collins':'LAC','Ben Sheppard':'IND','Dwight Powell':'DAL',
+  'Kelly Oubre Jr.':'PHI','Kelly Oubre Jr':'PHI','Kelly Oubre':'PHI',
   'Kris Dunn':'LAC','Kevin Huerter':'IND','Jabari Smith Jr':'HOU','Leonard Miller':'CHI',
   'Marcus Smart':'LAL','Adem Bona':'PHI','Nolan Traore':'BKN','Norman Powell':'MIA','Jonas Valanciunas':'DEN',
   'Trae Young':'WAS','Alex Sarr':'WAS','Quentin Grimes':'PHI','Tim Hardaway Jr':'DEN',
