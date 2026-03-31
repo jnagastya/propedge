@@ -185,6 +185,7 @@ const _playerTeamCache = {
   'Gary Trent Jr.':'MIL','Gary Trent Jr':'MIL','Gary Trent':'MIL',
   'Taurean Prince':'MIL','Nicolas Claxton':'BKN','Ziaire Williams':'BKN',
   'Ben Saraf':'BKN','Drake Powell':'BKN',
+  'Kris Murray':'POR','Matisse Thybulle':'POR','Nicolas Batum':'LAC','Sidy Cissoko':'POR',
   'Marcus Smart':'LAL','Adem Bona':'PHI','Nolan Traore':'BKN','Norman Powell':'MIA','Jonas Valanciunas':'DEN',
   'Trae Young':'WAS','Alex Sarr':'WAS','Quentin Grimes':'PHI','Tim Hardaway Jr':'DEN',
   'Dylan Harper':'SAS','Will Riley':'WAS','Carlton Carrington':'WAS','Jett Howard':'ORL',
@@ -1625,7 +1626,7 @@ function guessTeam(name) {
     // IND
     'tyrese haliburton':'IND','pascal siakam':'IND','myles turner':'IND','benedict mathurin':'IND','andrew nembhard':'IND','t.j. mcconnell':'IND','ben sheppard':'IND',
     // LAC
-    'kawhi leonard':'LAC','james harden':'LAC','ivica zubac':'IND','norman powell':'MIA','terance mann':'LAC','bones hyland':'LAC','darius garland':'LAC','john collins':'LAC',
+    'kawhi leonard':'LAC','james harden':'LAC','ivica zubac':'IND','norman powell':'MIA','terance mann':'LAC','bones hyland':'LAC','darius garland':'LAC','john collins':'LAC','nicolas batum':'LAC',
     // LAL
     'lebron james':'LAL','anthony davis':'LAL','austin reaves':'LAL',"d'angelo russell":'LAL','rui hachimura':'LAL','jake laravia':'LAL','max christie':'LAL','gabe vincent':'LAL','marcus smart':'LAL','jaxson hayes':'LAL','deandre ayton':'LAL','luke kennard':'LAL','luka doncic':'LAL',
     // MEM
@@ -1650,7 +1651,7 @@ function guessTeam(name) {
     // PHX
     'devin booker':'PHX','kevin durant':'PHX','bradley beal':'PHX','jalen green':'PHX','grayson allen':'PHX','jusuf nurkic':'PHX','eric gordon':'PHX','rasheer fleming':'PHX','khaman maluach':'PHX','dillon brooks':'PHX',
     // POR
-    'anfernee simons':'POR','scoot henderson':'POR','jerami grant':'POR','deandre ayton':'LAL','shaedon sharpe':'POR',
+    'anfernee simons':'POR','scoot henderson':'POR','jerami grant':'POR','deandre ayton':'LAL','shaedon sharpe':'POR','kris murray':'POR','matisse thybulle':'POR','sidy cissoko':'POR',
     // SAC
     'domantas sabonis':'SAC','keegan murray':'SAC','malik monk':'SAC','russell westbrook':'SAC','precious achiuwa':'SAC','dylan cardwell':'SAC','nique clifford':'SAC','demar derozan':'SAC','maxime raynaud':'SAC','doug mcdermott':'SAC',
     // SAS
