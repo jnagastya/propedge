@@ -754,6 +754,7 @@ const BDL_PLAYER_OVERRIDES = {
   'Bronny James':            { id: 1028046517,     position: 'G', team: 'LAL' },
   'Gary Trent Jr.':          { id: 3089,           position: 'G', team: 'MIL' },
   'Gary Trent Jr':           { id: 3089,           position: 'G', team: 'MIL' },
+  'Daniel Gafford':          { id: 666577,         position: 'F', team: 'DAL' },
 };
 
 // Search BDL for player ID + position by name, cached 24h
