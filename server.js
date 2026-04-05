@@ -27,6 +27,8 @@ const ESPN_ALIASES = {
   'Jabari Smith Jr': 'Jabari Smith Jr.',
   'Paul Reed Jr': 'Paul Reed',
   'Pelle Larson': 'Pelle Larsson',
+  'Kelly Oubre Jr': 'Kelly Oubre Jr.',
+  'Kelly Oubre': 'Kelly Oubre Jr.',
 };
 Object.entries(ESPN_ALIASES).forEach(([alias, real]) => { if (ESPN_PLAYERS[real]) ESPN_PLAYERS[alias] = ESPN_PLAYERS[real]; });
 
@@ -186,6 +188,7 @@ const _playerTeamCache = {
   'Taurean Prince':'MIL','Nicolas Claxton':'BKN','Ziaire Williams':'BKN',
   'Ben Saraf':'BKN','Drake Powell':'BKN',
   'Kris Murray':'POR','Matisse Thybulle':'POR','Nicolas Batum':'LAC','Sidy Cissoko':'POR',
+  "Nae'Qwan Tomlin":'CLE','Quenton Jackson':'IND','Bronny James':'LAL','Obi Toppin':'IND','Jay Huff':'IND',
   'Marcus Smart':'LAL','Adem Bona':'PHI','Nolan Traore':'BKN','Norman Powell':'MIA','Jonas Valanciunas':'DEN',
   'Trae Young':'WAS','Alex Sarr':'WAS','Quentin Grimes':'PHI','Tim Hardaway Jr':'DEN',
   'Dylan Harper':'SAS','Will Riley':'WAS','Carlton Carrington':'WAS','Jett Howard':'ORL',
@@ -753,6 +756,7 @@ const BDL_PLAYER_OVERRIDES = {
   'Javonte Green':           { id: 666604,         position: 'G', team: 'DET' },
   'Rayan Rupert':            { id: 56677829,       position: 'G-F', team: 'MEM' },
   'Bronny James':            { id: 1028046517,     position: 'G', team: 'LAL' },
+  'Mark Williams':           { id: 38017698,        position: 'C', team: 'PHX' },
   'Gary Trent Jr.':          { id: 3089,           position: 'G', team: 'MIL' },
   'Gary Trent Jr':           { id: 3089,           position: 'G', team: 'MIL' },
   'Daniel Gafford':          { id: 666577,         position: 'F', team: 'DAL' },
@@ -1612,7 +1616,7 @@ function guessTeam(name) {
     // CHI
     'zach lavine':'CHI','nikola vucevic':'CHI','josh giddey':'CHI','patrick williams':'CHI','tre jones':'CHI','isaac okoro':'CHI','collin sexton':'CHI',
     // CLE
-    'donovan mitchell':'CLE','darius garland':'LAC','evan mobley':'CLE','jarrett allen':'CLE','max strus':'CLE','thomas bryant':'CLE',
+    'donovan mitchell':'CLE','darius garland':'LAC','evan mobley':'CLE','jarrett allen':'CLE','max strus':'CLE','thomas bryant':'CLE',"nae'qwan tomlin":'CLE','naequan tomlin':'CLE',
     // DAL
     'kyrie irving':'DAL','klay thompson':'DAL','p.j. washington':'DAL','dereck lively ii':'DAL','naji marshall':'DAL','dante exum':'DAL','marvin bagley iii':'DAL','dwight powell':'DAL','daniel gafford':'DAL','ryan nembhard':'DAL',
     // DEN
@@ -1624,11 +1628,11 @@ function guessTeam(name) {
     // HOU
     'alperen sengun':'HOU','jalen green':'PHX','fred vanvleet':'HOU','jabari smith jr.':'HOU','amen thompson':'HOU','tari eason':'HOU',
     // IND
-    'tyrese haliburton':'IND','pascal siakam':'IND','myles turner':'IND','benedict mathurin':'IND','andrew nembhard':'IND','t.j. mcconnell':'IND','ben sheppard':'IND',
+    'tyrese haliburton':'IND','pascal siakam':'IND','myles turner':'IND','benedict mathurin':'IND','andrew nembhard':'IND','t.j. mcconnell':'IND','ben sheppard':'IND','obi toppin':'IND','jay huff':'IND','quenton jackson':'IND',
     // LAC
     'kawhi leonard':'LAC','james harden':'LAC','ivica zubac':'IND','norman powell':'MIA','terance mann':'LAC','bones hyland':'LAC','darius garland':'LAC','john collins':'LAC','nicolas batum':'LAC',
     // LAL
-    'lebron james':'LAL','anthony davis':'LAL','austin reaves':'LAL',"d'angelo russell":'LAL','rui hachimura':'LAL','jake laravia':'LAL','max christie':'LAL','gabe vincent':'LAL','marcus smart':'LAL','jaxson hayes':'LAL','deandre ayton':'LAL','luke kennard':'LAL','luka doncic':'LAL',
+    'lebron james':'LAL','anthony davis':'LAL','austin reaves':'LAL',"d'angelo russell":'LAL','rui hachimura':'LAL','jake laravia':'LAL','max christie':'LAL','gabe vincent':'LAL','marcus smart':'LAL','jaxson hayes':'LAL','deandre ayton':'LAL','luke kennard':'LAL','luka doncic':'LAL','bronny james':'LAL',
     // MEM
     'ja morant':'MEM','jaren jackson jr.':'MEM','jaylen wells':'MEM','g.g. jackson':'MEM','ty jerome':'MEM',
     'cam spencer':'MEM','olivier-maxence prosper':'MEM','cedric coward':'MEM','walter clayton jr.':'MEM','walter clayton jr':'MEM',
