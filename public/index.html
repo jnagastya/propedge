@@ -2763,7 +2763,7 @@ function computeMinutesAdjustedProb(p,projMin){
 }
 // Handle minutes slider input in player overview
 function updateMinutesProjection(projMin){
-  const p=window._dp;
+  const p=window._evMinP||window._dp;
   if(!p||!p.hasRealStats) return;
   projMin=parseInt(projMin);
   const games=(p.gameLog||[]).filter(g=>parseInt(g.min||'0')>0);
@@ -2824,7 +2824,7 @@ function setMinPreset(val){
 function drawEvMinutesChart(currentMin){
   const canvas=document.getElementById('evMinutesChart');
   if(!canvas) return;
-  const p=window._dp;
+  const p=window._evMinP||window._dp;
   if(!p||!p.hasRealStats) return;
   const ctx=canvas.getContext('2d');
   const dpr=window.devicePixelRatio||1;
@@ -3904,6 +3904,7 @@ function renderOverview(el,p){
   </div>`;
   // Draw EV vs Minutes chart after DOM is laid out
   if(p.hasRealStats){
+    window._evMinP=p; // lock player reference for slider/chart handlers
     const _adjMinInit=p._adjMin;
     let _chartDrawn=false;
     const _doDraw=()=>{
