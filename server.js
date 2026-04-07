@@ -189,6 +189,7 @@ const _playerTeamCache = {
   'Ben Saraf':'BKN','Drake Powell':'BKN',
   'Kris Murray':'POR','Matisse Thybulle':'POR','Nicolas Batum':'LAC','Sidy Cissoko':'POR',
   "Nae'Qwan Tomlin":'CLE','Quenton Jackson':'IND','Bronny James':'LAL','Obi Toppin':'IND','Jay Huff':'IND',
+  'Jericho Sims':'MIL',"De'Anthony Melton":'GSW','Micah Potter':'IND','Pete Nance':'MIL',
   'Marcus Smart':'LAL','Adem Bona':'PHI','Nolan Traore':'BKN','Norman Powell':'MIA','Jonas Valanciunas':'DEN',
   'Trae Young':'WAS','Alex Sarr':'WAS','Quentin Grimes':'PHI','Tim Hardaway Jr':'DEN',
   'Dylan Harper':'SAS','Will Riley':'WAS','Carlton Carrington':'WAS','Jett Howard':'ORL',
@@ -1624,11 +1625,11 @@ function guessTeam(name) {
     // DET
     'cade cunningham':'DET','jalen duren':'DET','ausar thompson':'DET','bojan bogdanovic':'DET','monté morris':'DET','malik beasley':'DET','daniss jenkins':'DET','kevin huerter':'DET',
     // GSW
-    'stephen curry':'GSW','draymond green':'GSW','jonathan kuminga':'GSW','buddy hield':'GSW','gary payton ii':'GSW',
+    'stephen curry':'GSW','draymond green':'GSW','jonathan kuminga':'GSW','buddy hield':'GSW','gary payton ii':'GSW',"de'anthony melton":'GSW',
     // HOU
     'alperen sengun':'HOU','jalen green':'PHX','fred vanvleet':'HOU','jabari smith jr.':'HOU','amen thompson':'HOU','tari eason':'HOU',
     // IND
-    'tyrese haliburton':'IND','pascal siakam':'IND','myles turner':'IND','benedict mathurin':'IND','andrew nembhard':'IND','t.j. mcconnell':'IND','ben sheppard':'IND','obi toppin':'IND','jay huff':'IND','quenton jackson':'IND',
+    'tyrese haliburton':'IND','pascal siakam':'IND','myles turner':'IND','benedict mathurin':'IND','andrew nembhard':'IND','t.j. mcconnell':'IND','ben sheppard':'IND','obi toppin':'IND','jay huff':'IND','quenton jackson':'IND','micah potter':'IND',
     // LAC
     'kawhi leonard':'LAC','james harden':'LAC','ivica zubac':'IND','norman powell':'MIA','terance mann':'LAC','bones hyland':'LAC','darius garland':'LAC','john collins':'LAC','nicolas batum':'LAC',
     // LAL
@@ -1639,7 +1640,7 @@ function guessTeam(name) {
     // MIA
     'bam adebayo':'MIA','tyler herro':'MIA','jimmy butler':'MIA','terry rozier':'MIA','haywood highsmith':'MIA','caleb martin':'MIA','norman powell':'MIA','davion mitchell':'MIA','pelle larson':'MIA',"kel'el ware":'MIA','jaime jaquez jr':'MIA','andrew wiggins':'MIA',
     // MIL
-    'giannis antetokounmpo':'MIL','damian lillard':'MIL','khris middleton':'DAL','brook lopez':'LAC','bobby portis':'MIL','malik beasley':'MIL','ousmane dieng':'MIL','kevin porter jr.':'MIL','ryan rollins':'MIL','cam thomas':'MIL','gary trent jr.':'MIL','gary trent jr':'MIL','gary trent':'MIL','taurean prince':'MIL',
+    'giannis antetokounmpo':'MIL','damian lillard':'MIL','khris middleton':'DAL','brook lopez':'LAC','bobby portis':'MIL','malik beasley':'MIL','ousmane dieng':'MIL','kevin porter jr.':'MIL','ryan rollins':'MIL','cam thomas':'MIL','gary trent jr.':'MIL','gary trent jr':'MIL','gary trent':'MIL','taurean prince':'MIL','jericho sims':'MIL','pete nance':'MIL',
     // MIN
     'anthony edwards':'MIN','rudy gobert':'MIN','jaden mcdaniels':'MIN','naz reid':'MIN','mike conley':'MIN','donte divincenzo':'MIN','ayo dosunmu':'MIN',
     // NOP
