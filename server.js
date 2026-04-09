@@ -1865,7 +1865,7 @@ function parsePlayerEntry(text) {
 
 // In-memory cache for injury data
 let _injuryCache = { data: null, fetchedAt: 0 };
-const INJURY_CACHE_TTL = 30 * 60 * 1000; // 30 minutes
+const INJURY_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
 
 async function fetchInjuryReport() {
   const now = Date.now();
