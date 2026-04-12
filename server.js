@@ -933,10 +933,12 @@ function aggregatePlayers(rawProps, book) {
     };
 
     if (book === 'combined') {
-      // Aggregate regulated US sportsbooks only — exclude offshore/unlicensed books
+      // Aggregate regulated US sportsbooks first, then fill gaps with DFS books
       const EXCLUDED_BOOKS = new Set(['bovada', 'betonlineag', 'mybookieag', 'lowvig', 'prizepicks', 'underdog']);
+      const DFS_BOOKS = new Set(['prizepicks', 'underdog']);
       const playerMap = {}; // key = playerName|market
-      evt.bookmakers.filter(bk => !EXCLUDED_BOOKS.has(bk.key)).forEach(bk => {
+      // Pass 1: regulated sportsbooks (DK, FD, BetMGM, etc.)
+      evt.bookmakers.filter(bk => !EXCLUDED_BOOKS.has(bk.key) && !DFS_BOOKS.has(bk.key)).forEach(bk => {
         bk.markets?.forEach(mkt => {
           const byPlayer = {};
           mkt.outcomes?.forEach(o => {
@@ -960,6 +962,34 @@ function aggregatePlayers(rawProps, book) {
           });
         });
       });
+      // Pass 2: if no regulated books had data for this game, include DFS books as fallback
+      const hasRegulated = Object.keys(playerMap).length > 0;
+      if (!hasRegulated) {
+        evt.bookmakers.filter(bk => DFS_BOOKS.has(bk.key)).forEach(bk => {
+          bk.markets?.forEach(mkt => {
+            const byPlayer = {};
+            mkt.outcomes?.forEach(o => {
+              const pName = o.description || o.name;
+              if (!byPlayer[pName]) byPlayer[pName] = {};
+              byPlayer[pName][o.name] = { price: o.price, point: o.point };
+            });
+            Object.entries(byPlayer).forEach(([playerName, sides]) => {
+              const over = sides['Over'];
+              if (!over) return;
+              const mapKey = `${playerName}|${mkt.key}`;
+              if (!playerMap[mapKey]) {
+                playerMap[mapKey] = { name: playerName, market: mkt.key, ...meta, bookmaker: 'Combined', bookLines: {} };
+              }
+              playerMap[mapKey].bookLines[bk.key] = {
+                bookName: bk.title,
+                line: over.point,
+                overOdds: over.price,
+                underOdds: sides['Under']?.price ?? null,
+              };
+            });
+          });
+        });
+      }
       Object.values(playerMap).forEach(p => {
         const lines = Object.values(p.bookLines);
         if (!lines.length) return;
